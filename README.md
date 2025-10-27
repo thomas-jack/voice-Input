@@ -41,7 +41,7 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ### 2. 安装依赖
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Oxidane-bot/SonicInput.git
 cd SonicInput
 uv sync
 ```
