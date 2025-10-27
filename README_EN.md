@@ -75,37 +75,11 @@ Confirm output shows GPU information and driver version.
    # Example output: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9
    ```
 
-#### Step 3: Install cuDNN 9.x
+#### Step 3: Verify GPU Configuration
 
-**Important**: CTranslate2 4.5.0+ requires cuDNN 9 (no longer compatible with cuDNN 8)
+**Note**: `uv sync` automatically installs cuDNN 9 and cuBLAS (via nvidia-cudnn-cu12 and nvidia-cublas-cu12 packages from PyPI)
 
-Run the automated installation script:
-```powershell
-.\setup_cudnn.ps1
-```
-
-**The script will automatically**:
-1. Download cuDNN 9.5.1 full package (~750MB)
-2. Extract 8 DLL files
-3. Copy to ctranslate2 directory in virtual environment
-4. Verify successful installation
-
-**Installed DLL files**:
-- cudnn64_9.dll
-- cudnn_ops64_9.dll
-- cudnn_adv64_9.dll
-- cudnn_cnn64_9.dll
-- cudnn_engines_precompiled64_9.dll
-- cudnn_engines_runtime_compiled64_9.dll
-- cudnn_graph64_9.dll
-- cudnn_heuristic64_9.dll
-
-**Notes**:
-- ctranslate2 prebuilt package doesn't include full cuDNN and cuBLAS libraries
-- Must install both CUDA Toolkit (cuBLAS) and cuDNN (deep learning acceleration)
-- `app.py` automatically adds CUDA path to PATH
-
-#### Step 4: Verify Installation
+**Verify GPU setup**:
 
 ```bash
 uv run python app.py --test
@@ -180,7 +154,7 @@ After first run, open settings via system tray icon to configure AI API keys (op
 
 **GPU Unavailable**:
 1. Confirm CUDA Toolkit 12.x installed: Check driver with `nvidia-smi`, check CUDA with `nvcc --version`
-2. Confirm cuDNN 9 installed: Run `.\setup_cudnn.ps1`
+2. Confirm dependencies installed: `uv sync` (automatically installs cuDNN 9 and cuBLAS)
 3. Run test to verify: `uv run python app.py --test`
 4. Check logs for specific error messages
 
@@ -189,12 +163,9 @@ After first run, open settings via system tray icon to configure AI API keys (op
 - Or use smaller model (e.g., `small`, but lower accuracy)
 
 **cuDNN Error** (`Could not locate cudnn_ops64_9.dll`):
-- **Cause**: CTranslate2 4.5.0+ requires cuDNN 9 (no longer supports cuDNN 8)
-- **Solution**: Run installation script:
-  ```powershell
-  .\setup_cudnn.ps1
-  ```
-- **Verify**: Check for 8 `cudnn*_9.dll` files in virtual environment
+- **Cause**: CTranslate2 4.5.0+ requires cuDNN 9
+- **Solution**: Run `uv sync` to auto-install nvidia-cudnn-cu12 package
+- **Verify**: Check if `.venv\Lib\site-packages\nvidia\cudnn\bin` directory exists
 
 **cuBLAS Error** (`Could not locate cublas64_12.dll`):
 - **Cause**: Missing CUDA Toolkit or path not configured

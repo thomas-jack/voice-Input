@@ -75,37 +75,11 @@ nvidia-smi
    # 输出示例: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9
    ```
 
-#### 步骤 3: 安装 cuDNN 9.x
+#### 步骤 3: 验证 GPU 配置
 
-**重要**: CTranslate2 4.5.0+ 需要 cuDNN 9（不再兼容 cuDNN 8）
+**注意**: `uv sync` 会自动安装 cuDNN 9 和 cuBLAS（通过 PyPI 的 nvidia-cudnn-cu12 和 nvidia-cublas-cu12 包）
 
-运行自动化安装脚本：
-```powershell
-.\setup_cudnn.ps1
-```
-
-**脚本会自动**：
-1. 下载 cuDNN 9.5.1 完整压缩包（~750MB）
-2. 解压并提取 8 个 DLL 文件
-3. 复制到虚拟环境的 ctranslate2 目录
-4. 验证安装成功
-
-**安装的 DLL 文件**：
-- cudnn64_9.dll
-- cudnn_ops64_9.dll
-- cudnn_adv64_9.dll
-- cudnn_cnn64_9.dll
-- cudnn_engines_precompiled64_9.dll
-- cudnn_engines_runtime_compiled64_9.dll
-- cudnn_graph64_9.dll
-- cudnn_heuristic64_9.dll
-
-**注意事项**：
-- ctranslate2 预编译包不包含完整的 cuDNN 和 cuBLAS 库
-- 必须同时安装 CUDA Toolkit（cuBLAS）和 cuDNN（深度学习加速）
-- `app.py` 会自动添加 CUDA 路径到 PATH
-
-#### 步骤 4: 验证安装
+**验证 GPU 设置**：
 
 ```bash
 uv run python app.py --test
@@ -180,7 +154,7 @@ uv run python app.py --gui
 
 **GPU 不可用**:
 1. 确认已安装 CUDA Toolkit 12.x：`nvidia-smi` 检查驱动，`nvcc --version` 检查 CUDA
-2. 确认已安装 cuDNN 9：运行 `.\setup_cudnn.ps1`
+2. 确认依赖已安装：`uv sync`（自动安装 cuDNN 9 和 cuBLAS）
 3. 运行测试验证：`uv run python app.py --test`
 4. 检查日志中的具体错误信息
 
@@ -189,12 +163,9 @@ uv run python app.py --gui
 - 或使用较小模型（如 `small`，但准确率降低）
 
 **cuDNN 错误** (`Could not locate cudnn_ops64_9.dll`):
-- **原因**: CTranslate2 4.5.0+ 需要 cuDNN 9（不再支持 cuDNN 8）
-- **解决**: 运行安装脚本：
-  ```powershell
-  .\setup_cudnn.ps1
-  ```
-- **验证**: 检查虚拟环境中是否有 8 个 `cudnn*_9.dll` 文件
+- **原因**: CTranslate2 4.5.0+ 需要 cuDNN 9
+- **解决**: 运行 `uv sync` 自动安装 nvidia-cudnn-cu12 包
+- **验证**: 检查 `.venv\Lib\site-packages\nvidia\cudnn\bin` 目录是否存在
 
 **cuBLAS 错误** (`Could not locate cublas64_12.dll`):
 - **原因**: 缺少 CUDA Toolkit 或路径未配置
