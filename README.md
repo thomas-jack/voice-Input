@@ -34,7 +34,10 @@
 ### 1. 安装 UV 包管理器
 
 ```powershell
-# Windows PowerShell
+# Windows (使用 Chocolatey)
+choco install uv
+
+# 或者使用官方安装脚本
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 

@@ -34,7 +34,10 @@
 ### 1. Install UV Package Manager
 
 ```powershell
-# Windows PowerShell
+# Windows (using Chocolatey)
+choco install uv
+
+# Or use official installation script
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
