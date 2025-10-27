@@ -1,0 +1,69 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Linting & Type Checking
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+*.backup
+*.old
+*.tmp
+NUL
+
+# Logs
+*.log
+logs/
+
+# User Configuration (contains API keys)
+config.json
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Temporary test files
+test_*.py
+!tests/test_*.py
+analyze_*.py
+
+# Icon generation script (local only)
+scripts/generate_icons.py
+
+# Claude MCP local settings
+.claude/settings.local.json
+
+# Claude AI Project Instructions (private development guidance)
+CLAUDE.md
+.claude/
+
+# Empty/temporary directories
+test_analysis/

@@ -1,0 +1,60 @@
+{
+  "hotkey": {
+    "implementation": "legacy",
+    "keys": ["f12", "alt+h"]
+  },
+  "whisper": {
+    "model": "large-v3-turbo",
+    "language": "auto",
+    "use_gpu": true,
+    "device": "cuda",
+    "temperature": 0.0
+  },
+  "ai": {
+    "enabled": true,
+    "filter_thinking": true,
+    "provider": "groq",
+    "groq": {
+      "api_key": "YOUR_GROQ_API_KEY_HERE",
+      "model_id": "groq/compound"
+    },
+    "nvidia": {
+      "api_key": "YOUR_NVIDIA_API_KEY_HERE",
+      "model_id": "meta/llama-3.1-8b-instruct"
+    },
+    "openrouter": {
+      "api_key": "YOUR_OPENROUTER_API_KEY_HERE",
+      "model_id": "anthropic/claude-3-sonnet",
+      "simple_model_id": "anthropic/claude-3-sonnet",
+      "simple_prompt": "Please improve and correct the following text: {text}"
+    }
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "chunk_size": 1024,
+    "device_id": 0,
+    "auto_stop_enabled": true,
+    "max_recording_duration": 120,
+    "silence_threshold": 0.01,
+    "silence_duration": 2.0
+  },
+  "input": {
+    "preferred_method": "clipboard",
+    "fallback_enabled": true,
+    "auto_detect_terminal": true,
+    "clipboard_restore_delay": 2.0,
+    "typing_delay": 0.01
+  },
+  "ui": {
+    "show_recording_overlay": true,
+    "overlay_position": "top-right",
+    "theme": "dark"
+  },
+  "logging": {
+    "level": "WARNING",
+    "console_output": false,
+    "max_log_size_mb": 10,
+    "enabled_categories": ["performance", "error", "model"]
+  }
+}

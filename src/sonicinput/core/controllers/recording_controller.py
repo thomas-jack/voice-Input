@@ -1,0 +1,180 @@
+"""录音控制器
+
+负责录音的启动、停止和音频数据处理。
+"""
+
+import time
+from typing import Optional
+import numpy as np
+
+from ..interfaces import (
+    IRecordingController,
+    IAudioService,
+    IConfigService,
+    IEventService,
+    IStateManager,
+    ISpeechService
+)
+from ..interfaces.state import RecordingState
+from ..services.event_bus import Events
+from ...utils import app_logger, ErrorMessageTranslator
+
+
+class RecordingController(IRecordingController):
+    """录音控制器实现
+
+    职责：
+    - 管理录音的启动和停止
+    - 处理音频数据回调
+    - 通过 StateManager 管理录音状态
+    - 通过 EventBus 发送录音事件
+    """
+
+    def __init__(
+        self,
+        audio_service: IAudioService,
+        config_service: IConfigService,
+        event_service: IEventService,
+        state_manager: IStateManager,
+        speech_service: ISpeechService
+    ):
+        self._audio_service = audio_service
+        self._config = config_service
+        self._events = event_service
+        self._state = state_manager
+        self._speech_service = speech_service
+
+        # 录音时长追踪（用于性能统计）
+        self._recording_start_time: Optional[float] = None
+        self._recording_stop_time: Optional[float] = None
+        self._last_audio_duration: float = 0.0
+
+        app_logger.log_audio_event("RecordingController initialized", {})
+
+    def start_recording(self, device_id: Optional[int] = None) -> None:
+        """开始录音"""
+        # 检查状态
+        if self.is_recording() or self._state.is_processing():
+            app_logger.log_audio_event("Cannot start recording - already recording or processing", {})
+            return
+
+        try:
+            # 从配置获取设备ID
+            if device_id is None:
+                device_id = self._config.get_setting("audio.device_id")
+
+            # 启用流式转录模式
+            if hasattr(self._speech_service, 'start_streaming_mode'):
+                self._speech_service.start_streaming_mode()
+
+            # 设置30秒块回调（流式转录）
+            if hasattr(self._audio_service, 'chunk_callback'):
+                self._audio_service.chunk_callback = (
+                    self._speech_service.transcribe_chunk_async
+                    if hasattr(self._speech_service, 'transcribe_chunk_async') else None
+                )
+
+            # 设置音频数据回调（用于实时波形显示）
+            if hasattr(self._audio_service, 'set_callback'):
+                self._audio_service.set_callback(self._on_audio_data)
+
+            # 启动录音
+            self._audio_service.start_recording(device_id)
+
+            # 记录录音开始时间
+            self._recording_start_time = time.time()
+
+            # 更新状态
+            self._state.set_recording_state(RecordingState.RECORDING)
+
+            # 发送事件
+            self._events.emit(Events.RECORDING_STARTED)
+
+            app_logger.log_audio_event("Recording started", {
+                "device_id": device_id,
+                "streaming_enabled": True
+            })
+
+        except Exception as e:
+            app_logger.log_error(e, "start_recording")
+            # 转换为用户友好消息
+            error_info = ErrorMessageTranslator.translate(e, "recording")
+            self._events.emit(Events.RECORDING_ERROR, error_info["user_message"])
+
+    def stop_recording(self) -> None:
+        """停止录音"""
+        if not self.is_recording():
+            app_logger.log_audio_event("No recording in progress", {})
+            return
+
+        try:
+            app_logger.log_audio_event("Stopping recording", {})
+
+            # 停止录音服务
+            audio_data = self._audio_service.stop_recording()
+
+            # 记录停止时间和音频时长
+            self._recording_stop_time = time.time()
+            self._last_audio_duration = self._recording_stop_time - self._recording_start_time
+
+            # 更新状态
+            self._state.set_recording_state(RecordingState.IDLE)
+
+            # 发送录音停止事件
+            self._events.emit(Events.RECORDING_STOPPED, len(audio_data))
+
+            # 如果有最后一个音频块，提交给转录服务
+            if len(audio_data) > 0 and self._speech_service:
+                if hasattr(self._speech_service, 'transcribe_chunk_async'):
+                    self._speech_service.transcribe_chunk_async(audio_data)
+
+            # 发送转录请求事件（由 TranscriptionController 监听）
+            self._events.emit("transcription_request", {
+                "audio_duration": self._last_audio_duration,
+                "recording_stop_time": self._recording_stop_time
+            })
+
+            app_logger.log_audio_event("Recording stopped", {
+                "audio_duration": f"{self._last_audio_duration:.1f}s",
+                "final_chunk_length": len(audio_data)
+            })
+
+        except Exception as e:
+            self._state.set_recording_state(RecordingState.IDLE)
+            app_logger.log_error(e, "stop_recording")
+            self._events.emit(Events.RECORDING_ERROR, str(e))
+
+    def toggle_recording(self) -> None:
+        """切换录音状态"""
+        if self.is_recording():
+            self.stop_recording()
+        else:
+            self.start_recording()
+
+    def is_recording(self) -> bool:
+        """是否正在录音"""
+        return self._state.get_recording_state() == RecordingState.RECORDING
+
+    def get_last_audio_duration(self) -> float:
+        """获取最后一次录音的时长（用于性能统计）"""
+        return self._last_audio_duration
+
+    def get_recording_stop_time(self) -> Optional[float]:
+        """获取最后一次录音停止时间（用于性能统计）"""
+        return self._recording_stop_time
+
+    def _on_audio_data(self, audio_data: np.ndarray) -> None:
+        """实时音频数据回调
+
+        Args:
+            audio_data: 音频数据块
+        """
+        try:
+            if self.is_recording():
+                # 计算音频电平
+                level = float(np.sqrt(np.mean(audio_data**2)))
+                # 发送音频电平更新事件（UI可以监听此事件更新波形）
+                self._events.emit(Events.AUDIO_LEVEL_UPDATE, level)
+
+        except Exception as e:
+            app_logger.log_error(e, "_on_audio_data")

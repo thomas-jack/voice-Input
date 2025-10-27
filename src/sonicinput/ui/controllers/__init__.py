@@ -1,0 +1,17 @@
+"""UI控制器模块
+
+包含所有UI组件的业务逻辑控制器。
+实现UI和业务逻辑的完全分离。
+"""
+
+from .overlay_controller import OverlayController
+from .position_manager import PositionManager
+from .animation_engine import AnimationEngine, AnimationType, AnimationDirection
+
+__all__ = [
+    'OverlayController',
+    'PositionManager',
+    'AnimationEngine',
+    'AnimationType',
+    'AnimationDirection',
+]

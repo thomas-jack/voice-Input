@@ -1,0 +1,187 @@
+"""智能文本输入策略选择器"""
+
+from typing import Optional, Dict
+from .clipboard_input import ClipboardInput
+from .sendinput import SendInputMethod
+from ..utils import TextInputError, app_logger
+from ..core.interfaces import IInputService
+from ..core.interfaces.config import IConfigService
+
+
+class SmartTextInput(IInputService):
+    """智能文本输入管理器"""
+    
+    def __init__(self, config_service: IConfigService):
+        self.config_service = config_service
+        self.clipboard_input = ClipboardInput()
+        self.sendinput_method = SendInputMethod()
+        
+        # Load settings from config service
+        self.preferred_method = self.config_service.get_setting("input.preferred_method", "sendinput")
+        self.fallback_enabled = self.config_service.get_setting("input.fallback_enabled", True)
+        
+        app_logger.log_audio_event("Smart text input initialized", {
+            "preferred_method": self.preferred_method,
+            "fallback_enabled": self.fallback_enabled
+        })
+    
+    def input_text(self, text: str, force_method: Optional[str] = None) -> bool:
+        """智能输入文本"""
+        if not text:
+            return True
+        
+        # 确定使用的输入方法
+        method = force_method or self._determine_best_method()
+        
+        app_logger.log_audio_event("Starting text input", {
+            "text_length": len(text),
+            "method": method,
+            "force_method": force_method is not None
+        })
+        
+        # 尝试主要方法
+        success = self._try_input_method(text, method)
+        
+        if success:
+            return True
+        
+        # 如果启用了回退且主要方法失败，尝试备用方法
+        if self.fallback_enabled and not force_method:
+            fallback_method = "sendinput" if method == "clipboard" else "clipboard"
+            
+            app_logger.log_audio_event("Trying fallback method", {
+                "fallback_method": fallback_method
+            })
+            
+            success = self._try_input_method(text, fallback_method)
+            
+            if success:
+                app_logger.log_audio_event("Fallback method succeeded", {
+                    "method": fallback_method
+                })
+                return True
+        
+        # 所有方法都失败
+        app_logger.log_error(
+            TextInputError(f"All input methods failed for text: {text[:50]}..."),
+            "input_text"
+        )
+        return False
+    
+    def _determine_best_method(self) -> str:
+        """确定最佳输入方法"""
+        return self.preferred_method
+    
+    def _try_input_method(self, text: str, method: str) -> bool:
+        """尝试特定的输入方法"""
+        try:
+            if method == "clipboard":
+                return self._try_clipboard_method(text)
+            elif method == "sendinput":
+                return self._try_sendinput_method(text)
+            else:
+                app_logger.log_error(
+                    TextInputError(f"Unknown input method: {method}"),
+                    "_try_input_method"
+                )
+                return False
+                
+        except Exception as e:
+            app_logger.log_error(e, f"_try_input_method_{method}")
+            return False
+    
+    def _try_clipboard_method(self, text: str) -> bool:
+        """尝试剪贴板输入方法"""
+        try:
+            # 先测试剪贴板访问
+            if not self.clipboard_input.test_clipboard_access():
+                app_logger.log_error(
+                    TextInputError("Clipboard access test failed"),
+                    "_try_clipboard_method"
+                )
+                return False
+            
+            # 执行剪贴板输入
+            return self.clipboard_input.input_via_clipboard(text)
+            
+        except Exception as e:
+            app_logger.log_error(e, "_try_clipboard_method")
+            return False
+    
+    def _try_sendinput_method(self, text: str) -> bool:
+        """尝试SendInput输入方法"""
+        try:
+            # 先测试SendInput能力
+            if not self.sendinput_method.test_sendinput_capability():
+                app_logger.log_error(
+                    TextInputError("SendInput capability test failed"),
+                    "_try_sendinput_method"
+                )
+                return False
+            
+            # 执行SendInput输入
+            return self.sendinput_method.input_via_sendinput(text)
+            
+        except Exception as e:
+            app_logger.log_error(e, "_try_sendinput_method")
+            return False
+    
+    def _backup_clipboard(self) -> str:
+        """备份剪贴板内容"""
+        return self.clipboard_input.backup_clipboard()
+    
+    
+    def set_preferred_method(self, method: str) -> None:
+        """设置首选输入方法"""
+        if method not in ["clipboard", "sendinput"]:
+            raise ValueError(f"Invalid method: {method}")
+
+        self.preferred_method = method
+
+        # 持久化到配置
+        self.config_service.set_setting("input.preferred_method", method)
+
+        app_logger.log_audio_event("Preferred method set", {
+            "method": method
+        })
+    
+    def set_fallback_enabled(self, enabled: bool) -> None:
+        """设置是否启用回退机制"""
+        self.fallback_enabled = enabled
+
+        # 持久化到配置
+        self.config_service.set_setting("input.fallback_enabled", enabled)
+
+        app_logger.log_audio_event("Fallback setting changed", {
+            "enabled": enabled
+        })
+    
+    
+    def set_clipboard_restore_delay(self, delay: float) -> None:
+        """设置剪贴板恢复延迟"""
+        self.clipboard_input.set_restore_delay(delay)
+    
+    def set_typing_delay(self, delay: float) -> None:
+        """设置SendInput字符间延迟"""
+        self.sendinput_method.set_typing_delay(delay)
+    
+    def test_all_methods(self) -> Dict[str, bool]:
+        """测试所有输入方法"""
+        results = {}
+        
+        # 测试剪贴板方法
+        try:
+            results["clipboard"] = self.clipboard_input.test_clipboard_access()
+        except Exception:
+            results["clipboard"] = False
+        
+        # 测试SendInput方法
+        try:
+            results["sendinput"] = self.sendinput_method.test_sendinput_capability()
+        except Exception:
+            results["sendinput"] = False
+        
+        app_logger.log_audio_event("Input methods tested", results)
+        
+        return results
+    
