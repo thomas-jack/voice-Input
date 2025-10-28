@@ -1,6 +1,6 @@
 """UI设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
                             QCheckBox, QComboBox)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
@@ -56,7 +56,7 @@ class UITab(BaseSettingsTab):
         theme_layout.addRow("Color Theme:", self.theme_color_combo)
 
         # 添加提示
-        from PyQt6.QtWidgets import QLabel
+        from PySide6.QtWidgets import QLabel
         theme_hint = QLabel("⚠️ Changing theme requires application restart")
         theme_hint.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
         theme_layout.addRow("", theme_hint)

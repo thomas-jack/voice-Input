@@ -1,14 +1,14 @@
 """Animation controller for RecordingOverlay"""
 
 import math
-from PyQt6.QtCore import QTimer, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QPainter, QBrush, QColor, QRadialGradient
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import QTimer, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QPainter, QBrush, QColor, QRadialGradient
+from PySide6.QtCore import Qt
 from typing import TYPE_CHECKING
 from ...utils import app_logger
 
 if TYPE_CHECKING:
-    from PyQt6.QtWidgets import QWidget
+    from PySide6.QtWidgets import QWidget
 
 
 class AnimationController:

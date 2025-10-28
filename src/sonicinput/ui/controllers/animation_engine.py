@@ -4,8 +4,8 @@
 支持淡入淡出、滑动、弹跳等动画效果。
 """
 
-from PyQt6.QtCore import QObject, QPropertyAnimation, QEasingCurve, pyqtSignal
-from PyQt6.QtWidgets import QWidget, QGraphicsOpacityEffect
+from PySide6.QtCore import QObject, QPropertyAnimation, QEasingCurve, Signal
+from PySide6.QtWidgets import QWidget, QGraphicsOpacityEffect
 from typing import Optional, Callable, Dict
 from enum import Enum
 
@@ -40,7 +40,7 @@ class AnimationEngine(QObject):
     """
 
     # 动画完成信号
-    animation_finished = pyqtSignal(str)  # animation_id
+    animation_finished = Signal(str)  # animation_id
 
     def __init__(self, parent: Optional[QObject] = None):
         """初始化动画引擎

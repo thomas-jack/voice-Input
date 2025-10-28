@@ -346,11 +346,11 @@ def test_gui_components() -> bool:
     print("=== GUI Component Testing ===")
     
     try:
-        # Test PyQt6 imports
-        print("Testing PyQt6 imports...")
-        from PyQt6.QtWidgets import QApplication
-        from PyQt6.QtCore import QTimer
-        print("[PASS] PyQt6 imports successful")
+        # Test PySide6 imports
+        print("Testing PySide6 imports...")
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
+        print("[PASS] PySide6 imports successful")
         
         # Test application components (import only)
         print("Testing application component imports...")
@@ -432,8 +432,8 @@ def run_gui():
     
     try:
         # Import Qt and UI components
-        from PyQt6.QtWidgets import QApplication
-        from PyQt6.QtCore import QTimer
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
         from sonicinput.ui.main_window import MainWindow
         from sonicinput.ui.components.system_tray.tray_controller import TrayController
         from sonicinput.ui.recording_overlay import RecordingOverlay
@@ -443,8 +443,10 @@ def run_gui():
         # Import qt-material for modern UI theming
         from qt_material import apply_stylesheet
 
-        # Create Qt application
-        qt_app = QApplication(sys.argv)
+        # Create Qt application (or reuse existing instance)
+        qt_app = QApplication.instance()
+        if qt_app is None:
+            qt_app = QApplication(sys.argv)
 
         # Set application icon (all windows will inherit this)
         from sonicinput.ui.utils import get_app_icon
@@ -539,7 +541,7 @@ def run_gui():
                 context={
                     'startup_duration_sec': round(startup_duration, 2),
                     'components_loaded': [
-                        'PyQt6', 'DIContainer', 'VoiceInputApp',
+                        'PySide6', 'DIContainer', 'VoiceInputApp',
                         'MainWindow', 'TrayController', 'RecordingOverlay'
                     ],
                     'startup_mode': 'tray' if config.get_setting("ui.start_minimized", True) else 'window'

@@ -1,6 +1,6 @@
 """音频设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
                             QComboBox, QSpinBox, QDoubleSpinBox, QPushButton)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab

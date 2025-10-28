@@ -1,6 +1,6 @@
 """文本输入设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
                             QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QLabel)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab

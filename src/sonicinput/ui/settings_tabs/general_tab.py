@@ -1,6 +1,6 @@
 """常规设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
                             QCheckBox, QComboBox, QSpinBox, QPushButton, QHBoxLayout, QMessageBox, QFileDialog)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab

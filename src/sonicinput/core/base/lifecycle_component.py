@@ -8,7 +8,7 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
-from PyQt6.QtCore import QObject
+from PySide6.QtCore import QObject
 
 from ..interfaces.lifecycle import ILifecycleManaged, ComponentState
 from ..interfaces.config import IConfigService

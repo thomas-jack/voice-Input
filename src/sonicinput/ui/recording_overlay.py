@@ -1,10 +1,10 @@
 """Recording Overlay Window"""
 
 import math
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QFrame, QGraphicsDropShadowEffect)
-from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QFont, QColor
+from PySide6.QtCore import Qt, QTimer, Signal, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QFont, QColor
 from ..utils import app_logger
 from ..core.interfaces import IConfigService
 from .overlay import StatusIndicator, CloseButton
@@ -21,14 +21,14 @@ class RecordingOverlay(QWidget):
     # 信号 (移除stop_recording_requested，因为用ESC键代替)
 
     # 线程安全信号
-    show_recording_requested = pyqtSignal()
-    hide_recording_requested = pyqtSignal()
-    set_status_requested = pyqtSignal(str)
-    update_waveform_requested = pyqtSignal(object)
-    update_audio_level_requested = pyqtSignal(float)  # 音频级别更新
-    start_processing_animation_requested = pyqtSignal()
-    stop_processing_animation_requested = pyqtSignal()
-    hide_recording_delayed_requested = pyqtSignal(int)  # 延迟隐藏（毫秒）
+    show_recording_requested = Signal()
+    hide_recording_requested = Signal()
+    set_status_requested = Signal(str)
+    update_waveform_requested = Signal(object)
+    update_audio_level_requested = Signal(float)  # 音频级别更新
+    start_processing_animation_requested = Signal()
+    stop_processing_animation_requested = Signal()
+    hide_recording_delayed_requested = Signal(int)  # 延迟隐藏（毫秒）
 
     def __new__(cls, parent=None):
         """Qt-safe singleton pattern (main thread only, no lock needed)"""
@@ -917,8 +917,8 @@ class RecordingOverlay(QWidget):
     def test_display_capability(self) -> bool:
         """Test if overlay can be displayed properly"""
         try:
-            from PyQt6.QtWidgets import QApplication
-            from PyQt6.QtGui import QGuiApplication
+            from PySide6.QtWidgets import QApplication
+            from PySide6.QtGui import QGuiApplication
             
             app_logger.log_audio_event("Testing overlay display capability", {})
             
@@ -1014,7 +1014,7 @@ class RecordingOverlay(QWidget):
         try:
             app_logger.log_audio_event("Testing overlay positioning", {})
             
-            from PyQt6.QtGui import QGuiApplication
+            from PySide6.QtGui import QGuiApplication
             
             screen = QGuiApplication.primaryScreen()
             screen_geometry = screen.geometry()
@@ -1210,7 +1210,7 @@ class RecordingOverlay(QWidget):
 
         # 如果正在处理，绘制呼吸发光效果
         if self.is_processing:
-            from PyQt6.QtGui import QPainter, QBrush, QColor, QRadialGradient
+            from PySide6.QtGui import QPainter, QBrush, QColor, QRadialGradient
             import math
 
             painter = QPainter(self)

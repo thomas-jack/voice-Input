@@ -4,9 +4,9 @@ Handles only the visual aspects of the system tray icon and menu.
 No business logic or state management.
 """
 
-from PyQt6.QtWidgets import QSystemTrayIcon, QMenu
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction
+from PySide6.QtWidgets import QSystemTrayIcon, QMenu
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction
 from typing import Optional, Dict
 from ....utils import app_logger
 
@@ -22,8 +22,8 @@ class TrayWidget(QObject):
     """
 
     # UI events (forwarded to controller)
-    icon_activated = pyqtSignal(object)  # QSystemTrayIcon.ActivationReason
-    menu_action_triggered = pyqtSignal(str)  # action name
+    icon_activated = Signal(object)  # QSystemTrayIcon.ActivationReason
+    menu_action_triggered = Signal(str)  # action name
 
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
@@ -67,8 +67,8 @@ class TrayWidget(QObject):
         Returns:
             QIcon for the tray
         """
-        from PyQt6.QtCore import Qt, QRectF
-        from PyQt6.QtGui import QLinearGradient
+        from PySide6.QtCore import Qt, QRectF
+        from PySide6.QtGui import QLinearGradient
 
         size = 32
         pixmap = QPixmap(size, size)

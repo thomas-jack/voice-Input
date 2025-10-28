@@ -1,10 +1,10 @@
 """音频可视化器"""
 
 import numpy as np
-from PyQt6.QtWidgets import QWidget
-from PyQt6.QtCore import QTimer
-from PyQt6.QtGui import QPainter, QPen, QBrush, QColor
-from PyQt6.QtCore import Qt
+from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QTimer
+from PySide6.QtGui import QPainter, QPen, QBrush, QColor
+from PySide6.QtCore import Qt
 from typing import Optional
 from ..utils import app_logger
 

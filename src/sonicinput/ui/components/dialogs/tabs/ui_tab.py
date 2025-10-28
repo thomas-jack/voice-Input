@@ -1,8 +1,8 @@
 """UI settings tab"""
 
-from PyQt6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
+from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
                             QCheckBox, QComboBox, QSlider)
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 from typing import Callable, Any
 
 from .base_tab import BaseSettingsTab

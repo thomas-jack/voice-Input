@@ -1,7 +1,7 @@
 """主窗口组件 - 最小化GUI实现"""
 
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QSystemTrayIcon, QProgressDialog, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QSystemTrayIcon, QProgressDialog, QMessageBox)
+from PySide6.QtCore import Qt, Signal, QThread
 from typing import Optional, Dict, Any
 from ..core.voice_input_app import VoiceInputApp
 from ..core.services.event_bus import Events
@@ -11,8 +11,8 @@ from ..utils import app_logger
 class ModelTestThread(QThread):
     """Model test thread to avoid blocking UI"""
 
-    progress_update = pyqtSignal(str)
-    test_complete = pyqtSignal(bool, dict, str)
+    progress_update = Signal(str)
+    test_complete = Signal(bool, dict, str)
 
     def __init__(self, whisper_engine, parent=None):
         super().__init__(parent)
@@ -94,7 +94,7 @@ class MainWindow(QMainWindow):
     """最小化主窗口 - 仅提供基本GUI功能"""
 
     # 信号定义
-    window_closing = pyqtSignal()
+    window_closing = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -222,7 +222,7 @@ class MainWindow(QMainWindow):
                 progress.show()
 
                 # 强制刷新UI
-                from PyQt6.QtWidgets import QApplication
+                from PySide6.QtWidgets import QApplication
                 QApplication.processEvents()
 
                 try:
@@ -251,7 +251,7 @@ class MainWindow(QMainWindow):
 
                 # Always refresh status after load attempt
                 if hasattr(self, '_settings_window') and self._settings_window:
-                    from PyQt6.QtCore import QTimer
+                    from PySide6.QtCore import QTimer
                     QTimer.singleShot(100, self._settings_window.refresh_model_status)
 
         except Exception as e:

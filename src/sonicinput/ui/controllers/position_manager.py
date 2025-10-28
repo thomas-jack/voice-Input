@@ -4,9 +4,9 @@
 支持多屏幕、DPI缩放、预设位置和自动保存功能。
 """
 
-from PyQt6.QtWidgets import QWidget, QApplication
-from PyQt6.QtCore import QRect
-from PyQt6.QtGui import QScreen
+from PySide6.QtWidgets import QWidget, QApplication
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QScreen
 from typing import Optional, Tuple, Dict
 
 from ...core.interfaces.config import IConfigService

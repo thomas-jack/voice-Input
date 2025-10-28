@@ -9,7 +9,7 @@ import threading
 from typing import Any, Dict, Optional, Callable, TypeVar, Generic
 from pathlib import Path
 from contextlib import contextmanager
-from PyQt6.QtCore import QTimer, QObject
+from PySide6.QtCore import QTimer, QObject
 
 from ..utils import app_logger
 

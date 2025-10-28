@@ -1,6 +1,6 @@
 """Whisper设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
                             QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QHBoxLayout, QLabel, QProgressBar)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab

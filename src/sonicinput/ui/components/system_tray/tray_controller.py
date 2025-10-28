@@ -7,8 +7,8 @@ Handles the business logic for system tray operations including:
 - Integration with other services
 """
 
-from PyQt6.QtCore import QObject, pyqtSignal
-from PyQt6.QtWidgets import QSystemTrayIcon, QMessageBox
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QSystemTrayIcon, QMessageBox
 from typing import Optional, Dict, Any
 
 from ....core.base.lifecycle_component import LifecycleComponent
@@ -28,9 +28,9 @@ class TrayController(LifecycleComponent):
     """
 
     # Business logic signals
-    show_settings_requested = pyqtSignal()
-    toggle_recording_requested = pyqtSignal()
-    exit_application_requested = pyqtSignal()
+    show_settings_requested = Signal()
+    toggle_recording_requested = Signal()
+    exit_application_requested = Signal()
 
     def __init__(self,
                  config_service: Optional[IConfigService] = None,
@@ -244,7 +244,7 @@ class TrayController(LifecycleComponent):
         """
         try:
             with self._lock:
-                # Extract integer value from PyQt6 enum (uses .value attribute)
+                # Extract integer value from PySide6 enum (uses .value attribute)
                 reason_value = reason.value if hasattr(reason, 'value') else int(reason)
 
                 # Handle different activation types

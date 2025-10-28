@@ -122,7 +122,7 @@ After first run, open settings via system tray icon to configure AI API keys (op
 | **ctranslate2** | 4.6.0 (≥4.5.0) | GPU-accelerated inference engine |
 | **CUDA Toolkit** | 12.x (12.1+ recommended) | GPU acceleration base libraries |
 | **cuDNN** | 9.5.1 | Deep learning acceleration library |
-| **PyQt6** | ≥ 6.6.0 | GUI framework |
+| **PySide6** | ≥ 6.6.0 | GUI framework (LGPL license) |
 | **pynput** | ≥ 1.7.6 | Global hotkeys |
 
 **Important Compatibility Notes**:
@@ -207,5 +207,5 @@ MIT License - See [LICENSE](LICENSE)
 
 - [OpenAI Whisper](https://github.com/openai/whisper) - Speech recognition
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper) - Optimized implementation
-- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) - GUI framework
+- [PySide6](https://doc.qt.io/qtforpython-6/) - GUI framework (Qt for Python)
 - [pynput](https://github.com/moses-palmer/pynput) - Global hotkeys
