@@ -4,10 +4,10 @@ A decoupled model loading dialog with clean separation between
 UI presentation and model loading logic.
 """
 
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton,
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton,
                             QProgressBar, QTextEdit, QMessageBox, QHBoxLayout)
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
 from typing import Optional
 import time
 
@@ -22,9 +22,9 @@ class ModelLoaderDialog(QDialog):
     """
 
     # UI events (forwarded to controller)
-    load_requested = pyqtSignal(str)  # model_name
-    cancel_requested = pyqtSignal()
-    dialog_closed = pyqtSignal()
+    load_requested = Signal(str)  # model_name
+    cancel_requested = Signal()
+    dialog_closed = Signal()
 
     def __init__(self, model_name: str = "", parent: Optional[QDialog] = None):
         super().__init__(parent)

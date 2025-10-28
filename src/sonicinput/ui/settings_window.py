@@ -1,10 +1,10 @@
 """设置窗口"""
 
-from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QTabWidget, QPushButton,
                             QComboBox, QSpinBox, QDoubleSpinBox,
                             QMessageBox, QFileDialog, QApplication, QScrollArea, QFrame)
-from PyQt6.QtCore import Qt, pyqtSignal, QObject, QEvent
+from PySide6.QtCore import Qt, Signal, QObject, QEvent
 from typing import Dict, Any
 import time
 from ..utils import app_logger
@@ -38,12 +38,12 @@ class SettingsWindow(QMainWindow):
     """设置窗口"""
     
     # 信号
-    settings_changed = pyqtSignal(str, object)  # key, value
-    hotkey_test_requested = pyqtSignal(str)
-    api_test_requested = pyqtSignal()
-    model_load_requested = pyqtSignal(str)
-    model_unload_requested = pyqtSignal()
-    model_test_requested = pyqtSignal()
+    settings_changed = Signal(str, object)  # key, value
+    hotkey_test_requested = Signal(str)
+    api_test_requested = Signal()
+    model_load_requested = Signal(str)
+    model_unload_requested = Signal()
+    model_test_requested = Signal()
     
     def __init__(self, config_manager, voice_app=None, parent=None):
         super().__init__(parent)
@@ -368,7 +368,7 @@ class SettingsWindow(QMainWindow):
             self._api_test_start_time = time.time()
 
             # 创建定时器轮询测试状态
-            from PyQt6.QtCore import QTimer
+            from PySide6.QtCore import QTimer
             self._api_test_timer = QTimer()
             self._api_test_timer.timeout.connect(self._check_api_test_status)
             self._api_test_timer.start(100)  # 每100ms检查一次
@@ -843,12 +843,12 @@ class SettingsWindow(QMainWindow):
                         self._update_gpu_display_from_info(timeout_info)
                     else:
                         # 继续等待，每500ms检查一次
-                        from PyQt6.QtCore import QTimer
+                        from PySide6.QtCore import QTimer
                         QTimer.singleShot(500, check_gpu_result)
 
             # 开始检查
             start_time = time.time()
-            from PyQt6.QtCore import QTimer
+            from PySide6.QtCore import QTimer
             QTimer.singleShot(100, check_gpu_result)  # 100ms后开始检查
 
         except Exception as e:
@@ -1033,7 +1033,7 @@ class SettingsWindow(QMainWindow):
             
             if reply == QMessageBox.StandardButton.Yes:
                 # Import timer for delay
-                from PyQt6.QtCore import QTimer
+                from PySide6.QtCore import QTimer
                 
                 # Delay before sending input
                 QTimer.singleShot(3000, self._send_test_input)

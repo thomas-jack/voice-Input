@@ -1,8 +1,8 @@
 """Speech recognition settings tab"""
 
-from PyQt6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
+from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
                             QComboBox, QPushButton, QDoubleSpinBox)
-from PyQt6.QtCore import pyqtSignal
+from PySide6.QtCore import Signal
 from typing import Callable, Any
 
 from .base_tab import BaseSettingsTab
@@ -13,7 +13,7 @@ class SpeechTab(BaseSettingsTab):
     """Speech recognition settings tab"""
 
     # Signal for test request
-    test_requested = pyqtSignal(str)
+    test_requested = Signal(str)
 
     def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
         super().__init__(on_setting_changed, parent)

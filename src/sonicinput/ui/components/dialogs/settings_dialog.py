@@ -4,11 +4,11 @@ A decoupled settings dialog with clean separation between
 UI presentation and configuration logic.
 """
 
-from PyQt6.QtWidgets import (QDialog, QWidget, QVBoxLayout,
+from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout,
                             QTabWidget, QMessageBox, QDialogButtonBox,
                             QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox,
                             QSlider, QLineEdit)
-from PyQt6.QtCore import pyqtSignal, Qt
+from PySide6.QtCore import Signal, Qt
 from typing import Dict, Any, Optional
 
 from ....utils import app_logger
@@ -24,11 +24,11 @@ class SettingsDialog(QDialog):
     """
 
     # UI events (forwarded to controller)
-    setting_changed = pyqtSignal(str, object)  # key, value
-    test_requested = pyqtSignal(str)  # test type
-    reset_requested = pyqtSignal()
-    apply_requested = pyqtSignal()
-    cancel_requested = pyqtSignal()
+    setting_changed = Signal(str, object)  # key, value
+    test_requested = Signal(str)  # test type
+    reset_requested = Signal()
+    apply_requested = Signal()
+    cancel_requested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)

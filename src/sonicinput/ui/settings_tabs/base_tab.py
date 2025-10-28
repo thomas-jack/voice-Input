@@ -3,7 +3,7 @@
 提供所有设置标签页的通用功能和接口。
 """
 
-from PyQt6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget
 from typing import Dict, Any, Optional
 
 

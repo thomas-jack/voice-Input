@@ -1,9 +1,9 @@
 """AI设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
                             QCheckBox, QComboBox, QSpinBox, QLineEdit, QPushButton,
                             QLabel, QTextEdit, QMessageBox, QApplication)
-from PyQt6.QtCore import QTimer
+from PySide6.QtCore import QTimer
 from typing import Dict, Any
 import time
 import threading

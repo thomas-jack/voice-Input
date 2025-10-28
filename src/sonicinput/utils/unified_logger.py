@@ -284,7 +284,7 @@ class UnifiedLogger:
     @staticmethod
     def _safe_json_serialize(obj):
         """安全的 JSON 序列化，处理枚举和其他特殊类型"""
-        # 处理枚举类型（如 PyQt6 的 ActivationReason）
+        # 处理枚举类型（如 PySide6 的 ActivationReason）
         if hasattr(obj, 'value') and hasattr(obj, 'name'):
             return f"{type(obj).__name__}.{obj.name}"
         # 处理类型对象

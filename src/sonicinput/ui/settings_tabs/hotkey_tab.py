@@ -1,8 +1,8 @@
 """快捷键设置标签页"""
 
-from PyQt6.QtWidgets import (QVBoxLayout, QGroupBox, QHBoxLayout,
+from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QHBoxLayout,
                             QPushButton, QLineEdit, QListWidget, QLabel, QMessageBox)
-from PyQt6.QtCore import QTimer
+from PySide6.QtCore import QTimer
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 from ...utils import app_logger
@@ -170,7 +170,7 @@ class HotkeyTab(BaseSettingsTab):
     def _edit_hotkey_item(self, item) -> None:
         """双击编辑快捷键列表项"""
         current_text = item.text()
-        from PyQt6.QtWidgets import QInputDialog
+        from PySide6.QtWidgets import QInputDialog
         new_text, ok = QInputDialog.getText(
             self.parent_window, "Edit Hotkey", "Enter hotkey combination:",
             QLineEdit.EchoMode.Normal, current_text

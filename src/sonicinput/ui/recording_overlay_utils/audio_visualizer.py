@@ -1,6 +1,6 @@
 """Audio level visualizer for RecordingOverlay"""
 
-from PyQt6.QtWidgets import QLabel
+from PySide6.QtWidgets import QLabel
 from ...utils import app_logger
 
 

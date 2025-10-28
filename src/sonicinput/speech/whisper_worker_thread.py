@@ -6,7 +6,7 @@ import time
 import platform
 import threading
 
-from PyQt6.QtCore import QThread, pyqtSignal
+from PySide6.QtCore import QThread, Signal
 from ..utils import app_logger
 
 
@@ -17,9 +17,9 @@ class WhisperWorkerThread(QThread):
     """
 
     # 信号定义
-    model_loaded = pyqtSignal(bool, str)  # success, error_message
-    progress_update = pyqtSignal(str)  # status_message
-    environment_reset = pyqtSignal(bool)  # success
+    model_loaded = Signal(bool, str)  # success, error_message
+    progress_update = Signal(str)  # status_message
+    environment_reset = Signal(bool)  # success
 
     def __init__(self, parent=None):
         super().__init__(parent)

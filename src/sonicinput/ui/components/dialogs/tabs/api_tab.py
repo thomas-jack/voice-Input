@@ -1,8 +1,8 @@
 """API settings tab"""
 
-from PyQt6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
+from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
                             QLineEdit, QComboBox, QPushButton, QCheckBox)
-from PyQt6.QtCore import pyqtSignal, Qt
+from PySide6.QtCore import Signal, Qt
 from typing import Callable, Any
 
 from .base_tab import BaseSettingsTab
@@ -13,7 +13,7 @@ class ApiTab(BaseSettingsTab):
     """API settings tab"""
 
     # Signal for test request
-    test_requested = pyqtSignal(str)
+    test_requested = Signal(str)
 
     def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
         super().__init__(on_setting_changed, parent)

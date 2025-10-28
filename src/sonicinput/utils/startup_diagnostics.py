@@ -77,12 +77,12 @@ class StartupDiagnostics:
         
         import_tests = {}
         
-        # Core PyQt6 imports
+        # Core PySide6 imports
         qt_imports = [
-            'PyQt6',
-            'PyQt6.QtCore',
-            'PyQt6.QtGui', 
-            'PyQt6.QtWidgets'
+            'PySide6',
+            'PySide6.QtCore',
+            'PySide6.QtGui', 
+            'PySide6.QtWidgets'
         ]
         
         # Application imports
@@ -138,7 +138,7 @@ class StartupDiagnostics:
         
         # Critical dependencies with expected version info
         dependencies = [
-            'PyQt6', 'pynput', 'loguru', 'requests',
+            'PySide6', 'pynput', 'loguru', 'requests',
             'numpy', 'scipy', 'faster_whisper'
         ]
         
@@ -349,7 +349,7 @@ class StartupDiagnostics:
         import_tests = report.get('import_tests', {})
         failed_imports = [name for name, success in import_tests.items() if not success]
         
-        critical_imports = ['PyQt6', 'PyQt6.QtWidgets', 'sonicinput.core.voice_input_app']
+        critical_imports = ['PySide6', 'PySide6.QtWidgets', 'sonicinput.core.voice_input_app']
         critical_failures = [imp for imp in failed_imports if imp in critical_imports]
         
         if critical_failures:
@@ -370,8 +370,8 @@ class StartupDiagnostics:
         if summary['critical_issues']:
             summary['recommendations'].append('Fix critical issues before running the application')
             
-        if 'PyQt6' in failed_imports:
-            summary['recommendations'].append('Install PyQt6: pip install PyQt6')
+        if 'PySide6' in failed_imports:
+            summary['recommendations'].append('Install PySide6: pip install PySide6')
             
         if env_validation.get('import_conflicts'):
             summary['recommendations'].append('Resolve package conflicts - consider using virtual environment')
@@ -434,7 +434,7 @@ class StartupDiagnostics:
         env_validation = report.get('environment_validation', {})
         if env_validation:
             print("\n[INFO]  ENVIRONMENT:")
-            print(f"   PyQt6: {'[PASS]' if env_validation.get('pyqt6_validation', {}).get('pyqt6_available') else '[FAIL]'}")
+            print(f"   PySide6: {'[PASS]' if env_validation.get('pyqt6_validation', {}).get('pyqt6_available') else '[FAIL]'}")
             print(f"   Display: {'[PASS]' if env_validation.get('display_available') else '[FAIL]'}")
             print(f"   System Tray: {'[PASS]' if env_validation.get('system_tray_support') else '[FAIL]'}")
         

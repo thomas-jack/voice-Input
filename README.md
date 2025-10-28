@@ -122,7 +122,7 @@ uv run python app.py --gui
 | **ctranslate2** | 4.6.0 (≥4.5.0) | GPU 加速推理引擎 |
 | **CUDA Toolkit** | 12.x (推荐 12.1+) | GPU 加速基础库 |
 | **cuDNN** | 9.5.1 | 深度学习加速库 |
-| **PyQt6** | ≥ 6.6.0 | GUI 框架 |
+| **PySide6** | ≥ 6.6.0 | GUI 框架（LGPL许可） |
 | **pynput** | ≥ 1.7.6 | 全局快捷键 |
 
 **重要兼容性说明**：
@@ -207,6 +207,6 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 - [OpenAI Whisper](https://github.com/openai/whisper) - 语音识别
 - [faster-whisper](https://github.com/SYSTRAN/faster-whisper) - 优化实现
-- [PyQt6](https://www.riverbankcomputing.com/software/pyqt/) - GUI 框架
+- [PySide6](https://doc.qt.io/qtforpython-6/) - GUI 框架（Qt for Python）
 - [pynput](https://github.com/moses-palmer/pynput) - 全局快捷键
 

@@ -17,10 +17,10 @@ class EnvironmentValidator:
         self.errors = []
         self.warnings = []
     
-    def validate_pyqt6_installation(self) -> Tuple[bool, Dict[str, Any]]:
-        """Validate PyQt6 installation and compatibility"""
+    def validate_pyside6_installation(self) -> Tuple[bool, Dict[str, Any]]:
+        """Validate PySide6 installation and compatibility"""
         validation_results = {
-            'pyqt6_available': False,
+            'pyside6_available': False,
             'qt_version': None,
             'display_available': False,
             'widgets_available': False,
@@ -31,26 +31,26 @@ class EnvironmentValidator:
         }
         
         try:
-            # Test PyQt6 core availability
-            import PyQt6  # noqa: F401
-            validation_results['pyqt6_available'] = True
-            app_logger.log_audio_event("PyQt6 import successful", {})
+            # Test PySide6 core availability
+            import PySide6  # noqa: F401
+            validation_results['pyside6_available'] = True
+            app_logger.log_audio_event("PySide6 import successful", {})
 
             # Test QtCore
-            from PyQt6.QtCore import qVersion  # noqa: F401
+            from PySide6.QtCore import qVersion  # noqa: F401
             validation_results['qt_version'] = qVersion()
             validation_results['core_available'] = True
-            app_logger.log_audio_event("PyQt6.QtCore import successful", {"version": qVersion()})
+            app_logger.log_audio_event("PySide6.QtCore import successful", {"version": qVersion()})
 
             # Test QtGui
-            from PyQt6.QtGui import QGuiApplication  # noqa: F401
+            from PySide6.QtGui import QGuiApplication  # noqa: F401
             validation_results['gui_available'] = True
-            app_logger.log_audio_event("PyQt6.QtGui import successful", {})
+            app_logger.log_audio_event("PySide6.QtGui import successful", {})
 
             # Test QtWidgets
-            from PyQt6.QtWidgets import QApplication
+            from PySide6.QtWidgets import QApplication
             validation_results['widgets_available'] = True
-            app_logger.log_audio_event("PyQt6.QtWidgets import successful", {})
+            app_logger.log_audio_event("PySide6.QtWidgets import successful", {})
             
             # Test display availability (carefully)
             try:
@@ -74,14 +74,14 @@ class EnvironmentValidator:
                 app_logger.log_error(display_error, "display_validation")
             
         except ImportError as e:
-            validation_results['errors'].append(f"PyQt6 import error: {e}")
-            app_logger.log_error(e, "pyqt6_import_validation")
+            validation_results['errors'].append(f"PySide6 import error: {e}")
+            app_logger.log_error(e, "pyside6_import_validation")
         except Exception as e:
-            validation_results['errors'].append(f"PyQt6 validation error: {e}")
-            app_logger.log_error(e, "pyqt6_validation")
+            validation_results['errors'].append(f"PySide6 validation error: {e}")
+            app_logger.log_error(e, "pyside6_validation")
         
         # Overall success if core components are available
-        success = (validation_results['pyqt6_available'] and 
+        success = (validation_results['pyside6_available'] and 
                   validation_results['core_available'] and 
                   validation_results['widgets_available'])
         
@@ -127,7 +127,7 @@ class EnvironmentValidator:
     def test_system_tray_support(self) -> bool:
         """Test if system tray functionality is available"""
         try:
-            from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
+            from PySide6.QtWidgets import QApplication, QSystemTrayIcon
             
             # Need an application instance
             app = QApplication.instance()
@@ -179,9 +179,9 @@ class EnvironmentValidator:
         try:
             # Check for common conflicting packages
             conflicting_packages = [
-                ('PySide6', 'PyQt6'),
-                ('tkinter', 'PyQt6'),
-                ('wx', 'PyQt6')
+                ('PySide6', 'PySide6'),
+                ('tkinter', 'PySide6'),
+                ('wx', 'PySide6')
             ]
             
             for pkg1, pkg2 in conflicting_packages:
@@ -199,7 +199,7 @@ class EnvironmentValidator:
                 if var in os.environ:
                     value = os.environ[var]
                     if 'pyside' in value.lower() or 'qt5' in value.lower():
-                        conflicts.append(f"Environment variable {var}={value} might conflict with PyQt6")
+                        conflicts.append(f"Environment variable {var}={value} might conflict with PySide6")
             
             app_logger.log_audio_event("Import conflict diagnosis completed", {
                 "conflicts_found": len(conflicts)
@@ -243,7 +243,7 @@ class EnvironmentValidator:
         versions = {}
         
         critical_deps = [
-            'PyQt6', 'pynput', 'loguru', 'requests', 'whisper'
+            'PySide6', 'pynput', 'loguru', 'requests', 'whisper'
         ]
         
         for dep in critical_deps:
@@ -268,7 +268,7 @@ class EnvironmentValidator:
         
         results = {
             'overall_success': False,
-            'pyqt6_validation': {},
+            'pyside6_validation': {},
             'display_available': False,
             'system_tray_support': False,
             'threading_valid': False,
@@ -286,15 +286,15 @@ class EnvironmentValidator:
         }
         
         try:
-            # PyQt6 validation
-            pyqt6_success, pyqt6_results = self.validate_pyqt6_installation()
-            results['pyqt6_validation'] = pyqt6_results
+            # PySide6 validation
+            pyside6_success, pyside6_results = self.validate_pyside6_installation()
+            results['pyside6_validation'] = pyside6_results
             
             # Display system validation
             results['display_available'] = self.check_display_availability()
             
             # System tray support
-            if pyqt6_success:
+            if pyside6_success:
                 results['system_tray_support'] = self.test_system_tray_support()
             
             # Threading environment
@@ -311,7 +311,7 @@ class EnvironmentValidator:
             
             # Determine overall success
             critical_components = [
-                pyqt6_success,
+                pyside6_success,
                 results['display_available'],
                 results['threading_valid'],
                 results['file_permissions_ok']
@@ -320,10 +320,10 @@ class EnvironmentValidator:
             results['overall_success'] = all(critical_components)
             
             # Collect errors and warnings
-            if pyqt6_results.get('errors'):
-                results['errors'].extend(pyqt6_results['errors'])
-            if pyqt6_results.get('warnings'):
-                results['warnings'].extend(pyqt6_results['warnings'])
+            if pyside6_results.get('errors'):
+                results['errors'].extend(pyside6_results['errors'])
+            if pyside6_results.get('warnings'):
+                results['warnings'].extend(pyside6_results['warnings'])
             
             if results['import_conflicts']:
                 results['warnings'].extend(results['import_conflicts'])

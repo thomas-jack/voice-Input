@@ -1,8 +1,8 @@
 """Logging settings tab"""
 
-from PyQt6.QtWidgets import (QWidget, QFormLayout, QGroupBox, QVBoxLayout,
+from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox, QVBoxLayout,
                             QComboBox, QCheckBox, QSpinBox, QPushButton, QMessageBox)
-from PyQt6.QtCore import Qt
+from PySide6.QtCore import Qt
 from typing import Callable, Any, Dict
 
 from .base_tab import BaseSettingsTab
