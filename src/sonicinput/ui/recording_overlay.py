@@ -161,9 +161,14 @@ class RecordingOverlay(QWidget):
 
     def _safe_timer_connect(self, timer, target_method, description=""):
         """安全地连接定时器，防止重复连接"""
+        import warnings
+
         try:
             # 先尝试断开现有连接（如果有的话）
-            timer.timeout.disconnect(target_method)
+            # PySide6: disconnect() 不抛异常，而是发出 RuntimeWarning
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                timer.timeout.disconnect(target_method)
         except (TypeError, RuntimeError):
             pass  # 如果没有连接则忽略（TypeError: signal未连接, RuntimeError: C++ object已删除）
 
@@ -198,13 +203,18 @@ class RecordingOverlay(QWidget):
 
     def _safe_timer_stop(self, timer, target_method, description=""):
         """安全地停止定时器"""
+        import warnings
+
         try:
             if hasattr(self, timer.objectName()) and timer.isActive():
                 timer.stop()
 
                 # 断开特定连接
+                # PySide6: disconnect() 不抛异常，而是发出 RuntimeWarning
                 try:
-                    timer.timeout.disconnect(target_method)
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        timer.timeout.disconnect(target_method)
                 except (TypeError, RuntimeError):
                     pass  # 如果没有连接则忽略
 
@@ -623,6 +633,10 @@ class RecordingOverlay(QWidget):
             self.is_recording = False
             if hasattr(self, 'update_timer'):
                 self._safe_timer_stop(self.update_timer, self.update_recording_time, "recording_timer_processing")
+
+            # 添加超时自动隐藏（5秒后），防止转录/AI/输入失败时悬浮窗永久显示
+            # 如果处理成功，show_completed() 会在 500ms 时提前触发隐藏
+            self.hide_recording_delayed_requested.emit(5000)
         except Exception as e:
             app_logger.log_error(e, "show_processing")
 
