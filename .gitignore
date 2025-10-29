@@ -50,6 +50,12 @@ dist/
 build/
 *.egg-info/
 
+# Nuitka build files
+build_nuitka.py
+*.build/
+*.dist/
+*.onefile-build/
+
 # Temporary test files
 test_*.py
 !tests/test_*.py
