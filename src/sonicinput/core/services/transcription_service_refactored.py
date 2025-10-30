@@ -780,7 +780,7 @@ class RefactoredTranscriptionService(ISpeechService):
 
     def is_model_loaded(self) -> bool:
         """模型是否已加载 - ISpeechService 接口实现（使用方法而非属性以避免装饰器冲突）"""
-        return self.model_manager.is_model_loaded
+        return self.model_manager.is_model_loaded()
 
     # Backward compatibility properties - 这些属性用于UI显示
     @property

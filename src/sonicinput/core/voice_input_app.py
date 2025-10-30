@@ -331,16 +331,15 @@ class VoiceInputApp:
                 if "use_gpu" in whisper_config:
                     new_use_gpu = whisper_config["use_gpu"]
 
-                    # 安全地获取当前 GPU 设置，处理多层次的 null checks
+                    # 安全地获取当前 GPU 设置，通过新API访问
                     current_use_gpu = None
-                    if self._speech_service:
+                    if self._speech_service and hasattr(self._speech_service, 'model_manager'):
                         try:
-                            # 检查是否有 whisper_engine 属性
-                            if hasattr(self._speech_service, 'whisper_engine'):
-                                whisper_engine = self._speech_service.whisper_engine
-                                # 只在 whisper_engine 不为 None 时才尝试访问 use_gpu
-                                if whisper_engine is not None:
-                                    current_use_gpu = getattr(whisper_engine, 'use_gpu', None)
+                            # 通过model_manager获取whisper_engine
+                            whisper_engine = self._speech_service.model_manager.get_whisper_engine()
+                            # 只在 whisper_engine 不为 None 时才尝试访问 use_gpu
+                            if whisper_engine is not None:
+                                current_use_gpu = getattr(whisper_engine, 'use_gpu', None)
                         except (AttributeError, RuntimeError) as e:
                             app_logger.log_audio_event("Warning: Could not retrieve current GPU setting", {
                                 "error": str(e),
@@ -374,13 +373,13 @@ class VoiceInputApp:
         Args:
             use_gpu: 是否使用 GPU
         """
-        if self._speech_service and hasattr(self._speech_service, 'reload_model_async'):
+        if self._speech_service and hasattr(self._speech_service, 'reload_model'):
             def on_success(success: bool, error: str):
-                # 安全地获取重加载后的设备信息
+                # 安全地获取重加载后的设备信息，通过新API访问
                 device_info = "unknown"
                 try:
-                    if hasattr(self._speech_service, 'whisper_engine'):
-                        whisper_engine = self._speech_service.whisper_engine
+                    if hasattr(self._speech_service, 'model_manager'):
+                        whisper_engine = self._speech_service.model_manager.get_whisper_engine()
                         if whisper_engine is not None:
                             device_info = getattr(whisper_engine, 'device', 'unknown')
                 except (AttributeError, RuntimeError):
@@ -406,7 +405,7 @@ class VoiceInputApp:
             def on_error(error_msg: str):
                 app_logger.log_error(Exception(error_msg), "reload_model_with_gpu")
 
-            self._speech_service.reload_model_async(
+            self._speech_service.reload_model(
                 use_gpu=use_gpu,
                 callback=on_success,
                 error_callback=on_error
@@ -420,7 +419,8 @@ class VoiceInputApp:
             "is_initialized": self.is_initialized,
             "is_recording": self.state.is_recording(),
             "is_processing": self.state.is_processing(),
-            "model_loaded": self._speech_service.is_model_loaded if self._speech_service else False,
+            "model_loaded": (self._speech_service.model_manager.is_model_loaded()
+                          if self._speech_service and hasattr(self._speech_service, 'model_manager') else False),
             "hotkey_active": self._hotkey_service.is_listening if self._hotkey_service else False
         }
 

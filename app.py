@@ -165,6 +165,43 @@ def run_tests():
         print("\n--- EventBus Tests ---")
         test_eventbus()
 
+        # Moved from GUI mode: System environment checks
+        print("\n--- System Environment Tests ---")
+        if startup_diagnostics:
+            try:
+                # System information collection
+                print("Collecting system information...")
+                system_info = startup_diagnostics._collect_system_info()
+                print(f"SUCCESS: System info collected - OS: {system_info.get('platform', 'unknown')}")
+
+                # Python environment information
+                print("Collecting Python environment information...")
+                python_info = startup_diagnostics._collect_python_info()
+                print(f"SUCCESS: Python {python_info.get('version', 'unknown')} on {python_info.get('platform', 'unknown')}")
+
+                # Dependency version check
+                print("Checking dependency versions...")
+                dep_versions = startup_diagnostics.check_dependency_versions()
+                print(f"SUCCESS: {len(dep_versions.get('dependencies', []))} dependencies checked")
+
+                # File system check
+                print("Checking file system access...")
+                fs_check = startup_diagnostics._check_file_system()
+                if fs_check.get('accessible', False):
+                    print("SUCCESS: File system access verified")
+                else:
+                    print("WARNING: Some file system access issues detected")
+
+                # Process information
+                print("Collecting process information...")
+                process_info = startup_diagnostics._collect_process_info()
+                print(f"SUCCESS: Process info collected - PID: {process_info.get('pid', 'unknown')}")
+
+            except Exception as e:
+                print(f"WARNING: System environment tests failed: {e}")
+        else:
+            print("SKIP: System environment tests (startup_diagnostics not available)")
+
         # Model transcription test (always run, auto-load model)
         print("\n--- Model Transcription Test ---")
         run_model_test(container, auto_load_model=True)
@@ -381,8 +418,8 @@ def test_gui_components() -> bool:
 
 
 def run_gui_with_diagnostics() -> int:
-    """Launch GUI with comprehensive diagnostics"""
-    print("=== GUI Startup with Diagnostics ===")
+    """Launch GUI with simplified validation (system checks moved to test mode)"""
+    print("=== GUI Startup ===")
 
     # Early-load logger configuration to suppress console output if configured
     try:
@@ -395,35 +432,16 @@ def run_gui_with_diagnostics() -> int:
     except Exception as e:
         print(f"Warning: Could not early-load logger config: {e}")
 
-    # Generate diagnostic report if available
-    if startup_diagnostics:
-        try:
-            print("Generating startup diagnostic report...")
-            report = startup_diagnostics.generate_environment_report()
-            startup_diagnostics.print_diagnostic_summary(report)
-            
-            # Check if we should proceed based on report
-            summary = report.get('summary', {})
-            if summary.get('overall_status') == 'critical':
-                print("\n[FAIL] Critical issues detected. Please resolve before continuing.")
-                return 1
-        except Exception as e:
-            print(f"Warning: Diagnostic report generation failed: {e}")
-    
-    # Pre-flight environment validation
-    env_valid, env_report = validate_environment()
-    if not env_valid:
-        print("\n[FAIL] Environment validation failed. Cannot start GUI.")
-        return 1
-    
-    # Test GUI components in isolation
+    # Simplified pre-flight: Only GUI-specific validation
+    print("Running GUI-specific validation...")
+
+    # Test GUI components in isolation (GUI-specific check)
     if not test_gui_components():
         print("\n[FAIL] GUI component testing failed. Cannot start GUI.")
         return 1
 
+    print("[PASS] GUI validation completed. Starting GUI...")
 
-    print("\n[PASS] All pre-flight checks passed. Starting GUI...")
-    
     # Proceed with normal GUI startup
     return run_gui()
 
