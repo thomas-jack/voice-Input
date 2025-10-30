@@ -685,8 +685,8 @@ class SettingsWindow(QMainWindow):
             model_name = event_data.get("model_name", "Unknown")
             device = event_data.get("device", "Unknown")
 
-            # 更新模型状态标签
-            status_text = f"✅ Model loaded: {model_name} ({device})"
+            # 更新模型状态标签 - 移除 emoji 以免编码问题
+            status_text = f"Model loaded: {model_name} ({device})"
             self.whisper_tab.model_status_label.setText(status_text)
             self.whisper_tab.model_status_label.setStyleSheet("QLabel { color: #4CAF50; }")  # Material Green
 
@@ -902,35 +902,32 @@ class SettingsWindow(QMainWindow):
         """刷新模型状态显示"""
         try:
             # 显示检查状态
-            self.whisper_tab.model_status_label.setText("🔄 Checking model status...")
+            self.whisper_tab.model_status_label.setText("Checking model status...")
             self.whisper_tab.model_status_label.setStyleSheet("color: blue;")
 
             # 检查是否有 voice_app 引用
             if not self.voice_app or not hasattr(self.voice_app, 'whisper_engine'):
-                self.whisper_tab.model_status_label.setText("❌ Voice app not available")
+                self.whisper_tab.model_status_label.setText("Voice app not available")
                 self.whisper_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
             # 获取 whisper engine
             speech_service = self.voice_app.whisper_engine
 
-            # 获取模型信息
+            # 获取模型信息 - 优先使用 get_model_info 方法
             if hasattr(speech_service, 'get_model_info'):
                 model_info = speech_service.get_model_info()
                 self._update_model_display_from_info(model_info)
             else:
                 # Fallback for engines without get_model_info
-                # Check both is_model_loaded property AND actual model object
-                has_model = (speech_service.is_model_loaded and 
-                           hasattr(speech_service, 'model') and 
-                           speech_service.model is not None)
-                
-                if has_model:
+                # 统一使用 is_model_loaded 属性，不检查内部 model 对象以避免不同步
+                if speech_service.is_model_loaded:
                     model_name = getattr(speech_service, 'model_name', 'Unknown')
-                    self.whisper_tab.model_status_label.setText(f"✅ {model_name} (loaded)")
-                    self.whisper_tab.model_status_label.setStyleSheet("color: green;")
+                    device = getattr(speech_service, 'device', 'Unknown')
+                    self.whisper_tab.model_status_label.setText(f"Model loaded: {model_name} ({device})")
+                    self.whisper_tab.model_status_label.setStyleSheet("color: #4CAF50;")  # Material Green
                 else:
-                    self.whisper_tab.model_status_label.setText("❌ Model not loaded")
+                    self.whisper_tab.model_status_label.setText("Model not loaded")
                     self.whisper_tab.model_status_label.setStyleSheet("color: red;")
 
             app_logger.log_audio_event("Model status refreshed", {})
@@ -944,22 +941,27 @@ class SettingsWindow(QMainWindow):
         """从模型信息更新显示 - 在主线程中调用"""
         try:
             if not model_info.get("is_loaded", False):
-                self.whisper_tab.model_status_label.setText("❌ Model not loaded")
+                self.whisper_tab.model_status_label.setText("Model not loaded")
                 self.whisper_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
             # 构建状态文本
             model_name = model_info.get("model_name", "Unknown")
+            device = model_info.get("device", "Unknown")
             engine_type = model_info.get("engine_type", "unknown")
             load_time = model_info.get("load_time")
             cache_used = model_info.get("cache_used", False)
 
-            # 基础状态文本
-            status_parts = [f"✅ {model_name}"]
+            # 基础状态文本 - 移除 emoji 以免编码问题
+            status_parts = [f"{model_name}"]
+
+            # 添加设备信息
+            if device:
+                status_parts.append(f"({device})")
 
             # 添加引擎类型
-            if engine_type:
-                status_parts.append(f"({engine_type})")
+            if engine_type and engine_type != device:
+                status_parts.append(f"[{engine_type}]")
 
             # 添加加载时间
             if load_time is not None:
@@ -971,7 +973,7 @@ class SettingsWindow(QMainWindow):
 
             status_text = " ".join(status_parts)
             self.whisper_tab.model_status_label.setText(status_text)
-            self.whisper_tab.model_status_label.setStyleSheet("color: green;")
+            self.whisper_tab.model_status_label.setStyleSheet("color: #4CAF50;")  # Material Green
 
             app_logger.log_audio_event("Model status display updated", {
                 "model_name": model_name,

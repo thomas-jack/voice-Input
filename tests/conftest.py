@@ -28,6 +28,10 @@ def mock_whisper():
     whisper.is_model_loaded.return_value = True
     whisper.finalize_streaming_transcription.return_value = "这是测试文本"
     whisper.start_streaming_mode.return_value = None
+    # 添加流式转录支持
+    whisper.add_streaming_chunk.return_value = None
+    whisper.stop_streaming.return_value = "这是测试文本"
+    whisper.load_model.return_value = True
     return whisper
 
 
@@ -35,7 +39,11 @@ def mock_whisper():
 def mock_ai():
     """Mock AI 优化服务"""
     ai = MagicMock()
+    # 兼容不同的AI客户端接口
     ai.optimize_text.return_value = "优化后的测试文本。"
+    ai.refine_text.return_value = "优化后的测试文本。"
+    ai.test_connection.return_value = True
+    ai.health_check.return_value = True
     return ai
 
 

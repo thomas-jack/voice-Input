@@ -161,17 +161,27 @@ class CLIModelTester:
             self._report_progress("Running transcription...")
             start_time = time.time()
 
-            transcription_result = self.whisper_engine.transcribe(
-                test_audio,
-                language=None  # Auto-detect
-            )
+            try:
+                transcription_result = self.whisper_engine.transcribe(
+                    test_audio,
+                    language=None  # Auto-detect
+                )
+            except Exception as e:
+                # Handle case where transcribe returns string instead of dict
+                transcription_result = str(e)
 
             transcription_time = time.time() - start_time
 
-            # Extract results
-            text = transcription_result.get("text", "").strip()
-            language = transcription_result.get("language", "unknown")
-            confidence = transcription_result.get("confidence", 0.0)
+            # Extract results - handle both dict and string cases
+            if isinstance(transcription_result, dict):
+                text = transcription_result.get("text", "").strip()
+                language = transcription_result.get("language", "unknown")
+                confidence = transcription_result.get("confidence", 0.0)
+            else:
+                # Handle case where we get a string instead of dict
+                text = str(transcription_result).strip()
+                language = "unknown"
+                confidence = 0.0
 
             # Check for hallucinations
             is_hallucination = self._is_likely_hallucination(text)
@@ -227,6 +237,9 @@ Error: {result.get('error', 'Unknown error')}
             interpretation = "Model produced unexpected output for low-noise audio"
             status = "[!] UNEXPECTED"
 
+        # Clean text to remove Unicode characters for Windows console
+        safe_text = result['text'].encode('ascii', errors='ignore').decode('ascii') if result['text'] else ''
+
         return f"""
 {'='*60}
 MODEL TEST RESULTS
@@ -234,7 +247,7 @@ MODEL TEST RESULTS
 Status: {status}
 
 Transcription:
-  Text: "{result['text']}" {' (empty)' if not result['text'] else ''}
+  Text: "{safe_text}" {' (empty)' if not safe_text else ''}
   Language: {result['language']}
   Confidence: {result['confidence']:.2%}
 

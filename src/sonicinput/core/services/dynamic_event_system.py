@@ -673,9 +673,10 @@ class DynamicEventSystem(IEventService):
 
             self._listeners[event_name].append(listener)
 
-            # 更新统计
-            if event_name in self._stats:
-                self._stats[event_name].listener_count = len(self._listeners[event_name])
+            # 更新统计 - 确保stats对象存在并更新listener_count
+            if event_name not in self._stats:
+                self._stats[event_name] = EventStats(event_name)
+            self._stats[event_name].listener_count = len(self._listeners[event_name])
 
             # 清除缓存
             self._invalidate_cache_for_event(event_name)

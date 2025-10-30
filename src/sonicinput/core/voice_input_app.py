@@ -189,7 +189,17 @@ class VoiceInputApp:
             app_logger.log_audio_event("Model loaded successfully", {
                 "model": model_name
             })
-            self.events.emit(Events.MODEL_LOADING_COMPLETED)
+            # 获取模型详细信息并发送事件
+            model_info = {}
+            if hasattr(self._speech_service, 'get_model_info'):
+                model_info = self._speech_service.get_model_info()
+            else:
+                model_info = {
+                    "model_name": model_name,
+                    "is_loaded": True,
+                    "device": getattr(self._speech_service, 'device', 'Unknown')
+                }
+            self.events.emit(Events.MODEL_LOADING_COMPLETED, model_info)
 
         def on_error(error_msg: str):
             app_logger.log_error(Exception(error_msg), "load_model_async")
@@ -237,7 +247,7 @@ class VoiceInputApp:
         if self.recording_overlay:
             self.recording_overlay.show_processing()
 
-    def _on_ai_started_overlay(self) -> None:
+    def _on_ai_started_overlay(self, data: Any = None) -> None:
         """AI处理开始时更新悬浮窗状态"""
         if self.recording_overlay:
             self.recording_overlay.set_status_text("AI Processing...")
@@ -380,6 +390,18 @@ class VoiceInputApp:
                     "use_gpu": use_gpu,
                     "device": device_info
                 })
+
+                # 获取模型详细信息并发送事件
+                model_info = {}
+                if hasattr(self._speech_service, 'get_model_info'):
+                    model_info = self._speech_service.get_model_info()
+                else:
+                    model_info = {
+                        "model_name": self.config.get_setting("whisper.model", "Unknown"),
+                        "is_loaded": True,
+                        "device": device_info
+                    }
+                self.events.emit(Events.MODEL_LOADING_COMPLETED, model_info)
 
             def on_error(error_msg: str):
                 app_logger.log_error(Exception(error_msg), "reload_model_with_gpu")

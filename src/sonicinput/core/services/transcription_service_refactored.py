@@ -6,7 +6,7 @@
 
 import time
 import threading
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, List
 import numpy as np
 
 from .transcription_core import TranscriptionCore
@@ -16,9 +16,10 @@ from .task_queue_manager import TaskQueueManager, Task, TaskPriority, TaskStatus
 from .error_recovery_service import ErrorRecoveryService
 
 from ...utils import app_logger, WhisperLoadError
+from ...core.interfaces.speech import ISpeechService
 
 
-class RefactoredTranscriptionService:
+class RefactoredTranscriptionService(ISpeechService):
     """重构后的转录服务
 
     采用协调器模式，将原来的复杂功能拆分为多个专职组件：
@@ -138,11 +139,29 @@ class RefactoredTranscriptionService:
         self,
         audio_data: np.ndarray,
         language: Optional[str] = None,
+        temperature: float = 0.0
+    ) -> Dict[str, Any]:
+        """转录音频（同步）- ISpeechService 接口实现
+
+        Args:
+            audio_data: 音频数据
+            language: 指定语言（可选）
+            temperature: 温度参数
+
+        Returns:
+            转录结果字典
+        """
+        return self.transcribe_sync(audio_data, language, temperature)
+
+    def transcribe_async(
+        self,
+        audio_data: np.ndarray,
+        language: Optional[str] = None,
         temperature: float = 0.0,
         callback: Optional[Callable] = None,
         error_callback: Optional[Callable] = None
     ) -> str:
-        """转录音频（异步）
+        """转录音频（异步）- 保持向后兼容
 
         Args:
             audio_data: 音频数据
@@ -399,12 +418,12 @@ class RefactoredTranscriptionService:
             if error_callback:
                 error_callback(error_msg)
 
-        # 调用现有的load_model方法
-        self.load_model(
-            model_name=model_name,
-            callback=adapted_callback,
-            error_callback=adapted_error_callback
-        )
+        # 直接使用model_manager加载模型
+        success = self.model_manager.load_model(model_name)
+
+        # 立即调用回调（同步模拟异步）
+        if adapted_callback:
+            adapted_callback({"success": success, "error": "" if success else "Failed to load model"})
 
     def load_model_sync(self, model_name: Optional[str] = None, timeout: int = 300) -> bool:
         """加载模型（同步）
@@ -745,3 +764,48 @@ class RefactoredTranscriptionService:
         self.error_recovery_service.cleanup()
 
         app_logger.audio("RefactoredTranscriptionService cleaned up", {})
+
+    # ISpeechService interface implementation
+    def load_model(self, model_name: Optional[str] = None) -> bool:
+        """加载语音识别模型 - ISpeechService 接口实现"""
+        return self.model_manager.load_model(model_name)
+
+    def unload_model(self) -> None:
+        """卸载当前模型 - ISpeechService 接口实现"""
+        self.model_manager.unload_model()
+
+    def get_available_models(self) -> List[str]:
+        """获取可用的模型列表 - ISpeechService 接口实现"""
+        return self.model_manager.get_available_models()
+
+    def is_model_loaded(self) -> bool:
+        """模型是否已加载 - ISpeechService 接口实现（使用方法而非属性以避免装饰器冲突）"""
+        return self.model_manager.is_model_loaded
+
+    # Backward compatibility properties - 这些属性用于UI显示
+    @property
+    def model_name(self) -> str:
+        """获取当前模型名称 - 向后兼容性"""
+        if self.model_manager and hasattr(self.model_manager, '_current_model_name'):
+            return self.model_manager._current_model_name or "Unknown"
+        return "Unknown"
+
+    @property
+    def device(self) -> str:
+        """获取当前设备 - 向后兼容性"""
+        if self.model_manager:
+            whisper_engine = self.model_manager.get_whisper_engine()
+            if whisper_engine and hasattr(whisper_engine, 'device'):
+                return getattr(whisper_engine, 'device', 'Unknown')
+        return "Unknown"
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """获取模型信息 - 向后兼容性"""
+        if self.model_manager:
+            return self.model_manager.get_model_info()
+        return {
+            "model_name": self.model_name,
+            "device": self.device,
+            "is_loaded": False,
+            "use_gpu": False
+        }

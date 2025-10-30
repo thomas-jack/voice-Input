@@ -65,8 +65,11 @@ class ModelTestThread(QThread):
             self.test_complete.emit(test_success, result_info, "")
 
         except Exception as e:
-            app_logger.log_error(e, "_on_model_test_requested")
-            self.test_complete.emit(False, {}, str(e))
+            import traceback
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            app_logger.log_error(e, "ModelTestThread.run")
+            # 添加详细的错误信息到结果中
+            self.test_complete.emit(False, {}, error_msg)
 
     def _is_likely_hallucination(self, text: str) -> bool:
         """Check if text output is likely a Whisper hallucination"""
@@ -316,29 +319,29 @@ class MainWindow(QMainWindow):
 
                         # Create informative message about the test result
                         if is_hallucination:
-                            analysis_text = f"🔍 **Analysis**: Output '{text_output}' appears to be a Whisper hallucination from noise audio, which is normal behavior."
+                            analysis_text = f"**Analysis**: Output '{text_output}' appears to be a Whisper hallucination from noise audio, which is normal behavior."
                         elif not text_output or text_output == 'No text detected':
-                            analysis_text = "🔍 **Analysis**: No text detected from test audio, which is expected."
+                            analysis_text = "**Analysis**: No text detected from test audio, which is expected."
                         else:
-                            analysis_text = "🔍 **Analysis**: Model produced text output from test audio."
+                            analysis_text = "**Analysis**: Model produced text output from test audio."
 
                         QMessageBox.information(
                             parent_widget,
                             "Model Test Result",
-                            f"✅ **Model Test Successful!**\n\n"
+                            f"**Model Test Successful!**\n\n"
                             f"Model: {whisper_engine.model_name}\n"
                             f"Device: {whisper_engine.device}\n"
                             f"Detected Language: {detected_language}\n"
                             f"Test Output: '{text_output}'\n"
                             f"Confidence: {confidence:.2f}\n\n"
                             f"{analysis_text}\n\n"
-                            f"✨ The model is working correctly and can process audio!"
+                            f"The model is working correctly and can process audio!"
                         )
                     else:
                         QMessageBox.critical(
                             parent_widget,
                             "Model Test Failed",
-                            f"❌ **Model Test Failed**\n\n"
+                            f"**Model Test Failed**\n\n"
                             f"Error: {error}\n\n"
                             f"Please check the model status and try again."
                         )
@@ -350,12 +353,14 @@ class MainWindow(QMainWindow):
                 test_thread.start()
 
         except Exception as e:
+            import traceback
+            error_details = f"{type(e).__name__}: {str(e)}"
             app_logger.log_error(e, "_on_model_test_requested")
             QMessageBox.critical(
                 self._settings_window if hasattr(self, '_settings_window') else None,
                 "Model Test Failed",
-                f"❌ **Model Test Failed**\n\n"
-                f"Error: {str(e)}\n\n"
+                f"**Model Test Failed**\n\n"
+                f"Error: {error_details}\n\n"
                 f"Please check the model status and try again."
             )
 

@@ -52,9 +52,10 @@ def test_event_system():
     try:
         from sonicinput.core.di_container_enhanced import create_container
         from sonicinput.core.services.event_bus import Events
+        from sonicinput.core.interfaces.event import IEventService
 
         container = create_container()
-        events = container.get(type(container.events))
+        events = container.get(IEventService)
 
         # 测试事件常量
         assert hasattr(Events, 'RECORDING_STARTED')
@@ -74,10 +75,10 @@ def test_event_system():
         assert len(received_events) == 1
         assert received_events[0][0] == "test_data"
 
-        print("✅ 事件系统测试成功")
+        print("SUCCESS: 事件系统测试成功")
 
     except Exception as e:
-        print(f"❌ 事件系统测试失败: {e}")
+        print(f"ERROR: 事件系统测试失败: {e}")
         assert False
 
 
