@@ -75,8 +75,16 @@ class SendInputMethod:
             input_array = (INPUT * num_events)()
             
             for i, char in enumerate(text):
-                char_code = ord(char)
-                
+                # 增强Unicode处理：处理复合字符和代理对
+                if self._is_surrogate_pair(char, i, text):
+                    # 处理代理对（如emoji）
+                    surrogate_pair = text[i:i+2]
+                    char_code = ord(surrogate_pair[0])
+                    # 跳过下一个字符，因为它已被处理
+                    continue
+                else:
+                    char_code = ord(char)
+
                 # Key down event
                 keydown_input = input_array[i * 2]
                 keydown_input.type = INPUT_KEYBOARD
@@ -159,3 +167,59 @@ class SendInputMethod:
         except Exception as e:
             app_logger.log_error(e, "get_foreground_window_info")
             return {"hwnd": 0, "has_focus": False}
+
+    def _is_surrogate_pair(self, char: str, index: int, text: str) -> bool:
+        """检查字符是否是代理对的一部分（用于emoji等Unicode字符）"""
+        try:
+            # 检查是否是高代理项
+            if 0xD800 <= ord(char) <= 0xDBFF:
+                # 检查是否有对应的低代理项
+                if index + 1 < len(text):
+                    next_char = text[index + 1]
+                    return 0xDC00 <= ord(next_char) <= 0xDFFF
+            return False
+        except:
+            return False
+
+    def _get_input_method_state(self) -> dict:
+        """获取当前输入法状态"""
+        try:
+            import win32gui
+            hwnd = win32gui.GetForegroundWindow()
+            if hwnd:
+                thread_id = win32gui.GetWindowThreadProcessId(hwnd)[0]
+                keyboard_layout = win32api.GetKeyboardLayout(thread_id)
+                return {
+                    'keyboard_layout': keyboard_layout,
+                    'layout_id': hex(keyboard_layout),
+                    'thread_id': thread_id
+                }
+            return {}
+        except Exception as e:
+            app_logger.log_warning("Failed to get input method state", {"error": str(e)})
+            return {}
+
+    def test_sendinput_capability(self) -> bool:
+        """增强SendInput能力测试"""
+        try:
+            # 测试基本ASCII字符
+            test_basic = "Hello"
+            if not self.input_text(test_basic):
+                return False
+
+            # 测试Unicode字符
+            test_unicode = "测试123"  # 中英文混合
+            if not self.input_text(test_unicode):
+                app_logger.log_warning("Unicode SendInput test failed", {})
+                return True  # 基本功能可用，Unicode可能有限制
+
+            # 测试emoji（如果代理对处理正常）
+            test_emoji = "🎵"
+            if self._is_surrogate_pair(test_emoji, 0, test_emoji):
+                emoji_success = self.input_text(test_emoji)
+                app_logger.log_audio_event("SendInput emoji test", {"success": emoji_success})
+
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "test_sendinput_capability")
+            return False

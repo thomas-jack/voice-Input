@@ -920,7 +920,12 @@ class SettingsWindow(QMainWindow):
                 self._update_model_display_from_info(model_info)
             else:
                 # Fallback for engines without get_model_info
-                if speech_service.is_model_loaded:
+                # Check both is_model_loaded property AND actual model object
+                has_model = (speech_service.is_model_loaded and 
+                           hasattr(speech_service, 'model') and 
+                           speech_service.model is not None)
+                
+                if has_model:
                     model_name = getattr(speech_service, 'model_name', 'Unknown')
                     self.whisper_tab.model_status_label.setText(f"✅ {model_name} (loaded)")
                     self.whisper_tab.model_status_label.setStyleSheet("color: green;")

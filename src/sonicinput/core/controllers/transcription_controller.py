@@ -32,12 +32,14 @@ class TranscriptionController(ITranscriptionController):
         speech_service: ISpeechService,
         config_service: IConfigService,
         event_service: IEventService,
-        state_manager: IStateManager
+        state_manager: IStateManager,
+        audio_service=None
     ):
         self._speech_service = speech_service
         self._config = config_service
         self._events = event_service
         self._state = state_manager
+        self._audio_service = audio_service  # 添加音频服务引用，用于fallback
 
         # 性能追踪数据（从 RecordingController 接收）
         self._audio_duration: float = 0.0
@@ -75,9 +77,9 @@ class TranscriptionController(ITranscriptionController):
             if language == "auto":
                 language = None
 
-            # 执行转录
+            # 执行转录 - 使用新的TranscriptionService API
             transcribe_start = time.time()
-            result = self._speech_service.transcribe(audio_data, language=language)
+            result = self._speech_service.transcribe_sync(audio_data, language=language)
             transcribe_duration = time.time() - transcribe_start
 
             text = result.get("text", "")
@@ -100,34 +102,51 @@ class TranscriptionController(ITranscriptionController):
             self._state.set_app_state(AppState.IDLE)
 
     def process_streaming_transcription(self) -> None:
-        """处理流式转录（等待所有块完成并拼接）"""
+        """处理流式转录（使用新的TranscriptionService API）"""
         try:
             self._state.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
 
-            # 等待流式转录完成（主要是最后一块）
+            # 使用新的TranscriptionService API
             transcribe_start = time.time()
 
-            if hasattr(self._speech_service, 'finalize_streaming_transcription'):
-                text = self._speech_service.finalize_streaming_transcription(timeout=30.0)
-            else:
-                text = ""
+            app_logger.log_audio_event("Stopping streaming transcription", {})
+
+            # 停止流式转录并获取转录文本和统计信息
+            result = self._speech_service.stop_streaming()
+
+            # 从返回结果中提取文本和统计信息
+            text = result.get("text", "")
+            stats = result.get("stats", {})
+
+            app_logger.log_audio_event("Streaming transcription stopped", {
+                "text_length": len(text),
+                "stats": stats
+            })
+
+            # 如果流式转录没有结果,fallback到同步转录
+            if not text and self._audio_service:
+                app_logger.log_audio_event("No text from streaming, falling back to sync transcription", {})
+                text = self._sync_transcribe_last_audio()
 
             transcribe_duration = time.time() - transcribe_start
 
-            app_logger.log_audio_event("Streaming transcription finalized", {
+            app_logger.log_audio_event("Transcription completed", {
                 "text_length": len(text),
-                "finalize_duration": f"{transcribe_duration:.3f}s",
+                "duration": f"{transcribe_duration:.3f}s",
                 "text_preview": text[:50] + "..." if len(text) > 50 else text
             })
 
-            # 发送转录完成事件（携带文本和音频时长信息）
+            # 发送转录完成事件
             self._events.emit(Events.TRANSCRIPTION_COMPLETED, {
                 "text": text,
                 "audio_duration": self._audio_duration,
                 "transcribe_duration": transcribe_duration,
                 "recording_stop_time": self._recording_stop_time
             })
+
+            # 重置状态
+            self._state.set_app_state(AppState.IDLE)
 
         except Exception as e:
             app_logger.log_error(e, "process_streaming_transcription")
@@ -137,6 +156,37 @@ class TranscriptionController(ITranscriptionController):
 
             # 错误时也要重置状态，否则无法进行下一次录音
             self._state.set_app_state(AppState.IDLE)
+
+    def _sync_transcribe_last_audio(self) -> str:
+        """同步转录最后一次录音的音频数据"""
+        try:
+            if not self._audio_service or not hasattr(self._audio_service, 'get_audio_data'):
+                app_logger.log_audio_event("Audio service not available for sync transcription", {})
+                return ""
+
+            # 获取最后一次录音的音频数据
+            audio_data = self._audio_service.get_audio_data()
+            if audio_data is None or len(audio_data) == 0:
+                app_logger.log_audio_event("No audio data available for sync transcription", {})
+                return ""
+
+            app_logger.log_audio_event("Starting sync transcription", {
+                "audio_length": len(audio_data)
+            })
+
+            # 执行同步转录 - 使用新的TranscriptionService API
+            result = self._speech_service.transcribe_sync(audio_data)
+            text = result.get("text", "")
+
+            app_logger.log_audio_event("Sync transcription completed", {
+                "text_length": len(text)
+            })
+
+            return text
+
+        except Exception as e:
+            app_logger.log_error(e, "_sync_transcribe_last_audio")
+            return ""
 
     def start_streaming_mode(self) -> None:
         """启动流式转录模式"""

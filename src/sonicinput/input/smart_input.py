@@ -24,6 +24,10 @@ class SmartTextInput(IInputService):
             "preferred_method": self.preferred_method,
             "fallback_enabled": self.fallback_enabled
         })
+
+        # 故障转移增强：记录方法失败历史
+        self._method_failures = {}
+        self._last_failure_time = {}
     
     def input_text(self, text: str, force_method: Optional[str] = None) -> bool:
         """智能输入文本"""
@@ -69,7 +73,27 @@ class SmartTextInput(IInputService):
         return False
     
     def _determine_best_method(self) -> str:
-        """确定最佳输入方法"""
+        """智能确定最佳输入方法（基于失败历史）"""
+        import time
+
+        # 检查首选方法最近的失败情况
+        current_time = time.time()
+
+        # 如果首选方法在过去5分钟内失败超过3次，切换到备用方法
+        if (self.preferred_method in self._method_failures and
+            self._method_failures[self.preferred_method] >= 3 and
+            current_time - self._last_failure_time.get(self.preferred_method, 0) < 300):
+
+            # 选择备用方法
+            fallback_method = "clipboard" if self.preferred_method == "sendinput" else "sendinput"
+            app_logger.log_audio_event("Switching to fallback method due to repeated failures", {
+                "failed_method": self.preferred_method,
+                "fallback_method": fallback_method,
+                "failure_count": self._method_failures[self.preferred_method]
+            })
+            return fallback_method
+
+        # 否则使用首选方法
         return self.preferred_method
     
     def _try_input_method(self, text: str, method: str) -> bool:
@@ -88,6 +112,8 @@ class SmartTextInput(IInputService):
                 
         except Exception as e:
             app_logger.log_error(e, f"_try_input_method_{method}")
+            # 增强错误恢复：记录失败方法以便智能选择下次尝试
+            self._record_method_failure(method, str(e))
             return False
     
     def _try_clipboard_method(self, text: str) -> bool:
@@ -182,6 +208,31 @@ class SmartTextInput(IInputService):
             results["sendinput"] = False
         
         app_logger.log_audio_event("Input methods tested", results)
-        
+
         return results
+
+    def _record_method_failure(self, method: str, error_msg: str):
+        """记录方法失败信息"""
+        import time
+
+        current_time = time.time()
+        self._method_failures[method] = self._method_failures.get(method, 0) + 1
+        self._last_failure_time[method] = current_time
+
+        app_logger.log_audio_event("Input method failure recorded", {
+            "method": method,
+            "error_message": error_msg,
+            "failure_count": self._method_failures[method],
+            "time_since_last_failure": current_time - self._last_failure_time.get(method, current_time)
+        })
+
+        # 如果失败次数过多，清理旧的失败记录（避免永久性禁用）
+        if current_time - self._last_failure_time[method] > 1800:  # 30分钟后清理
+            if self._method_failures[method] > 10:
+                self._method_failures[method] = max(1, self._method_failures[method] // 2)
+                app_logger.log_audio_event("Reduced failure count for method", {
+                    "method": method,
+                    "old_count": self._method_failures[method] * 2,
+                    "new_count": self._method_failures[method]
+                })
     

@@ -7,7 +7,7 @@
 - 不再直接处理业务逻辑
 """
 
-from typing import Optional
+from typing import Optional, Any
 from .di_container import DIContainer
 from .controllers import (
     RecordingController,
@@ -227,7 +227,7 @@ class VoiceInputApp:
             self.events.on(Events.TEXT_INPUT_COMPLETED, self._on_input_completed_overlay)
             self.events.on(Events.AUDIO_LEVEL_UPDATE, self._on_audio_level_update_overlay)
 
-    def _on_recording_started_overlay(self) -> None:
+    def _on_recording_started_overlay(self, data: Any = None) -> None:
         """录音开始时显示悬浮窗"""
         if self.recording_overlay:
             self.recording_overlay.show_recording()
@@ -320,7 +320,22 @@ class VoiceInputApp:
                 # 检查 use_gpu 配置是否变更
                 if "use_gpu" in whisper_config:
                     new_use_gpu = whisper_config["use_gpu"]
-                    current_use_gpu = self._speech_service.whisper_engine.use_gpu if self._speech_service else None
+
+                    # 安全地获取当前 GPU 设置，处理多层次的 null checks
+                    current_use_gpu = None
+                    if self._speech_service:
+                        try:
+                            # 检查是否有 whisper_engine 属性
+                            if hasattr(self._speech_service, 'whisper_engine'):
+                                whisper_engine = self._speech_service.whisper_engine
+                                # 只在 whisper_engine 不为 None 时才尝试访问 use_gpu
+                                if whisper_engine is not None:
+                                    current_use_gpu = getattr(whisper_engine, 'use_gpu', None)
+                        except (AttributeError, RuntimeError) as e:
+                            app_logger.log_audio_event("Warning: Could not retrieve current GPU setting", {
+                                "error": str(e),
+                                "action": "proceeding with config change"
+                            })
 
                     # 只有在配置真正改变时才重载
                     if current_use_gpu is not None and new_use_gpu != current_use_gpu:
@@ -351,9 +366,19 @@ class VoiceInputApp:
         """
         if self._speech_service and hasattr(self._speech_service, 'reload_model_async'):
             def on_success(success: bool, error: str):
+                # 安全地获取重加载后的设备信息
+                device_info = "unknown"
+                try:
+                    if hasattr(self._speech_service, 'whisper_engine'):
+                        whisper_engine = self._speech_service.whisper_engine
+                        if whisper_engine is not None:
+                            device_info = getattr(whisper_engine, 'device', 'unknown')
+                except (AttributeError, RuntimeError):
+                    pass  # 继续记录事件，即使无法获取设备信息
+
                 app_logger.log_audio_event("Model reloaded with new GPU setting", {
                     "use_gpu": use_gpu,
-                    "device": self._speech_service.whisper_engine.device
+                    "device": device_info
                 })
 
             def on_error(error_msg: str):

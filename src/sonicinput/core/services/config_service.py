@@ -908,6 +908,14 @@ class ConfigService(IConfigService):
                     return False
 
             return True
-
         except Exception:
             return False
+
+    def cleanup(self) -> None:
+        """清理资源 - 取消所有待处理的定时器"""
+        with self._timer_lock:
+            if self._save_timer:
+                self._save_timer.cancel()
+                self._save_timer = None
+
+        app_logger.log_audio_event("ConfigService cleaned up", {})

@@ -146,7 +146,8 @@ def run_tests():
         from sonicinput.core.interfaces import IConfigService, ISpeechService
 
         # Test dependency injection
-        container = DIContainer()
+        from sonicinput.core.di_container_enhanced import create_container
+        container = create_container()
         app = VoiceInputApp(container)
         print("SUCCESS: Core application components loaded")
 
@@ -209,7 +210,8 @@ def run_model_test(container, auto_load_model=False):
 
 def test_eventbus():
     """Test EventBus core functionality"""
-    from sonicinput.core.services.event_bus import EventBus, Events, EventPriority
+    from sonicinput.core.services.event_bus import EventBus, Events
+    from sonicinput.core.interfaces.event import EventPriority
     import threading
 
     print("Testing EventBus...")
@@ -218,7 +220,7 @@ def test_eventbus():
     bus = EventBus()
     results = []
 
-    bus.on(Events.RECORDING_STARTED, lambda: results.append("callback"))
+    bus.on(Events.RECORDING_STARTED, lambda data: results.append("callback"))
     bus.emit(Events.RECORDING_STARTED)
 
     assert results == ["callback"], "Basic emit/on failed"
@@ -229,9 +231,9 @@ def test_eventbus():
     order = []
     test_event = "test_priority"
 
-    bus2.on(test_event, lambda: order.append("LOW"), priority=EventPriority.LOW)
-    bus2.on(test_event, lambda: order.append("NORMAL"), priority=EventPriority.NORMAL)
-    bus2.on(test_event, lambda: order.append("HIGH"), priority=EventPriority.HIGH)
+    bus2.on(test_event, lambda data: order.append("LOW"), priority=EventPriority.LOW)
+    bus2.on(test_event, lambda data: order.append("NORMAL"), priority=EventPriority.NORMAL)
+    bus2.on(test_event, lambda data: order.append("HIGH"), priority=EventPriority.HIGH)
 
     bus2.emit(test_event)
 
@@ -243,7 +245,7 @@ def test_eventbus():
     count = {"value": 0}
     test_event2 = "test_once"
 
-    bus3.once(test_event2, lambda: count.update({"value": count["value"] + 1}))
+    bus3.once(test_event2, lambda data: count.update({"value": count["value"] + 1}))
 
     bus3.emit(test_event2)
     bus3.emit(test_event2)
@@ -257,11 +259,11 @@ def test_eventbus():
     executed = []
     test_event3 = "test_exception"
 
-    def bad_listener():
+    def bad_listener(data):
         executed.append("bad")
         raise ValueError("Test error")
 
-    def good_listener():
+    def good_listener(data):
         executed.append("good")
 
     bus4.on(test_event3, bad_listener)
@@ -299,16 +301,16 @@ def test_eventbus():
     # Test 6: Statistics
     bus6 = EventBus()
     test_event5 = "test_stats"
-    bus6.on(test_event5, lambda: None)
+    bus6.on(test_event5, lambda data: None)
     bus6.emit(test_event5)
     bus6.emit(test_event5)
 
     stats = bus6.get_event_stats()
-    custom_stats = stats["events"].get(test_event5, {})
+    custom_stats = stats.get(test_event5, {})
 
-    assert custom_stats["emit_count"] == 2, f"Stats emit_count wrong: {custom_stats['emit_count']}"
-    assert custom_stats["listener_count"] == 1, f"Stats listener_count wrong: {custom_stats['listener_count']}"
-    print(f"  [PASS] Statistics: {custom_stats['emit_count']} emits, {custom_stats['listener_count']} listener")
+    assert custom_stats.emit_count == 2, f"Stats emit_count wrong: {custom_stats.emit_count}"
+    assert custom_stats.listener_count == 1, f"Stats listener_count wrong: {custom_stats.listener_count}"
+    print(f"  [PASS] Statistics: {custom_stats.emit_count} emits, {custom_stats.listener_count} listener")
 
     print("[OK] EventBus: All 6 tests passed!")
 
@@ -453,7 +455,8 @@ def run_gui():
         qt_app.setWindowIcon(get_app_icon())
 
         # Create application components (needed to access config)
-        container = DIContainer()
+        from sonicinput.core.di_container import create_container
+        container = create_container()
 
         # Load theme color from config
         from sonicinput.core.interfaces.config import IConfigService

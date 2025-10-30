@@ -261,6 +261,14 @@ class HotkeyManager(IHotkeyService):
         # 停止旧listener
         if self._listener and self._is_listening_flag:
             self._listener.stop()
+
+            # 等待 listener 线程完全退出，避免进程泄漏
+            import time
+            for _ in range(10):  # 最多等待 1 秒
+                if not self._listener.is_alive():
+                    break
+                time.sleep(0.1)
+
             self._is_listening_flag = False
 
         # 清空所有 HotKey 对象的内部状态（防止状态残留）
@@ -539,6 +547,14 @@ class HotkeyManager(IHotkeyService):
         # 停止listener - pynput的stop()不会阻塞键盘输入
         if self._listener and self._is_listening_flag:
             self._listener.stop()
+
+            # 等待 listener 线程完全退出，避免进程泄漏
+            import time
+            for _ in range(10):  # 最多等待 1 秒
+                if not self._listener.is_alive():
+                    break
+                time.sleep(0.1)
+
             self._listener = None
             self._is_listening_flag = False
 

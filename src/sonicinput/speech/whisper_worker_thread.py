@@ -5,6 +5,7 @@ import sys
 import time
 import platform
 import threading
+import shutil
 
 from PySide6.QtCore import QThread, Signal
 from ..utils import app_logger
@@ -115,12 +116,7 @@ class WhisperWorkerThread(QThread):
                 app_logger.log_model_loading_step(f"Warning: Could not get system directories: {e}")
 
             # 添加CUDA路径到DLL搜索路径
-            cuda_paths = [
-                os.environ.get('CUDA_PATH'),
-                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9',
-                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8',
-                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.7'
-            ]
+            cuda_paths = self._find_all_cuda_paths()
 
             for cuda_path in cuda_paths:
                 if cuda_path and os.path.exists(cuda_path):
@@ -287,3 +283,88 @@ class WhisperWorkerThread(QThread):
             self.wait(3000)  # 等待最多3秒
 
         app_logger.log_gui_operation("WhisperWorkerThread", "Worker thread cleanup completed")
+
+    def _find_all_cuda_paths(self) -> list:
+        """动态查找所有可用的CUDA安装路径"""
+        cuda_paths = []
+
+        try:
+            # 1. 环境变量中的CUDA路径
+            env_cuda_path = os.environ.get('CUDA_PATH')
+            if env_cuda_path:
+                cuda_paths.append(env_cuda_path)
+
+            # 2. 程序文件中的NVIDIA GPU Computing Toolkit
+            program_files = [
+                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA',
+                r'C:\Program Files (x86)\NVIDIA GPU Computing Toolkit\CUDA'
+            ]
+
+            for base_path in program_files:
+                if os.path.exists(base_path):
+                    # 查找所有CUDA版本
+                    try:
+                        for item in os.listdir(base_path):
+                            if item.startswith('v') and os.path.isdir(os.path.join(base_path, item)):
+                                cuda_paths.append(os.path.join(base_path, item))
+                    except (PermissionError, OSError):
+                        continue
+
+            # 3. 查找系统PATH中的CUDA相关路径
+            system_path = os.environ.get('PATH', '').split(os.pathsep)
+            for path in system_path:
+                if 'cuda' in path.lower() and os.path.exists(path):
+                    # 获取CUDA的根目录
+                    cuda_root = path
+                    while 'bin' in os.path.basename(cuda_root).lower():
+                        cuda_root = os.path.dirname(cuda_root)
+                    if cuda_root not in cuda_paths:
+                        cuda_paths.append(cuda_root)
+
+            # 4. 使用nvidia-smi获取CUDA路径（如果可用）
+            try:
+                import subprocess
+                result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    # nvidia-smi可用，尝试通过其位置找到CUDA
+                    nvidia_smi_path = shutil.which('nvidia-smi')
+                    if nvidia_smi_path:
+                        # 通常nvidia-smi在CUDA的bin目录中
+                        cuda_root = os.path.dirname(os.path.dirname(nvidia_smi_path))
+                        if cuda_root not in cuda_paths:
+                            cuda_paths.append(cuda_root)
+            except (subprocess.TimeoutExpired, FileNotFoundError, ImportError):
+                pass
+
+            # 5. 去重并按版本排序（优先使用最新版本）
+            cuda_paths = list(set(cuda_paths))
+            cuda_paths.sort(key=self._get_cuda_version_key, reverse=True)
+
+            app_logger.log_model_loading_step(f"Found CUDA paths: {cuda_paths}")
+            return cuda_paths
+
+        except Exception as e:
+            app_logger.log_warning("Failed to dynamically find CUDA paths", {"error": str(e)})
+            # 降级到硬编码路径
+            return [
+                os.environ.get('CUDA_PATH'),
+                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9',
+                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8',
+                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.7',
+                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6',
+                r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.5'
+            ]
+
+    def _get_cuda_version_key(self, path: str) -> tuple:
+        """从CUDA路径提取版本号用于排序"""
+        try:
+            import re
+            # 提取版本号，如 "v12.8" -> (12, 8)
+            version_match = re.search(r'v(\d+)\.(\d+)', path)
+            if version_match:
+                major = int(version_match.group(1))
+                minor = int(version_match.group(2))
+                return (major, minor)
+            return (0, 0)  # 无法解析版本的排在最后
+        except:
+            return (0, 0)

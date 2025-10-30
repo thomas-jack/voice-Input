@@ -183,8 +183,15 @@ class BaseAIClient(IAIService):
             max_retries: 最大重试次数
             filter_thinking: 是否过滤 AI 思考标签 (<think>...</think>)
         """
-        self.api_key = api_key
+        # 安全存储API密钥
+        self._raw_api_key = api_key
+        self._secure_storage = None
+        self._init_secure_storage()
+
         self.session = requests.Session()
+
+        # 配置连接池
+        self._setup_connection_pool()
 
         # 请求配置
         self.timeout = timeout
@@ -200,8 +207,96 @@ class BaseAIClient(IAIService):
 
         app_logger.log_audio_event(f"{self.get_provider_name()} client initialized", {
             "has_api_key": bool(api_key),
+            "api_key_length": len(api_key) if api_key else 0,
+            "encryption_enabled": self._secure_storage.is_encryption_available() if self._secure_storage else False,
             "base_url": self.get_base_url()
         })
+
+    def _setup_connection_pool(self) -> None:
+        """配置连接池"""
+        try:
+            from requests.adapters import HTTPAdapter
+            from urllib3.util.retry import Retry
+
+            # 配置重试策略
+            retry_strategy = Retry(
+                total=0,  # 我们在应用层处理重试
+                backoff_factor=0,
+                status_forcelist=[429, 502, 503, 504],
+            )
+
+            # 创建适配器
+            adapter = HTTPAdapter(
+                pool_connections=10,  # 连接池数量
+                pool_maxsize=20,       # 每个连接池的最大连接数
+                max_retries=retry_strategy
+            )
+
+            # 应用到session
+            self.session.mount("http://", adapter)
+            self.session.mount("https://", adapter)
+
+            app_logger.log_audio_event("Connection pool configured successfully", {})
+
+        except Exception as e:
+            app_logger.log_error(e, "setup_connection_pool")
+            # 继续使用默认配置
+
+    def _init_secure_storage(self) -> None:
+        """初始化安全存储"""
+        try:
+            from ..utils.secure_storage import get_secure_storage
+            self._secure_storage = get_secure_storage()
+        except ImportError as e:
+            app_logger.log_warning("Secure storage not available, using plain text", {"error": str(e)})
+            self._secure_storage = None
+
+    def health_check(self) -> Dict[str, Any]:
+        """服务健康检查"""
+        try:
+            start_time = time.time()
+            # 尝试访问提供商的健康检查端点（如果有的话）
+            health_url = f"{self.get_base_url()}/health"
+
+            response = self.session.get(
+                health_url,
+                timeout=5,  # 短超时用于健康检查
+                headers=self.session.headers
+            )
+            response_time = time.time() - start_time
+
+            return {
+                "healthy": response.status_code == 200,
+                "response_time": response_time,
+                "status_code": response.status_code,
+                "provider": self.get_provider_name(),
+                "base_url": self.get_base_url()
+            }
+
+        except Exception as e:
+            return {
+                "healthy": False,
+                "error": str(e),
+                "response_time": 0,
+                "provider": self.get_provider_name(),
+                "base_url": self.get_base_url()
+            }
+
+    def _get_secure_api_key(self) -> str:
+        """获取安全的API密钥（用于日志和调试）"""
+        if not self._raw_api_key:
+            return ""
+
+        # 返回密钥的掩码版本用于日志
+        if len(self._raw_api_key) <= 8:
+            return "*" * len(self._raw_api_key)
+        else:
+            return self._raw_api_key[:4] + "*" * (len(self._raw_api_key) - 8) + self._raw_api_key[-4:]
+
+    @property
+    def api_key(self) -> str:
+        """获取API密钥（兼容性属性）"""
+        return self._raw_api_key
 
     def _update_headers(self) -> None:
         """更新 HTTP 请求头"""
@@ -299,21 +394,35 @@ class BaseAIClient(IAIService):
         completion_tokens = usage.get("completion_tokens", 0)
         total_tokens = usage.get("total_tokens", 0)
 
-        # 计算 TPS (Tokens Per Second)
-        if response_time > 0 and completion_tokens > 0:
-            self._last_tps = completion_tokens / response_time
+        # 改进的TPS计算 - 包含prompt和completion处理时间
+        if response_time > 0:
+            # 计算综合TPS（包含prompt + completion）
+            total_tokens_processed = prompt_tokens + completion_tokens
+            if total_tokens_processed > 0:
+                self._last_tps = total_tokens_processed / response_time
+            else:
+                self._last_tps = 0.0
+
+            # 分别计算prompt和completion的TPS
+            prompt_tps = prompt_tokens / response_time if prompt_tokens > 0 else 0.0
+            completion_tps = completion_tokens / response_time if completion_tokens > 0 else 0.0
         else:
             self._last_tps = 0.0
+            prompt_tps = 0.0
+            completion_tps = 0.0
 
         return {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
             "total_tokens": total_tokens,
-            "tps": self._last_tps
+            "tps": self._last_tps,
+            "prompt_tps": prompt_tps,
+            "completion_tps": completion_tps,
+            "response_time": response_time
         }
 
     def _handle_rate_limit(self, attempt: int, response_time: float) -> bool:
-        """处理速率限制
+        """处理速率限制 - 智能重试机制
 
         Args:
             attempt: 当前重试次数
@@ -327,11 +436,22 @@ class BaseAIClient(IAIService):
                                f"Rate limit (attempt {attempt + 1})")
 
         if attempt < self.max_retries - 1:
-            wait_time = self.retry_delay * (2 ** attempt)
+            # 智能等待时间：指数退避，但有最大限制
+            wait_time = min(self.retry_delay * (2 ** attempt), 60.0)  # 最大等待60秒
+
+            # 如果等待时间过长，提前放弃
+            if wait_time > 30.0:
+                app_logger.log_warning(f"Excessive wait time for {provider}, giving up", {
+                    "wait_time": wait_time,
+                    "attempt": attempt + 1
+                })
+                raise self._create_api_error(f"Excessive wait time for rate limit with {provider}")
+
             app_logger.log_audio_event(
                 f"{provider} rate limit, retrying {attempt + 2}/{self.max_retries}", {
                     "wait_time": wait_time,
-                    "status_code": 429
+                    "status_code": 429,
+                    "max_wait_allowed": 60.0
                 })
             time.sleep(wait_time)
             return True
@@ -339,7 +459,7 @@ class BaseAIClient(IAIService):
             raise self._create_api_error(f"Rate limit after all retries with {provider}")
 
     def _handle_timeout(self, attempt: int) -> bool:
-        """处理超时错误
+        """处理超时错误 - 增强超时处理
 
         Args:
             attempt: 当前重试次数
@@ -352,11 +472,14 @@ class BaseAIClient(IAIService):
         app_logger.log_api_call(provider, self.timeout, False, error_msg)
 
         if attempt < self.max_retries - 1:
-            wait_time = self.retry_delay * (2 ** attempt)
+            # 超时重试的等待时间相对较短
+            wait_time = min(self.retry_delay * (1.5 ** attempt), 10.0)  # 最大等待10秒
+
             app_logger.log_audio_event(
                 f"{provider} timeout, retrying {attempt + 2}/{self.max_retries}", {
                     "wait_time": wait_time,
-                    "error": "Request timeout"
+                    "error": "Request timeout",
+                    "timeout_setting": self.timeout
                 })
             time.sleep(wait_time)
             return True

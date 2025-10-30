@@ -30,6 +30,15 @@ from dataclasses import dataclass, field
 from contextlib import contextmanager
 
 
+def _safe_print(message: str, output_stream=sys.stdout) -> None:
+    """安全打印，处理Unicode编码错误"""
+    try:
+        print(message, file=output_stream, flush=True)
+    except UnicodeEncodeError:
+        safe_msg = message.encode('ascii', 'ignore').decode('ascii')
+        print(f"[ENCODING_WARNING] {safe_msg}", file=output_stream, flush=True)
+
+
 class LogLevel(Enum):
     """日志级别"""
     DEBUG = 10
@@ -330,7 +339,7 @@ class UnifiedLogger:
             if self._console_output_enabled and self._should_output_to_console(level, category):
                 console_msg = self._format_console_message(level, category, message, context)
                 output_stream = sys.stderr if level.value >= LogLevel.ERROR.value else sys.stdout
-                print(console_msg, file=output_stream, flush=True)
+                _safe_print(console_msg, output_stream)
 
             # 文件输出（全部）
             try:
@@ -503,6 +512,10 @@ class LegacyLoggerAdapter:
         self._logger.error(message, exception, category, context, component)
 
     def log_audio_event(self, event: str, details: Dict[str, Any] = None) -> None:
+        self._logger.audio(event, details)
+
+    def audio(self, event: str, details: Dict[str, Any] = None) -> None:
+        """记录音频事件"""
         self._logger.audio(event, details)
 
     def log_transcription(self, audio_length: float, text: str, confidence: float = None) -> None:

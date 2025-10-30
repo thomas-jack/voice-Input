@@ -44,7 +44,7 @@ class AudioRecorder(IAudioService):
             self._validate_configured_device()
     
     def _initialize_audio(self) -> None:
-        """初始化PyAudio"""
+        """初始化PyAudio with proper resource management"""
         try:
             self._audio = pyaudio.PyAudio()
             app_logger.log_audio_event("Audio system initialized", {
@@ -53,6 +53,13 @@ class AudioRecorder(IAudioService):
                 "chunk_size": self.chunk_size
             })
         except Exception as e:
+            # 确保PyAudio资源正确清理
+            if hasattr(self, '_audio') and self._audio is not None:
+                try:
+                    self._audio.terminate()
+                except:
+                    pass  # 忽略清理时的错误
+                self._audio = None
             raise AudioRecordingError(f"Failed to initialize audio system: {e}")
 
     def _validate_configured_device(self) -> None:
@@ -356,12 +363,13 @@ class AudioRecorder(IAudioService):
             return
 
         # 线程安全：读取并清空音频数据
+        chunk_audio = None
         with self._data_lock:
             if len(self._audio_data) > 0:
                 # 复制当前音频数据
                 chunk_audio = np.concatenate(self._audio_data, axis=0).flatten()
-                # 清空缓冲区，继续录音
-                self._audio_data = []
+                # 清空缓冲区，继续录音 - 使用clear()优化内存
+                self._audio_data.clear()
             else:
                 return
 
@@ -460,14 +468,31 @@ class AudioRecorder(IAudioService):
         return self._sample_rate if hasattr(self, '_sample_rate') else 16000
 
     def cleanup(self) -> None:
-        """清理资源"""
+        """清理资源 - enhanced resource management"""
         if self._recording:
             self.stop_recording()
-        
+
+        # 确保录音线程正确结束
+        if hasattr(self, '_record_thread') and self._record_thread:
+            try:
+                self._record_thread.join(timeout=2.0)  # 增加超时时间
+                if self._record_thread.is_alive():
+                    app_logger.log_warning("Recording thread did not terminate cleanly", {})
+            except Exception as e:
+                app_logger.log_error(e, "cleanup_thread_join")
+
+        # 清理PyAudio资源
         if self._audio:
             try:
                 self._audio.terminate()
+                app_logger.log_audio_event("PyAudio terminated successfully", {})
             except Exception as e:
-                app_logger.log_error(e, "cleanup")
+                app_logger.log_error(e, "cleanup_pyaudio_terminate")
             finally:
                 self._audio = None
+
+        # 清理音频数据缓冲区
+        with self._data_lock:
+            if hasattr(self, '_audio_data'):
+                self._audio_data.clear()
+                self._audio_data = []

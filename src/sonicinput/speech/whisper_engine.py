@@ -84,23 +84,27 @@ class WhisperEngine(ISpeechService):
         self.model = None
         self.gpu_manager = GPUManager()
 
-        # Determine device
-        # use_gpu: None (auto-detect), True (force GPU), False (force CPU)
-        if use_gpu is None:
-            # 自动检测：根据硬件可用性决定
-            self.use_gpu = self.gpu_manager.is_gpu_available()
-        else:
-            # 用户明确指定：尊重用户选择，但添加警告日志
-            if use_gpu and not self.gpu_manager.is_gpu_available():
-                app_logger.log_audio_event("Warning: GPU requested but hardware not available", {
-                    "requested_gpu": True,
-                    "hardware_available": False,
-                    "action": "forcing GPU mode (may fail at runtime)"
-                })
-            self.use_gpu = use_gpu
+        # 添加线程安全的状态检查
+        self._device_lock = threading.RLock()
 
-        self.device = "cuda" if self.use_gpu else "cpu"
-        self.compute_type = "float16" if self.use_gpu else "int8"
+        # Determine device - 线程安全检测
+        with self._device_lock:
+            # use_gpu: None (auto-detect), True (force GPU), False (force CPU)
+            if use_gpu is None:
+                # 自动检测：根据硬件可用性决定
+                self.use_gpu = self.gpu_manager.is_gpu_available()
+            else:
+                # 用户明确指定：尊重用户选择，但添加警告日志
+                if use_gpu and not self.gpu_manager.is_gpu_available():
+                    app_logger.log_audio_event("Warning: GPU requested but hardware not available", {
+                        "requested_gpu": True,
+                        "hardware_available": False,
+                        "action": "forcing GPU mode (may fail at runtime)"
+                    })
+                self.use_gpu = use_gpu
+
+            self.device = "cuda" if self.use_gpu else "cpu"
+            self.compute_type = "float16" if self.use_gpu else "int8"
 
         # Model status
         self._is_model_loaded = False
@@ -179,6 +183,9 @@ class WhisperEngine(ISpeechService):
             return True
 
         except Exception as e:
+            # Reset model loaded flag on failure
+            self._is_model_loaded = False
+            self.model = None
             error_msg = f"Failed to load model: {e}"
             app_logger.log_error(e, "load_model")
             raise WhisperLoadError(error_msg)
@@ -308,45 +315,55 @@ class WhisperEngine(ISpeechService):
     def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None,
                   temperature: float = 0.0) -> Dict[str, Any]:
         """Transcribe audio"""
+        import traceback
+        start_time = time.time()
+
+        # 模型状态检查
         if self.model is None:
             raise WhisperLoadError("Model not loaded. Call load_model() first.")
 
-        if len(audio_data) == 0:
+        # 音频数据有效性检查
+        if audio_data is None or len(audio_data) == 0:
             return {"text": "", "language": "unknown", "confidence": 0.0}
 
         try:
-            start_time = time.time()
+            transcription_start = time.time()
 
             # Prepare audio data
             if audio_data.dtype != np.float32:
                 audio_data = audio_data.astype(np.float32)
 
             # Ensure audio is in correct range
-            if np.max(np.abs(audio_data)) > 1.0:
-                audio_data = audio_data / np.max(np.abs(audio_data))
+            max_abs = np.max(np.abs(audio_data))
+            if max_abs > 1.0:
+                audio_data = audio_data / max_abs
 
             # Execute transcription
-            # faster-whisper returns (segments, info) tuple
-            segments, info = self.model.transcribe(
-                audio_data,
-                language=language if language != "auto" else None,
-                task="transcribe",
-                beam_size=1,
-                best_of=1,
-                patience=1.0,
-                length_penalty=1.0,
-                temperature=temperature,
-                compression_ratio_threshold=2.4,
-                log_prob_threshold=-1.0,
-                no_speech_threshold=0.6,
-                condition_on_previous_text=False,
-                initial_prompt=None,
-                vad_filter=False  # Disable VAD for consistency
-            )
+            try:
+                segments, info = self.model.transcribe(
+                    audio_data,
+                    language=language if language != "auto" else None,
+                    task="transcribe",
+                    beam_size=1,
+                    best_of=1,
+                    patience=1.0,
+                    length_penalty=1.0,
+                    temperature=temperature,
+                    compression_ratio_threshold=2.4,
+                    log_prob_threshold=-1.0,
+                    no_speech_threshold=0.6,
+                    condition_on_previous_text=False,
+                    initial_prompt=None,
+                    vad_filter=False
+                )
+            except Exception as transcribe_error:
+                # 直接抛出错误，保留完整堆栈信息
+                raise transcribe_error
 
             # Collect all segments
             segment_list = []
             text_parts = []
+
             for segment in segments:
                 segment_dict = {
                     "id": segment.id,
@@ -361,7 +378,7 @@ class WhisperEngine(ISpeechService):
 
             text = " ".join(text_parts).strip()
 
-            transcription_time = time.time() - start_time
+            transcription_time = time.time() - transcription_start
 
             # Extract info
             detected_language = info.language if hasattr(info, 'language') else "unknown"
@@ -369,15 +386,17 @@ class WhisperEngine(ISpeechService):
 
             # Calculate average confidence from segments
             if segment_list:
-                avg_confidence = np.mean([seg["avg_logprob"] for seg in segment_list])
-                # Convert log probability to 0-1 confidence
-                confidence = max(0.0, min(1.0, (avg_confidence + 1.0) / 2.0))
+                avg_logprob = np.mean([seg["avg_logprob"] for seg in segment_list])
+                confidence = max(0.0, min(1.0, (avg_logprob + 1.0) / 2.0))
             else:
-                confidence = 0.5  # Default confidence
+                confidence = 0.5
 
-            # Clean up GPU cache
+            # Clean up GPU cache (温和清理)
             if self.use_gpu:
-                self.gpu_manager.cleanup_after_inference()
+                try:
+                    self.gpu_manager.cleanup_after_inference()
+                except Exception:
+                    pass  # 清理失败不影响转录结果
 
             # Log transcription result
             app_logger.log_transcription(
@@ -404,9 +423,12 @@ class WhisperEngine(ISpeechService):
                 "transcription_time": transcription_time
             }
 
+        except WhisperLoadError:
+            raise
+
         except Exception as e:
             error_msg = f"Transcription failed: {e}"
-            app_logger.log_error(WhisperLoadError(error_msg), "transcribe")
+            app_logger.log_error(WhisperLoadError(error_msg), "whisper_transcribe")
             raise WhisperLoadError(error_msg)
 
     def transcribe_with_timestamps(self, audio_data: np.ndarray,
@@ -495,21 +517,36 @@ class WhisperEngine(ISpeechService):
             return {"language": "en", "confidence": 0.5, "all_probabilities": {}}
 
     def unload_model(self) -> None:
-        """Unload model and release memory"""
+        """Unload model and release memory - enhanced GPU memory cleanup"""
         if self.model is not None:
-            del self.model
-            self.model = None
+            try:
+                # 确保模型引用被清理
+                model_ref = self.model
+                self.model = None
+                del model_ref
 
-            # Clean GPU cache
-            if self.use_gpu:
-                self.gpu_manager.clear_cache()
+                # 强制Python垃圾回收
+                import gc
+                gc.collect()
 
-            self._is_model_loaded = False
-            self._load_time = None
+                # Clean GPU cache with enhanced cleanup
+                if self.use_gpu:
+                    self.gpu_manager.clear_cache()
 
-            app_logger.log_audio_event("Whisper model unloaded", {
-                "model_name": self.model_name
-            })
+                self._is_model_loaded = False
+                self._load_time = None
+
+                app_logger.log_audio_event("Whisper model unloaded successfully", {
+                    "model_name": self.model_name,
+                    "was_gpu": self.use_gpu
+                })
+
+            except Exception as e:
+                app_logger.log_error(e, "unload_model")
+                # 即使清理失败，也要重置状态
+                self.model = None
+                self._is_model_loaded = False
+                self._load_time = None
 
     @property
     def is_model_loaded(self) -> bool:
@@ -584,3 +621,48 @@ class WhisperEngine(ISpeechService):
         app_logger.log_audio_event("Performance benchmark completed", benchmark_results)
 
         return benchmark_results
+
+    def _validate_cuda_context(self) -> bool:
+        """验证CUDA上下文是否有效"""
+        if not self.use_gpu:
+            return True
+
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                return False
+
+            # 检查模型是否已经在这个线程中成功初始化
+            if self.model is not None and self._is_model_loaded:
+                # 如果模型已经加载且可使用，说明CUDA上下文在这个线程中是有效的
+                app_logger.debug("CUDA context validation: model already loaded and valid")
+                return True
+
+            # 尝试设置当前设备的CUDA上下文
+            device = torch.cuda.current_device()
+
+            # 如果没有CUDA上下文，尝试初始化一个
+            if not torch.cuda.current_stream().device():
+                torch.cuda.set_device(device)
+                app_logger.debug(f"Set CUDA device to {device}")
+
+            # 尝试一个简单的CUDA操作来验证上下文
+            test_tensor = torch.zeros(1, device=device)
+            result = test_tensor + 1
+            del test_tensor, result
+
+            app_logger.debug("CUDA context validation successful")
+            return True
+
+        except RuntimeError as cuda_error:
+            # 特殊处理CUDA相关的运行时错误
+            error_str = str(cuda_error).lower()
+            if "cuda" in error_str and ("context" in error_str or "device" in error_str):
+                app_logger.debug(f"CUDA context issue detected: {cuda_error}")
+                return False
+            else:
+                # 其他CUDA错误，重新抛出
+                raise cuda_error
+        except Exception as e:
+            app_logger.debug(f"CUDA context validation failed: {e}")
+            return False

@@ -12,17 +12,20 @@ from .recording_overlay_utils.position_manager import PositionManager
 
 
 class RecordingOverlay(QWidget):
-    """Recording Overlay Window with Qt-safe singleton pattern"""
+    """Recording Overlay Window with Thread-safe singleton pattern"""
 
-    # Qt-safe singleton implementation (no locks needed - Qt main thread only)
+    # Thread-safe singleton implementation
     _instance = None
     _initialized = False
+    _creation_lock = None  # Python threading lock for reliable thread safety
 
     # 信号 (移除stop_recording_requested，因为用ESC键代替)
 
     # 线程安全信号
     show_recording_requested = Signal()
     hide_recording_requested = Signal()
+    show_processing_requested = Signal()  # 显示处理状态
+    show_completed_requested = Signal(int)  # 显示完成状态（参数：延迟毫秒）
     set_status_requested = Signal(str)
     update_waveform_requested = Signal(object)
     update_audio_level_requested = Signal(float)  # 音频级别更新
@@ -31,16 +34,22 @@ class RecordingOverlay(QWidget):
     hide_recording_delayed_requested = Signal(int)  # 延迟隐藏（毫秒）
 
     def __new__(cls, parent=None):
-        """Qt-safe singleton pattern (main thread only, no lock needed)"""
-        if cls._instance is None:
-            try:
-                app_logger.log_audio_event("Creating new RecordingOverlay singleton instance", {})
-                cls._instance = super().__new__(cls)
-                app_logger.log_audio_event("RecordingOverlay singleton instance created successfully", {})
-            except Exception as e:
-                app_logger.log_error(e, "RecordingOverlay_singleton_creation")
-                # 即使创建失败，也不要让整个应用崩溃
-                cls._instance = super().__new__(cls)
+        """Thread-safe singleton pattern using Python threading"""
+        # 初始化线程锁（只在首次需要时创建）
+        if cls._creation_lock is None:
+            import threading
+            cls._creation_lock = threading.Lock()
+
+        with cls._creation_lock:
+            if cls._instance is None:
+                try:
+                    app_logger.log_audio_event("Creating new RecordingOverlay singleton instance", {})
+                    cls._instance = super().__new__(cls)
+                    app_logger.log_audio_event("RecordingOverlay singleton instance created successfully", {})
+                except Exception as e:
+                    app_logger.log_error(e, "RecordingOverlay_singleton_creation")
+                    # 即使创建失败，也不要让整个应用崩溃
+                    cls._instance = super().__new__(cls)
         return cls._instance
 
     def __init__(self, parent=None):
@@ -109,6 +118,12 @@ class RecordingOverlay(QWidget):
             self.update_timer = QTimer()
             self.update_timer.timeout.connect(self.update_recording_time)
 
+            # 延迟隐藏定时器（可取消，避免多个定时器冲突）
+            self.delayed_hide_timer = QTimer()
+            self.delayed_hide_timer.setSingleShot(True)
+            self.delayed_hide_timer.timeout.connect(self._hide_recording_impl)
+
+
             # 动画
             self.fade_animation = QPropertyAnimation(self, b"windowOpacity")
             self.fade_animation.setDuration(300)
@@ -143,6 +158,8 @@ class RecordingOverlay(QWidget):
             # 连接线程安全信号
             self.show_recording_requested.connect(self._show_recording_impl)
             self.hide_recording_requested.connect(self._hide_recording_impl)
+            self.show_processing_requested.connect(self._show_processing_impl)
+            self.show_completed_requested.connect(self._show_completed_impl)
             self.set_status_requested.connect(self._set_status_text_impl)
             self.update_waveform_requested.connect(self._update_waveform_impl)
             self.update_audio_level_requested.connect(self._update_audio_level_impl)
@@ -168,7 +185,8 @@ class RecordingOverlay(QWidget):
             # PySide6: disconnect() 不抛异常，而是发出 RuntimeWarning
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", RuntimeWarning)
-                timer.timeout.disconnect(target_method)
+                # 彻底断开所有连接
+                timer.timeout.disconnect()
         except (TypeError, RuntimeError):
             pass  # 如果没有连接则忽略（TypeError: signal未连接, RuntimeError: C++ object已删除）
 
@@ -293,13 +311,70 @@ class RecordingOverlay(QWidget):
                 "is_visible": self.isVisible() if hasattr(self, 'isVisible') else False
             })
 
-            # 首先隐藏窗口，避免在重置过程中出现闪烁
-            if self.isVisible():
-                self.hide()
-                app_logger.log_audio_event("Overlay hidden during reset", {})
+            # 改进：立即停止所有动画和定时器，避免竞态条件
+            self._force_stop_all_animations()
 
-            # 停止并彻底清理所有定时器
-            self._cleanup_all_timers()
+            # 短暂延迟让Qt事件循环处理
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(10, self._delayed_reset)
+
+        except Exception as e:
+            app_logger.log_error(e, "overlay_reset_for_reuse_initial")
+            # 如果重置失败，尝试强制重置到基本状态
+            try:
+                self.is_recording = False
+                self.current_status = "Ready"
+                if hasattr(self, 'isVisible') and self.isVisible():
+                    self.hide()
+            except (RuntimeError, AttributeError):
+                pass  # 忽略Qt对象已删除或属性不存在的错误
+
+    def _force_stop_all_animations(self) -> None:
+        """强制停止所有动画和定时器"""
+        try:
+            # 停止所有定时器
+            timers_to_stop = [
+                'update_timer', 'breathing_timer', 'delayed_hide_timer'
+            ]
+
+            for timer_name in timers_to_stop:
+                if hasattr(self, timer_name):
+                    timer = getattr(self, timer_name)
+                    if timer and hasattr(timer, 'isActive'):
+                        try:
+                            if timer.isActive():
+                                timer.stop()
+                            # 立即删除定时器对象
+                            timer.deleteLater()
+                            setattr(self, timer_name, None)
+                            app_logger.log_audio_event(f"Force stopped and deleted {timer_name}", {})
+                        except (RuntimeError, AttributeError):
+                            # 对象可能已被删除
+                            setattr(self, timer_name, None)
+
+            # 停止动画
+            if hasattr(self, 'status_animation') and self.status_animation:
+                try:
+                    if self.status_animation.state() == QPropertyAnimation.Running:
+                        self.status_animation.stop()
+                    self.status_animation.deleteLater()
+                    self.status_animation = None
+                    app_logger.log_audio_event("Force stopped status animation", {})
+                except (RuntimeError, AttributeError):
+                    self.status_animation = None
+
+        except Exception as e:
+            app_logger.log_error(e, "force_stop_all_animations")
+
+    def _delayed_reset(self) -> None:
+        """延迟重置，确保Qt事件循环处理完成"""
+        try:
+            app_logger.log_audio_event("Starting delayed overlay reset", {})
+
+            # 首先隐藏窗口，避免在重置过程中出现闪烁
+            if hasattr(self, 'isVisible') and self.isVisible():
+                self.hide()
+                app_logger.log_audio_event("Overlay hidden during delayed reset", {})
 
             # 重置所有状态变量
             self.is_recording = False
@@ -322,23 +397,23 @@ class RecordingOverlay(QWidget):
                 except Exception as e:
                     app_logger.log_error(e, "reset_audio_level_bars")
 
-            # 重新连接所有信号（确保信号连接正确）
+            # 重新连接所有信号
             self._reconnect_signals()
 
             # 重置窗口属性
             self._reset_window_properties()
 
-            app_logger.log_audio_event("Recording overlay reset for reuse completed", {
+            app_logger.log_audio_event("Recording overlay delayed reset completed", {
                 "singleton_id": id(self)
             })
 
         except Exception as e:
-            app_logger.log_error(e, "overlay_reset_for_reuse")
+            app_logger.log_error(e, "delayed_reset")
             # 如果重置失败，尝试强制重置到基本状态
             try:
                 self.is_recording = False
                 self.current_status = "Ready"
-                if self.isVisible():
+                if hasattr(self, 'isVisible') and self.isVisible():
                     self.hide()
             except (RuntimeError, AttributeError):
                 pass  # 忽略Qt对象已删除或属性不存在的错误
@@ -349,6 +424,7 @@ class RecordingOverlay(QWidget):
             timers_to_cleanup = [
                 ('update_timer', 'update_recording_time'),
                 ('breathing_timer', 'update_breathing'),
+                ('delayed_hide_timer', '_hide_recording_impl'),
                 ('status_animation', None)  # QPropertyAnimation
             ]
 
@@ -382,6 +458,8 @@ class RecordingOverlay(QWidget):
             signal_connections = [
                 (self.show_recording_requested, self._show_recording_impl),
                 (self.hide_recording_requested, self._hide_recording_impl),
+                (self.show_processing_requested, self._show_processing_impl),
+                (self.show_completed_requested, self._show_completed_impl),
                 (self.set_status_requested, self._set_status_text_impl),
                 (self.update_waveform_requested, self._update_waveform_impl),
                 (self.update_audio_level_requested, self._update_audio_level_impl),
@@ -610,21 +688,34 @@ class RecordingOverlay(QWidget):
         self.hide_recording_requested.emit()
 
     def show_completed(self, delay_ms: int = 500) -> None:
-        """显示完成状态，然后延迟隐藏
+        """显示完成状态，然后延迟隐藏 - Thread-safe public interface
 
         Args:
             delay_ms: 延迟隐藏的毫秒数，默认500ms（0.5秒）
         """
+        self.show_completed_requested.emit(delay_ms)
+
+    def _show_completed_impl(self, delay_ms: int) -> None:
+        """显示完成状态的内部实现 - Internal implementation (Qt main thread only)"""
         try:
             # 切换到完成状态（绿色）
             self.status_indicator.set_state(StatusIndicator.STATE_COMPLETED)
-            # 延迟隐藏
-            QTimer.singleShot(delay_ms, self._hide_recording_impl)
+
+            # 取消旧的延迟隐藏定时器（避免多个定时器冲突）
+            if self.delayed_hide_timer.isActive():
+                self.delayed_hide_timer.stop()
+
+            # 启动新的延迟隐藏定时器
+            self.delayed_hide_timer.start(delay_ms)
         except Exception as e:
-            app_logger.log_error(e, "show_completed")
+            app_logger.log_error(e, "_show_completed_impl")
 
     def show_processing(self) -> None:
-        """显示AI处理状态（黄色）"""
+        """显示AI处理状态（黄色）- Thread-safe public interface"""
+        self.show_processing_requested.emit()
+
+    def _show_processing_impl(self) -> None:
+        """显示AI处理状态的内部实现 - Internal implementation (Qt main thread only)"""
         try:
             # 设置处理状态（黄色）
             self.status_indicator.set_state(StatusIndicator.STATE_PROCESSING)
@@ -634,18 +725,20 @@ class RecordingOverlay(QWidget):
             if hasattr(self, 'update_timer'):
                 self._safe_timer_stop(self.update_timer, self.update_recording_time, "recording_timer_processing")
 
-            # 添加超时自动隐藏（5秒后），防止转录/AI/输入失败时悬浮窗永久显示
-            # 如果处理成功，show_completed() 会在 500ms 时提前触发隐藏
-            self.hide_recording_delayed_requested.emit(5000)
+            # 启动延迟隐藏定时器（2秒后），防止转录/AI/输入失败时悬浮窗永久显示
+            # 如果处理成功，show_completed() 会在 500ms 时提前触发隐藏并取消这个定时器
+            if self.delayed_hide_timer.isActive():
+                self.delayed_hide_timer.stop()
+
+            self.delayed_hide_timer.start(2000)
         except Exception as e:
-            app_logger.log_error(e, "show_processing")
+            app_logger.log_error(e, "_show_processing_impl")
 
     def _hide_recording_impl(self) -> None:
         """Hide recording status - Internal implementation (Qt main thread only)"""
         # 检查窗口是否真的可见，而不是检查 is_recording 状态
         if not self.isVisible():
             # 窗口已经隐藏，无需重复操作
-            app_logger.log_audio_event("Hide skipped: overlay already hidden", {})
             return
 
         self.is_recording = False
@@ -714,8 +807,16 @@ class RecordingOverlay(QWidget):
         self.hide_recording_delayed_requested.emit(delay_ms)
 
     def _hide_recording_delayed_impl(self, delay_ms: int) -> None:
-        """延迟隐藏录音状态 - Internal implementation"""
-        QTimer.singleShot(delay_ms, self._hide_recording_impl)
+        """延迟隐藏录音状态 - Internal implementation (via signal)"""
+        try:
+            # 取消旧的延迟隐藏定时器（避免多个定时器冲突）
+            if self.delayed_hide_timer.isActive():
+                self.delayed_hide_timer.stop()
+
+            # 启动新的延迟隐藏定时器
+            self.delayed_hide_timer.start(delay_ms)
+        except Exception as e:
+            app_logger.log_error(e, "_hide_recording_delayed_impl")
 
     def update_waveform(self, audio_data) -> None:
         """Update waveform display - Thread-safe public interface"""
@@ -1219,42 +1320,59 @@ class RecordingOverlay(QWidget):
             self.update()  # 重绘界面
 
     def paintEvent(self, event):
-        """重写绘制事件以添加呼吸发光效果"""
+        """重写绘制事件（已禁用呼吸发光效果）"""
         super().paintEvent(event)
-
-        # 如果正在处理，绘制呼吸发光效果
-        if self.is_processing:
-            from PySide6.QtGui import QPainter, QBrush, QColor, QRadialGradient
-            import math
-
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-            # 计算呼吸效果的透明度
-            breathing_intensity = (math.sin(self.breathing_phase) + 1) / 2  # 0 到 1
-            # 确保透明度在有效范围内 (0-255)
-            alpha = max(0, min(255, int(30 + 50 * breathing_intensity)))  # 透明度在30-80之间
-
-            # 创建径向渐变效果 - 使用安全的颜色值
-            gradient = QRadialGradient(self.width() / 2, self.height() / 2, min(self.width(), self.height()) / 2)
-
-            # 确保所有RGB和Alpha值都在有效范围 (0-255)
-            center_color = QColor(max(0, min(255, 76)), max(0, min(255, 175)), max(0, min(255, 80)), alpha)
-            gradient.setColorAt(0, center_color)  # 中心亮绿色
-
-            # 修复除法稳定性：确保边缘透明度不为零且在有效范围内
-            edge_alpha = max(1, min(255, alpha // 3))  # 边缘淡绿色，确保至少为1
-            edge_color = QColor(max(0, min(255, 76)), max(0, min(255, 175)), max(0, min(255, 80)), edge_alpha)
-            gradient.setColorAt(0.7, edge_color)
-            gradient.setColorAt(1, QColor(76, 175, 80, 0))  # 完全透明
-
-            # 绘制呼吸发光效果
-            painter.setBrush(QBrush(gradient))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRect(self.rect())
-
-            # 确保正确关闭画家
-            painter.end()
+        # 绿色呼吸光晕效果已被移除，保持界面简洁
 
     # Position management methods delegated to PositionManager
     # See recording_overlay_utils/position_manager.py for implementation
+
+    def cleanup_resources(self) -> None:
+        """清理UI资源 - 防止内存泄漏"""
+        try:
+            # 停止所有定时器
+            timers = [
+                ('update_timer', self.update_timer),
+                ('breathing_timer', self.breathing_timer),
+                ('delayed_hide_timer', self.delayed_hide_timer)
+            ]
+
+            for timer_name, timer in timers:
+                if hasattr(self, timer_name) and timer:
+                    if timer.isActive():
+                        timer.stop()
+
+                    # 彻底断开信号连接
+                    import warnings
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", RuntimeWarning)
+                        timer.timeout.disconnect()
+
+                    # 标记为删除
+                    timer.deleteLater()
+                    setattr(self, timer_name, None)
+
+            # 清理图形效果
+            if hasattr(self, 'background_frame') and self.background_frame:
+                graphics_effect = self.background_frame.graphicsEffect()
+                if graphics_effect:
+                    graphics_effect.deleteLater()
+                    self.background_frame.setGraphicsEffect(None)
+
+            # 清理音频级别条
+            if hasattr(self, 'audio_level_bars'):
+                for bar in self.audio_level_bars:
+                    if bar:
+                        bar.deleteLater()
+                self.audio_level_bars.clear()
+
+            # 断开所有信号连接
+            try:
+                self.disconnect()
+            except:
+                pass
+
+            app_logger.log_audio_event("RecordingOverlay resources cleaned up successfully", {})
+
+        except Exception as e:
+            app_logger.log_error(e, "RecordingOverlay_cleanup_resources")

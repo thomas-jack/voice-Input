@@ -1,7 +1,7 @@
 """主窗口组件 - 最小化GUI实现"""
 
-from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QSystemTrayIcon, QProgressDialog, QMessageBox)
-from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QSystemTrayIcon, QProgressDialog, QMessageBox, QApplication)
+from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from typing import Optional, Dict, Any
 from ..core.voice_input_app import VoiceInputApp
 from ..core.services.event_bus import Events
@@ -160,7 +160,7 @@ class MainWindow(QMainWindow):
         events.on(Events.RECORDING_STARTED, self._on_recording_started)
         events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
 
-    def _on_recording_started(self) -> None:
+    def _on_recording_started(self, data: Any = None) -> None:
         """录音开始事件"""
         self.recording_button.setText("Stop Recording")
         self.status_label.setText("Recording...")
@@ -222,7 +222,6 @@ class MainWindow(QMainWindow):
                 progress.show()
 
                 # 强制刷新UI
-                from PySide6.QtWidgets import QApplication
                 QApplication.processEvents()
 
                 try:
@@ -251,7 +250,6 @@ class MainWindow(QMainWindow):
 
                 # Always refresh status after load attempt
                 if hasattr(self, '_settings_window') and self._settings_window:
-                    from PySide6.QtCore import QTimer
                     QTimer.singleShot(100, self._settings_window.refresh_model_status)
 
         except Exception as e:

@@ -71,16 +71,19 @@ def mock_audio():
 @pytest.fixture
 def app_with_mocks(mock_whisper, mock_ai, mock_input, mock_audio):
     """创建带 Mock 的完整应用"""
-    container = DIContainer()
+    from sonicinput.core.di_container_enhanced import create_container
 
-    # 注入 Mock 服务（覆盖真实服务）
-    container._singletons[ISpeechService] = mock_whisper
-    container._singletons[IInputService] = mock_input
-    container._singletons[IAudioService] = mock_audio
+    # 创建完整的容器
+    container = create_container()
+
+    # 覆盖关键服务为 Mock（使用新的API）
+    container.register_singleton(ISpeechService, factory=lambda: mock_whisper)
+    container.register_singleton(IInputService, factory=lambda: mock_input)
+    container.register_singleton(IAudioService, factory=lambda: mock_audio)
 
     # 注入 Mock AI（需要找到正确的接口）
     from sonicinput.ai.groq import GroqClient
-    container._factories[GroqClient] = lambda: mock_ai
+    container.register_singleton(GroqClient, factory=lambda: mock_ai)
 
     app = VoiceInputApp(container)
     app.initialize_with_validation()

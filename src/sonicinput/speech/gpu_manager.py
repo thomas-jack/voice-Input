@@ -193,13 +193,28 @@ class GPUManager:
             return {}
 
     def clear_cache(self) -> None:
-        """Clear GPU cache (Python garbage collection only)"""
-        try:
-            gc.collect()
+        """温和地清理GPU内存缓存
 
+        注意：使用 torch.cuda.empty_cache() 只清理未使用的缓存，
+        不会破坏 CUDA context 或影响正在使用的模型。
+        """
+        try:
+            gc.collect()  # Python垃圾回收
+
+            # 使用 PyTorch 的温和清理方式
             if self.is_gpu_available():
-                memory_usage = self.get_memory_usage()
-                app_logger.log_gpu_info(True, memory_usage)
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        # empty_cache() 只释放缓存中未使用的内存
+                        # 不会影响正在使用的模型或破坏 CUDA context
+                        torch.cuda.empty_cache()
+
+                        memory_usage = self.get_memory_usage()
+                        app_logger.debug(f"GPU cache cleared gently, current usage: {memory_usage}")
+
+                except Exception as torch_error:
+                    app_logger.debug(f"torch.cuda.empty_cache() failed, continuing: {torch_error}")
 
         except Exception as e:
             app_logger.log_error(e, "clear_cache")

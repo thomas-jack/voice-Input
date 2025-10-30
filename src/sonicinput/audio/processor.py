@@ -20,21 +20,73 @@ class AudioProcessor:
             # 计算重采样比例
             resample_ratio = 16000 / original_rate
             new_length = int(len(audio_data) * resample_ratio)
-            
-            # 使用scipy的resample函数
-            resampled = signal.resample(audio_data, new_length)
-            
-            app_logger.log_audio_event("Audio resampled", {
-                "original_rate": original_rate,
-                "target_rate": 16000,
-                "original_length": len(audio_data),
-                "new_length": len(resampled)
-            })
+
+            # 性能优化：使用更高效的重采样方法
+            if abs(resample_ratio - 1.0) < 0.01:  # 如果采样率差异很小，跳过重采样
+                app_logger.log_audio_event("Audio resampling skipped (rate too similar)", {
+                    "original_rate": original_rate,
+                    "target_rate": 16000,
+                    "ratio_diff": abs(resample_ratio - 1.0)
+                })
+                return audio_data.astype(np.float32)
+
+            # 使用scipy的高质量重采样，但增加内存效率优化
+            try:
+                # 对于大型音频，分块处理以减少内存使用
+                if len(audio_data) > 480000:  # 30秒以上音频分块处理
+                    resampled = self._resample_large_audio(audio_data, original_rate, 16000)
+                else:
+                    # 小音频直接处理
+                    resampled = signal.resample(audio_data, new_length)
+
+                app_logger.log_audio_event("Audio resampled efficiently", {
+                    "original_rate": original_rate,
+                    "target_rate": 16000,
+                    "original_length": len(audio_data),
+                    "new_length": len(resampled),
+                    "method": "chunked" if len(audio_data) > 480000 else "direct"
+                })
+            except MemoryError:
+                # 内存不足时，使用更简单的方法
+                app_logger.log_warning("Memory insufficient for high-quality resampling, using simple method", {})
+                resampled = signal.resample_poly(audio_data, 16000, original_rate)
             
             return resampled.astype(np.float32)
             
         except Exception as e:
             raise AudioRecordingError(f"Failed to resample audio: {e}")
+
+    def _resample_large_audio(self, audio_data: np.ndarray, original_rate: int, target_rate: int,
+                             chunk_size: int = 240000) -> np.ndarray:
+        """分块重采样大型音频，减少内存使用
+
+        Args:
+            audio_data: 原始音频数据
+            original_rate: 原始采样率
+            target_rate: 目标采样率
+            chunk_size: 每块的样本数（默认15秒）
+
+        Returns:
+            重采样后的音频数据
+        """
+        from scipy import signal
+
+        resampled_chunks = []
+        resample_ratio = target_rate / original_rate
+
+        for i in range(0, len(audio_data), chunk_size):
+            chunk = audio_data[i:i + chunk_size]
+            chunk_target_length = int(len(chunk) * resample_ratio)
+
+            # 重采样当前块
+            resampled_chunk = signal.resample(chunk, chunk_target_length)
+            resampled_chunks.append(resampled_chunk)
+
+            # 释放内存
+            del chunk, resampled_chunk
+
+        # 连接所有重采样后的块
+        return np.concatenate(resampled_chunks, axis=0)
     
     def normalize_audio(self, audio_data: np.ndarray, target_level: float = 0.8) -> np.ndarray:
         """音频标准化"""

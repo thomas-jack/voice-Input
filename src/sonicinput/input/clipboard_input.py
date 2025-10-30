@@ -4,6 +4,7 @@ import pyperclip
 import time
 import win32api
 import win32con
+import ctypes
 from typing import Optional
 from ..utils import TextInputError, app_logger
 
@@ -18,18 +19,25 @@ class ClipboardInput:
         app_logger.log_audio_event("Clipboard input initialized", {})
     
     def backup_clipboard(self) -> str:
-        """备份当前剪贴板内容"""
+        """备份当前剪贴板内容 - 增强UAC处理"""
         try:
+            # 检查UAC提升状态
+            if not self._check_clipboard_access_level():
+                app_logger.log_warning("Running without elevation - clipboard access limited", {})
+                # 尝试降级策略
+                return self._fallback_clipboard_backup()
+
             content = pyperclip.paste()
             self.original_clipboard = content
-            
+
             app_logger.log_audio_event("Clipboard backed up", {
                 "content_length": len(content),
-                "has_content": bool(content)
+                "has_content": bool(content),
+                "elevated": self._is_elevated()
             })
-            
+
             return content
-            
+
         except Exception as e:
             app_logger.log_error(e, "backup_clipboard")
             self.original_clipboard = ""
@@ -161,3 +169,68 @@ class ClipboardInput:
         except Exception as e:
             app_logger.log_error(e, "get_clipboard_content")
             return ""
+
+    def _is_elevated(self) -> bool:
+        """检查当前进程是否以管理员权限运行"""
+        try:
+            return ctypes.windll.shell32.IsUserAnAdmin()
+        except:
+            return False
+
+    def _check_clipboard_access_level(self) -> bool:
+        """检查剪贴板访问权限级别"""
+        try:
+            # 尝试简单的剪贴板访问测试
+            test_content = "SonicInput_test_" + str(int(time.time()))
+            pyperclip.copy(test_content)
+            retrieved = pyperclip.paste()
+
+            # 清理测试内容
+            try:
+                pyperclip.copy("")  # 清空剪贴板
+            except:
+                pass
+
+            return retrieved == test_content
+        except Exception as e:
+            app_logger.log_warning("Clipboard access check failed", {"error": str(e)})
+            return False
+
+    def _fallback_clipboard_backup(self) -> str:
+        """降级剪贴板备份策略"""
+        try:
+            # 尝试只读取而不修改剪贴板
+            content = pyperclip.paste()
+            if content:
+                app_logger.log_audio_event("Fallback clipboard backup succeeded", {
+                    "content_length": len(content),
+                    "method": "read_only"
+                })
+                return content
+            else:
+                app_logger.log_warning("Fallback clipboard backup failed - empty content", {})
+                return ""
+        except Exception as e:
+            app_logger.log_error(e, "fallback_clipboard_backup")
+            return ""
+
+    def test_clipboard_access(self) -> bool:
+        """增强的剪贴板访问测试"""
+        # 基础访问测试
+        basic_test = self._check_clipboard_access_level()
+        if not basic_test:
+            return False
+
+        # 测试Unicode内容支持
+        try:
+            unicode_test = "测试🎵voice input"  # 包含中文和emoji
+            pyperclip.copy(unicode_test)
+            result = pyperclip.paste()
+
+            # 清理
+            pyperclip.copy("")
+
+            return result == unicode_test
+        except Exception as e:
+            app_logger.log_warning("Unicode clipboard test failed", {"error": str(e)})
+            return basic_test  # 至少基础测试通过
