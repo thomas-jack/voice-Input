@@ -126,15 +126,23 @@ except ImportError as e:
 # Global references for cleanup in signal handler
 _app_instance = None
 _container_instance = None
+_qt_app_instance = None
 
 
 def handle_shutdown(signum, frame):
     """Handle shutdown signals gracefully with proper cleanup"""
     print("\n[SHUTDOWN] Received shutdown signal, cleaning up...")
 
-    global _app_instance, _container_instance
+    global _app_instance, _container_instance, _qt_app_instance
 
     try:
+        # If Qt app is running, use Qt's quit mechanism
+        if _qt_app_instance:
+            print("[SHUTDOWN] Requesting Qt application quit...")
+            _qt_app_instance.quit()
+            return  # Qt cleanup will handle the rest
+
+        # Otherwise, handle cleanup directly (for test mode)
         # Clean up voice app
         if _app_instance:
             print("[SHUTDOWN] Stopping voice input app...")
@@ -564,9 +572,10 @@ def run_gui():
         voice_app.initialize_with_validation()
 
         # Save global references for signal handler
-        global _app_instance, _container_instance
+        global _app_instance, _container_instance, _qt_app_instance
         _app_instance = voice_app
         _container_instance = container
+        _qt_app_instance = qt_app
 
         # Create main window and keep reference to prevent garbage collection
         main_window = MainWindow()
@@ -647,7 +656,32 @@ def run_gui():
         print(f"[RUNNING] Voice Input Software is running! (Startup: {startup_duration:.2f}s)")
         hotkey = config.get_setting("hotkey", "ctrl+shift+v")
         print(f"[HOTKEY] Press {hotkey} to start voice recording")
-        
+
+        # Set up signal handling timer for GUI mode
+        # Qt event loop blocks signal handlers, so we need to periodically check
+        def check_for_interrupt():
+            """Check if we should exit (called periodically by QTimer)"""
+            # This allows Python signal handlers to be processed
+            pass
+
+        signal_timer = QTimer()
+        signal_timer.timeout.connect(check_for_interrupt)
+        signal_timer.start(100)  # Check every 100ms
+
+        # Connect Qt's aboutToQuit signal for proper cleanup
+        def on_about_to_quit():
+            """Handle Qt application quit signal"""
+            print("\n[CLEANUP] Qt application quitting...")
+            signal_timer.stop()
+
+            # Clear global references
+            global _app_instance, _container_instance, _qt_app_instance
+            _app_instance = None
+            _container_instance = None
+            _qt_app_instance = None
+
+        qt_app.aboutToQuit.connect(on_about_to_quit)
+
         # Run Qt event loop
         exit_code = qt_app.exec()
 
