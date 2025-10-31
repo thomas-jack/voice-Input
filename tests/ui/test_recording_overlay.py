@@ -8,9 +8,14 @@
 - 动画系统测试
 - 定时器管理测试
 - 信号系统测试
+
+注意：这些测试需要GUI环境，使用 pytest -m gui 运行
 """
 
 import pytest
+
+# 标记整个测试模块为需要GUI
+pytestmark = pytest.mark.gui
 import math
 from unittest.mock import Mock, patch, MagicMock
 from PySide6.QtWidgets import QApplication

@@ -6,9 +6,14 @@
 3. 录音过程中的状态变化
 4. 音频数据是否正常采集
 5. 事件总线通信是否正常
+
+注意：这些测试需要GUI环境，使用 pytest -m gui 运行
 """
 
 import pytest
+
+# 标记整个测试类为需要GUI
+pytestmark = pytest.mark.gui
 import time
 import threading
 from unittest.mock import MagicMock, patch

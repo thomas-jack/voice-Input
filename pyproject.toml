@@ -56,4 +56,7 @@ sonicinput = "sonicinput.main:main"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests that require GPU/CUDA support",
+    "gui: marks tests that require GUI/Qt environment (use '-m \"not gui\"' to skip)",
 ]
+# 默认不运行GUI测试（除非明确指定）
+addopts = "-v"

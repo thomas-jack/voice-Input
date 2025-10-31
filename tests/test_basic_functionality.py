@@ -176,8 +176,9 @@ def test_state_management():
         assert False
 
 
+@pytest.mark.gui
 def test_recording_overlay_creation():
-    """测试录音悬浮窗创建"""
+    """测试录音悬浮窗创建（需要GUI环境）"""
     try:
         # 模拟Qt应用环境
         import sys
