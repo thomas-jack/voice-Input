@@ -1376,3 +1376,33 @@ class RecordingOverlay(QWidget):
 
         except Exception as e:
             app_logger.log_error(e, "RecordingOverlay_cleanup_resources")
+
+    def cleanup(self) -> None:
+        """清理所有资源 - 优雅关闭入口"""
+        try:
+            app_logger.log_audio_event("RecordingOverlay cleanup started", {})
+
+            # 1. 停止所有定时器
+            self._cleanup_all_timers()
+
+            # 2. 停止所有动画
+            if hasattr(self, 'fade_animation') and self.fade_animation:
+                self.fade_animation.stop()
+
+            # 3. 隐藏窗口
+            if self.isVisible():
+                self.hide()
+
+            app_logger.log_audio_event("RecordingOverlay cleanup completed", {})
+
+        except Exception as e:
+            app_logger.log_error(e, "recording_overlay_cleanup")
+
+    def close(self) -> bool:
+        """重写close方法，确保清理"""
+        try:
+            self.cleanup()
+            return super().close()
+        except Exception as e:
+            app_logger.log_error(e, "recording_overlay_close")
+            return False

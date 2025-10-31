@@ -123,11 +123,45 @@ except ImportError as e:
     app_logger = None
     LogCategory = None
 
+# Global references for cleanup in signal handler
+_app_instance = None
+_container_instance = None
+
 
 def handle_shutdown(signum, frame):
-    """Handle shutdown signals gracefully"""
-    print("\nShutting down Voice Input Software...")
-    sys.exit(0)
+    """Handle shutdown signals gracefully with proper cleanup"""
+    print("\n[SHUTDOWN] Received shutdown signal, cleaning up...")
+
+    global _app_instance, _container_instance
+
+    try:
+        # Clean up voice app
+        if _app_instance:
+            print("[SHUTDOWN] Stopping voice input app...")
+            try:
+                _app_instance.shutdown()
+                print("[SHUTDOWN] Voice app stopped successfully")
+            except Exception as e:
+                print(f"[SHUTDOWN] Warning during app shutdown: {e}")
+
+        # Clean up container
+        if _container_instance:
+            print("[SHUTDOWN] Cleaning up dependency container...")
+            try:
+                _container_instance.cleanup()
+                print("[SHUTDOWN] Container cleaned up successfully")
+            except Exception as e:
+                print(f"[SHUTDOWN] Warning during container cleanup: {e}")
+
+        print("[SHUTDOWN] Cleanup completed, exiting...")
+
+    except Exception as e:
+        print(f"[SHUTDOWN] Error during cleanup: {e}")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        sys.exit(0)
 
 
 def run_tests():
@@ -137,6 +171,11 @@ def run_tests():
     Automatically loads the model if not already loaded.
     """
     print("Running application tests...")
+
+    # Store references for cleanup
+    global _app_instance, _container_instance
+    container = None
+    app = None
 
     try:
         # Test core imports
@@ -149,6 +188,11 @@ def run_tests():
         from sonicinput.core.di_container_enhanced import create_container
         container = create_container()
         app = VoiceInputApp(container)
+
+        # Save to global for signal handler
+        _container_instance = container
+        _app_instance = app
+
         print("SUCCESS: Core application components loaded")
 
         # Test GPU availability
@@ -214,6 +258,31 @@ def run_tests():
         import traceback
         traceback.print_exc()
         sys.exit(1)
+
+    finally:
+        # Clean up test resources
+        print("\n[CLEANUP] Cleaning up test resources...")
+        try:
+            if app:
+                print("[CLEANUP] Shutting down voice app...")
+                app.shutdown()
+                print("[CLEANUP] Voice app shutdown completed")
+
+            if container:
+                print("[CLEANUP] Cleaning up container...")
+                container.cleanup()
+                print("[CLEANUP] Container cleanup completed")
+
+            # Clear global references
+            _app_instance = None
+            _container_instance = None
+
+            print("[CLEANUP] Test cleanup completed successfully")
+
+        except Exception as cleanup_error:
+            print(f"[CLEANUP] Warning during cleanup: {cleanup_error}")
+            import traceback
+            traceback.print_exc()
 
 
 def run_model_test(container, auto_load_model=False):
@@ -493,6 +562,11 @@ def run_gui():
         qt_app.setQuitOnLastWindowClosed(False)  # System tray app
         voice_app = VoiceInputApp(container)
         voice_app.initialize_with_validation()
+
+        # Save global references for signal handler
+        global _app_instance, _container_instance
+        _app_instance = voice_app
+        _container_instance = container
 
         # Create main window and keep reference to prevent garbage collection
         main_window = MainWindow()

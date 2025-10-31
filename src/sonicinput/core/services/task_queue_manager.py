@@ -470,22 +470,23 @@ class TaskQueueManager:
             finally:
                 completed_event.set()
 
-        # 启动执行线程
-        thread = threading.Thread(target=target)
+        # 启动执行线程 - 设置daemon标志防止阻止进程退出
+        thread = threading.Thread(target=target, daemon=True)
         thread.start()
 
         # 等待完成或超时
         if completed_event.wait(timeout=timeout):
-            thread.join(timeout=1.0)  # 等待线程结束
+            thread.join(timeout=5.0)  # 增加join超时时间到5秒
 
             if 'exception' in exception_container:
                 raise exception_container['exception']
 
-            return result_container['result']
+            return result_container.get('result')
         else:
-            # 超时处理
-            app_logger.log_error(TimeoutError(f"Task execution timed out after {timeout}s"), "task_timeout")
-            raise TimeoutError(f"Task execution timed out after {timeout}s")
+            # 超时处理 - daemon线程会自动清理，不会阻止进程退出
+            error_msg = f"Task execution timed out after {timeout}s"
+            app_logger.log_error(TimeoutError(error_msg), "task_timeout")
+            raise TimeoutError(error_msg)
 
     def _update_execution_time_stats(self, task: Task) -> None:
         """更新执行时间统计
