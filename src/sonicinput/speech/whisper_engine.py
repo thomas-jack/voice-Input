@@ -227,7 +227,7 @@ class WhisperEngine(ISpeechService):
                         "thread_id": current_thread_id
                     })
 
-            # Step 3: Load model
+            # Step 3: Load model (with fallback strategy)
             app_logger.log_model_loading_step("Loading faster-whisper model", {
                 "model_name": self.model_name,
                 "device": self.device,
@@ -235,14 +235,43 @@ class WhisperEngine(ISpeechService):
                 "thread_id": current_thread_id
             })
 
-            model = WhisperModel(
-                self.model_name,
-                device=self.device,
-                compute_type=self.compute_type,
-                num_workers=self.model_config["num_workers"],
-                cpu_threads=self.model_config["cpu_threads"],
-                download_root=self.model_config["download_root"]
-            )
+            # Try local-first approach to avoid unnecessary network requests
+            model = None
+            try:
+                # First attempt: Try loading from local cache only
+                app_logger.log_model_loading_step("Attempting to load from local cache", {
+                    "model_name": self.model_name
+                })
+                model = WhisperModel(
+                    self.model_name,
+                    device=self.device,
+                    compute_type=self.compute_type,
+                    num_workers=self.model_config["num_workers"],
+                    cpu_threads=self.model_config["cpu_threads"],
+                    download_root=self.model_config["download_root"],
+                    local_files_only=True  # Priority: use local cache first
+                )
+                app_logger.log_model_loading_step("Model loaded from local cache", {
+                    "model_name": self.model_name
+                })
+            except (OSError, ValueError) as local_error:
+                # Local cache not available, try downloading
+                app_logger.log_model_loading_step("Local cache not found, downloading model", {
+                    "model_name": self.model_name,
+                    "local_error": str(local_error)
+                })
+                model = WhisperModel(
+                    self.model_name,
+                    device=self.device,
+                    compute_type=self.compute_type,
+                    num_workers=self.model_config["num_workers"],
+                    cpu_threads=self.model_config["cpu_threads"],
+                    download_root=self.model_config["download_root"],
+                    local_files_only=False  # Allow network download
+                )
+                app_logger.log_model_loading_step("Model downloaded successfully", {
+                    "model_name": self.model_name
+                })
 
             load_time = time.time() - start_time
             self._load_time = load_time
