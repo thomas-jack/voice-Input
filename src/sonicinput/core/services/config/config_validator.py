@@ -1,0 +1,166 @@
+"""配置验证服务 - 单一职责：配置验证和修复"""
+
+from typing import Dict, Any
+from datetime import datetime
+
+from ....utils import app_logger
+
+
+class ConfigValidator:
+    """配置验证器 - 只负责验证配置"""
+
+    def __init__(self):
+        """初始化配置验证器"""
+        pass
+
+    def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """验证配置完整性
+
+        Args:
+            config: 要验证的配置字典
+
+        Returns:
+            验证结果，包含错误信息和修复建议
+        """
+        issues = []
+        warnings = []
+
+        try:
+            # 验证快捷键
+            hotkey = self._get_nested(config, "hotkey", "")
+            if not hotkey:
+                issues.append("Hotkey is not set")
+
+            # 验证Whisper配置
+            whisper_model = self._get_nested(config, "whisper.model", "")
+            valid_models = ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo", "turbo"]
+            if whisper_model not in valid_models:
+                warnings.append(f"Unknown Whisper model: {whisper_model}")
+
+            # 验证AI配置
+            if self._get_nested(config, "ai.enabled", False):
+                provider = self._get_nested(config, "ai.provider", "openrouter")
+                api_key_path = f"ai.{provider}.api_key"
+                api_key = self._get_nested(config, api_key_path, "")
+                if not api_key:
+                    warnings.append(f"AI is enabled (provider: {provider}) but API key is not set")
+
+            # 验证音频配置
+            sample_rate = self._get_nested(config, "audio.sample_rate", 16000)
+            if sample_rate not in [8000, 16000, 22050, 44100, 48000]:
+                warnings.append(f"Unusual sample rate: {sample_rate}")
+
+            # 验证UI配置
+            theme = self._get_nested(config, "ui.theme", "dark")
+            if theme and theme not in ["light", "dark", "auto"]:
+                warnings.append(f"Unknown theme: {theme}")
+
+        except Exception as e:
+            issues.append(f"Validation error: {e}")
+
+        return {
+            "valid": len(issues) == 0,
+            "issues": issues,
+            "warnings": warnings,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    def validate_and_repair_structure(self, config: Dict[str, Any]) -> tuple[Dict[str, Any], bool]:
+        """验证和修复整个配置结构完整性
+
+        Args:
+            config: 要验证和修复的配置字典
+
+        Returns:
+            (修复后的配置, 是否进行了修复)
+        """
+        try:
+            repaired = False
+
+            # 确保ui节点存在且为字典
+            if "ui" not in config or not isinstance(config["ui"], dict):
+                config["ui"] = {}
+                repaired = True
+
+            # 确保ui.overlay_position存在且为字典
+            if ("overlay_position" not in config["ui"] or
+                not isinstance(config["ui"]["overlay_position"], dict)):
+                config["ui"]["overlay_position"] = {
+                    "mode": "preset",
+                    "preset": "center",
+                    "custom": {"x": 0, "y": 0},
+                    "auto_save": True
+                }
+                repaired = True
+
+            # 确保ui.overlay_position.custom存在且为字典
+            overlay_pos = config["ui"]["overlay_position"]
+            if ("custom" not in overlay_pos or not isinstance(overlay_pos["custom"], dict)):
+                overlay_pos["custom"] = {"x": 0, "y": 0}
+                repaired = True
+
+            # 检查其他关键结构
+            required_structures = {
+                "audio": {
+                    "sample_rate": 16000,
+                    "channels": 1,
+                    "device_id": None,
+                    "chunk_size": 1024
+                },
+                "whisper": {
+                    "model": "large-v3-turbo",
+                    "language": "auto",
+                    "device": "auto",
+                    "compute_type": "auto"
+                },
+                "ui": {
+                    "show_overlay": True,
+                    "start_minimized": True
+                }
+            }
+
+            for section, defaults in required_structures.items():
+                if section not in config or not isinstance(config[section], dict):
+                    config[section] = defaults
+                    repaired = True
+                else:
+                    # 确保所有必需的键都存在
+                    for key, default_value in defaults.items():
+                        if key not in config[section]:
+                            config[section][key] = default_value
+                            repaired = True
+
+            if repaired:
+                app_logger.log_audio_event("Config structure repaired", {})
+
+            return config, repaired
+
+        except Exception as e:
+            app_logger.log_error(e, "config_validator_repair")
+            return config, False
+
+    def _get_nested(self, config: Dict[str, Any], key: str, default: Any = None) -> Any:
+        """获取嵌套配置项
+
+        Args:
+            config: 配置字典
+            key: 配置项键名，支持嵌套路径
+            default: 默认值
+
+        Returns:
+            配置项的值
+        """
+        try:
+            keys = key.split('.')
+            value = config
+
+            for k in keys:
+                if isinstance(value, dict) and k in value:
+                    value = value[k]
+                else:
+                    return default
+
+            return value
+
+        except Exception:
+            return default

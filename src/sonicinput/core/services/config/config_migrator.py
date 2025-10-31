@@ -1,0 +1,149 @@
+"""配置迁移服务 - 单一职责：配置版本迁移和升级"""
+
+import os
+import shutil
+from pathlib import Path
+from typing import Dict, Any
+
+from ....utils import app_logger
+
+
+class ConfigMigrator:
+    """配置迁移器 - 只负责配置迁移"""
+
+    def __init__(self, config_path: Path):
+        """初始化配置迁移器
+
+        Args:
+            config_path: 配置文件路径
+        """
+        self.config_path = config_path
+
+    def migrate_from_old_app_name(self) -> None:
+        """从旧应用名称 'VoiceInputSoftware' 迁移配置到 'SonicInput'"""
+        # 只在使用默认路径时才迁移
+        if str(self.config_path).find('SonicInput') == -1:
+            return
+
+        try:
+            old_config_dir = Path(os.getenv('APPDATA', '.')) / 'VoiceInputSoftware'
+            old_config_path = old_config_dir / 'config.json'
+
+            # 如果新配置已存在，跳过迁移
+            if self.config_path.exists():
+                return
+
+            # 如果旧配置不存在，跳过迁移
+            if not old_config_path.exists():
+                return
+
+            app_logger.info("Migrating config from VoiceInputSoftware to SonicInput...")
+            app_logger.info(f"  Old path: {old_config_path}")
+            app_logger.info(f"  New path: {self.config_path}")
+
+            # 复制配置文件
+            shutil.copy2(old_config_path, self.config_path)
+            app_logger.info("  Config file copied successfully")
+
+            # 复制日志目录（如果存在）
+            old_logs_dir = old_config_dir / 'logs'
+            new_logs_dir = self.config_path.parent / 'logs'
+
+            if old_logs_dir.exists() and old_logs_dir.is_dir():
+                if new_logs_dir.exists():
+                    app_logger.info("  New logs directory already exists, skipping logs migration")
+                else:
+                    shutil.copytree(old_logs_dir, new_logs_dir)
+                    app_logger.info("  Logs directory copied successfully")
+
+            app_logger.info("Config migration from VoiceInputSoftware to SonicInput completed successfully!")
+            app_logger.info(f"Note: Old config directory still exists at {old_config_dir}")
+            app_logger.info("      You can manually delete it if migration was successful.")
+
+        except Exception as e:
+            app_logger.log_error(e, "config_migration_from_old_app_name")
+            app_logger.warning("Failed to migrate config from VoiceInputSoftware. Using default config.")
+
+    def migrate_config_structure(self, config: Dict[str, Any]) -> tuple[Dict[str, Any], bool]:
+        """迁移配置结构，清理旧字段，统一为标准结构
+
+        Args:
+            config: 要迁移的配置字典
+
+        Returns:
+            (迁移后的配置, 是否进行了迁移)
+        """
+        migrated = False
+
+        try:
+            # 1. 删除根级别的旧 openrouter 配置
+            if "openrouter" in config:
+                app_logger.info("Migrating: Removing root-level 'openrouter' config")
+                del config["openrouter"]
+                migrated = True
+
+            # 2. 统一 AI provider 配置字段
+            if "ai" in config:
+                ai_config = config["ai"]
+
+                for provider in ["openrouter", "groq"]:
+                    if provider in ai_config:
+                        provider_config = ai_config[provider]
+
+                        # 迁移 model_id：优先级 model_id > simple_model_id > model
+                        if "model_id" not in provider_config:
+                            if "simple_model_id" in provider_config:
+                                provider_config["model_id"] = provider_config["simple_model_id"]
+                                app_logger.info(f"Migrating: {provider}.simple_model_id -> model_id")
+                                migrated = True
+                            elif "model" in provider_config:
+                                provider_config["model_id"] = provider_config["model"]
+                                app_logger.info(f"Migrating: {provider}.model -> model_id")
+                                migrated = True
+
+                        # 删除旧字段
+                        for old_field in ["simple_model_id", "model"]:
+                            if old_field in provider_config:
+                                del provider_config[old_field]
+                                migrated = True
+
+                        # 删除所有 provider 级别的 prompt 字段
+                        for prompt_field in ["simple_prompt", "prompt"]:
+                            if prompt_field in provider_config:
+                                del provider_config[prompt_field]
+                                migrated = True
+
+                        # 删除旧的 enabled 字段（provider级别的enabled已废弃）
+                        if "enabled" in provider_config:
+                            del provider_config["enabled"]
+                            migrated = True
+
+                        # 删除冗余字段
+                        for old_field in ["timeout", "max_retries", "custom_prompt"]:
+                            if old_field in provider_config:
+                                del provider_config[old_field]
+                                migrated = True
+
+            # 3. 迁移单个 hotkey 到 hotkeys 数组
+            if "hotkey" in config and "hotkeys" not in config:
+                old_hotkey = config["hotkey"]
+                if isinstance(old_hotkey, str) and old_hotkey.strip():
+                    config["hotkeys"] = [old_hotkey]
+                    app_logger.info(f"Migrating: hotkey '{old_hotkey}' -> hotkeys array")
+                    migrated = True
+                del config["hotkey"]
+                migrated = True
+            elif "hotkey" in config:
+                # 如果两者都存在，删除旧的
+                del config["hotkey"]
+                app_logger.info("Migrating: Removing redundant 'hotkey' field")
+                migrated = True
+
+            if migrated:
+                app_logger.info("Configuration migration completed")
+
+            return config, migrated
+
+        except Exception as e:
+            app_logger.log_error(e, "config_migrator_migrate")
+            return config, False
