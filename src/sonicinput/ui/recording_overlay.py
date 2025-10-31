@@ -1,4 +1,4 @@
-"""Recording Overlay Window"""
+"""Recording Overlay Window - 重构版本使用组件化架构"""
 
 import math
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -9,6 +9,7 @@ from ..utils import app_logger
 from ..core.interfaces import IConfigService
 from .overlay import StatusIndicator, CloseButton
 from .recording_overlay_utils.position_manager import PositionManager
+from .overlay_components import AnimationController, AudioVisualizer, TimerManager, OverlayUIBuilder
 
 
 class RecordingOverlay(QWidget):
@@ -105,52 +106,61 @@ class RecordingOverlay(QWidget):
 
         try:
             app_logger.log_audio_event("Starting RecordingOverlay UI setup", {})
-            # 初始化UI
-            self.setup_overlay_ui()
+            # 使用UIBuilder构建UI
+            ui_builder = OverlayUIBuilder()
+            ui_components = ui_builder.build_ui(self, self.hide_recording)
+
+            # 设置UI组件属性
+            self.background_frame = ui_components['background_frame']
+            self.status_indicator = ui_components['status_indicator']
+            self.audio_level_bars = ui_components['audio_level_bars']
+            self.time_label = ui_components['time_label']
+            self.close_button = ui_components['close_button']
+            self.position_manager = ui_components['position_manager']
+            self.current_audio_level = ui_components['current_audio_level']
+            self.config_service = None  # 将在set_config_service中设置
+
             app_logger.log_audio_event("RecordingOverlay UI setup completed", {})
         except Exception as e:
             app_logger.log_error(e, "RecordingOverlay_UI_setup")
             raise
 
         try:
-            app_logger.log_audio_event("Setting up RecordingOverlay timers and animations", {})
-            # 定时器
-            self.update_timer = QTimer()
-            self.update_timer.timeout.connect(self.update_recording_time)
+            app_logger.log_audio_event("Initializing overlay components", {})
 
-            # 延迟隐藏定时器（可取消，避免多个定时器冲突）
-            self.delayed_hide_timer = QTimer()
-            self.delayed_hide_timer.setSingleShot(True)
-            self.delayed_hide_timer.timeout.connect(self._hide_recording_impl)
+            # 初始化定时器管理器
+            self.timer_manager = TimerManager()
+            # 为了兼容性，保留对原定时器的引用
+            self.update_timer = self.timer_manager.update_timer
+            self.delayed_hide_timer = self.timer_manager.delayed_hide_timer
 
+            # 连接定时器回调
+            self.timer_manager.safe_connect(self.update_timer, self.update_recording_time, "recording_timer")
+            self.timer_manager.safe_connect(self.delayed_hide_timer, self._hide_recording_impl, "delayed_hide")
 
-            # 动画
-            self.fade_animation = QPropertyAnimation(self, b"windowOpacity")
-            self.fade_animation.setDuration(300)
-            self.fade_animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
-            app_logger.log_audio_event("RecordingOverlay timers and animations configured", {})
+            # 初始化动画控制器
+            self.animation_controller = AnimationController(self)
+            # 为了兼容性，保留对原动画的引用
+            self.fade_animation = self.animation_controller.fade_animation
+            self.breathing_timer = self.animation_controller.breathing_timer
+            self.breathing_phase = self.animation_controller.breathing_phase
+            self.is_processing = self.animation_controller.is_processing
+            self.status_animation = self.animation_controller.status_animation
+            self.status_opacity = self.animation_controller.status_opacity
+
+            # 初始化音频可视化器（在audio_level_bars创建后）
+            try:
+                self.audio_visualizer = AudioVisualizer(self.audio_level_bars)
+                app_logger.log_audio_event("AudioVisualizer initialized", {})
+            except Exception as e:
+                app_logger.log_error(e, "audio_visualizer_init")
+                self.audio_visualizer = None
+
+            app_logger.log_audio_event("Overlay components initialized successfully", {})
+
         except Exception as e:
-            app_logger.log_error(e, "RecordingOverlay_timers_animations")
-            # 这些组件失败不应该阻止基本功能
-            pass
-
-        try:
-            app_logger.log_audio_event("Setting up RecordingOverlay advanced animations", {})
-            # 呼吸动画（用于处理状态） - 替换旋转动画
-            self.breathing_phase = 0
-            self.breathing_timer = QTimer()
-            self.breathing_timer.timeout.connect(self.update_breathing)
-            self.is_processing = False
-
-            # 现代化状态指示器动画
-            self.status_opacity = 1.0
-            self.status_animation = QPropertyAnimation(self, b"windowOpacity")
-            self.status_animation.setDuration(1000)
-            self.status_animation.setEasingCurve(QEasingCurve.Type.InOutSine)
-            app_logger.log_audio_event("RecordingOverlay advanced animations configured", {})
-        except Exception as e:
-            app_logger.log_error(e, "RecordingOverlay_advanced_animations")
-            # 动画失败不应该阻止基本功能
+            app_logger.log_error(e, "overlay_components_init")
+            # 组件初始化失败不应阻止基本功能
             pass
 
         try:
@@ -174,124 +184,18 @@ class RecordingOverlay(QWidget):
             "singleton_id": id(self)
         })
 
-    # ==================== 定时器生命周期管理 ====================
-
-    def _safe_timer_connect(self, timer, target_method, description=""):
-        """安全地连接定时器，防止重复连接"""
-        import warnings
-
-        try:
-            # 先尝试断开现有连接（如果有的话）
-            # PySide6: disconnect() 不抛异常，而是发出 RuntimeWarning
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                # 彻底断开所有连接
-                timer.timeout.disconnect()
-        except (TypeError, RuntimeError):
-            pass  # 如果没有连接则忽略（TypeError: signal未连接, RuntimeError: C++ object已删除）
-
-        # 重新连接
-        timer.timeout.connect(target_method)
-
-        if description:
-            app_logger.log_audio_event(f"Timer connected: {description}", {
-                "timer_active": timer.isActive()
-            })
-
-    def _safe_timer_start(self, timer, interval, target_method, description=""):
-        """安全地启动定时器"""
-        try:
-            # 停止现有定时器
-            if timer.isActive():
-                timer.stop()
-
-            # 确保连接正确
-            self._safe_timer_connect(timer, target_method, f"{description}_connect")
-
-            # 启动定时器
-            timer.start(interval)
-
-            if description:
-                app_logger.log_audio_event(f"Timer started: {description}", {
-                    "interval": interval,
-                    "timer_active": timer.isActive()
-                })
-        except Exception as e:
-            app_logger.log_error(e, f"safe_timer_start_{description}")
-
-    def _safe_timer_stop(self, timer, target_method, description=""):
-        """安全地停止定时器"""
-        import warnings
-
-        try:
-            if hasattr(self, timer.objectName()) and timer.isActive():
-                timer.stop()
-
-                # 断开特定连接
-                # PySide6: disconnect() 不抛异常，而是发出 RuntimeWarning
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore", RuntimeWarning)
-                        timer.timeout.disconnect(target_method)
-                except (TypeError, RuntimeError):
-                    pass  # 如果没有连接则忽略
-
-                if description:
-                    app_logger.log_audio_event(f"Timer stopped: {description}", {
-                        "timer_active": timer.isActive()
-                    })
-        except Exception as e:
-            app_logger.log_error(e, f"safe_timer_stop_{description}")
+    # ==================== 状态管理 ====================
 
     def _ensure_animation_state(self, should_animate: bool, context: str = ""):
-        """确保动画状态与期望状态一致"""
+        """确保动画状态与期望状态一致（简化版，委托给AnimationController）"""
+        if not self.animation_controller:
+            return
+
         try:
-            current_animating = hasattr(self, 'breathing_timer') and self.breathing_timer.isActive()
-
-            if should_animate and not current_animating:
-                # 需要开始动画但当前没有动画
+            if should_animate:
                 self._start_processing_animation_impl()
-                app_logger.log_audio_event(f"Animation started: {context}", {
-                    "previous_state": current_animating,
-                    "new_state": should_animate,
-                    "is_processing": self.is_processing
-                })
-            elif not should_animate and current_animating:
-                # 需要停止动画但当前有动画
+            else:
                 self._stop_processing_animation_impl()
-                app_logger.log_audio_event(f"Animation stopped: {context}", {
-                    "previous_state": current_animating,
-                    "new_state": should_animate,
-                    "is_processing": self.is_processing
-                })
-
-            # 延迟验证状态一致性，避免竞态条件
-            def delayed_verification():
-                try:
-                    final_animating = hasattr(self, 'breathing_timer') and self.breathing_timer.isActive()
-                    # 检测并修复状态不一致
-                    if final_animating != should_animate:
-                        app_logger.log_audio_event(f"Animation state mismatch in {context}: expected {should_animate}, got {final_animating} - fixing", {
-                            "expected": should_animate,
-                            "actual": final_animating,
-                            "context": context
-                        })
-
-                        # 修复状态不一致
-                        if should_animate and not final_animating:
-                            # 应该动画但没有动画 - 启动动画
-                            self._start_processing_animation_impl()
-                            app_logger.log_audio_event(f"Fixed: started animation for {context}", {})
-                        elif not should_animate and final_animating:
-                            # 不应该动画但有动画 - 停止动画
-                            self._stop_processing_animation_impl()
-                            app_logger.log_audio_event(f"Fixed: stopped animation for {context}", {})
-                except Exception as e:
-                    app_logger.log_error(e, f"delayed_verification_{context}")
-
-            # 使用Qt单次定时器延迟验证，给信号处理时间
-            QTimer.singleShot(50, delayed_verification)
-
         except Exception as e:
             app_logger.log_error(e, f"ensure_animation_state_{context}")
 
@@ -533,106 +437,8 @@ class RecordingOverlay(QWidget):
         except Exception as e:
             app_logger.log_error(e, "force_reset_singleton")
     
-    def setup_overlay_ui(self) -> None:
-        """Setup overlay UI"""
-        # 主布局 - 更紧凑的间距
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(8, 8, 8, 8)
-        main_layout.setSpacing(0)
-        
-        # 创建Material Design背景框架
-        self.background_frame = QFrame()
-        self.background_frame.setObjectName("recordingOverlayFrame")
-        # 设置Material Design深色背景，确保关闭按钮有足够对比度
-        self.background_frame.setStyleSheet("""
-            QFrame#recordingOverlayFrame {
-                background-color: #303030;
-                border-radius: 12px;
-            }
-        """)
-        
-        # 横向布局 - Windows 原生风格
-        frame_layout = QHBoxLayout(self.background_frame)
-        frame_layout.setContentsMargins(8, 6, 8, 6)
-        frame_layout.setSpacing(8)
+    # setup_overlay_ui方法已迁移到OverlayUIBuilder类
 
-        # 录音状态指示器 (真正的圆形红点 + 圆角矩形背景)
-        self.status_indicator = StatusIndicator(self)
-        # 使用布局对齐确保指示器在容器中完美居中
-        frame_layout.addWidget(self.status_indicator, 0, Qt.AlignmentFlag.AlignCenter)
-
-        # 极简音频级别条 (替代复杂波形)
-        self.audio_level_bars = []
-        self.current_audio_level = 0.0
-
-        # 创建5个音频级别条 - Material Design风格
-        for i in range(5):
-            bar = QLabel()
-            bar.setFixedSize(4, 18)
-            # 简化样式，统一圆角，无描边
-            bar.setStyleSheet("""
-                QLabel {
-                    border-radius: 2px;
-                }
-            """)
-            self.audio_level_bars.append(bar)
-            frame_layout.addWidget(bar)
-
-        # 弹性空间
-        frame_layout.addStretch()
-
-        # 录音时间标签 - 极简样式
-        self.time_label = QLabel("00:00")
-        self.time_label.setFont(QFont("Segoe UI", 9))
-        self.time_label.setStyleSheet("""
-            QLabel {
-                color: #CCCCCC;
-                background: transparent;
-            }
-        """)
-        frame_layout.addWidget(self.time_label)
-
-        # 关闭按钮 - 使用自定义绘制确保完美居中
-        self.close_button = CloseButton(self)
-
-        # 实现点击事件
-        def close_button_click(event):
-            if event.button() == Qt.MouseButton.LeftButton:
-                self.hide_recording()
-        self.close_button.mousePressEvent = close_button_click
-
-        # 使用布局对齐确保关闭按钮在容器中完美居中
-        frame_layout.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignCenter)
-        
-        # 添加到主布局
-        main_layout.addWidget(self.background_frame)
-        self.setLayout(main_layout)
-
-        # 添加Material Design阴影效果 (Elevation 8)
-        shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(20)
-        shadow.setXOffset(0)
-        shadow.setYOffset(4)
-        shadow.setColor(QColor(0, 0, 0, 60))  # Material Elevation 8
-        self.background_frame.setGraphicsEffect(shadow)
-
-        # 设置固定大小 - Material Design紧凑横向布局
-        self.setFixedSize(200, 50)
-
-        # 确保悬浮窗本身透明背景
-        self.setStyleSheet("""
-            RecordingOverlay {
-                background: transparent;
-            }
-        """)
-
-        # 位置管理器（使用已有的PositionManager服务）
-        self.position_manager = PositionManager(self, config_service=None)
-        self.config_service = None  # 将在set_config_service中设置
-
-        # 初始隐藏
-        self.hide()
-    
     def show_recording(self) -> None:
         """Show recording status - Thread-safe public interface"""
         self.show_recording_requested.emit()
@@ -652,10 +458,10 @@ class RecordingOverlay(QWidget):
         except Exception as e:
             app_logger.log_error(e, "status_update_show")
 
-        # 安全地启动计时器
+        # 启动录音计时器（使用TimerManager组件）
         try:
-            if hasattr(self, 'update_timer'):
-                self._safe_timer_start(self.update_timer, 1000, self.update_recording_time, "recording_timer")
+            if self.timer_manager:
+                self.timer_manager.start_update_timer(self.update_recording_time)
         except Exception as e:
             app_logger.log_error(e, "timer_start_show")
 
@@ -671,13 +477,10 @@ class RecordingOverlay(QWidget):
         except Exception as e:
             app_logger.log_error(e, "widget_show")
 
-        # 淡入动画
+        # 淡入动画（使用AnimationController组件）
         try:
-            if hasattr(self, 'fade_animation'):
-                self.fade_animation.stop()
-                self.fade_animation.setStartValue(0.0)
-                self.fade_animation.setEndValue(1.0)
-                self.fade_animation.start()
+            if self.animation_controller:
+                self.animation_controller.start_fade_in()
         except Exception as e:
             app_logger.log_error(e, "fade_animation_show")
 
@@ -722,8 +525,8 @@ class RecordingOverlay(QWidget):
 
             # 停止录音计时器（录音已结束）
             self.is_recording = False
-            if hasattr(self, 'update_timer'):
-                self._safe_timer_stop(self.update_timer, self.update_recording_time, "recording_timer_processing")
+            if self.timer_manager:
+                self.timer_manager.stop_update_timer(self.update_recording_time)
 
             # 启动延迟隐藏定时器（2秒后），防止转录/AI/输入失败时悬浮窗永久显示
             # 如果处理成功，show_completed() 会在 500ms 时提前触发隐藏并取消这个定时器
@@ -743,33 +546,28 @@ class RecordingOverlay(QWidget):
 
         self.is_recording = False
 
-        # 安全地停止所有计时器
+        # 停止所有计时器（使用TimerManager组件）
         try:
-            if hasattr(self, 'update_timer'):
-                self._safe_timer_stop(self.update_timer, self.update_recording_time, "recording_timer_hide")
+            if self.timer_manager:
+                self.timer_manager.stop_update_timer(self.update_recording_time)
 
-            if hasattr(self, 'breathing_timer'):
-                self._safe_timer_stop(self.breathing_timer, self.update_breathing, "breathing_timer_hide")
+            if self.animation_controller:
+                self.animation_controller.stop_breathing_animation()
         except Exception as e:
-            app_logger.log_error(e, "timer_cleanup_hide")
+            app_logger.log_error(e, "components_cleanup_hide")
 
         # 重置所有状态
         self.recording_duration = 0
         self.breathing_phase = 0
         self.is_processing = False
 
-        # 重置音频级别条显示
+        # 重置音频级别条显示（使用AudioVisualizer组件）
         try:
-            for bar in self.audio_level_bars:
-                bar.setStyleSheet("""
-                    QLabel {
-                        background-color: rgba(80, 80, 90, 100);
-                        border-radius: 2px;
-                    }
-                """)
+            if self.audio_visualizer:
+                self.audio_visualizer.reset_level_bars()
             self.current_audio_level = 0.0
         except Exception as e:
-            app_logger.log_error(e, "audio_bars_reset_hide")
+            app_logger.log_error(e, "audio_visualizer_reset_hide")
 
         # 重置计时器显示
         try:
@@ -857,70 +655,19 @@ class RecordingOverlay(QWidget):
                 # 如果计算失败，使用默认的随机级别模拟
                 pass
 
-    def _update_audio_level_bars(self, level: float) -> None:
-        """更新音频级别条显示"""
-        try:
-            # 计算应该点亮的级别条数量
-            active_bars = int(level * len(self.audio_level_bars))
-
-            # 更新每个级别条
-            for i, bar in enumerate(self.audio_level_bars):
-                if i < active_bars:
-                    # 活跃的级别条 - 绿色渐变
-                    intensity = (i + 1) / len(self.audio_level_bars)
-                    if intensity < 0.6:
-                        color = "#4CAF50"  # 绿色
-                    elif intensity < 0.8:
-                        color = "#FFC107"  # 黄色
-                    else:
-                        color = "#FF5722"  # 红色
-
-                    bar.setStyleSheet(f"""
-                        QLabel {{
-                            background-color: {color};
-                            border-radius: 2px;
-                        }}
-                    """)
-                else:
-                    # 非活跃的级别条 - 灰色
-                    bar.setStyleSheet("""
-                        QLabel {
-                            background-color: rgba(80, 80, 90, 100);
-                            border-radius: 2px;
-                        }
-                    """)
-        except Exception:
-            pass
-
     def update_audio_level(self, level: float) -> None:
         """Update audio level display - Thread-safe public interface"""
         self.update_audio_level_requested.emit(level)
 
     def _update_audio_level_impl(self, level: float) -> None:
-        """Update audio level bars - Internal implementation"""
-        if self.is_recording:
-            try:
-                # 标准化到 0-1 范围 - 大幅提高敏感度让正常说话音量也能显示
-                normalized_level = min(1.0, max(0.0, level * 20))  # 提高敏感度到20倍（从8倍）
-                self.current_audio_level = normalized_level
-
-                # 调试日志：每秒记录一次音量级别（已禁用，避免日志洪流）
-                # if not hasattr(self, '_last_audio_log_time_direct'):
-                #     self._last_audio_log_time_direct = 0
-                # import time
-                # current_time = time.time()
-                # if current_time - self._last_audio_log_time_direct >= 1.0:
-                #     app_logger.log_audio_event("Audio level update (direct)", {
-                #         "raw_level": f"{raw_level:.6f}",
-                #         "normalized_level": f"{normalized_level:.4f}",
-                #         "sensitivity_multiplier": 20
-                #     })
-                #     self._last_audio_log_time_direct = current_time
-
-                # 更新音频级别条
-                self._update_audio_level_bars(normalized_level)
-            except Exception as e:
-                app_logger.log_error(e, "_update_audio_level_impl")
+        """Update audio level bars - Internal implementation (使用AudioVisualizer组件)"""
+        if self.audio_visualizer:
+            self.audio_visualizer.update_audio_level(level, self.is_recording)
+            # 更新本地引用以保持兼容性
+            self.current_audio_level = self.audio_visualizer.get_current_level()
+        else:
+            # Fallback: 如果visualizer未初始化，保持兼容性
+            self.current_audio_level = min(1.0, max(0.0, level * 20))
 
     def set_status_text(self, text: str) -> None:
         """Set status text - Thread-safe public interface"""
@@ -1028,296 +775,38 @@ class RecordingOverlay(QWidget):
             self.hide_recording()
         elif event.key() == Qt.Key.Key_Space:
             self.hide_recording()  # Space键也可以关闭悬浮窗
-    
-    def test_display_capability(self) -> bool:
-        """Test if overlay can be displayed properly"""
-        try:
-            from PySide6.QtWidgets import QApplication
-            from PySide6.QtGui import QGuiApplication
-            
-            app_logger.log_audio_event("Testing overlay display capability", {})
-            
-            # Check if QApplication exists
-            app = QApplication.instance()
-            if app is None:
-                app_logger.log_audio_event("No QApplication instance for overlay test", {})
-                return False
-            
-            # Test screen availability
-            screen = QGuiApplication.primaryScreen()
-            if screen is None:
-                app_logger.log_audio_event("No primary screen available for overlay", {})
-                return False
-            
-            screen_geometry = screen.geometry()
-            if screen_geometry.width() <= 0 or screen_geometry.height() <= 0:
-                app_logger.log_audio_event("Invalid screen geometry for overlay", {
-                    "width": screen_geometry.width(),
-                    "height": screen_geometry.height()
-                })
-                return False
-            
-            # Test widget creation and basic properties
-            if not self.isWindow():
-                app_logger.log_audio_event("Overlay widget is not a window", {})
-                return False
-            
-            # Test window flags
-            flags = self.windowFlags()
-            expected_flags = [
-                Qt.WindowType.FramelessWindowHint,
-                Qt.WindowType.WindowStaysOnTopHint,
-                Qt.WindowType.Tool
-            ]
-            
-            for flag in expected_flags:
-                if not (flags & flag):
-                    app_logger.log_audio_event("Missing required window flag", {"flag": str(flag)})
-                    return False
-            
-            app_logger.log_audio_event("Overlay display capability test passed", {
-                "screen_size": f"{screen_geometry.width()}x{screen_geometry.height()}",
-                "widget_size": f"{self.width()}x{self.height()}"
-            })
-            return True
-            
-        except Exception as e:
-            app_logger.log_error(e, "overlay_display_capability_test")
-            return False
-    
-    def validate_input_handling(self) -> bool:
-        """Test if overlay can handle input events properly"""
-        try:
-            app_logger.log_audio_event("Testing overlay input handling", {})
-            
-            # Test if widget can accept focus
-            if not self.isActiveWindow():
-                # Try to activate
-                self.activateWindow()
-                self.raise_()
-            
-            # Test if widget has proper focus policy
-            focus_policy = self.focusPolicy()
-            if focus_policy == Qt.FocusPolicy.NoFocus:
-                app_logger.log_audio_event("Overlay has no focus policy", {})
-                return False
-            
-            # Test event handling capability by checking methods exist
-            required_methods = ['keyPressEvent', 'mousePressEvent', 'mouseMoveEvent']
-            for method_name in required_methods:
-                if not hasattr(self, method_name):
-                    app_logger.log_audio_event("Missing input handler method", {"method": method_name})
-                    return False
-            
-            # Test signal connections (检查基本信号)
-            if not hasattr(self, 'show_recording_requested'):
-                app_logger.log_audio_event("Missing show_recording_requested signal", {})
-                return False
-            
-            app_logger.log_audio_event("Overlay input handling validation passed", {
-                "focus_policy": str(focus_policy),
-                "is_active": self.isActiveWindow()
-            })
-            return True
-            
-        except Exception as e:
-            app_logger.log_error(e, "overlay_input_handling_validation")
-            return False
-    
-    def test_overlay_positioning(self) -> bool:
-        """Test overlay positioning functionality"""
-        try:
-            app_logger.log_audio_event("Testing overlay positioning", {})
-            
-            from PySide6.QtGui import QGuiApplication
-            
-            screen = QGuiApplication.primaryScreen()
-            screen_geometry = screen.geometry()
-            
-            # Test different positions
-            positions_to_test = ["center", "top_left", "top_right", "bottom_left", "bottom_right"]
-            
-            for position in positions_to_test:
-                try:
-                    self.set_position(position)
-                    
-                    # Verify position is within screen bounds
-                    widget_rect = self.geometry()
-                    if not screen_geometry.contains(widget_rect):
-                        app_logger.log_audio_event("Position test failed - out of bounds", {
-                            "position": position,
-                            "widget_rect": f"{widget_rect.x()},{widget_rect.y()},{widget_rect.width()},{widget_rect.height()}",
-                            "screen_rect": f"{screen_geometry.x()},{screen_geometry.y()},{screen_geometry.width()},{screen_geometry.height()}"
-                        })
-                        return False
-                        
-                except Exception as pos_error:
-                    app_logger.log_error(pos_error, f"overlay_position_test_{position}")
-                    return False
-            
-            # Test center positioning specifically
-            self.position_manager.center_on_screen()
-            center_pos = self.pos()
-            expected_x = (screen_geometry.width() - self.width()) // 2
-            expected_y = (screen_geometry.height() - self.height()) // 2
-            
-            # Allow some tolerance for positioning
-            tolerance = 10
-            if (abs(center_pos.x() - expected_x) > tolerance or 
-                abs(center_pos.y() - expected_y) > tolerance):
-                app_logger.log_audio_event("Center positioning test failed", {
-                    "actual": f"{center_pos.x()},{center_pos.y()}",
-                    "expected": f"{expected_x},{expected_y}",
-                    "tolerance": tolerance
-                })
-                return False
-            
-            app_logger.log_audio_event("Overlay positioning test passed", {
-                "positions_tested": len(positions_to_test),
-                "final_position": f"{center_pos.x()},{center_pos.y()}"
-            })
-            return True
-            
-        except Exception as e:
-            app_logger.log_error(e, "overlay_positioning_test")
-            return False
-    
-    def run_comprehensive_overlay_test(self) -> dict:
-        """Run comprehensive overlay functionality tests"""
-        app_logger.log_audio_event("Starting comprehensive overlay test", {})
-        
-        test_results = {
-            "display_capability": False,
-            "input_handling": False,
-            "positioning": False,
-            "ui_components": False,
-            "animation_system": False,
-            "overall_success": False
-        }
-        
-        try:
-            # Test display capability
-            test_results["display_capability"] = self.test_display_capability()
-            
-            # Test input handling
-            test_results["input_handling"] = self.validate_input_handling()
-            
-            # Test positioning
-            test_results["positioning"] = self.test_overlay_positioning()
-            
-            # Test UI components
-            test_results["ui_components"] = self._test_ui_components()
-            
-            # Test animation system
-            test_results["animation_system"] = self._test_animation_system()
-            
-            # Overall success
-            test_results["overall_success"] = all([
-                test_results["display_capability"],
-                test_results["input_handling"],
-                test_results["positioning"],
-                test_results["ui_components"]
-            ])
-            
-            app_logger.log_audio_event("Comprehensive overlay test completed", {
-                "success": test_results["overall_success"],
-                "passed_tests": sum(test_results.values()),
-                "total_tests": len(test_results) - 1  # Exclude overall_success
-            })
-            
-        except Exception as e:
-            app_logger.log_error(e, "comprehensive_overlay_test")
-            test_results["error"] = str(e)
-        
-        return test_results
-    
-    def _test_ui_components(self) -> bool:
-        """Test UI components are properly initialized"""
-        try:
-            # Check required attributes exist
-            required_attrs = [
-                'status_label', 'time_label', 'stop_button',
-                'update_timer', 'fade_animation'
-            ]
-            
-            for attr in required_attrs:
-                if not hasattr(self, attr):
-                    app_logger.log_audio_event("Missing UI component", {"component": attr})
-                    return False
-            
-            # Test timer functionality
-            if self.update_timer.isActive():  # Should not be active initially
-                app_logger.log_audio_event("Timer in unexpected state", {})
-                return False
-            
-            app_logger.log_audio_event("UI components test passed", {})
-            return True
-            
-        except Exception as e:
-            app_logger.log_error(e, "ui_components_test")
-            return False
-    
-    def _test_animation_system(self) -> bool:
-        """Test animation system functionality"""
-        try:
-            # Test fade animation properties
-            if self.fade_animation.duration() != 300:
-                app_logger.log_audio_event("Animation duration incorrect", {
-                    "expected": 300,
-                    "actual": self.fade_animation.duration()
-                })
-                return False
-            
-            # Test animation target
-            if self.fade_animation.targetObject() != self:
-                app_logger.log_audio_event("Animation target incorrect", {})
-                return False
-            
-            app_logger.log_audio_event("Animation system test passed", {})
-            return True
-            
-        except Exception as e:
-            app_logger.log_error(e, "animation_system_test")
-            return False
+
+    # ==================== 动画系统 ====================
 
     def start_processing_animation(self) -> None:
         """启动处理动画 - Thread-safe public interface"""
         self.start_processing_animation_requested.emit()
 
     def _start_processing_animation_impl(self) -> None:
-        """启动呼吸动画 - Internal implementation"""
-        self.is_processing = True
-        if hasattr(self, 'breathing_timer'):
-            self._safe_timer_start(self.breathing_timer, 80, self.update_breathing, "breathing_animation")
+        """启动呼吸动画 - Internal implementation (使用AnimationController组件)"""
+        if self.animation_controller:
+            self.animation_controller.start_breathing_animation()
+            # 同步状态以保持兼容性
+            self.is_processing = self.animation_controller.is_processing
+            self.breathing_phase = self.animation_controller.breathing_phase
 
     def stop_processing_animation(self) -> None:
         """停止处理动画 - Thread-safe public interface"""
         self.stop_processing_animation_requested.emit()
 
     def _stop_processing_animation_impl(self) -> None:
-        """停止呼吸动画 - Internal implementation"""
-        self.is_processing = False
-        if hasattr(self, 'breathing_timer'):
-            self._safe_timer_stop(self.breathing_timer, self.update_breathing, "breathing_animation")
-        self.breathing_phase = 0
+        """停止呼吸动画 - Internal implementation (使用AnimationController组件)"""
+        if self.animation_controller:
+            self.animation_controller.stop_breathing_animation()
+            # 同步状态以保持兼容性
+            self.is_processing = self.animation_controller.is_processing
+            self.breathing_phase = self.animation_controller.breathing_phase
 
     def update_breathing(self) -> None:
-        """更新呼吸效果"""
-        # 状态同步检查：确保动画状态与处理状态一致
-        if not self.is_processing or not hasattr(self, 'breathing_timer') or not self.breathing_timer.isActive():
-            # 如果状态不一致，停止动画
-            if hasattr(self, 'breathing_timer') and self.breathing_timer.isActive():
-                self._safe_timer_stop(self.breathing_timer, self.update_breathing, "breathing_sync_stop")
-            self.is_processing = False
-            self.breathing_phase = 0
-            return
-
-        if self.is_processing:
-            self.breathing_phase += 0.15  # 呼吸速度
-            # 修复π精度：使用标准数学常量而非硬编码值
-            if self.breathing_phase >= 2 * math.pi:  # 使用准确的2π
-                self.breathing_phase = 0
-            self.update()  # 重绘界面
+        """更新呼吸效果（委托给AnimationController）"""
+        # 这个方法现在由AnimationController内部调用，这里保留是为了兼容性
+        # 实际的呼吸动画逻辑已经在AnimationController._update_breathing中实现
+        pass
 
     def paintEvent(self, event):
         """重写绘制事件（已禁用呼吸发光效果）"""
