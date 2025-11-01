@@ -36,7 +36,34 @@
 
 ## 🚀 快速开始
 
-### 部署方式选择
+### 方式零：直接下载可执行文件（最简单）
+
+**推荐新手** - 无需安装 Python 环境，下载即用。
+
+1. **下载最新版本**
+   访问 [Releases 页面](https://github.com/Oxidane-bot/SonicInput/releases) 下载 `SonicInput-vX.X.X-win64.exe`
+
+2. **运行程序**
+   双击 exe 文件即可启动，首次运行会自动创建配置文件
+
+3. **配置 Groq API**（必需）
+   - 注册免费账号：https://console.groq.com/keys
+   - 双击托盘图标打开设置
+   - 在 **Speech Recognition** → **Provider** 选择 `groq`
+   - 填入 API Key 并保存
+
+4. **开始使用**
+   按 `F12` 或 `Alt+H` 开始录音，松开自动转录并输入
+
+**特点**：
+- ✅ 65MB 单文件，无需安装
+- ✅ 纯云模式，无需 GPU
+- ✅ 支持 Windows 10/11 (64-bit)
+- ✅ 需要网络连接
+
+---
+
+### 部署方式选择（开发者模式）
 
 SonicInput 提供两种部署模式：
 
