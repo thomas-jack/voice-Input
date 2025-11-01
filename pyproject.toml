@@ -7,11 +7,9 @@ name = "sonicinput"
 version = "0.1.0"
 description = "High-speed voice input tool powered by Whisper AI"
 requires-python = ">=3.10"
+
+# 核心依赖 - 所有模式都需要
 dependencies = [
-    "faster-whisper>=1.0.0",
-    "ctranslate2>=4.5.0,<5.0.0", # Upgraded to 4.5.x+ (cuDNN 9) for CUDA 12+ support
-    "nvidia-cudnn-cu12>=9.0.0,<10.0.0", # cuDNN 9 for CUDA 12 (required by ctranslate2 4.5+)
-    "nvidia-cublas-cu12>=12.0.0", # cuBLAS for CUDA 12 (required by ctranslate2)
     "PyAudio>=0.2.11",
     "PySide6>=6.6.0",
     "requests>=2.31.0",
@@ -26,29 +24,40 @@ dependencies = [
     "psutil>=5.9.0",
     "qt-material>=2.17",
     "cryptography>=46.0.3",
+    # 云转录支持
     "groq>=0.9.0",
 ]
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.4.0",
-    "pytest-mock>=3.12.0",      # Mock 工具
-    "pytest-asyncio>=0.21.0",   # 异步测试
-    "pytest-timeout>=2.2.0",    # 超时控制
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.7.0"
+# 本地转录支持（包含所有GPU依赖）
+local = [
+    "faster-whisper>=1.0.0",
+    "ctranslate2>=4.5.0,<5.0.0",
+    "nvidia-cudnn-cu12>=9.0.0,<10.0.0",
+    "nvidia-cublas-cu12>=12.0.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
+# 开发工具
+dev = [
     "pytest>=7.4.0",
+    "pytest-mock>=3.12.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.4.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
     "vulture>=2.14",
     "bandit>=1.8.6",
-    "pytest-timeout>=2.4.0",
+]
+
+# 完整安装（本地+开发）
+full = [
+    "sonicinput[local,dev]"
+]
+
+# 仅云转录（最小安装）
+cloud = [
+    "sonicinput[dev]"
 ]
 
 [project.scripts]
@@ -60,5 +69,14 @@ markers = [
     "gpu: marks tests that require GPU/CUDA support",
     "gui: marks tests that require GUI/Qt environment (use '-m \"not gui\"' to skip)",
 ]
-# 默认不运行GUI测试（除非明确指定）
 addopts = "-v"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "vulture>=2.14",
+    "bandit>=1.8.6",
+]
