@@ -19,6 +19,19 @@ class SpeechServiceFactory:
     """
 
     @staticmethod
+    def _is_local_available() -> bool:
+        """Check if local transcription (faster-whisper) is available
+
+        Returns:
+            bool: True if faster-whisper is installed, False otherwise
+        """
+        try:
+            import faster_whisper
+            return True
+        except ImportError:
+            return False
+
+    @staticmethod
     def create_service(
         provider: str,
         api_key: str = "",
@@ -99,9 +112,16 @@ class SpeechServiceFactory:
 
                 if not api_key:
                     app_logger.log_audio_event("Groq provider selected but no API key configured", {})
-                    # Fallback to local provider
-                    app_logger.log_audio_event("Falling back to local provider", {})
-                    return SpeechServiceFactory.create_from_config_local_fallback(config)
+
+                    # Only fallback to local if faster-whisper is available
+                    if SpeechServiceFactory._is_local_available():
+                        app_logger.log_audio_event("Falling back to local provider", {})
+                        return SpeechServiceFactory.create_from_config_local_fallback(config)
+                    else:
+                        app_logger.log_audio_event("Cannot fallback: faster-whisper not installed", {
+                            "suggestion": "Install with: uv sync --extra local --extra dev"
+                        })
+                        return None
 
                 return SpeechServiceFactory.create_service(
                     provider="groq",
@@ -110,18 +130,36 @@ class SpeechServiceFactory:
                 )
 
             else:
-                app_logger.log_audio_event("Unknown provider, falling back to local", {
+                app_logger.log_audio_event("Unknown provider", {
                     "provider": provider
                 })
-                return SpeechServiceFactory.create_from_config_local_fallback(config)
+
+                # Only fallback to local if faster-whisper is available
+                if SpeechServiceFactory._is_local_available():
+                    app_logger.log_audio_event("Falling back to local provider", {})
+                    return SpeechServiceFactory.create_from_config_local_fallback(config)
+                else:
+                    app_logger.log_audio_event("Cannot fallback: faster-whisper not installed", {
+                        "suggestion": "Install with: uv sync --extra local --extra dev"
+                    })
+                    return None
 
         except Exception as e:
             app_logger.log_error(e, "SpeechServiceFactory.create_from_config")
-            # Try to fallback to local provider
-            try:
-                return SpeechServiceFactory.create_from_config_local_fallback(config)
-            except Exception as fallback_error:
-                app_logger.log_error(fallback_error, "SpeechServiceFactory.fallback")
+
+            # Only try to fallback to local if faster-whisper is available
+            if SpeechServiceFactory._is_local_available():
+                try:
+                    app_logger.log_audio_event("Attempting fallback to local provider", {})
+                    return SpeechServiceFactory.create_from_config_local_fallback(config)
+                except Exception as fallback_error:
+                    app_logger.log_error(fallback_error, "SpeechServiceFactory.fallback")
+                    return None
+            else:
+                app_logger.log_audio_event("Cannot fallback: faster-whisper not installed", {
+                    "original_error": str(e),
+                    "suggestion": "Install with: uv sync --extra local --extra dev"
+                })
                 return None
 
     @staticmethod

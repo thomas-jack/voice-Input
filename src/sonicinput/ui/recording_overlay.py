@@ -528,12 +528,10 @@ class RecordingOverlay(QWidget):
             if self.timer_manager:
                 self.timer_manager.stop_update_timer(self.update_recording_time)
 
-            # 启动延迟隐藏定时器（2秒后），防止转录/AI/输入失败时悬浮窗永久显示
-            # 如果处理成功，show_completed() 会在 500ms 时提前触发隐藏并取消这个定时器
+            # 取消之前的延迟隐藏定时器
+            # 悬浮窗现在由事件控制（TEXT_INPUT_COMPLETED 或错误事件）
             if self.delayed_hide_timer.isActive():
                 self.delayed_hide_timer.stop()
-
-            self.delayed_hide_timer.start(2000)
         except Exception as e:
             app_logger.log_error(e, "_show_processing_impl")
 

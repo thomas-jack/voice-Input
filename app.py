@@ -29,8 +29,20 @@ from typing import Tuple, List, Dict, Any
 # ============================================================================
 
 def setup_cuda_paths():
-    """Add CUDA/cuDNN DLL paths to system PATH for GPU acceleration"""
+    """Add CUDA/cuDNN DLL paths to system PATH for GPU acceleration
+
+    Only runs if faster-whisper is installed (local transcription mode).
+    In cloud-only mode, this function silently returns without checking CUDA.
+    """
     try:
+        # Check if faster-whisper is installed (local transcription mode)
+        # Use importlib to check without importing the full module
+        import importlib.util
+        spec = importlib.util.find_spec("faster_whisper")
+        if spec is None:
+            # Cloud-only mode - skip CUDA setup silently
+            return
+
         paths_to_add = []
 
         # 1. Check for nvidia packages in venv

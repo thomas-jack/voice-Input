@@ -240,11 +240,18 @@ class VoiceInputApp:
 
         # 设置事件监听以控制悬浮窗
         if recording_overlay:
+            # 成功事件
             self.events.on(Events.RECORDING_STARTED, self._on_recording_started_overlay)
             self.events.on(Events.RECORDING_STOPPED, self._on_recording_stopped_overlay)
             self.events.on(Events.AI_PROCESSING_STARTED, self._on_ai_started_overlay)
+            self.events.on(Events.AI_PROCESSING_COMPLETED, self._on_ai_completed_overlay)
             self.events.on(Events.TEXT_INPUT_COMPLETED, self._on_input_completed_overlay)
             self.events.on(Events.AUDIO_LEVEL_UPDATE, self._on_audio_level_update_overlay)
+
+            # 错误事件 - 关闭悬浮窗
+            self.events.on(Events.TRANSCRIPTION_ERROR, self._on_error_overlay)
+            self.events.on(Events.AI_PROCESSING_ERROR, self._on_error_overlay)
+            self.events.on(Events.TEXT_INPUT_ERROR, self._on_error_overlay)
 
     def _on_recording_started_overlay(self, data: Any = None) -> None:
         """录音开始时显示悬浮窗"""
@@ -261,10 +268,24 @@ class VoiceInputApp:
         if self.recording_overlay:
             self.recording_overlay.set_status_text("AI Processing...")
 
+    def _on_ai_completed_overlay(self, data: Any = None) -> None:
+        """AI处理完成时更新悬浮窗状态为完成（绿色）"""
+        if self.recording_overlay:
+            from ..ui.overlay import StatusIndicator
+            self.recording_overlay.status_indicator.set_state(
+                StatusIndicator.STATE_COMPLETED
+            )
+
     def _on_input_completed_overlay(self, text: str) -> None:
         """输入完成时隐藏悬浮窗"""
         if self.recording_overlay:
             self.recording_overlay.show_completed(delay_ms=500)
+
+    def _on_error_overlay(self, error_msg: str) -> None:
+        """处理错误时隐藏悬浮窗"""
+        if self.recording_overlay:
+            # 显示完成状态，然后快速隐藏（1秒后）
+            self.recording_overlay.show_completed(delay_ms=1000)
 
     def _on_audio_level_update_overlay(self, level: float) -> None:
         """音频级别更新时更新悬浮窗音量条"""
