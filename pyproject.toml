@@ -55,11 +55,6 @@ full = [
     "sonicinput[local,dev]"
 ]
 
-# 仅云转录（最小安装）
-cloud = [
-    "sonicinput[dev]"
-]
-
 [project.scripts]
 sonicinput = "sonicinput.main:main"
 
@@ -70,13 +65,3 @@ markers = [
     "gui: marks tests that require GUI/Qt environment (use '-m \"not gui\"' to skip)",
 ]
 addopts = "-v"
-
-[tool.uv]
-dev-dependencies = [
-    "pytest>=7.4.0",
-    "black>=23.0.0",
-    "ruff>=0.1.0",
-    "mypy>=1.7.0",
-    "vulture>=2.14",
-    "bandit>=1.8.6",
-]

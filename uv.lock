@@ -1790,17 +1790,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-cloud = [
-    { name = "bandit" },
-    { name = "black" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-mock" },
-    { name = "pytest-timeout" },
-    { name = "ruff" },
-    { name = "vulture" },
-]
 dev = [
     { name = "bandit" },
     { name = "black" },
@@ -1834,16 +1823,6 @@ local = [
     { name = "nvidia-cudnn-cu12" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "bandit" },
-    { name = "black" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "ruff" },
-    { name = "vulture" },
-]
-
 [package.metadata]
 requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.8.6" },
@@ -1872,22 +1851,11 @@ requires-dist = [
     { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scipy", specifier = ">=1.10.0" },
-    { name = "sonicinput", extras = ["dev"], marker = "extra == 'cloud'" },
     { name = "sonicinput", extras = ["local", "dev"], marker = "extra == 'full'" },
     { name = "sounddevice", specifier = ">=0.4.6" },
     { name = "vulture", marker = "extra == 'dev'", specifier = ">=2.14" },
 ]
-provides-extras = ["local", "dev", "full", "cloud"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "bandit", specifier = ">=1.8.6" },
-    { name = "black", specifier = ">=23.0.0" },
-    { name = "mypy", specifier = ">=1.7.0" },
-    { name = "pytest", specifier = ">=7.4.0" },
-    { name = "ruff", specifier = ">=0.1.0" },
-    { name = "vulture", specifier = ">=2.14" },
-]
+provides-extras = ["local", "dev", "full"]
 
 [[package]]
 name = "sounddevice"
