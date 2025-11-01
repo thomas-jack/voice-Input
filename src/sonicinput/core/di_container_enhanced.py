@@ -665,16 +665,20 @@ def create_container() -> 'EnhancedDIContainer':
         config = container.get(IConfigService)
         event_service = container.get(IEventService)
 
-        # 获取模型配置
-        model_name = config.get_setting("whisper.model", "large-v3-turbo")
-        use_gpu = config.get_setting("whisper.use_gpu", None)  # None = auto-detect
+        # 使用 SpeechServiceFactory 从配置创建服务
+        from ..speech import SpeechServiceFactory
 
-        # 创建WhisperEngine工厂函数
-        def whisper_engine_factory():
-            return WhisperEngine(model_name, use_gpu=use_gpu)
+        # 创建 SpeechService 工厂函数
+        def speech_service_factory():
+            # 使用工厂从配置创建服务（自动选择 local 或 groq）
+            service = SpeechServiceFactory.create_from_config(config)
+            if service is None:
+                # Fallback 到默认的 WhisperEngine
+                return WhisperEngine("large-v3-turbo", use_gpu=None)
+            return service
 
         # 使用TranscriptionService包装,提供线程隔离
-        transcription_service = TranscriptionService(whisper_engine_factory, event_service)
+        transcription_service = TranscriptionService(speech_service_factory, event_service)
 
         # 启动TranscriptionService
         transcription_service.start()

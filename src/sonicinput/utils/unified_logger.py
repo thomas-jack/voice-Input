@@ -266,7 +266,7 @@ class UnifiedLogger:
         parts = [f"[{timestamp}] {color}{level.name}{reset} | {category.value} | {message}"]
 
         # 添加context（如果有且重要）
-        if context and category in [LogCategory.PERFORMANCE, LogCategory.AUDIO, LogCategory.MODEL]:
+        if context and category in [LogCategory.PERFORMANCE, LogCategory.AUDIO, LogCategory.MODEL, LogCategory.ERROR]:
             # 格式化context为可读形式
             context_str = self._format_context_readable(context)
             if context_str:

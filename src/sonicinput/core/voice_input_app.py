@@ -178,7 +178,16 @@ class VoiceInputApp:
 
     def _should_enable_auto_load(self) -> bool:
         """判断是否应该启用自动加载"""
-        return self.config.get_setting("whisper.auto_load", True)
+        # 检查转录提供商
+        provider = self.config.get_setting("transcription.provider", "local")
+
+        # 如果使用云端转录，不自动加载本地模型
+        if provider != "local":
+            return False
+
+        # 否则根据配置决定
+        return self.config.get_setting("transcription.local.auto_load",
+                                     self.config.get_setting("whisper.auto_load", True))
 
     def _load_model_async(self) -> None:
         """异步加载语音模型"""

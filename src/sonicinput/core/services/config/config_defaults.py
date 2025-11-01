@@ -11,6 +11,22 @@ def get_default_config() -> Dict[str, Any]:
     """
     return {
         "hotkeys": ["ctrl+shift+v"],
+        "transcription": {
+            "provider": "local",
+            "local": {
+                "model": "large-v3-turbo",
+                "language": "auto",
+                "use_gpu": True,
+                "auto_load": True,
+                "temperature": 0.0,
+                "device": "auto",
+                "compute_type": "auto"
+            },
+            "groq": {
+                "api_key": "",
+                "model": "whisper-large-v3-turbo"
+            }
+        },
         "whisper": {
             "model": "large-v3-turbo",
             "language": "auto",

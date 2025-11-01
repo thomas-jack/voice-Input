@@ -1,7 +1,7 @@
 """Whisper设置标签页"""
 
 from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
-                            QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QHBoxLayout, QLabel, QProgressBar)
+                            QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QHBoxLayout, QLabel, QProgressBar, QLineEdit, QWidget)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -10,9 +10,9 @@ class WhisperTab(BaseSettingsTab):
     """Whisper设置标签页
 
     包含：
-    - 模型选择
-    - 语言设置
-    - GPU设置
+    - 转录提供商选择（Local / Groq）
+    - Local Whisper 模型配置
+    - Groq API 配置
     - 模型管理（加载/卸载/测试）
     - GPU信息显示
     """
@@ -21,8 +21,19 @@ class WhisperTab(BaseSettingsTab):
         """设置UI"""
         layout = QVBoxLayout(self.widget)
 
-        # 模型设置组
-        model_group = QGroupBox("Whisper Model Configuration")
+        # 转录提供商选择组
+        provider_group = QGroupBox("Transcription Provider")
+        provider_layout = QFormLayout(provider_group)
+
+        self.transcription_provider_combo = QComboBox()
+        self.transcription_provider_combo.addItems(["local", "groq"])
+        self.transcription_provider_combo.currentTextChanged.connect(self._on_provider_changed)
+        provider_layout.addRow("Provider:", self.transcription_provider_combo)
+
+        layout.addWidget(provider_group)
+
+        # Local Whisper 模型设置组
+        model_group = QGroupBox("Local Whisper Configuration")
         model_layout = QFormLayout(model_group)
 
         # 模型选择
@@ -89,9 +100,32 @@ class WhisperTab(BaseSettingsTab):
         management_layout.addWidget(self.model_progress)
 
         layout.addWidget(management_group)
+        self.management_group = management_group
+
+        # Groq API 配置组
+        groq_group = QGroupBox("Groq Cloud API Configuration")
+        groq_layout = QFormLayout(groq_group)
+
+        # API Key
+        self.groq_api_key_edit = QLineEdit()
+        self.groq_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.groq_api_key_edit.setPlaceholderText("Enter Groq API key")
+        self.groq_api_key_edit.textChanged.connect(self._on_groq_api_key_changed)
+        groq_layout.addRow("API Key:", self.groq_api_key_edit)
+
+        # 模型选择
+        self.groq_model_combo = QComboBox()
+        self.groq_model_combo.addItems([
+            "whisper-large-v3-turbo",
+            "whisper-large-v3"
+        ])
+        groq_layout.addRow("Model:", self.groq_model_combo)
+
+        layout.addWidget(groq_group)
+        self.groq_group = groq_group
 
         # GPU信息组
-        gpu_group = QGroupBox("GPU Information")
+        gpu_group = QGroupBox("GPU Information (Local Only)")
         gpu_layout = QFormLayout(gpu_group)
 
         self.gpu_status_label = QLabel("Checking...")
@@ -101,16 +135,21 @@ class WhisperTab(BaseSettingsTab):
         gpu_layout.addRow("Memory Usage:", self.gpu_memory_label)
 
         layout.addWidget(gpu_group)
+        self.gpu_group = gpu_group
+        self.model_group = model_group
 
         layout.addStretch()
 
         # 保存控件引用
         self.controls = {
+            'transcription_provider': self.transcription_provider_combo,
             'whisper_model': self.whisper_model_combo,
             'whisper_language': self.whisper_language_combo,
             'use_gpu': self.use_gpu_checkbox,
             'auto_load_model': self.auto_load_model_checkbox,
             'temperature': self.whisper_temperature_spinbox,
+            'groq_api_key': self.groq_api_key_edit,
+            'groq_model': self.groq_model_combo,
             'model_status': self.model_status_label,
             'gpu_status': self.gpu_status_label,
             'gpu_memory': self.gpu_memory_label,
@@ -132,24 +171,43 @@ class WhisperTab(BaseSettingsTab):
         Args:
             config: 完整配置字典
         """
+        # 转录配置（新）
+        transcription_config = config.get("transcription", {})
+        provider = transcription_config.get("provider", "local")
+        self.transcription_provider_combo.setCurrentText(provider)
+
+        # Local Whisper settings
+        local_config = transcription_config.get("local", {})
+        # Fallback to old whisper config for backward compatibility
         whisper_config = config.get("whisper", {})
 
-        # Whisper settings
         self.whisper_model_combo.setCurrentText(
-            whisper_config.get("model", "large-v3-turbo")
+            local_config.get("model", whisper_config.get("model", "large-v3-turbo"))
         )
         self.whisper_language_combo.setCurrentText(
-            whisper_config.get("language", "auto")
+            local_config.get("language", whisper_config.get("language", "auto"))
         )
         self.use_gpu_checkbox.setChecked(
-            whisper_config.get("use_gpu", True)
+            local_config.get("use_gpu", whisper_config.get("use_gpu", True))
         )
         self.auto_load_model_checkbox.setChecked(
-            whisper_config.get("auto_load", True)
+            local_config.get("auto_load", whisper_config.get("auto_load", True))
         )
         self.whisper_temperature_spinbox.setValue(
-            whisper_config.get("temperature", 0.0)
+            local_config.get("temperature", whisper_config.get("temperature", 0.0))
         )
+
+        # Groq settings
+        groq_config = transcription_config.get("groq", {})
+        self.groq_api_key_edit.setText(
+            groq_config.get("api_key", "")
+        )
+        self.groq_model_combo.setCurrentText(
+            groq_config.get("model", "whisper-large-v3-turbo")
+        )
+
+        # Update visibility based on provider
+        self._on_provider_changed(provider)
 
     def save_config(self) -> Dict[str, Any]:
         """保存UI状态到配置
@@ -158,6 +216,21 @@ class WhisperTab(BaseSettingsTab):
             Dict[str, Any]: 配置字典
         """
         config = {
+            "transcription": {
+                "provider": self.transcription_provider_combo.currentText(),
+                "local": {
+                    "model": self.whisper_model_combo.currentText(),
+                    "language": self.whisper_language_combo.currentText(),
+                    "use_gpu": self.use_gpu_checkbox.isChecked(),
+                    "auto_load": self.auto_load_model_checkbox.isChecked(),
+                    "temperature": self.whisper_temperature_spinbox.value(),
+                },
+                "groq": {
+                    "api_key": self.groq_api_key_edit.text(),
+                    "model": self.groq_model_combo.currentText(),
+                }
+            },
+            # Keep old whisper config for backward compatibility
             "whisper": {
                 "model": self.whisper_model_combo.currentText(),
                 "language": self.whisper_language_combo.currentText(),
@@ -181,9 +254,67 @@ class WhisperTab(BaseSettingsTab):
             self.parent_window.unload_model()
 
     def _test_model(self) -> None:
-        """测试模型 - 发送信号到父窗口"""
-        if hasattr(self.parent_window, 'model_test_requested'):
-            self.parent_window.model_test_requested.emit()
+        """测试模型或 API 连接 - 根据提供商类型"""
+        provider = self.transcription_provider_combo.currentText()
+
+        if provider == "local":
+            # Local 模式：测试本地模型
+            if hasattr(self.parent_window, 'model_test_requested'):
+                self.parent_window.model_test_requested.emit()
+        elif provider == "groq":
+            # Groq 模式：测试 API 连接
+            self._test_groq_api()
+
+    def _test_groq_api(self) -> None:
+        """测试 Groq API 连接"""
+        from PySide6.QtWidgets import QMessageBox
+        import numpy as np
+
+        # 检查 API key
+        api_key = self.groq_api_key_edit.text().strip()
+        if not api_key:
+            QMessageBox.warning(
+                self.parent_window,
+                "API Key Missing",
+                "Please enter your Groq API key first."
+            )
+            return
+
+        # 显示测试中状态
+        self.model_status_label.setText("Testing API connection...")
+
+        try:
+            # 导入并创建 Groq 服务 - 使用绝对导入
+            from sonicinput.speech import GroqSpeechService
+
+            model = self.groq_model_combo.currentText()
+            service = GroqSpeechService(api_key=api_key, model=model)
+
+            # 尝试初始化客户端
+            success = service.load_model()
+
+            if success:
+                self.model_status_label.setText("API connection successful")
+                QMessageBox.information(
+                    self.parent_window,
+                    "API Test Successful",
+                    f"Successfully connected to Groq API!\n\nModel: {model}\n\nYou can now use cloud transcription."
+                )
+            else:
+                self.model_status_label.setText("API connection failed")
+                QMessageBox.critical(
+                    self.parent_window,
+                    "API Test Failed",
+                    "Failed to connect to Groq API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- Groq service status"
+                )
+
+        except Exception as e:
+            self.model_status_label.setText("API test error")
+            QMessageBox.critical(
+                self.parent_window,
+                "API Test Error",
+                f"Error testing Groq API:\n\n{str(e)}\n\nPlease check your API key and try again."
+            )
 
     def update_model_status(self, status: str) -> None:
         """更新模型状态显示
@@ -227,3 +358,49 @@ class WhisperTab(BaseSettingsTab):
             value: 进度值 (0-100)
         """
         self.model_progress.setValue(value)
+
+    def _on_provider_changed(self, provider: str) -> None:
+        """当转录提供商改变时更新UI显示
+
+        Args:
+            provider: 提供商名称 ("local" 或 "groq")
+        """
+        is_local = provider == "local"
+
+        # 显示/隐藏 Local Whisper 配置
+        self.model_group.setVisible(is_local)
+        self.gpu_group.setVisible(is_local)
+
+        # 显示/隐藏 Groq 配置
+        self.groq_group.setVisible(not is_local)
+
+        # 调整 Model Management 区域
+        if is_local:
+            # Local 模式：显示模型管理
+            self.management_group.setTitle("Model Management")
+            self.model_status_label.setText("Model not loaded" if not hasattr(self, '_model_loaded') else
+                                           ("Model loaded" if self._model_loaded else "Model not loaded"))
+            self.load_model_button.setVisible(True)
+            self.unload_model_button.setVisible(True)
+            self.test_model_button.setText("Test Model")
+        else:
+            # Groq 模式：显示 API 测试
+            self.management_group.setTitle("API Connection Test")
+            self.model_status_label.setText("API key configured" if self.groq_api_key_edit.text().strip() else "API key not configured")
+            self.load_model_button.setVisible(False)
+            self.unload_model_button.setVisible(False)
+            self.test_model_button.setText("Test API Connection")
+
+    def _on_groq_api_key_changed(self, text: str) -> None:
+        """当 Groq API key 改变时更新状态
+
+        Args:
+            text: API key 文本
+        """
+        # 只在 Groq 模式下更新状态
+        provider = self.transcription_provider_combo.currentText()
+        if provider == "groq":
+            if text.strip():
+                self.model_status_label.setText("API key configured")
+            else:
+                self.model_status_label.setText("API key not configured")

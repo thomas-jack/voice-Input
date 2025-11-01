@@ -26,6 +26,7 @@ dependencies = [
     "psutil>=5.9.0",
     "qt-material>=2.17",
     "cryptography>=46.0.3",
+    "groq>=0.9.0",
 ]
 
 [project.optional-dependencies]
@@ -47,6 +48,7 @@ dev-dependencies = [
     "mypy>=1.7.0",
     "vulture>=2.14",
     "bandit>=1.8.6",
+    "pytest-timeout>=2.4.0",
 ]
 
 [project.scripts]
