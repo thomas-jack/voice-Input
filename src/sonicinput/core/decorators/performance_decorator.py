@@ -134,6 +134,7 @@ class PerformanceDecorator(BaseDecorator):
         self.slow_threshold = slow_threshold
 
     def __call__(self, *args, **kwargs):
+        # Refactored to avoid try-finally with return for Nuitka compatibility
         start_time = time.perf_counter()
         success = False
         result = None
@@ -142,7 +143,6 @@ class PerformanceDecorator(BaseDecorator):
         try:
             result = self.func(*args, **kwargs)
             success = True
-            return result
         except Exception as e:
             error = e
             raise
@@ -168,6 +168,8 @@ class PerformanceDecorator(BaseDecorator):
                     "error": str(error),
                     "error_type": type(error).__name__
                 }, EventPriority.HIGH)
+
+        return result
 
 
 class CacheDecorator(BaseDecorator):

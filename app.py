@@ -142,7 +142,10 @@ _qt_app_instance = None
 
 
 def handle_shutdown(signum, frame):
-    """Handle shutdown signals gracefully with proper cleanup"""
+    """Handle shutdown signals gracefully with proper cleanup
+
+    Note: Refactored to avoid try-finally with return for Nuitka compatibility
+    """
     print("\n[SHUTDOWN] Received shutdown signal, cleaning up...")
 
     global _app_instance, _container_instance, _qt_app_instance
@@ -152,28 +155,28 @@ def handle_shutdown(signum, frame):
         if _qt_app_instance:
             print("[SHUTDOWN] Requesting Qt application quit...")
             _qt_app_instance.quit()
-            return  # Qt cleanup will handle the rest
+            # Qt cleanup will handle the rest - skip manual cleanup
+        else:
+            # Otherwise, handle cleanup directly (for test mode)
+            # Clean up voice app
+            if _app_instance:
+                print("[SHUTDOWN] Stopping voice input app...")
+                try:
+                    _app_instance.shutdown()
+                    print("[SHUTDOWN] Voice app stopped successfully")
+                except Exception as e:
+                    print(f"[SHUTDOWN] Warning during app shutdown: {e}")
 
-        # Otherwise, handle cleanup directly (for test mode)
-        # Clean up voice app
-        if _app_instance:
-            print("[SHUTDOWN] Stopping voice input app...")
-            try:
-                _app_instance.shutdown()
-                print("[SHUTDOWN] Voice app stopped successfully")
-            except Exception as e:
-                print(f"[SHUTDOWN] Warning during app shutdown: {e}")
+            # Clean up container
+            if _container_instance:
+                print("[SHUTDOWN] Cleaning up dependency container...")
+                try:
+                    _container_instance.cleanup()
+                    print("[SHUTDOWN] Container cleaned up successfully")
+                except Exception as e:
+                    print(f"[SHUTDOWN] Warning during container cleanup: {e}")
 
-        # Clean up container
-        if _container_instance:
-            print("[SHUTDOWN] Cleaning up dependency container...")
-            try:
-                _container_instance.cleanup()
-                print("[SHUTDOWN] Container cleaned up successfully")
-            except Exception as e:
-                print(f"[SHUTDOWN] Warning during container cleanup: {e}")
-
-        print("[SHUTDOWN] Cleanup completed, exiting...")
+            print("[SHUTDOWN] Cleanup completed, exiting...")
 
     except Exception as e:
         print(f"[SHUTDOWN] Error during cleanup: {e}")

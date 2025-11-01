@@ -383,6 +383,8 @@ class EnhancedDIContainer:
         else:
             context = self._creation_context_stack[-1]
 
+        # Refactored to avoid try-finally with return for Nuitka compatibility
+        instance = None
         try:
             # 添加到创建中列表
             context.add_creating(descriptor.interface)
@@ -416,8 +418,6 @@ class EnhancedDIContainer:
             # 添加到已创建列表
             context.add_created(descriptor.interface, instance)
 
-            return instance
-
         except Exception as e:
             if self.logger:
                 self.logger.error(f"Failed to create {descriptor.name}: {e}")
@@ -431,6 +431,8 @@ class EnhancedDIContainer:
             # 如果是最外层调用，清理上下文
             if context.depth == 0:
                 self._creation_context_stack.clear()
+
+        return instance
 
     def _create_with_dependencies(self, implementation: Type, descriptor: ServiceDescriptor) -> Any:
         """创建实例并注入依赖"""

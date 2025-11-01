@@ -343,6 +343,9 @@ class TaskQueueManager:
         with self._tasks_lock:
             self._running_tasks[task.task_id] = task
 
+        # Refactored to avoid try-finally with return for Nuitka compatibility
+        retry_scheduled = False
+
         try:
             app_logger.log_audio_event("Task execution started", {
                 "task_id": task.task_id,
@@ -411,29 +414,31 @@ class TaskQueueManager:
                         "max_retries": task.max_retries
                     })
 
-                    return
+                    retry_scheduled = True
                 except queue.Full:
                     app_logger.log_error(Exception("Queue full during retry"), "task_retry_failed")
 
-            # 更新统计
-            with self._stats_lock:
-                self._stats["failed_tasks"] += 1
+            # Only continue with error handling if retry was not scheduled
+            if not retry_scheduled:
+                # 更新统计
+                with self._stats_lock:
+                    self._stats["failed_tasks"] += 1
 
-            app_logger.log_error(e, f"task_execution_failed_{task.task_type}")
+                app_logger.log_error(e, f"task_execution_failed_{task.task_type}")
 
-            # 执行错误回调
-            if task.error_callback:
-                try:
-                    task.error_callback(str(e))
-                except Exception as callback_error:
-                    app_logger.log_error(callback_error, "task_error_callback_error")
+                # 执行错误回调
+                if task.error_callback:
+                    try:
+                        task.error_callback(str(e))
+                    except Exception as callback_error:
+                        app_logger.log_error(callback_error, "task_error_callback_error")
 
-            # 发送任务失败事件
-            self._emit_task_event("task_failed", {
-                "task_id": task.task_id,
-                "error": str(e),
-                "retry_count": task.retry_count
-            })
+                # 发送任务失败事件
+                self._emit_task_event("task_failed", {
+                    "task_id": task.task_id,
+                    "error": str(e),
+                    "retry_count": task.retry_count
+                })
 
         finally:
             # 清理运行任务记录

@@ -41,6 +41,7 @@ NUL
 # Logs
 *.log
 logs/
+diagnostic_report_*.json
 
 # User Configuration (contains API keys)
 config.json
@@ -55,6 +56,8 @@ build_nuitka.py
 *.build/
 *.dist/
 *.onefile-build/
+nuitka-crash-report.xml
+nuitka-crash-report-*.xml
 
 # Temporary test files
 test_*.py
