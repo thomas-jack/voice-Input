@@ -10,9 +10,9 @@ from typing import Optional, Dict, Any, Callable, List
 import numpy as np
 
 from .transcription_core import TranscriptionCore
-from .model_manager import ModelManager, ModelState
+from .model_manager import ModelManager
 from .streaming_coordinator import StreamingCoordinator
-from .task_queue_manager import TaskQueueManager, Task, TaskPriority, TaskStatus
+from .task_queue_manager import TaskQueueManager, TaskPriority
 from .error_recovery_service import ErrorRecoveryService
 
 from ...utils import app_logger, WhisperLoadError
@@ -105,8 +105,12 @@ class RefactoredTranscriptionService(ISpeechService):
                 self.stop()
                 raise
 
-    def stop(self) -> None:
-        """停止转录服务"""
+    def stop(self, timeout: Optional[float] = None) -> None:
+        """停止转录服务
+
+        Args:
+            timeout: 停止超时时间（秒），可选参数，用于测试兼容性
+        """
         with self._service_lock:
             if not self._is_started:
                 return
@@ -115,8 +119,11 @@ class RefactoredTranscriptionService(ISpeechService):
                 # 停止流式转录
                 self.streaming_coordinator.cleanup()
 
-                # 停止任务队列
-                self.task_queue_manager.stop()
+                # 停止任务队列（传递 timeout 参数）
+                if timeout is not None:
+                    self.task_queue_manager.stop(timeout=timeout)
+                else:
+                    self.task_queue_manager.stop()
 
                 # 停止模型管理器
                 self.model_manager.stop()
@@ -358,7 +365,7 @@ class RefactoredTranscriptionService(ISpeechService):
 
         return self.streaming_coordinator.add_streaming_chunk(audio_data)
 
-    def load_model(
+    def load_model_async(
         self,
         model_name: Optional[str] = None,
         timeout: int = 300,
@@ -392,64 +399,8 @@ class RefactoredTranscriptionService(ISpeechService):
 
         return task_id
 
-    def load_model_async(
-        self,
-        model_name: Optional[str] = None,
-        callback: Optional[Callable[[bool, str], None]] = None,
-        error_callback: Optional[Callable[[str], None]] = None
-    ) -> None:
-        """加载模型（异步，兼容旧API）
-
-        Args:
-            model_name: 模型名称（可选）
-            callback: 成功回调，签名：callback(success: bool, error: str)
-            error_callback: 错误回调，签名：error_callback(error_msg: str)
-        """
-        def adapted_callback(task_result: Dict[str, Any]) -> None:
-            """适配任务队列结果到旧API回调格式"""
-            success = task_result.get("success", False)
-            error = task_result.get("error", "")
-
-            if callback:
-                callback(success, error)
-
-        def adapted_error_callback(error_msg: str) -> None:
-            """适配错误回调到旧API格式"""
-            if error_callback:
-                error_callback(error_msg)
-
-        # 直接使用model_manager加载模型
-        success = self.model_manager.load_model(model_name)
-
-        # 立即调用回调（同步模拟异步）
-        if adapted_callback:
-            adapted_callback({"success": success, "error": "" if success else "Failed to load model"})
-
-    def load_model_sync(self, model_name: Optional[str] = None, timeout: int = 300) -> bool:
-        """加载模型（同步）
-
-        Args:
-            model_name: 模型名称（可选）
-            timeout: 超时时间
-
-        Returns:
-            True如果加载成功
-        """
-        if not self._is_started:
-            raise RuntimeError("Transcription service is not started")
-
-        success = self.model_manager.load_model(model_name, timeout)
-
-        if success:
-            # 更新转录核心
-            whisper_engine = self.model_manager.get_whisper_engine()
-            if whisper_engine:
-                self.transcription_core = TranscriptionCore(whisper_engine)
-
-        return success
-
-    def unload_model(self) -> None:
-        """卸载模型"""
+    def unload_model_async(self) -> None:
+        """卸载模型（异步）"""
         if not self._is_started:
             raise RuntimeError("Transcription service is not started")
 
@@ -519,14 +470,6 @@ class RefactoredTranscriptionService(ISpeechService):
 
         return success
 
-    def is_model_loaded(self) -> bool:
-        """检查模型是否已加载
-
-        Returns:
-            True如果模型已加载
-        """
-        return self.model_manager.is_model_loaded()
-
     def is_ready(self) -> bool:
         """检查服务是否就绪
 
@@ -553,8 +496,8 @@ class RefactoredTranscriptionService(ISpeechService):
 
         return status
 
-    def get_available_models(self) -> list:
-        """获取可用模型列表
+    def get_available_models_async(self) -> list:
+        """获取可用模型列表（异步）
 
         Returns:
             模型名称列表
@@ -765,23 +708,6 @@ class RefactoredTranscriptionService(ISpeechService):
 
         app_logger.audio("RefactoredTranscriptionService cleaned up", {})
 
-    # ISpeechService interface implementation
-    def load_model(self, model_name: Optional[str] = None) -> bool:
-        """加载语音识别模型 - ISpeechService 接口实现"""
-        return self.model_manager.load_model(model_name)
-
-    def unload_model(self) -> None:
-        """卸载当前模型 - ISpeechService 接口实现"""
-        self.model_manager.unload_model()
-
-    def get_available_models(self) -> List[str]:
-        """获取可用的模型列表 - ISpeechService 接口实现"""
-        return self.model_manager.get_available_models()
-
-    def is_model_loaded(self) -> bool:
-        """模型是否已加载 - ISpeechService 接口实现（使用方法而非属性以避免装饰器冲突）"""
-        return self.model_manager.is_model_loaded()
-
     # Backward compatibility properties - 这些属性用于UI显示
     @property
     def model_name(self) -> str:
@@ -809,3 +735,50 @@ class RefactoredTranscriptionService(ISpeechService):
             "is_loaded": False,
             "use_gpu": False
         }
+
+    # ISpeechService interface implementation (同步版本)
+    # 这些方法符合 ISpeechService 接口要求，用于兼容性
+    # 推荐使用带 _async 后缀的异步版本以获得更好的性能
+
+    def load_model(self, model_name: Optional[str] = None) -> bool:
+        """加载模型（同步阻塞）- ISpeechService 接口实现
+
+        注意：这是同步阻塞调用，推荐使用 load_model_async() 异步版本
+
+        Args:
+            model_name: 模型名称，None 表示使用当前配置的模型
+
+        Returns:
+            是否加载成功
+        """
+        if not self._is_started:
+            raise RuntimeError("Transcription service is not started")
+
+        return self.model_manager.load_model(model_name)
+
+    def unload_model(self) -> None:
+        """卸载模型（同步）- ISpeechService 接口实现"""
+        if self.model_manager:
+            self.model_manager.unload_model()
+            self.transcription_core = None
+
+    def get_available_models(self) -> List[str]:
+        """获取可用模型列表 - ISpeechService 接口实现
+
+        Returns:
+            模型名称列表
+        """
+        if self.model_manager:
+            return self.model_manager.get_available_models()
+        return []
+
+    @property
+    def is_model_loaded(self) -> bool:
+        """模型是否已加载 - ISpeechService 接口的属性实现
+
+        Returns:
+            True 如果模型已加载
+        """
+        if self.model_manager:
+            return self.model_manager.is_model_loaded()
+        return False

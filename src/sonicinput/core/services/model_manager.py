@@ -4,7 +4,7 @@ import time
 from typing import Optional, Dict, Any
 from enum import Enum
 
-from ...utils import app_logger, WhisperLoadError
+from ...utils import app_logger
 
 
 class ModelState(Enum):
@@ -82,7 +82,6 @@ class ModelManager:
         Returns:
             True如果加载成功
         """
-        import threading
 
         if not self._state_lock:
             self.start()

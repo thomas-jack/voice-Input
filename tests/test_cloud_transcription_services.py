@@ -171,7 +171,8 @@ def test_factory_from_config_groq(mock_import, mock_config_groq):
     assert service.api_key == "test_api_key"
 
 
-def test_factory_from_config_no_api_key_fallback(mock_config_no_api_key):
+@patch('sonicinput.speech.speech_service_factory.SpeechServiceFactory._is_local_available', return_value=True)
+def test_factory_from_config_no_api_key_fallback(mock_is_local_available, mock_config_no_api_key):
     """测试无API密钥时回退到本地服务"""
     service = SpeechServiceFactory.create_from_config(mock_config_no_api_key)
 
@@ -181,7 +182,8 @@ def test_factory_from_config_no_api_key_fallback(mock_config_no_api_key):
     assert not isinstance(service, GroqSpeechService)
 
 
-def test_factory_local_fallback(mock_config_no_api_key):
+@patch('sonicinput.speech.speech_service_factory.SpeechServiceFactory._is_local_available', return_value=True)
+def test_factory_local_fallback(mock_is_local_available, mock_config_no_api_key):
     """测试本地回退功能"""
     service = SpeechServiceFactory.create_from_config_local_fallback(mock_config_no_api_key)
 

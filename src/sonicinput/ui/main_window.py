@@ -65,7 +65,6 @@ class ModelTestThread(QThread):
             self.test_complete.emit(test_success, result_info, "")
 
         except Exception as e:
-            import traceback
             error_msg = f"{type(e).__name__}: {str(e)}"
             app_logger.log_error(e, "ModelTestThread.run")
             # 添加详细的错误信息到结果中
@@ -353,7 +352,6 @@ class MainWindow(QMainWindow):
                 test_thread.start()
 
         except Exception as e:
-            import traceback
             error_details = f"{type(e).__name__}: {str(e)}"
             app_logger.log_error(e, "_on_model_test_requested")
             QMessageBox.critical(

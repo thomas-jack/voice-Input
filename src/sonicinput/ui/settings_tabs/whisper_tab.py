@@ -1,7 +1,7 @@
 """Whisper设置标签页"""
 
 from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
-                            QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QHBoxLayout, QLabel, QProgressBar, QLineEdit, QWidget)
+                            QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QHBoxLayout, QLabel, QProgressBar, QLineEdit)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -268,7 +268,6 @@ class WhisperTab(BaseSettingsTab):
     def _test_groq_api(self) -> None:
         """测试 Groq API 连接"""
         from PySide6.QtWidgets import QMessageBox
-        import numpy as np
 
         # 检查 API key
         api_key = self.groq_api_key_edit.text().strip()

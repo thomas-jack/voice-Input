@@ -1,14 +1,10 @@
 """Recording Overlay Window - 重构版本使用组件化架构"""
 
-import math
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                            QFrame, QGraphicsDropShadowEffect)
-from PySide6.QtCore import Qt, QTimer, Signal, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QFont, QColor
+from PySide6.QtWidgets import (QWidget)
+from PySide6.QtCore import Qt, Signal, QPropertyAnimation
 from ..utils import app_logger
 from ..core.interfaces import IConfigService
-from .overlay import StatusIndicator, CloseButton
-from .recording_overlay_utils.position_manager import PositionManager
+from .overlay import StatusIndicator
 from .overlay_components import AnimationController, AudioVisualizer, TimerManager, OverlayUIBuilder
 
 

@@ -246,7 +246,7 @@ class EventBus(IEventService):
         processing_time = time.time() - start_time
         logger = _get_logger()
         if logger and logger.is_debug_enabled():
-            logger.debug(f"Listeners execution summary:")
+            logger.debug("Listeners execution summary:")
             logger.debug(f"  - Total listeners: {len(listeners)}")
             logger.debug(f"  - Successfully executed: {executed_count}")
             logger.debug(f"  - Failed: {len(failed_listeners)}")

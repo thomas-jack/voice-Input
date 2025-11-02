@@ -1,7 +1,7 @@
 """定时器管理器 - 单一职责：管理所有定时器"""
 
 import warnings
-from typing import Callable, Optional
+from typing import Callable
 from PySide6.QtCore import QTimer
 
 from ...utils import app_logger

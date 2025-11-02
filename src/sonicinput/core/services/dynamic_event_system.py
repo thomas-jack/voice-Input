@@ -11,7 +11,6 @@
 import threading
 import time
 import uuid
-from enum import Enum
 from typing import Callable, Dict, List, Any, Optional, Set, Union
 from dataclasses import dataclass, field
 from collections import defaultdict

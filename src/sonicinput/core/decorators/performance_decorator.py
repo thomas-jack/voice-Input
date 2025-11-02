@@ -6,7 +6,7 @@
 import time
 import functools
 import threading
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import logging

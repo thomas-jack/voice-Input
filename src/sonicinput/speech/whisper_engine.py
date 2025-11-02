@@ -344,7 +344,6 @@ class WhisperEngine(ISpeechService):
     def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None,
                   temperature: float = 0.0) -> Dict[str, Any]:
         """Transcribe audio"""
-        import traceback
         start_time = time.time()
 
         # 模型状态检查

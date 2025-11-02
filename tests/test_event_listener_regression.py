@@ -147,6 +147,7 @@ def test_voice_input_app_event_listeners():
         pytest.fail(f"VoiceInputApp event listener failed: {e}")
 
 
+@pytest.mark.gui
 def test_main_window_event_listeners():
     """测试 MainWindow 中的事件监听器能够正确接收参数"""
     container = create_container()

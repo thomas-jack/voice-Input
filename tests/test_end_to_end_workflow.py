@@ -77,7 +77,8 @@ class TestEndToEndWorkflow:
         print("Verifying transcription process...")
         # Check if Whisper was called to process audio (may be called through decorators)
         try:
-            assert mock_whisper.finalize_streaming_transcription.called
+            # 新 API 使用 stop_streaming 而不是 finalize_streaming_transcription
+            assert mock_whisper.stop_streaming.called
         except AttributeError:
             print("SUCCESS: Transcription service called (decorator pattern)")
         else:

@@ -34,6 +34,7 @@ htmlcov/
 Thumbs.db
 *.bak
 *.backup
+*_backup.py
 *.old
 *.tmp
 NUL

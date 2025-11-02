@@ -26,11 +26,13 @@ def mock_whisper():
     whisper = MagicMock()
     whisper.transcribe.return_value = {"text": "这是测试文本"}
     whisper.is_model_loaded.return_value = True
-    whisper.finalize_streaming_transcription.return_value = "这是测试文本"
+    # 旧方法名（向后兼容）
+    whisper.finalize_streaming_transcription.return_value = {"text": "这是测试文本", "stats": {}}
     whisper.start_streaming_mode.return_value = None
-    # 添加流式转录支持
+    # 新 API 流式转录支持
+    whisper.start_streaming.return_value = None
     whisper.add_streaming_chunk.return_value = None
-    whisper.stop_streaming.return_value = "这是测试文本"
+    whisper.stop_streaming.return_value = {"text": "这是测试文本", "stats": {}}
     whisper.load_model.return_value = True
     return whisper
 
@@ -68,9 +70,10 @@ def mock_audio():
     audio = MagicMock()
     # 模拟录音停止返回 5 秒的假音频
     fake_audio = np.random.random(16000 * 5)  # 5秒 @ 16kHz
-    audio.stop_recording.return_value = fake_audio
-    audio.start_recording.return_value = None
-    audio.set_callback.return_value = None
+    audio.stop_recording = MagicMock(return_value=fake_audio)
+    audio.start_recording = MagicMock(return_value=None)
+    audio.set_callback = MagicMock(return_value=None)
+    audio.get_audio_devices = MagicMock(return_value=[])
     return audio
 
 

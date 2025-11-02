@@ -42,14 +42,14 @@ from .transcription_service_refactored import RefactoredTranscriptionService
 from .transcription_core import TranscriptionCore
 from .model_manager import ModelManager, ModelState
 from .streaming_coordinator import StreamingCoordinator, StreamingChunk
-from .task_queue_manager import TaskQueueManager, Task, TaskPriority, TaskStatus
+from .task_queue_manager import TaskQueueManager, TaskPriority, TaskStatus
 from .error_recovery_service import ErrorRecoveryService, ErrorSeverity, ErrorCategory
 
 # 导出任务相关类型
 from dataclasses import dataclass
 from enum import Enum
 import numpy as np
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Callable
 
 
 class TranscriptionTaskType(Enum):

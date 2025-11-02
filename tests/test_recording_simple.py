@@ -76,9 +76,7 @@ class TestRecordingFunctionality:
         time.sleep(0.1)
 
         # 验证录音服务被调用
-        # 从应用中获取实际的音频服务mock
-        actual_audio_service = app._audio_service
-        actual_audio_service.start_recording.assert_called()
+        mock_audio.start_recording.assert_called()
 
         # 验证状态变化
         assert app.state.get_recording_state() == RecordingState.RECORDING
@@ -93,8 +91,7 @@ class TestRecordingFunctionality:
         time.sleep(0.2)
 
         # 验证录音服务被调用
-        actual_audio_service = app._audio_service
-        actual_audio_service.stop_recording.assert_called()
+        mock_audio.stop_recording.assert_called()
 
         # 验证状态回到初始
         assert app.state.get_recording_state() == RecordingState.IDLE
