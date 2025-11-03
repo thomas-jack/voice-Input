@@ -10,15 +10,15 @@ requires-python = ">=3.10"
 
 # 核心依赖 - 所有模式都需要
 dependencies = [
-    # Windows GUI 依赖
-    "PyAudio>=0.2.11",
-    "PySide6>=6.6.0",
-    "pywin32>=306",
-    "pyperclip>=1.8.4",
-    "pynput>=1.7.6",
-    "sounddevice>=0.4.6",
-    "qt-material>=2.17",
-    # 通用依赖
+    # Windows GUI 依赖（使用平台标记，只在 Windows 上安装）
+    "PyAudio>=0.2.11; sys_platform == 'win32'",
+    "PySide6>=6.6.0; sys_platform == 'win32'",
+    "pywin32>=306; sys_platform == 'win32'",
+    "pyperclip>=1.8.4; sys_platform == 'win32'",
+    "pynput>=1.7.6; sys_platform == 'win32'",
+    "sounddevice>=0.4.6; sys_platform == 'win32'",
+    "qt-material>=2.17; sys_platform == 'win32'",
+    # 通用依赖（跨平台）
     "requests>=2.31.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",

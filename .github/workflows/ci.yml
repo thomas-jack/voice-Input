@@ -65,11 +65,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Qt dependencies and xvfb
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 xvfb
-
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -91,12 +86,11 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --extra ci
-        uv pip install PySide6 pynput  # CI needs PySide6 and pynput for imports
 
     - name: Run CI test suite
       run: |
         cd tests/ci
-        xvfb-run -a uv run python run_ci_tests.py
+        uv run python run_ci_tests.py
 
     - name: Upload test reports
       if: always()
@@ -123,11 +117,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install Qt dependencies and xvfb
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 xvfb
-
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -141,12 +130,11 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --extra ci
-        uv pip install PySide6 pynput  # CI needs PySide6 and pynput for imports
 
     - name: Run quick CI tests
       run: |
         cd tests/ci
-        xvfb-run -a uv run python run_ci_tests.py --quick
+        uv run python run_ci_tests.py --quick
 
   # 安全扫描
   security:
