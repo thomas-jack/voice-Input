@@ -338,7 +338,7 @@ class HotkeyTab(BaseSettingsTab):
             timeout_timer = QTimer()
             timeout_timer.timeout.connect(capture_timeout)
             timeout_timer.setSingleShot(True)
-            timeout_timer.start(5000)
+            timeout_timer.start(3000)  # 3 second timeout
 
             # 使用QTimer检查捕获结果
             def check_capture_result():

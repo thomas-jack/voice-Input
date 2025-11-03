@@ -635,18 +635,8 @@ class AITab(BaseSettingsTab):
     def _check_api_test_status(self) -> None:
         """检查API测试状态（由定时器调用）"""
         try:
-            # 检查是否超时 (30秒)
-            if time.time() - self._api_test_start_time > 30:
-                self._api_test_timer.stop()
-                self._api_progress_dialog.close()
-                QMessageBox.warning(
-                    self.parent_window,
-                    "API Connection Test",
-                    "⏱️ Test timed out after 30 seconds.",
-                )
-                self.api_status_label.setText("Timeout")
-                self.api_status_label.setStyleSheet("color: orange;")
-                return
+            # 不强制超时，由底层 API 的 timeout 配置控制
+            # 用户可以在配置中设置 ai.timeout (5-120秒)
 
             # 检查线程是否完成
             if not self._api_test_thread.is_alive():

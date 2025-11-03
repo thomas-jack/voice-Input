@@ -97,13 +97,15 @@ class UITab(BaseSettingsTab):
             ui_config.get("overlay_always_on_top", True)
         )
 
-        # 加载overlay position mode
+        # 加载overlay position (仅加载preset值，custom模式通过拖拽窗口设置)
         overlay_position = ui_config.get("overlay_position", {})
         position_mode = overlay_position.get("mode", "preset")
         if position_mode == "preset":
-            self.overlay_position_combo.setCurrentText("预设位置")
-        elif position_mode == "custom":
-            self.overlay_position_combo.setCurrentText("自定义位置")
+            preset_value = overlay_position.get("preset", "center")
+            self.overlay_position_combo.setCurrentText(preset_value)
+        else:
+            # custom模式：显示默认值，用户可以通过拖拽窗口来改变位置
+            self.overlay_position_combo.setCurrentText("center")
 
         # 加载主题颜色设置
         theme_color = ui_config.get("theme_color", "cyan")
@@ -147,11 +149,12 @@ class UITab(BaseSettingsTab):
             }
         }
 
-        # 处理overlay position模式设置
+        # 处理overlay position preset设置
+        # 注意：这里只保存preset值和mode，custom位置通过position_manager自动保存
         overlay_position_text = self.overlay_position_combo.currentText()
-        if overlay_position_text == "预设位置":
-            config["ui"]["overlay_position"] = {"mode": "preset"}
-        elif overlay_position_text == "自定义位置":
-            config["ui"]["overlay_position"] = {"mode": "custom"}
+        config["ui"]["overlay_position"] = {
+            "mode": "preset",
+            "preset": overlay_position_text
+        }
 
         return config
