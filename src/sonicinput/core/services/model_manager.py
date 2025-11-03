@@ -115,7 +115,13 @@ class ModelManager:
                 self._current_model_name = target_model_name
 
             # 执行模型加载
-            self._whisper_engine.load_model()
+            load_success = self._whisper_engine.load_model()
+
+            # 检查加载结果
+            if not load_success:
+                with self._state_lock:
+                    self._model_state = ModelState.FAILED
+                raise Exception("Model load_model() returned False")
 
             # 更新状态
             with self._state_lock:

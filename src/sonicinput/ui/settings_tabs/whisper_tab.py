@@ -381,8 +381,11 @@ class WhisperTab(BaseSettingsTab):
             self._test_siliconflow_api()
 
     def _test_groq_api(self) -> None:
-        """测试 Groq API 连接"""
-        from PySide6.QtWidgets import QMessageBox
+        """测试 Groq API 连接（异步，不阻塞UI）"""
+        from PySide6.QtWidgets import QMessageBox, QApplication
+        from PySide6.QtCore import QTimer
+        import threading
+        import time
 
         # 检查 API key
         api_key = self.groq_api_key_edit.text().strip()
@@ -394,45 +397,123 @@ class WhisperTab(BaseSettingsTab):
             )
             return
 
-        # 显示测试中状态
-        self.model_status_label.setText("Testing API connection...")
+        # 显示测试中对话框
+        model = self.groq_model_combo.currentText()
+        progress_dialog = QMessageBox(self.parent_window)
+        progress_dialog.setWindowTitle("Testing Groq API")
+        progress_dialog.setText(
+            f"Testing Groq API connection...\n\nModel: {model}\n\nThis may take a few seconds."
+        )
+        progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        progress_dialog.show()
+
+        # 处理事件以显示对话框
+        QApplication.processEvents()
+
+        # 创建后台线程运行测试
+        result_container = {"success": False, "error": ""}
+
+        def test_connection_thread():
+            try:
+                from sonicinput.speech import GroqSpeechService
+
+                service = GroqSpeechService(api_key=api_key, model=model)
+                success = service.load_model()
+                result_container["success"] = success
+
+                if not success:
+                    result_container["error"] = "Failed to initialize Groq client"
+
+            except Exception as e:
+                result_container["success"] = False
+                result_container["error"] = str(e)
+
+        # 启动测试线程
+        test_thread = threading.Thread(target=test_connection_thread, daemon=True)
+        test_thread.start()
+
+        # 保存测试状态
+        self._groq_test_thread = test_thread
+        self._groq_test_result = result_container
+        self._groq_progress_dialog = progress_dialog
+        self._groq_test_start_time = time.time()
+        self._groq_test_model = model
+
+        # 创建定时器轮询测试状态
+        self._groq_test_timer = QTimer()
+        self._groq_test_timer.timeout.connect(self._check_groq_test_status)
+        self._groq_test_timer.start(100)  # 每100ms检查一次
+
+    def _check_groq_test_status(self) -> None:
+        """检查 Groq API 测试状态"""
+        from PySide6.QtWidgets import QMessageBox
+        import time
 
         try:
-            # 导入并创建 Groq 服务 - 使用绝对导入
-            from sonicinput.speech import GroqSpeechService
+            thread_alive = self._groq_test_thread.is_alive()
+            elapsed_time = time.time() - self._groq_test_start_time
 
-            model = self.groq_model_combo.currentText()
-            service = GroqSpeechService(api_key=api_key, model=model)
+            # 检查测试线程是否完成
+            if not thread_alive:
+                # 测试完成，停止定时器
+                self._groq_test_timer.stop()
+                self._groq_progress_dialog.close()
 
-            # 尝试初始化客户端
-            success = service.load_model()
+                # 显示结果
+                if self._groq_test_result["success"]:
+                    self.model_status_label.setText("API connection successful")
+                    QMessageBox.information(
+                        self.parent_window,
+                        "API Test Successful",
+                        f"Successfully connected to Groq API!\n\nModel: {self._groq_test_model}\n\nYou can now use cloud transcription.",
+                    )
+                else:
+                    error_msg = self._groq_test_result["error"] or "Unknown error"
+                    self.model_status_label.setText("API connection failed")
+                    QMessageBox.critical(
+                        self.parent_window,
+                        "API Test Failed",
+                        f"Failed to connect to Groq API.\n\nError: {error_msg}\n\nPlease check:\n- API key is valid\n- Internet connection\n- Groq service status",
+                    )
+                return
 
-            if success:
-                self.model_status_label.setText("API connection successful")
-                QMessageBox.information(
-                    self.parent_window,
-                    "API Test Successful",
-                    f"Successfully connected to Groq API!\n\nModel: {model}\n\nYou can now use cloud transcription.",
-                )
-            else:
-                self.model_status_label.setText("API connection failed")
+            # 检查用户是否点击了取消
+            if (
+                hasattr(self, "_groq_progress_dialog")
+                and self._groq_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+            ):
+                self._groq_test_timer.stop()
+                self._groq_progress_dialog.close()
+                self.model_status_label.setText("API test cancelled")
+                return
+
+            # 检查超时（15秒）
+            if elapsed_time > 15:
+                self._groq_test_timer.stop()
+                self._groq_progress_dialog.close()
+                self.model_status_label.setText("API test timeout")
                 QMessageBox.critical(
                     self.parent_window,
-                    "API Test Failed",
-                    "Failed to connect to Groq API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- Groq service status",
+                    "API Test Timeout",
+                    f"The API test took too long (>{elapsed_time:.1f} seconds).\n\nThis may indicate network issues or API unavailability.",
                 )
 
         except Exception as e:
+            self._groq_test_timer.stop()
+            self._groq_progress_dialog.close()
             self.model_status_label.setText("API test error")
             QMessageBox.critical(
                 self.parent_window,
                 "API Test Error",
-                f"Error testing Groq API:\n\n{str(e)}\n\nPlease check your API key and try again.",
+                f"Error during API test: {str(e)}",
             )
 
     def _test_siliconflow_api(self) -> None:
-        """测试 SiliconFlow API 连接"""
-        from PySide6.QtWidgets import QMessageBox
+        """测试 SiliconFlow API 连接（异步，不阻塞UI）"""
+        from PySide6.QtWidgets import QMessageBox, QApplication
+        from PySide6.QtCore import QTimer
+        import threading
+        import time
 
         # 检查 API key
         api_key = self.siliconflow_api_key_edit.text().strip()
@@ -444,40 +525,115 @@ class WhisperTab(BaseSettingsTab):
             )
             return
 
-        # 显示测试中状态
-        self.model_status_label.setText("Testing API connection...")
+        # 显示测试中对话框
+        model = self.siliconflow_model_combo.currentText()
+        progress_dialog = QMessageBox(self.parent_window)
+        progress_dialog.setWindowTitle("Testing SiliconFlow API")
+        progress_dialog.setText(
+            f"Testing SiliconFlow API connection...\n\nModel: {model}\n\nThis may take up to 30 seconds."
+        )
+        progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        progress_dialog.show()
+
+        # 处理事件以显示对话框
+        QApplication.processEvents()
+
+        # 创建后台线程运行测试
+        result_container = {"success": False, "error": ""}
+
+        def test_connection_thread():
+            try:
+                from sonicinput.speech.siliconflow_engine import SiliconFlowEngine
+
+                service = SiliconFlowEngine(api_key=api_key, model_name=model)
+                success = service.test_connection()
+                result_container["success"] = success
+
+                if not success:
+                    result_container["error"] = "Connection test failed"
+
+            except Exception as e:
+                result_container["success"] = False
+                result_container["error"] = str(e)
+
+        # 启动测试线程
+        test_thread = threading.Thread(target=test_connection_thread, daemon=True)
+        test_thread.start()
+
+        # 保存测试状态
+        self._siliconflow_test_thread = test_thread
+        self._siliconflow_test_result = result_container
+        self._siliconflow_progress_dialog = progress_dialog
+        self._siliconflow_test_start_time = time.time()
+        self._siliconflow_test_model = model
+
+        # 创建定时器轮询测试状态
+        self._siliconflow_test_timer = QTimer()
+        self._siliconflow_test_timer.timeout.connect(self._check_siliconflow_test_status)
+        self._siliconflow_test_timer.start(100)  # 每100ms检查一次
+
+    def _check_siliconflow_test_status(self) -> None:
+        """检查 SiliconFlow API 测试状态"""
+        from PySide6.QtWidgets import QMessageBox
+        import time
 
         try:
-            # 导入并创建 SiliconFlow 服务
-            from sonicinput.speech.siliconflow_engine import SiliconFlowEngine
+            thread_alive = self._siliconflow_test_thread.is_alive()
+            elapsed_time = time.time() - self._siliconflow_test_start_time
 
-            model = self.siliconflow_model_combo.currentText()
-            service = SiliconFlowEngine(api_key=api_key, model_name=model)
+            # 检查测试线程是否完成
+            if not thread_alive:
+                # 测试完成，停止定时器
+                self._siliconflow_test_timer.stop()
+                self._siliconflow_progress_dialog.close()
 
-            # 尝试测试连接
-            success = service.test_connection()
+                # 显示结果
+                if self._siliconflow_test_result["success"]:
+                    self.model_status_label.setText("API connection successful")
+                    QMessageBox.information(
+                        self.parent_window,
+                        "API Test Successful",
+                        f"Successfully connected to SiliconFlow API!\n\nModel: {self._siliconflow_test_model}\n\nYou can now use cloud transcription.",
+                    )
+                else:
+                    error_msg = self._siliconflow_test_result["error"] or "Unknown error"
+                    self.model_status_label.setText("API connection failed")
+                    QMessageBox.critical(
+                        self.parent_window,
+                        "API Test Failed",
+                        f"Failed to connect to SiliconFlow API.\n\nError: {error_msg}\n\nPlease check:\n- API key is valid\n- Internet connection\n- SiliconFlow service status",
+                    )
+                return
 
-            if success:
-                self.model_status_label.setText("API connection successful")
-                QMessageBox.information(
-                    self.parent_window,
-                    "API Test Successful",
-                    f"Successfully connected to SiliconFlow API!\n\nModel: {model}\n\nYou can now use cloud transcription.",
-                )
-            else:
-                self.model_status_label.setText("API connection failed")
+            # 检查用户是否点击了取消
+            if (
+                hasattr(self, "_siliconflow_progress_dialog")
+                and self._siliconflow_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+            ):
+                self._siliconflow_test_timer.stop()
+                self._siliconflow_progress_dialog.close()
+                self.model_status_label.setText("API test cancelled")
+                return
+
+            # 检查超时（35秒）
+            if elapsed_time > 35:
+                self._siliconflow_test_timer.stop()
+                self._siliconflow_progress_dialog.close()
+                self.model_status_label.setText("API test timeout")
                 QMessageBox.critical(
                     self.parent_window,
-                    "API Test Failed",
-                    "Failed to connect to SiliconFlow API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- SiliconFlow service status",
+                    "API Test Timeout",
+                    f"The API test took too long (>{elapsed_time:.1f} seconds).\n\nThis may indicate network issues or API unavailability.",
                 )
 
         except Exception as e:
+            self._siliconflow_test_timer.stop()
+            self._siliconflow_progress_dialog.close()
             self.model_status_label.setText("API test error")
             QMessageBox.critical(
                 self.parent_window,
                 "API Test Error",
-                f"Error testing SiliconFlow API:\n\n{str(e)}\n\nPlease check your API key and try again.",
+                f"Error during API test: {str(e)}",
             )
 
     def update_model_status(self, status: str) -> None:

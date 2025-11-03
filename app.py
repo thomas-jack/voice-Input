@@ -555,14 +555,28 @@ def run_gui():
         # Import qt-material for modern UI theming
         from qt_material import apply_stylesheet
 
+        # IMPORTANT: Set AppUserModelID BEFORE creating QApplication
+        # This is required for Windows taskbar icon to display correctly
+        import ctypes
+        try:
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.sonicinput.app")
+        except Exception:
+            pass  # Silently fail on non-Windows platforms
+
         # Create Qt application (or reuse existing instance)
         qt_app = QApplication.instance()
         if qt_app is None:
             qt_app = QApplication(sys.argv)
 
         # Set application icon (all windows will inherit this)
+        # Note: Skip setWindowIcon in exe mode due to Nuitka issue #3611
         from sonicinput.ui.utils import get_app_icon
-        qt_app.setWindowIcon(get_app_icon())
+        app_icon = get_app_icon()
+
+        if not sys.argv[0].endswith(".exe"):
+            # Only set icon when running from Python (not compiled exe)
+            # In exe mode, icon is set via --windows-icon-from-ico during compilation
+            qt_app.setWindowIcon(app_icon)
 
         # Create application components (needed to access config)
         from sonicinput.core.di_container import create_container

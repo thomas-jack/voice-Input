@@ -52,6 +52,7 @@ class SiliconFlowEngine(ISpeechService):
         self.model_name = model_name
         self.base_url = base_url if base_url else self.BASE_URL
         self._is_model_loaded = False
+        self.device = "cloud"  # 云端服务，标识为 "cloud"
 
         # 请求会话，复用连接
         self._session = None
@@ -151,7 +152,7 @@ class SiliconFlowEngine(ISpeechService):
             suggestions = ["服务暂时不可用，请稍后重试", "检查网络连接"]
 
         app_logger.log_error(
-            f"SiliconFlow API error: {error_message}", "siliconflow_api"
+            Exception(f"SiliconFlow API error: {error_message}"), "siliconflow_api"
         )
         app_logger.log_audio_event(
             "API error suggestions",
@@ -170,6 +171,7 @@ class SiliconFlowEngine(ISpeechService):
         self,
         audio_data: np.ndarray,
         language: Optional[str] = None,
+        temperature: float = 0.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
     ) -> Dict[str, Any]:
@@ -178,6 +180,7 @@ class SiliconFlowEngine(ISpeechService):
         Args:
             audio_data: 音频数据 (numpy数组)
             language: 语言代码，None表示自动检测
+            temperature: 采样温度（云端API不使用，仅为接口兼容）
             max_retries: 最大重试次数
             retry_delay: 重试延迟（秒）
 
@@ -205,15 +208,18 @@ class SiliconFlowEngine(ISpeechService):
                 # 转换音频格式
                 wav_bytes = self._numpy_to_wav_bytes(audio_data)
 
-                # 准备请求数据
+                # 准备请求数据（按照官方 API 规范）
                 files = {
-                    "file": ("audio.wav", wav_bytes, "audio/wav"),
-                    "model": (None, self.model_name),
+                    "file": ("audio.wav", wav_bytes, "audio/wav")
+                }
+
+                data = {
+                    "model": self.model_name
                 }
 
                 # 添加语言参数（如果指定）
                 if language and language != "auto":
-                    files["language"] = (None, language)
+                    data["language"] = language
 
                 # 发送请求
                 session = self._get_session()
@@ -229,7 +235,7 @@ class SiliconFlowEngine(ISpeechService):
                     },
                 )
 
-                response = session.post(url, files=files, timeout=30)
+                response = session.post(url, data=data, files=files, timeout=30)
 
                 # 更新统计信息
                 request_time = time.time() - start_time
@@ -299,9 +305,9 @@ class SiliconFlowEngine(ISpeechService):
                     else:
                         return error_result
 
-            except requests.exceptions.Timeout:
-                last_error = "Request timeout (30s)"
-                app_logger.log_error(last_error, "siliconflow_timeout")
+            except (requests.exceptions.Timeout, requests.exceptions.ReadTimeout) as e:
+                last_error = f"Request timeout (30s): {str(e)}"
+                app_logger.log_error(e, "siliconflow_timeout")
 
                 if retry_count < max_retries:
                     retry_count += 1
@@ -316,6 +322,15 @@ class SiliconFlowEngine(ISpeechService):
                     time.sleep(retry_delay * (2 ** (retry_count - 1)))
                     continue
                 else:
+                    app_logger.log_audio_event(
+                        "API request failed after all retries",
+                        {
+                            "error": last_error,
+                            "error_code": "TIMEOUT",
+                            "retry_count": retry_count,
+                            "max_retries": max_retries,
+                        },
+                    )
                     return {
                         "text": "",
                         "error": last_error,
@@ -341,6 +356,15 @@ class SiliconFlowEngine(ISpeechService):
                     time.sleep(retry_delay * (2 ** (retry_count - 1)))
                     continue
                 else:
+                    app_logger.log_audio_event(
+                        "Connection failed after all retries",
+                        {
+                            "error": last_error,
+                            "error_code": "CONNECTION_ERROR",
+                            "retry_count": retry_count,
+                            "max_retries": max_retries,
+                        },
+                    )
                     return {
                         "text": "",
                         "error": last_error,
@@ -397,13 +421,13 @@ class SiliconFlowEngine(ISpeechService):
         return False
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
-        """加载模型（云端服务无需预加载）
+        """加载模型（云端服务，标记为已加载即可）
 
         Args:
             model_name: 模型名称，None表示使用当前模型
 
         Returns:
-            是否加载成功（云端服务总是返回True）
+            是否加载成功
         """
         if model_name:
             if model_name not in self.AVAILABLE_MODELS:
@@ -417,26 +441,17 @@ class SiliconFlowEngine(ISpeechService):
                 return False
             self.model_name = model_name
 
-        # 验证API密钥
-        try:
-            session = self._get_session()
-            response = session.get(f"{self.base_url}/models", timeout=10)
-            if response.status_code == 200:
-                self._is_model_loaded = True
-                app_logger.log_audio_event(
-                    "Model loaded successfully",
-                    {"model": self.model_name, "provider": "siliconflow"},
-                )
-                return True
-            else:
-                app_logger.log_error(
-                    f"API validation failed: {response.status_code}",
-                    "siliconflow_load_model",
-                )
-                return False
-        except Exception as e:
-            app_logger.log_error(e, "siliconflow_load_model")
-            return False
+        # 云端服务无需预加载，API 会在首次转录时验证
+        self._is_model_loaded = True
+        app_logger.log_audio_event(
+            "Model marked as loaded (cloud service)",
+            {
+                "model": self.model_name,
+                "provider": "siliconflow",
+                "note": "API will be validated on first transcription request"
+            },
+        )
+        return True
 
     def unload_model(self) -> None:
         """卸载模型（云端服务无需卸载）"""
@@ -491,22 +506,38 @@ class SiliconFlowEngine(ISpeechService):
         }
 
     def test_connection(self) -> bool:
-        """测试API连接
+        """测试API连接（使用真实转录请求）
 
         Returns:
             连接是否成功
         """
         try:
-            session = self._get_session()
-            response = session.get(f"{self.base_url}/models", timeout=10)
-            success = response.status_code == 200
+            # 生成 0.1 秒的静音音频用于测试
+            test_audio = np.zeros(1600, dtype=np.float32)  # 0.1秒 @ 16kHz
+
+            app_logger.log_audio_event(
+                "Testing connection with real transcription",
+                {"provider": "siliconflow"},
+            )
+
+            # 执行真实的转录请求（超时时间短一些）
+            result = self.transcribe(
+                test_audio,
+                language=None,
+                temperature=0.0,
+                max_retries=1,
+                retry_delay=1.0
+            )
+
+            # 检查是否成功
+            success = "error" not in result or not result["error"]
 
             app_logger.log_audio_event(
                 "Connection test",
                 {
                     "success": success,
-                    "status_code": response.status_code,
                     "provider": "siliconflow",
+                    "error": result.get("error") if not success else None,
                 },
             )
 

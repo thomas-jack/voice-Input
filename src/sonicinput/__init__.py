@@ -3,7 +3,7 @@
 一个基于Whisper和AI优化的Windows语音转文本输入解决方案
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Voice Input Software Team"
 __description__ = "Windows语音输入软件"
 
