@@ -154,6 +154,17 @@ def pytest_collection_modifyitems(config, items):
             if "test_refactoring_completeness.py" in str(item.fspath):
                 item.add_marker(skip_gui)
 
+            # 跳过需要完整DI容器的测试（需要PyAudio等Windows依赖）
+            # 这些测试会尝试实例化所有服务，包括音频服务
+            if item.name in [
+                "test_di_container",
+                "test_container_creation",
+                "test_container_basic_functionality"
+            ]:
+                item.add_marker(pytest.mark.skip(
+                    reason="DI container tests require Windows-specific dependencies (PyAudio, etc.)"
+                ))
+
             # 跳过GPU测试
             if "gpu" in item.keywords:
                 item.add_marker(skip_gpu)
