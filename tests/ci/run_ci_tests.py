@@ -62,6 +62,9 @@ def run_unit_tests(ci_config):
             "--junit-xml=reports/unit-tests.xml",
             "--html=reports/unit-tests.html",
             "--self-contained-html",
+            # 跳过需要 PySide6 图形环境的测试文件
+            "--ignore=unit/test_event_listener_regression.py",
+            "--ignore=unit/test_refactoring_completeness.py",
         ])
 
     result = subprocess.run(cmd, cwd=Path(__file__).parent)
@@ -166,6 +169,13 @@ def run_quick_tests():
         "--tb=short",
         "--timeout=10",
     ]
+
+    if is_ci_environment():
+        cmd.extend([
+            # 跳过需要 PySide6 图形环境的测试文件
+            "--ignore=unit/test_event_listener_regression.py",
+            "--ignore=unit/test_refactoring_completeness.py",
+        ])
 
     result = subprocess.run(cmd, cwd=Path(__file__).parent)
     return result.returncode == 0
