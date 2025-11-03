@@ -50,10 +50,10 @@ def run_unit_tests(ci_config):
 
     cmd = [
         sys.executable, "-m", "pytest",
+        "unit/",
         "-v",
         "--tb=short",
         f"--timeout={ci_config['timeout']}",
-        "-m", "unit",
         "--disable-warnings",
     ]
 
@@ -76,10 +76,10 @@ def run_integration_tests(ci_config):
 
     cmd = [
         sys.executable, "-m", "pytest",
+        "integration/",
         "-v",
         "--tb=short",
         f"--timeout={ci_config['timeout']}",
-        "-m", "integration",
         "--disable-warnings",
     ]
 
@@ -161,10 +161,10 @@ def run_quick_tests():
 
     cmd = [
         sys.executable, "-m", "pytest",
+        "unit/",
         "-v",
         "--tb=short",
         "--timeout=10",
-        "-m", "unit",
     ]
 
     result = subprocess.run(cmd, cwd=Path(__file__).parent)
