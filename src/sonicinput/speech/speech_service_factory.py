@@ -41,6 +41,9 @@ class SpeechServiceFactory:
         use_gpu: Optional[bool] = None,
         base_url: Optional[str] = None,
         app_id: Optional[str] = None,
+        token: Optional[str] = None,
+        cluster: Optional[str] = None,
+        model_type: Optional[str] = None,
     ) -> ISpeechService:
         """Create speech service instance
 
@@ -51,6 +54,9 @@ class SpeechServiceFactory:
             use_gpu: Use GPU for local provider (None = auto-detect)
             base_url: Custom base URL for cloud providers (optional)
             app_id: App ID for Doubao provider (optional)
+            token: API token for Doubao provider (optional)
+            cluster: Cluster for Doubao provider (optional)
+            model_type: Model type for Doubao provider ("standard" or "fast", optional)
 
         Returns:
             ISpeechService: Speech service instance
@@ -88,10 +94,30 @@ class SpeechServiceFactory:
             elif provider_lower == "doubao":
                 from .doubao_engine import DoubaoEngine
 
-                if not api_key:
-                    raise ValueError("Doubao provider requires API key")
+                # Determine auth token (token takes priority over api_key)
+                auth_token = token or api_key
+                if not auth_token:
+                    raise ValueError("Doubao provider requires API key or token")
+
+                # Determine model type and cluster based on model parameter or explicit model_type
+                if model_type:
+                    doubao_model_type = model_type
+                elif model and "fast" in model.lower():
+                    doubao_model_type = "fast"
+                else:
+                    doubao_model_type = "standard"
+
+                # Set cluster based on model type if not explicitly provided
+                if not cluster:
+                    cluster = "common" if doubao_model_type == "fast" else "volc_asr_public"
+
                 return DoubaoEngine(
-                    api_key=api_key, app_id=app_id, base_url=base_url
+                    api_key=auth_token,
+                    app_id=app_id,
+                    token=auth_token,
+                    cluster=cluster,
+                    model_type=doubao_model_type,
+                    base_url=base_url
                 )
 
             else:
@@ -212,32 +238,47 @@ class SpeechServiceFactory:
             elif provider == "doubao":
                 # Read Doubao configuration
                 api_key = config.get_setting("transcription.doubao.api_key", "")
-                app_id = config.get_setting("transcription.doubao.app_id", "sonicinput")
+                token = config.get_setting("transcription.doubao.token", "") or api_key
+                app_id = config.get_setting("transcription.doubao.app_id", "388808087185088")
+                cluster = config.get_setting("transcription.doubao.cluster", "volc_asr_public")
+                model_type = config.get_setting("transcription.doubao.model_type", "standard")
                 base_url = config.get_setting(
                     "transcription.doubao.base_url",
                     "https://openspeech.bytedance.com",
                 )
 
-                if not api_key:
+                # Use token as primary auth, fallback to api_key
+                auth_token = token or api_key
+                if not auth_token:
                     app_logger.log_audio_event(
-                        "Doubao provider selected but no API key configured",
+                        "Doubao provider selected but no API key/token configured",
                         {"suggestion": "Configure API key in settings"},
                     )
                     return None
+
+                # Determine cluster from model_type if not explicitly set
+                if not cluster or cluster == "volc_asr_public":  # Default value
+                    cluster = "common" if model_type == "fast" else "volc_asr_public"
 
                 # Only pass base_url if it's not the default (to use engine's default)
                 if base_url == "https://openspeech.bytedance.com":
                     return SpeechServiceFactory.create_service(
                         provider="doubao",
-                        api_key=api_key,
+                        api_key=auth_token,
                         app_id=app_id,
+                        token=auth_token,
+                        cluster=cluster,
+                        model_type=model_type,
                         base_url=None,
                     )
                 else:
                     return SpeechServiceFactory.create_service(
                         provider="doubao",
-                        api_key=api_key,
+                        api_key=auth_token,
                         app_id=app_id,
+                        token=auth_token,
+                        cluster=cluster,
+                        model_type=model_type,
                         base_url=base_url,
                     )
 

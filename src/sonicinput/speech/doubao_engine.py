@@ -22,6 +22,7 @@ class DoubaoEngine(ISpeechService):
 
     Features:
     - High accuracy powered by Doubao large model
+    - Support for both standard and fast models
     - Async task-based transcription
     - Intelligent text normalization
     - Punctuation restoration
@@ -30,27 +31,37 @@ class DoubaoEngine(ISpeechService):
 
     # Doubao API endpoints
     BASE_URL = "https://openspeech.bytedance.com"
-    SUBMIT_ENDPOINT = "/api/v3/auc/bigmodel/submit"
-    QUERY_ENDPOINT = "/api/v3/auc/bigmodel/query"
+    SUBMIT_ENDPOINT = "/api/v1/auc/submit"
+    QUERY_ENDPOINT = "/api/v1/auc/query"
 
-    # Resource ID for bigmodel ASR
-    RESOURCE_ID = "volc.bigasr.auc"
+    # Model types
+    MODEL_STANDARD = "respeak.opensource.auto"  # 标准版
+    MODEL_FAST = "respeak.opensource.auto"      # 极速版 (same endpoint, different cluster)
 
     def __init__(
         self,
         api_key: str,
         app_id: Optional[str] = None,
+        token: Optional[str] = None,
+        cluster: Optional[str] = None,
+        model_type: str = "standard",
         base_url: Optional[str] = None,
     ):
         """Initialize Doubao engine
 
         Args:
-            api_key: Doubao API key (x-api-key header)
-            app_id: Optional app ID for tracking
+            api_key: Doubao API key (used as Bearer token)
+            app_id: App ID (numeric string)
+            token: API token (alias for api_key for compatibility)
+            cluster: Cluster for model selection (different for standard vs fast)
+            model_type: Model type ("standard" or "fast")
             base_url: Optional custom API endpoint (for proxies or compatible services)
         """
-        self.api_key = api_key
-        self.app_id = app_id or "sonicinput"
+        # Use token as primary auth, fallback to api_key
+        self.api_key = token or api_key
+        self.app_id = app_id or "388808087185088"  # Default numeric app ID from demo
+        self.cluster = cluster or ("common" if model_type == "fast" else "volc_asr_public")
+        self.model_type = model_type
         self.base_url = base_url if base_url else self.BASE_URL
         self._is_model_loaded = False
         self.device = "cloud"  # Cloud service
@@ -70,6 +81,8 @@ class DoubaoEngine(ISpeechService):
                 "api_endpoint": f"{self.base_url}{self.QUERY_ENDPOINT}",
                 "custom_base_url": base_url is not None,
                 "app_id": self.app_id,
+                "cluster": self.cluster,
+                "model_type": self.model_type,
             },
         )
 
@@ -80,7 +93,8 @@ class DoubaoEngine(ISpeechService):
                 self._session = requests.Session()
                 self._session.headers.update(
                     {
-                        "x-api-key": self.api_key,
+                        "Authorization": f"Bearer; {self.api_key}",
+                        "Content-Type": "application/json",
                         "User-Agent": "SonicInput/1.4",
                     }
                 )
@@ -134,28 +148,29 @@ class DoubaoEngine(ISpeechService):
             # Convert audio to base64 WAV
             audio_base64 = self._numpy_to_base64_wav(audio_data)
 
-            # Generate request ID
-            request_id = str(uuid.uuid4())
-
             # Prepare request
             session = self._get_session()
             url = f"{self.base_url}{self.SUBMIT_ENDPOINT}"
 
-            headers = {
-                "Content-Type": "application/json",
-                "X-Api-Resource-Id": self.RESOURCE_ID,
-                "X-Api-Request-Id": request_id,
-            }
-
-            payload = {
-                "audio": audio_base64,
-                "format": "wav",
-                "rate": 16000,
-                "bits": 16,
-                "channel": 1,
-                "language": language or "zh-CN",
-                "enable_itn": True,  # Intelligent text normalization
-                "enable_punc": True,  # Punctuation
+            # Build request according to demo format
+            request_payload = {
+                "app": {
+                    "appid": self.app_id,
+                    "token": self.api_key,
+                    "cluster": self.cluster
+                },
+                "user": {
+                    "uid": "sonicinput_user"
+                },
+                "audio": {
+                    "format": "wav",
+                    "data": audio_base64  # Use base64 data instead of URL
+                },
+                "additions": {
+                    "with_speaker_info": "False",
+                    "enable_itn": "True",  # Intelligent text normalization
+                    "enable_punc": "True",  # Punctuation
+                }
             }
 
             app_logger.log_audio_event(
@@ -163,20 +178,22 @@ class DoubaoEngine(ISpeechService):
                 {
                     "audio_length": len(audio_data),
                     "language": language or "zh-CN",
-                    "request_id": request_id,
+                    "cluster": self.cluster,
+                    "model_type": self.model_type,
                 },
             )
 
-            response = session.post(url, json=payload, headers=headers, timeout=10)
+            response = session.post(url, data=json.dumps(request_payload), timeout=10)
 
             if response.status_code == 200:
                 result = response.json()
-                task_id = result.get("task_id") or result.get("id")
+                # Check response structure from demo: resp.id
+                task_id = result.get("resp", {}).get("id")
 
                 if task_id:
                     app_logger.log_audio_event(
                         "Task submitted successfully",
-                        {"task_id": task_id, "request_id": request_id},
+                        {"task_id": task_id, "cluster": self.cluster},
                     )
                     return task_id
                 else:
@@ -203,7 +220,7 @@ class DoubaoEngine(ISpeechService):
         self,
         task_id: str,
         max_polls: int = 30,
-        poll_interval: float = 1.0,
+        poll_interval: float = 2.0,
     ) -> Optional[Dict[str, Any]]:
         """Query transcription result by task ID
 
@@ -220,38 +237,31 @@ class DoubaoEngine(ISpeechService):
             url = f"{self.base_url}{self.QUERY_ENDPOINT}"
 
             for poll_count in range(max_polls):
-                # Generate unique request ID for each query
-                request_id = str(uuid.uuid4())
-
-                headers = {
-                    "Content-Type": "application/json",
-                    "X-Api-Resource-Id": self.RESOURCE_ID,
-                    "X-Api-Request-Id": request_id,
+                # Build query request according to demo format
+                query_payload = {
+                    "appid": self.app_id,
+                    "token": self.api_key,
+                    "id": task_id,
+                    "cluster": self.cluster
                 }
 
-                payload = {
-                    "task_id": task_id,
-                }
-
-                response = session.post(url, json=payload, headers=headers, timeout=10)
+                response = session.post(url, data=json.dumps(query_payload), timeout=10)
 
                 if response.status_code == 200:
                     result = response.json()
 
-                    # Check task status
-                    status = result.get("status") or result.get("task_status")
+                    # Check response status according to demo
+                    resp_code = result.get("resp", {}).get("code")
 
-                    if status == "success" or status == "completed":
-                        # Task completed successfully
+                    if resp_code == 1000:  # Task finished successfully
                         return result
-                    elif status == "failed" or status == "error":
-                        # Task failed
+                    elif resp_code < 2000:  # Task failed
                         app_logger.log_audio_event(
                             "Task failed",
-                            {"task_id": task_id, "result": result},
+                            {"task_id": task_id, "resp_code": resp_code, "result": result},
                         )
                         return None
-                    elif status == "processing" or status == "running":
+                    elif resp_code == 0 or resp_code == 1:  # Still processing
                         # Still processing, continue polling
                         app_logger.log_audio_event(
                             "Task still processing",
@@ -259,6 +269,7 @@ class DoubaoEngine(ISpeechService):
                                 "task_id": task_id,
                                 "poll_count": poll_count + 1,
                                 "max_polls": max_polls,
+                                "resp_code": resp_code,
                             },
                         )
                         time.sleep(poll_interval)
@@ -267,7 +278,7 @@ class DoubaoEngine(ISpeechService):
                         # Unknown status
                         app_logger.log_audio_event(
                             "Unknown task status",
-                            {"task_id": task_id, "status": status, "result": result},
+                            {"task_id": task_id, "resp_code": resp_code, "result": result},
                         )
                         time.sleep(poll_interval)
                         continue
@@ -348,11 +359,21 @@ class DoubaoEngine(ISpeechService):
                         break
 
                 # Query result
-                result = self._query_result(task_id, max_polls=30, poll_interval=1.0)
+                result = self._query_result(task_id, max_polls=30, poll_interval=2.0)
 
                 if result:
-                    # Extract transcription text
-                    text = result.get("text") or result.get("result", {}).get("text", "")
+                    # Extract transcription text from demo response format
+                    text = ""
+                    if "data" in result and "result" in result["data"]:
+                        # Demo format: data.result[0].text
+                        results = result["data"].get("result", [])
+                        if results and len(results) > 0:
+                            text = results[0].get("text", "")
+                    elif "resp" in result and "data" in result["resp"]:
+                        # Alternative format
+                        results = result["resp"]["data"].get("result", [])
+                        if results and len(results) > 0:
+                            text = results[0].get("text", "")
 
                     # Calculate performance metrics
                     request_time = time.time() - start_time
@@ -375,6 +396,8 @@ class DoubaoEngine(ISpeechService):
                         "Transcription completed",
                         {
                             "provider": "doubao",
+                            "model_type": self.model_type,
+                            "cluster": self.cluster,
                             "request_time": request_time,
                             "audio_duration": audio_duration,
                             "real_time_factor": real_time_factor,
@@ -390,6 +413,7 @@ class DoubaoEngine(ISpeechService):
                         "transcription_time": request_time,
                         "real_time_factor": real_time_factor,
                         "provider": "doubao",
+                        "model_type": self.model_type,
                         "retry_count": retry_count,
                     }
                 else:
@@ -423,6 +447,7 @@ class DoubaoEngine(ISpeechService):
             "error": last_error or "Unknown error",
             "error_code": "MAX_RETRIES_EXCEEDED",
             "provider": "doubao",
+            "model_type": self.model_type,
             "retry_count": retry_count,
         }
 
@@ -466,7 +491,7 @@ class DoubaoEngine(ISpeechService):
         Returns:
             List of model names
         """
-        return ["bigmodel"]  # Doubao only has one large model
+        return ["doubao-standard", "doubao-fast"]  # Support both standard and fast models
 
     @property
     def is_model_loaded(self) -> bool:

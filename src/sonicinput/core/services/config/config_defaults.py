@@ -38,7 +38,10 @@ def get_default_config() -> Dict[str, Any]:
             },
             "doubao": {
                 "api_key": "",
-                "app_id": "sonicinput",
+                "app_id": "388808087185088",
+                "token": "",
+                "cluster": "volc_asr_public",
+                "model_type": "standard",
                 "base_url": "https://openspeech.bytedance.com",
                 "timeout": 30,
                 "max_retries": 3,

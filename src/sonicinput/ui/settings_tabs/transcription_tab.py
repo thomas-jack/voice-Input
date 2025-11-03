@@ -1,4 +1,4 @@
-"""Whisper设置标签页"""
+"""Transcription设置标签页"""
 
 from PySide6.QtWidgets import (
     QVBoxLayout,
@@ -14,19 +14,19 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QLineEdit,
 )
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from .base_tab import BaseSettingsTab
 
 
-class WhisperTab(BaseSettingsTab):
-    """Whisper设置标签页
+class TranscriptionTab(BaseSettingsTab):
+    """Transcription设置标签页
 
     包含：
-    - 转录提供商选择（Local / Groq）
+    - 转录提供商选择（Local Whisper / Groq / SiliconFlow / Doubao）
     - Local Whisper 模型配置
-    - Groq API 配置
+    - 云服务 API 配置（Groq / SiliconFlow / Doubao）
     - 模型管理（加载/卸载/测试）
-    - GPU信息显示
+    - GPU信息显示（仅本地模式）
     """
 
     def _setup_ui(self) -> None:
@@ -201,19 +201,31 @@ class WhisperTab(BaseSettingsTab):
         doubao_group = QGroupBox("Doubao (ByteDance) Cloud API Configuration")
         doubao_layout = QFormLayout(doubao_group)
 
-        # API Key
+        # API Key / Token
         self.doubao_api_key_edit = QLineEdit()
         self.doubao_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.doubao_api_key_edit.setPlaceholderText("Enter Doubao API key (x-api-key)")
+        self.doubao_api_key_edit.setPlaceholderText("Enter Doubao API key or token")
         self.doubao_api_key_edit.textChanged.connect(
             self._on_doubao_api_key_changed
         )
-        doubao_layout.addRow("API Key:", self.doubao_api_key_edit)
+        doubao_layout.addRow("API Key/Token:", self.doubao_api_key_edit)
 
         # App ID
         self.doubao_app_id_edit = QLineEdit()
-        self.doubao_app_id_edit.setPlaceholderText("App ID (optional, default: sonicinput)")
+        self.doubao_app_id_edit.setPlaceholderText("App ID (numeric, default: 388808087185088)")
         doubao_layout.addRow("App ID:", self.doubao_app_id_edit)
+
+        # Model Type
+        self.doubao_model_type_combo = QComboBox()
+        self.doubao_model_type_combo.addItems(["standard", "fast"])
+        self.doubao_model_type_combo.setToolTip("Standard: Higher accuracy, slower. Fast: Lower accuracy, faster.")
+        doubao_layout.addRow("Model Type:", self.doubao_model_type_combo)
+
+        # Cluster (auto-filled based on model type)
+        self.doubao_cluster_edit = QLineEdit()
+        self.doubao_cluster_edit.setPlaceholderText("Auto-filled based on model type")
+        self.doubao_cluster_edit.setReadOnly(True)
+        doubao_layout.addRow("Cluster:", self.doubao_cluster_edit)
 
         # Base URL
         self.doubao_base_url_edit = QLineEdit()
@@ -274,6 +286,8 @@ class WhisperTab(BaseSettingsTab):
             "siliconflow_max_retries": self.siliconflow_max_retries_spinbox,
             "doubao_api_key": self.doubao_api_key_edit,
             "doubao_app_id": self.doubao_app_id_edit,
+            "doubao_model_type": self.doubao_model_type_combo,
+            "doubao_cluster": self.doubao_cluster_edit,
             "doubao_base_url": self.doubao_base_url_edit,
             "doubao_timeout": self.doubao_timeout_spinbox,
             "doubao_max_retries": self.doubao_max_retries_spinbox,
@@ -293,6 +307,12 @@ class WhisperTab(BaseSettingsTab):
         self.parent_window.model_status_label = self.model_status_label
         self.parent_window.gpu_status_label = self.gpu_status_label
         self.parent_window.gpu_memory_label = self.gpu_memory_label
+
+        # Connect Doubao model type change signal
+        self.doubao_model_type_combo.currentTextChanged.connect(self._on_doubao_model_type_changed)
+
+        # Initialize cluster display
+        self._update_doubao_cluster_display()
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -355,12 +375,17 @@ class WhisperTab(BaseSettingsTab):
         # Doubao settings
         doubao_config = transcription_config.get("doubao", {})
         self.doubao_api_key_edit.setText(doubao_config.get("api_key", ""))
-        self.doubao_app_id_edit.setText(doubao_config.get("app_id", "sonicinput"))
+        self.doubao_app_id_edit.setText(doubao_config.get("app_id", "388808087185088"))
+        self.doubao_model_type_combo.setCurrentText(doubao_config.get("model_type", "standard"))
+        self.doubao_cluster_edit.setText(doubao_config.get("cluster", "volc_asr_public"))
         self.doubao_base_url_edit.setText(
             doubao_config.get("base_url", "https://openspeech.bytedance.com")
         )
         self.doubao_timeout_spinbox.setValue(doubao_config.get("timeout", 30))
         self.doubao_max_retries_spinbox.setValue(doubao_config.get("max_retries", 3))
+
+        # Update cluster display based on model type
+        self._update_doubao_cluster_display()
 
         # Update visibility based on provider
         self._on_provider_changed(provider)
@@ -400,7 +425,11 @@ class WhisperTab(BaseSettingsTab):
                 "doubao": {
                     "api_key": self.doubao_api_key_edit.text(),
                     "app_id": self.doubao_app_id_edit.text().strip()
-                    or "sonicinput",
+                    or "388808087185088",
+                    "token": self.doubao_api_key_edit.text(),  # Same as api_key for compatibility
+                    "model_type": self.doubao_model_type_combo.currentText(),
+                    "cluster": self.doubao_cluster_edit.text().strip()
+                    or ("common" if self.doubao_model_type_combo.currentText() == "fast" else "volc_asr_public"),
                     "base_url": self.doubao_base_url_edit.text().strip()
                     or "https://openspeech.bytedance.com",
                     "timeout": self.doubao_timeout_spinbox.value(),
@@ -842,3 +871,122 @@ class WhisperTab(BaseSettingsTab):
                 self.model_status_label.setText("API key configured")
             else:
                 self.model_status_label.setText("API key not configured")
+
+    def _on_doubao_model_type_changed(self, model_type: str) -> None:
+        """当 Doubao 模型类型改变时更新集群显示
+
+        Args:
+            model_type: 模型类型 ("standard" 或 "fast")
+        """
+        self._update_doubao_cluster_display()
+
+    def _update_doubao_cluster_display(self) -> None:
+        """更新 Doubao 集群显示（基于模型类型）"""
+        model_type = self.doubao_model_type_combo.currentText()
+        cluster = "common" if model_type == "fast" else "volc_asr_public"
+        self.doubao_cluster_edit.setText(cluster)
+
+    def _test_doubao_api(self) -> None:
+        """测试 Doubao API 连接（异步，不阻塞UI）"""
+        from PySide6.QtWidgets import QMessageBox, QApplication
+        from PySide6.QtCore import QTimer
+        import threading
+        import time
+
+        # 检查 API key
+        api_key = self.doubao_api_key_edit.text().strip()
+        if not api_key:
+            QMessageBox.warning(
+                self.parent_window,
+                "API Key Missing",
+                "Please enter your Doubao API key first.",
+            )
+            return
+
+        # 显示测试中对话框
+        model_type = self.doubao_model_type_combo.currentText()
+        progress_dialog = QMessageBox(self.parent_window)
+        progress_dialog.setWindowTitle("Testing API Connection")
+        progress_dialog.setText(f"Testing Doubao ({model_type}) API connection...\n\nThis may take a moment.")
+        progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
+        progress_dialog.show()
+
+        # 启动后台测试线程
+        def test_api():
+            try:
+                from ...speech.speech_service_factory import SpeechServiceFactory
+
+                # 创建 Doubao 服务实例
+                service = SpeechServiceFactory.create_service(
+                    provider="doubao",
+                    api_key=api_key,
+                    app_id=self.doubao_app_id_edit.text().strip() or "388808087185088",
+                    model_type=model_type,
+                    base_url=self.doubao_base_url_edit.text().strip()
+                    or "https://openspeech.bytedance.com",
+                )
+
+                # 执行连接测试
+                success = service.test_connection()
+
+                # 更新UI（必须在主线程中执行）
+                QTimer.singleShot(0, lambda: self._check_doubao_test_status(success, model_type))
+
+            except Exception as e:
+                error_msg = str(e)
+                QTimer.singleShot(0, lambda: self._check_doubao_test_status(None, model_type, error_msg))
+
+        # 启动线程
+        test_thread = threading.Thread(target=test_api, daemon=True)
+        test_thread.start()
+
+        # 设置定时器检查是否取消
+        self._doubao_progress_dialog = progress_dialog
+        self._doubao_test_timer = QTimer()
+        self._doubao_test_timer.timeout.connect(
+            lambda: self._check_doubao_test_cancelled()
+        )
+        self._doubao_test_timer.start(500)  # 每500ms检查一次
+
+    def _check_doubao_test_cancelled(self) -> None:
+        """检查用户是否取消了 Doubao API 测试"""
+        if (
+            hasattr(self, "_doubao_progress_dialog")
+            and self._doubao_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+        ):
+            self._doubao_test_timer.stop()
+            self._doubao_progress_dialog.close()
+            self.model_status_label.setText("API test cancelled")
+
+    def _check_doubao_test_status(self, success: Optional[bool], model_type: str, error_msg: Optional[str] = None) -> None:
+        """检查 Doubao API 测试结果并显示相应消息
+
+        Args:
+            success: 测试是否成功
+            model_type: 模型类型
+            error_msg: 错误消息（如果有）
+        """
+        from PySide6.QtWidgets import QMessageBox
+
+        # 停止检查定时器并关闭进度对话框
+        if hasattr(self, "_doubao_test_timer"):
+            self._doubao_test_timer.stop()
+        if hasattr(self, "_doubao_progress_dialog"):
+            self._doubao_progress_dialog.close()
+
+        if success:
+            # 测试成功
+            self.model_status_label.setText(f"API connection successful ({model_type})")
+            QMessageBox.information(
+                self.parent_window,
+                "API Test Successful",
+                f"Doubao ({model_type}) API connection test successful!\n\nThe service is ready to use.",
+            )
+        else:
+            # 测试失败
+            self.model_status_label.setText("API connection failed")
+            QMessageBox.critical(
+                self.parent_window,
+                "API Test Failed",
+                f"Failed to connect to Doubao ({model_type}) API.\n\nError: {error_msg or 'Unknown error'}\n\nPlease check:\n- API key/token is valid\n- App ID is correct\n- Model type and cluster match\n- Internet connection\n- Doubao service status",
+            )

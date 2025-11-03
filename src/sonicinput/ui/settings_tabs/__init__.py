@@ -6,7 +6,7 @@
 from .base_tab import BaseSettingsTab
 from .general_tab import GeneralTab
 from .hotkey_tab import HotkeyTab
-from .whisper_tab import WhisperTab
+from .transcription_tab import TranscriptionTab
 from .ai_tab import AITab
 from .audio_tab import AudioTab
 from .input_tab import InputTab
@@ -16,7 +16,7 @@ __all__ = [
     "BaseSettingsTab",
     "GeneralTab",
     "HotkeyTab",
-    "WhisperTab",
+    "TranscriptionTab",
     "AITab",
     "AudioTab",
     "InputTab",

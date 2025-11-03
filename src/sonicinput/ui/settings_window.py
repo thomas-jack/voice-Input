@@ -23,7 +23,7 @@ from ..utils import app_logger
 from .settings_tabs import (
     GeneralTab,
     HotkeyTab,
-    WhisperTab,
+    TranscriptionTab,
     AITab,
     AudioTab,
     InputTab,
@@ -81,7 +81,7 @@ class SettingsWindow(QMainWindow):
         # 创建标签页实例
         self.general_tab = GeneralTab(self.config_manager, self)
         self.hotkey_tab = HotkeyTab(self.config_manager, self)
-        self.whisper_tab = WhisperTab(self.config_manager, self)
+        self.transcription_tab = TranscriptionTab(self.config_manager, self)
         self.ai_tab = AITab(self.config_manager, self)
         self.audio_tab = AudioTab(self.config_manager, self)
         self.input_tab = InputTab(self.config_manager, self)
@@ -122,7 +122,7 @@ class SettingsWindow(QMainWindow):
         # 使用独立的标签页模块
         self._create_scrollable_tab(self.general_tab.create(), "General")
         self._create_scrollable_tab(self.hotkey_tab.create(), "Hotkey")
-        self._create_scrollable_tab(self.whisper_tab.create(), "Whisper")
+        self._create_scrollable_tab(self.transcription_tab.create(), "Transcription")
         self._create_scrollable_tab(self.ai_tab.create(), "AI Optimization")
         self._create_scrollable_tab(self.audio_tab.create(), "Audio")
         self._create_scrollable_tab(self.input_tab.create(), "Input")
@@ -217,7 +217,7 @@ class SettingsWindow(QMainWindow):
         # 使用各标签页的 load_config 方法
         self.general_tab.load_config(self.current_config)
         self.hotkey_tab.load_config(self.current_config)
-        self.whisper_tab.load_config(self.current_config)
+        self.transcription_tab.load_config(self.current_config)
         self.ai_tab.load_config(self.current_config)
         self.audio_tab.load_config(self.current_config)
         self.input_tab.load_config(self.current_config)
@@ -594,7 +594,7 @@ class SettingsWindow(QMainWindow):
         for tab_config in [
             self.general_tab.save_config(),
             self.hotkey_tab.save_config(),
-            self.whisper_tab.save_config(),
+            self.transcription_tab.save_config(),
             self.ai_tab.save_config(),
             self.audio_tab.save_config(),
             self.input_tab.save_config(),
@@ -752,8 +752,8 @@ class SettingsWindow(QMainWindow):
 
             # 更新模型状态标签 - 移除 emoji 以免编码问题
             status_text = f"Model loaded: {model_name} ({device})"
-            self.whisper_tab.model_status_label.setText(status_text)
-            self.whisper_tab.model_status_label.setStyleSheet(
+            self.transcription_tab.model_status_label.setText(status_text)
+            self.transcription_tab.model_status_label.setStyleSheet(
                 "QLabel { color: #4CAF50; }"
             )  # Material Green
 
@@ -763,7 +763,7 @@ class SettingsWindow(QMainWindow):
                 total = event_data.get("total_gb", 0)
                 if total > 0:
                     percent = (allocated / total) * 100
-                    self.whisper_tab.gpu_memory_label.setText(
+                    self.transcription_tab.gpu_memory_label.setText(
                         f"{allocated:.2f}GB / {total:.1f}GB ({percent:.1f}%)"
                     )
 
@@ -862,7 +862,7 @@ class SettingsWindow(QMainWindow):
             # 显示检查状态
             self.gpu_status_label.setText("🔄 Checking GPU...")
             self.gpu_status_label.setStyleSheet("color: blue;")
-            self.whisper_tab.gpu_memory_label.setText("Detecting...")
+            self.transcription_tab.gpu_memory_label.setText("Detecting...")
 
             # 创建后台线程获取GPU信息，带超时控制
             import threading
@@ -934,7 +934,7 @@ class SettingsWindow(QMainWindow):
             app_logger.log_error(e, "refresh_gpu_info")
             self.gpu_status_label.setText("❌ Error initializing GPU check")
             self.gpu_status_label.setStyleSheet("color: red;")
-            self.whisper_tab.gpu_memory_label.setText("Error")
+            self.transcription_tab.gpu_memory_label.setText("Error")
 
     def _update_gpu_display_from_info(self, gpu_info: dict) -> None:
         """从GPU信息更新显示 - 在主线程中调用"""
@@ -942,7 +942,7 @@ class SettingsWindow(QMainWindow):
             if "error" in gpu_info:
                 self.gpu_status_label.setText("❌ Error checking GPU")
                 self.gpu_status_label.setStyleSheet("color: red;")
-                self.whisper_tab.gpu_memory_label.setText("Error")
+                self.transcription_tab.gpu_memory_label.setText("Error")
                 return
 
             # 更新GPU状态显示
@@ -962,15 +962,15 @@ class SettingsWindow(QMainWindow):
 
                 if total_memory > 0:
                     memory_percent = (used_memory / total_memory) * 100
-                    self.whisper_tab.gpu_memory_label.setText(
+                    self.transcription_tab.gpu_memory_label.setText(
                         f"{used_memory:.1f}GB / {total_memory:.1f}GB ({memory_percent:.1f}%)"
                     )
                 else:
-                    self.whisper_tab.gpu_memory_label.setText("Memory info unavailable")
+                    self.transcription_tab.gpu_memory_label.setText("Memory info unavailable")
             else:
                 self.gpu_status_label.setText("❌ CUDA not available")
                 self.gpu_status_label.setStyleSheet("color: red;")
-                self.whisper_tab.gpu_memory_label.setText("N/A")
+                self.transcription_tab.gpu_memory_label.setText("N/A")
 
             app_logger.log_audio_event(
                 "GPU info updated",
@@ -984,19 +984,19 @@ class SettingsWindow(QMainWindow):
             app_logger.log_error(e, "_update_gpu_display_from_info")
             self.gpu_status_label.setText("❌ Error updating GPU display")
             self.gpu_status_label.setStyleSheet("color: red;")
-            self.whisper_tab.gpu_memory_label.setText("Error")
+            self.transcription_tab.gpu_memory_label.setText("Error")
 
     def refresh_model_status(self) -> None:
         """刷新模型状态显示"""
         try:
             # 显示检查状态
-            self.whisper_tab.model_status_label.setText("Checking model status...")
-            self.whisper_tab.model_status_label.setStyleSheet("color: blue;")
+            self.transcription_tab.model_status_label.setText("Checking model status...")
+            self.transcription_tab.model_status_label.setStyleSheet("color: blue;")
 
             # 检查是否有 voice_app 引用
             if not self.voice_app or not hasattr(self.voice_app, "whisper_engine"):
-                self.whisper_tab.model_status_label.setText("Voice app not available")
-                self.whisper_tab.model_status_label.setStyleSheet("color: red;")
+                self.transcription_tab.model_status_label.setText("Voice app not available")
+                self.transcription_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
             # 获取 whisper engine
@@ -1012,31 +1012,31 @@ class SettingsWindow(QMainWindow):
                 if speech_service.is_model_loaded:
                     model_name = getattr(speech_service, "model_name", "Unknown")
                     device = getattr(speech_service, "device", "Unknown")
-                    self.whisper_tab.model_status_label.setText(
+                    self.transcription_tab.model_status_label.setText(
                         f"Model loaded: {model_name} ({device})"
                     )
-                    self.whisper_tab.model_status_label.setStyleSheet(
+                    self.transcription_tab.model_status_label.setStyleSheet(
                         "color: #4CAF50;"
                     )  # Material Green
                 else:
-                    self.whisper_tab.model_status_label.setText("Model not loaded")
-                    self.whisper_tab.model_status_label.setStyleSheet("color: red;")
+                    self.transcription_tab.model_status_label.setText("Model not loaded")
+                    self.transcription_tab.model_status_label.setStyleSheet("color: red;")
 
             app_logger.log_audio_event("Model status refreshed", {})
 
         except Exception as e:
             app_logger.log_error(e, "refresh_model_status")
-            self.whisper_tab.model_status_label.setText(
+            self.transcription_tab.model_status_label.setText(
                 "❌ Error checking model status"
             )
-            self.whisper_tab.model_status_label.setStyleSheet("color: red;")
+            self.transcription_tab.model_status_label.setStyleSheet("color: red;")
 
     def _update_model_display_from_info(self, model_info: dict) -> None:
         """从模型信息更新显示 - 在主线程中调用"""
         try:
             if not model_info.get("is_loaded", False):
-                self.whisper_tab.model_status_label.setText("Model not loaded")
-                self.whisper_tab.model_status_label.setStyleSheet("color: red;")
+                self.transcription_tab.model_status_label.setText("Model not loaded")
+                self.transcription_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
             # 构建状态文本
@@ -1066,8 +1066,8 @@ class SettingsWindow(QMainWindow):
                 status_parts.append("(cached)")
 
             status_text = " ".join(status_parts)
-            self.whisper_tab.model_status_label.setText(status_text)
-            self.whisper_tab.model_status_label.setStyleSheet(
+            self.transcription_tab.model_status_label.setText(status_text)
+            self.transcription_tab.model_status_label.setStyleSheet(
                 "color: #4CAF50;"
             )  # Material Green
 
@@ -1078,10 +1078,10 @@ class SettingsWindow(QMainWindow):
 
         except Exception as e:
             app_logger.log_error(e, "_update_model_display_from_info")
-            self.whisper_tab.model_status_label.setText(
+            self.transcription_tab.model_status_label.setText(
                 "❌ Error updating model display"
             )
-            self.whisper_tab.model_status_label.setStyleSheet("color: red;")
+            self.transcription_tab.model_status_label.setStyleSheet("color: red;")
 
     def test_clipboard(self) -> None:
         """测试剪贴板"""
@@ -1230,8 +1230,8 @@ class SettingsWindow(QMainWindow):
                 self._reset_general_tab(default_config)
             elif current_index == 1:  # Hotkeys
                 self._reset_hotkey_tab(default_config)
-            elif current_index == 2:  # Whisper
-                self._reset_whisper_tab(default_config)
+            elif current_index == 2:  # Transcription
+                self._reset_transcription_tab(default_config)
             elif current_index == 3:  # AI Settings
                 self._reset_ai_tab(default_config)
             elif current_index == 4:  # Audio
@@ -1273,8 +1273,8 @@ class SettingsWindow(QMainWindow):
         for hotkey in hotkeys:
             self.hotkeys_list.addItem(hotkey)
 
-    def _reset_whisper_tab(self, default_config) -> None:
-        """重置Whisper标签页"""
+    def _reset_transcription_tab(self, default_config) -> None:
+        """重置Transcription标签页"""
         whisper_config = default_config.get("whisper", {})
 
         # 重置模型选择
