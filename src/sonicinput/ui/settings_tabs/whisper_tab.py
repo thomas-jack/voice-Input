@@ -487,16 +487,8 @@ class WhisperTab(BaseSettingsTab):
                 self.model_status_label.setText("API test cancelled")
                 return
 
-            # 检查超时（15秒）
-            if elapsed_time > 15:
-                self._groq_test_timer.stop()
-                self._groq_progress_dialog.close()
-                self.model_status_label.setText("API test timeout")
-                QMessageBox.critical(
-                    self.parent_window,
-                    "API Test Timeout",
-                    f"The API test took too long (>{elapsed_time:.1f} seconds).\n\nThis may indicate network issues or API unavailability.",
-                )
+            # 不强制超时，由底层 API 的 timeout 配置控制
+            # 用户可以在配置中设置 groq.timeout
 
         except Exception as e:
             self._groq_test_timer.stop()
@@ -615,16 +607,8 @@ class WhisperTab(BaseSettingsTab):
                 self.model_status_label.setText("API test cancelled")
                 return
 
-            # 检查超时（35秒）
-            if elapsed_time > 35:
-                self._siliconflow_test_timer.stop()
-                self._siliconflow_progress_dialog.close()
-                self.model_status_label.setText("API test timeout")
-                QMessageBox.critical(
-                    self.parent_window,
-                    "API Test Timeout",
-                    f"The API test took too long (>{elapsed_time:.1f} seconds).\n\nThis may indicate network issues or API unavailability.",
-                )
+            # 不强制超时，由底层 API 的 timeout 配置控制
+            # 用户可以在配置中设置 siliconflow.timeout
 
         except Exception as e:
             self._siliconflow_test_timer.stop()
