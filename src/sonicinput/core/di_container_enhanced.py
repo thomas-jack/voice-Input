@@ -25,19 +25,21 @@ from .interfaces.input import IInputService
 from .interfaces.speech import ISpeechService
 from .interfaces.state import IStateManager
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ServiceLifetime(Enum):
     """服务生命周期"""
-    TRANSIENT = "transient"    # 每次请求都创建新实例
-    SINGLETON = "singleton"    # 整个容器生命周期内只有一个实例
-    SCOPED = "scoped"          # 在特定作用域内是单例
+
+    TRANSIENT = "transient"  # 每次请求都创建新实例
+    SINGLETON = "singleton"  # 整个容器生命周期内只有一个实例
+    SCOPED = "scoped"  # 在特定作用域内是单例
 
 
 @dataclass
 class ServiceDescriptor:
     """服务描述符"""
+
     interface: Type
     implementation: Optional[Type] = None
     factory: Optional[Callable] = None
@@ -55,6 +57,7 @@ class ServiceDescriptor:
 @dataclass
 class ServiceCreationContext:
     """服务创建上下文"""
+
     creating: Set[Type] = field(default_factory=set)
     created: Dict[Type, Any] = field(default_factory=dict)
     depth: int = 0
@@ -80,7 +83,7 @@ class ServiceRegistry:
         self._named_descriptors: Dict[str, ServiceDescriptor] = {}
         self._lock = threading.RLock()
 
-    def register(self, descriptor: ServiceDescriptor) -> 'ServiceRegistry':
+    def register(self, descriptor: ServiceDescriptor) -> "ServiceRegistry":
         """注册服务描述符"""
         with self._lock:
             self._descriptors[descriptor.interface] = descriptor
@@ -93,15 +96,15 @@ class ServiceRegistry:
         interface: Type[T],
         implementation: Type[T] = None,
         factory: Callable[[], T] = None,
-        name: str = None
-    ) -> 'ServiceRegistry':
+        name: str = None,
+    ) -> "ServiceRegistry":
         """注册瞬态服务"""
         descriptor = ServiceDescriptor(
             interface=interface,
             implementation=implementation,
             factory=factory,
             lifetime=ServiceLifetime.TRANSIENT,
-            name=name
+            name=name,
         )
         return self.register(descriptor)
 
@@ -110,15 +113,15 @@ class ServiceRegistry:
         interface: Type[T],
         implementation: Type[T] = None,
         factory: Callable[[], T] = None,
-        name: str = None
-    ) -> 'ServiceRegistry':
+        name: str = None,
+    ) -> "ServiceRegistry":
         """注册单例服务"""
         descriptor = ServiceDescriptor(
             interface=interface,
             implementation=implementation,
             factory=factory,
             lifetime=ServiceLifetime.SINGLETON,
-            name=name
+            name=name,
         )
         return self.register(descriptor)
 
@@ -127,15 +130,15 @@ class ServiceRegistry:
         interface: Type[T],
         implementation: Type[T] = None,
         factory: Callable[[], T] = None,
-        name: str = None
-    ) -> 'ServiceRegistry':
+        name: str = None,
+    ) -> "ServiceRegistry":
         """注册作用域服务"""
         descriptor = ServiceDescriptor(
             interface=interface,
             implementation=implementation,
             factory=factory,
             lifetime=ServiceLifetime.SCOPED,
-            name=name
+            name=name,
         )
         return self.register(descriptor)
 
@@ -180,19 +183,22 @@ class PerformanceDecorator(ServiceDecorator):
         # Skip decoration for Mock objects (for testing)
         try:
             from unittest.mock import MagicMock, Mock
+
             if isinstance(instance, (MagicMock, Mock)):
                 return instance
         except ImportError:
             pass
 
         if self.logger:
-            self.logger.debug(f"Decorating {descriptor.name} with performance monitoring")
+            self.logger.debug(
+                f"Decorating {descriptor.name} with performance monitoring"
+            )
 
         # 为实例添加性能监控方法
         original_methods = {}
 
         for attr_name in dir(instance):
-            if not attr_name.startswith('_'):
+            if not attr_name.startswith("_"):
                 attr = getattr(instance, attr_name)
                 if callable(attr) and not isinstance(attr, type):
                     original_methods[attr_name] = attr
@@ -204,13 +210,18 @@ class PerformanceDecorator(ServiceDecorator):
                                 result = method(*args, **kwargs)
                                 duration = time.time() - start_time
                                 if self.logger:
-                                    self.logger.debug(f"{descriptor.name}.{name} took {duration:.3f}s")
+                                    self.logger.debug(
+                                        f"{descriptor.name}.{name} took {duration:.3f}s"
+                                    )
                                 return result
                             except Exception as e:
                                 duration = time.time() - start_time
                                 if self.logger:
-                                    self.logger.error(f"{descriptor.name}.{name} failed after {duration:.3f}s: {e}")
+                                    self.logger.error(
+                                        f"{descriptor.name}.{name} failed after {duration:.3f}s: {e}"
+                                    )
                                 raise
+
                         return wrapper
 
                     setattr(instance, attr_name, make_wrapper(attr, attr_name))
@@ -232,6 +243,7 @@ class ErrorHandlingDecorator(ServiceDecorator):
         # Skip decoration for Mock objects (for testing)
         try:
             from unittest.mock import MagicMock, Mock
+
             if isinstance(instance, (MagicMock, Mock)):
                 return instance
         except ImportError:
@@ -242,7 +254,7 @@ class ErrorHandlingDecorator(ServiceDecorator):
 
         # 为实例添加错误处理方法
         for attr_name in dir(instance):
-            if not attr_name.startswith('_'):
+            if not attr_name.startswith("_"):
                 attr = getattr(instance, attr_name)
                 if callable(attr) and not isinstance(attr, type):
 
@@ -252,8 +264,11 @@ class ErrorHandlingDecorator(ServiceDecorator):
                                 return method(*args, **kwargs)
                             except Exception as e:
                                 if self.logger:
-                                    self.logger.error(f"Error in {descriptor.name}.{name}: {e}")
+                                    self.logger.error(
+                                        f"Error in {descriptor.name}.{name}: {e}"
+                                    )
                                 raise
+
                         return wrapper
 
                     setattr(instance, attr_name, make_wrapper(attr, attr_name))
@@ -279,6 +294,7 @@ class EnhancedDIContainer:
         # 获取logger
         try:
             from ...utils import app_logger
+
             self.logger = app_logger
         except ImportError:
             self.logger = None
@@ -292,8 +308,8 @@ class EnhancedDIContainer:
         interface: Type[T],
         implementation: Type[T] = None,
         factory: Callable[[], T] = None,
-        name: str = None
-    ) -> 'EnhancedDIContainer':
+        name: str = None,
+    ) -> "EnhancedDIContainer":
         """注册瞬态服务"""
         self.registry.register_transient(interface, implementation, factory, name)
         return self
@@ -303,8 +319,8 @@ class EnhancedDIContainer:
         interface: Type[T],
         implementation: Type[T] = None,
         factory: Callable[[], T] = None,
-        name: str = None
-    ) -> 'EnhancedDIContainer':
+        name: str = None,
+    ) -> "EnhancedDIContainer":
         """注册单例服务"""
         self.registry.register_singleton(interface, implementation, factory, name)
         return self
@@ -314,8 +330,8 @@ class EnhancedDIContainer:
         interface: Type[T],
         implementation: Type[T] = None,
         factory: Callable[[], T] = None,
-        name: str = None
-    ) -> 'EnhancedDIContainer':
+        name: str = None,
+    ) -> "EnhancedDIContainer":
         """注册作用域服务"""
         self.registry.register_scoped(interface, implementation, factory, name)
         return self
@@ -323,16 +339,13 @@ class EnhancedDIContainer:
     def register_factory(
         self,
         interface: Type[T],
-        factory: Callable[['EnhancedDIContainer'], T],
+        factory: Callable[["EnhancedDIContainer"], T],
         lifetime: ServiceLifetime = ServiceLifetime.SINGLETON,
-        name: str = None
-    ) -> 'EnhancedDIContainer':
+        name: str = None,
+    ) -> "EnhancedDIContainer":
         """注册工厂方法"""
         descriptor = ServiceDescriptor(
-            interface=interface,
-            factory=factory,
-            lifetime=lifetime,
-            name=name
+            interface=interface, factory=factory, lifetime=lifetime, name=name
         )
         self.registry.register(descriptor)
         return self
@@ -348,8 +361,12 @@ class EnhancedDIContainer:
             if self._creation_context_stack:
                 current_context = self._creation_context_stack[-1]
                 if current_context.is_creating(interface):
-                    cycle_path = [t.__name__ for t in current_context.creating] + [interface.__name__]
-                    raise ValueError(f"Circular dependency detected: {' -> '.join(cycle_path)}")
+                    cycle_path = [t.__name__ for t in current_context.creating] + [
+                        interface.__name__
+                    ]
+                    raise ValueError(
+                        f"Circular dependency detected: {' -> '.join(cycle_path)}"
+                    )
 
             # 根据生命周期获取实例
             if descriptor.lifetime == ServiceLifetime.SINGLETON:
@@ -377,7 +394,9 @@ class EnhancedDIContainer:
         self._singletons[descriptor.interface] = instance
         return instance
 
-    def _get_scoped_instance(self, descriptor: ServiceDescriptor, scope_name: str) -> Any:
+    def _get_scoped_instance(
+        self, descriptor: ServiceDescriptor, scope_name: str
+    ) -> Any:
         """获取作用域实例"""
         if scope_name not in self._scoped_instances:
             self._scoped_instances[scope_name] = {}
@@ -407,7 +426,9 @@ class EnhancedDIContainer:
             context.depth += 1
 
             if self.logger:
-                self.logger.debug(f"Creating service {descriptor.name} (depth: {context.depth})")
+                self.logger.debug(
+                    f"Creating service {descriptor.name} (depth: {context.depth})"
+                )
 
             start_time = time.time()
 
@@ -418,9 +439,13 @@ class EnhancedDIContainer:
                 else:
                     instance = descriptor.factory()
             elif descriptor.implementation:
-                instance = self._create_with_dependencies(descriptor.implementation, descriptor)
+                instance = self._create_with_dependencies(
+                    descriptor.implementation, descriptor
+                )
             else:
-                raise ValueError(f"Neither factory nor implementation specified for {descriptor.interface}")
+                raise ValueError(
+                    f"Neither factory nor implementation specified for {descriptor.interface}"
+                )
 
             # 应用装饰器
             for decorator in self._decorators:
@@ -450,7 +475,9 @@ class EnhancedDIContainer:
 
         return instance
 
-    def _create_with_dependencies(self, implementation: Type, descriptor: ServiceDescriptor) -> Any:
+    def _create_with_dependencies(
+        self, implementation: Type, descriptor: ServiceDescriptor
+    ) -> Any:
         """创建实例并注入依赖"""
         # 获取构造函数参数
         constructor = implementation.__init__
@@ -459,7 +486,7 @@ class EnhancedDIContainer:
         # 准备参数
         kwargs = {}
         for param_name, param in sig.parameters.items():
-            if param_name == 'self':
+            if param_name == "self":
                 continue
 
             # 检查是否有类型注解
@@ -476,18 +503,22 @@ class EnhancedDIContainer:
                     elif param.default != inspect.Parameter.empty:
                         kwargs[param_name] = param.default
                     else:
-                        raise ValueError(f"Cannot resolve dependency {param_name} of type {dependency_type}")
+                        raise ValueError(
+                            f"Cannot resolve dependency {param_name} of type {dependency_type}"
+                        )
             elif param.default != inspect.Parameter.empty:
                 kwargs[param_name] = param.default
             else:
-                raise ValueError(f"Cannot resolve parameter {param_name} without type annotation")
+                raise ValueError(
+                    f"Cannot resolve parameter {param_name} without type annotation"
+                )
 
         return implementation(**kwargs)
 
     def _create_concrete_type(self, concrete_type: Type) -> Any:
         """创建具体类型实例"""
         # 处理 Union 类型 (包括 Optional)
-        if hasattr(concrete_type, '__origin__') and concrete_type.__origin__ is Union:
+        if hasattr(concrete_type, "__origin__") and concrete_type.__origin__ is Union:
             # 对于 Union 类型，取第一个非 None 类型
             args = concrete_type.__args__
             for arg in args:
@@ -510,7 +541,7 @@ class EnhancedDIContainer:
 
             kwargs = {}
             for param_name, param in sig.parameters.items():
-                if param_name == 'self':
+                if param_name == "self":
                     continue
 
                 if param.annotation != inspect.Parameter.empty:
@@ -524,11 +555,12 @@ class EnhancedDIContainer:
         """检查函数是否接受容器参数"""
         sig = inspect.signature(func)
         return any(
-            param.annotation == type(self) or param_name in ['container', 'di_container']
+            param.annotation == type(self)
+            or param_name in ["container", "di_container"]
             for param_name, param in sig.parameters.items()
         )
 
-    def create_scope(self, scope_name: str) -> 'ServiceScope':
+    def create_scope(self, scope_name: str) -> "ServiceScope":
         """创建服务作用域"""
         return ServiceScope(self, scope_name)
 
@@ -540,12 +572,16 @@ class EnhancedDIContainer:
 
                 # 调用清理方法
                 for instance in scope_dict.values():
-                    if hasattr(instance, 'cleanup') and callable(getattr(instance, 'cleanup')):
+                    if hasattr(instance, "cleanup") and callable(
+                        getattr(instance, "cleanup")
+                    ):
                         try:
                             instance.cleanup()
                         except Exception as e:
                             if self.logger:
-                                self.logger.error(f"Error cleaning up service instance: {e}")
+                                self.logger.error(
+                                    f"Error cleaning up service instance: {e}"
+                                )
 
                 del self._scoped_instances[scope_name]
 
@@ -556,9 +592,15 @@ class EnhancedDIContainer:
 
             return {
                 "total_services": len(descriptors),
-                "singletons": len([d for d in descriptors if d.lifetime == ServiceLifetime.SINGLETON]),
-                "transients": len([d for d in descriptors if d.lifetime == ServiceLifetime.TRANSIENT]),
-                "scoped": len([d for d in descriptors if d.lifetime == ServiceLifetime.SCOPED]),
+                "singletons": len(
+                    [d for d in descriptors if d.lifetime == ServiceLifetime.SINGLETON]
+                ),
+                "transients": len(
+                    [d for d in descriptors if d.lifetime == ServiceLifetime.TRANSIENT]
+                ),
+                "scoped": len(
+                    [d for d in descriptors if d.lifetime == ServiceLifetime.SCOPED]
+                ),
                 "active_singletons": len(self._singletons),
                 "active_scopes": len(self._scoped_instances),
                 "services": [
@@ -567,10 +609,10 @@ class EnhancedDIContainer:
                         "interface": d.interface.__name__,
                         "lifetime": d.lifetime.value,
                         "lazy": d.lazy,
-                        "dependencies": [dep.__name__ for dep in d.dependencies]
+                        "dependencies": [dep.__name__ for dep in d.dependencies],
                     }
                     for d in descriptors
-                ]
+                ],
             }
 
     def validate_dependencies(self) -> List[str]:
@@ -588,11 +630,15 @@ class EnhancedDIContainer:
             # 检查依赖是否存在
             for dep in descriptor.dependencies:
                 if not self.registry.get_descriptor(dep):
-                    problems.append(f"Service {descriptor.name} depends on unregistered service {dep.__name__}")
+                    problems.append(
+                        f"Service {descriptor.name} depends on unregistered service {dep.__name__}"
+                    )
 
         return problems
 
-    def _check_circular_dependency(self, descriptor: ServiceDescriptor, visited: Set[Type]) -> None:
+    def _check_circular_dependency(
+        self, descriptor: ServiceDescriptor, visited: Set[Type]
+    ) -> None:
         """检查循环依赖"""
         if descriptor.interface in visited:
             cycle_path = [t.__name__ for t in visited] + [descriptor.interface.__name__]
@@ -614,12 +660,16 @@ class EnhancedDIContainer:
 
             # 清理单例
             for interface, instance in self._singletons.items():
-                if hasattr(instance, 'cleanup') and callable(getattr(instance, 'cleanup')):
+                if hasattr(instance, "cleanup") and callable(
+                    getattr(instance, "cleanup")
+                ):
                     try:
                         instance.cleanup()
                     except Exception as e:
                         if self.logger:
-                            self.logger.error(f"Error cleaning up singleton {interface.__name__}: {e}")
+                            self.logger.error(
+                                f"Error cleaning up singleton {interface.__name__}: {e}"
+                            )
 
             self._singletons.clear()
             self.registry.clear()
@@ -629,7 +679,7 @@ class EnhancedDIContainer:
 
 
 # 工厂函数
-def create_container() -> 'EnhancedDIContainer':
+def create_container() -> "EnhancedDIContainer":
     """创建依赖注入容器实例并注册所有服务"""
     container = EnhancedDIContainer()
 
@@ -666,9 +716,12 @@ def create_container() -> 'EnhancedDIContainer':
             sample_rate=sample_rate,
             channels=channels,
             chunk_size=chunk_size,
-            config_service=config
+            config_service=config,
         )
-    container.register_factory(IAudioService, create_audio_service, ServiceLifetime.TRANSIENT)
+
+    container.register_factory(
+        IAudioService, create_audio_service, ServiceLifetime.TRANSIENT
+    )
 
     # 语音服务 - 单例（最复杂的服务）
     def create_speech_service(container):
@@ -688,13 +741,18 @@ def create_container() -> 'EnhancedDIContainer':
             return service
 
         # 使用TranscriptionService包装,提供线程隔离
-        transcription_service = TranscriptionService(speech_service_factory, event_service)
+        transcription_service = TranscriptionService(
+            speech_service_factory, event_service
+        )
 
         # 启动TranscriptionService
         transcription_service.start()
 
         return transcription_service
-    container.register_factory(ISpeechService, create_speech_service, ServiceLifetime.SINGLETON)
+
+    container.register_factory(
+        ISpeechService, create_speech_service, ServiceLifetime.SINGLETON
+    )
 
     # AI服务 - 瞬态
     def create_ai_service(container):
@@ -705,30 +763,39 @@ def create_container() -> 'EnhancedDIContainer':
         # 如果工厂返回 None，创建默认的 OpenRouter 客户端
         if client is None:
             from ..ai import OpenRouterClient
+
             api_key = config.get_setting("ai.openrouter.api_key", "")
             return OpenRouterClient(api_key)
 
         return client
+
     container.register_factory(IAIService, create_ai_service, ServiceLifetime.TRANSIENT)
 
     # 输入服务 - 瞬态
     def create_input_service(container):
         config_service = container.get(IConfigService)
         return SmartTextInput(config_service)
-    container.register_factory(IInputService, create_input_service, ServiceLifetime.TRANSIENT)
+
+    container.register_factory(
+        IInputService, create_input_service, ServiceLifetime.TRANSIENT
+    )
 
     # 快捷键服务 - 瞬态
     def create_hotkey_service(container):
         # 创建一个空的回调函数，在VoiceInputApp中会被替换
         def dummy_callback(action: str):
             pass
+
         return HotkeyManager(dummy_callback)
-    container.register_factory(IHotkeyService, create_hotkey_service, ServiceLifetime.TRANSIENT)
+
+    container.register_factory(
+        IHotkeyService, create_hotkey_service, ServiceLifetime.TRANSIENT
+    )
 
     return container
 
 
-def create_enhanced_container() -> 'EnhancedDIContainer':
+def create_enhanced_container() -> "EnhancedDIContainer":
     """创建增强版依赖注入容器实例（别名）"""
     return create_container()
 

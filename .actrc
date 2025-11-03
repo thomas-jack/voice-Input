@@ -1,0 +1,22 @@
+# ACT configuration file
+# This file configures act for local GitHub Actions testing
+
+# Use the catthehacker/ubuntu image which includes more tools
+-P ubuntu-latest=catthehacker/ubuntu:act-latest
+
+# Use mock secrets for local testing
+-s GITHUB_TOKEN=mock_github_token
+-s GITHUB_REPOSITORY=mock_user/mock_repo
+
+# General ACT options
+-b  # use local bind mount for better performance
+-v  # verbose output
+--reuse  # reuse containers to speed up testing
+
+# Environment variables for local testing
+-e CI=true
+-e GITHUB_ACTIONS=true
+-e GITHUB_RUN_ID=mock_run_id
+-e GITHUB_SHA=mock_sha
+-e GITHUB_REF=refs/heads/main
+-e GITHUB_HEAD_REF=main

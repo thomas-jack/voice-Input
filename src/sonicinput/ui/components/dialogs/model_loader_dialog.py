@@ -4,8 +4,16 @@ A decoupled model loading dialog with clean separation between
 UI presentation and model loading logic.
 """
 
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QLabel, QPushButton,
-                            QProgressBar, QTextEdit, QMessageBox, QHBoxLayout)
+from PySide6.QtWidgets import (
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QPushButton,
+    QProgressBar,
+    QTextEdit,
+    QMessageBox,
+    QHBoxLayout,
+)
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from typing import Optional
@@ -43,9 +51,9 @@ class ModelLoaderDialog(QDialog):
         self._setup_dialog()
         self._setup_ui()
 
-        app_logger.log_audio_event("Model loader dialog created", {
-            "model_name": model_name
-        })
+        app_logger.log_audio_event(
+            "Model loader dialog created", {"model_name": model_name}
+        )
 
     def _setup_dialog(self) -> None:
         """Setup dialog properties"""
@@ -142,7 +150,7 @@ class ModelLoaderDialog(QDialog):
                 "Close Dialog",
                 "Model loading is in progress. Are you sure you want to close?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
                 return
@@ -159,7 +167,7 @@ class ModelLoaderDialog(QDialog):
                 "Close Dialog",
                 "Model loading is in progress. Are you sure you want to close?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
             if reply == QMessageBox.StandardButton.No:
                 event.ignore()
@@ -281,7 +289,7 @@ class ModelLoaderDialog(QDialog):
             title,
             message,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
         return reply == QMessageBox.StandardButton.Yes
 

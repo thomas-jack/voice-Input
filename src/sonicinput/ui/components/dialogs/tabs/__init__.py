@@ -10,12 +10,12 @@ from .ui_tab import UiTab
 from .logging_tab import LoggingTab
 
 __all__ = [
-    'BaseSettingsTab',
-    'GeneralTab',
-    'AudioTab',
-    'SpeechTab',
-    'HotkeysTab',
-    'ApiTab',
-    'UiTab',
-    'LoggingTab',
+    "BaseSettingsTab",
+    "GeneralTab",
+    "AudioTab",
+    "SpeechTab",
+    "HotkeysTab",
+    "ApiTab",
+    "UiTab",
+    "LoggingTab",
 ]

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, TypeVar, Union
 from pathlib import Path
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class IConfigService(ABC):

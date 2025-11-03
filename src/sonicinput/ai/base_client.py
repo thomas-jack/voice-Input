@@ -87,8 +87,9 @@ class BaseAIClient(IAIService):
         """
         return {}
 
-    def _handle_http_error(self, status_code: int, response_text: str,
-                          attempt: int, response_time: float) -> Optional[str]:
+    def _handle_http_error(
+        self, status_code: int, response_text: str, attempt: int, response_time: float
+    ) -> Optional[str]:
         """处理特定 HTTP 错误
 
         子类可以覆盖此方法处理提供商特定的 HTTP 错误码。
@@ -158,23 +159,31 @@ class BaseAIClient(IAIService):
         # 使用正则表达式移除 <think>...</think> 标签
         # re.DOTALL 使 . 匹配包括换行符在内的所有字符
         # 非贪婪匹配 .*? 确保正确处理多个标签
-        filtered_text = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL | re.IGNORECASE)
+        filtered_text = re.sub(
+            r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE
+        )
 
         # 清理多余的空白字符
         filtered_text = filtered_text.strip()
 
         # 如果过滤后文本为空，记录警告
         if not filtered_text and text:
-            app_logger.log_audio_event("AI response was only thinking tags", {
-                "original_length": len(text),
-                "provider": self.get_provider_name()
-            })
+            app_logger.log_audio_event(
+                "AI response was only thinking tags",
+                {"original_length": len(text), "provider": self.get_provider_name()},
+            )
 
         return filtered_text
 
     # ========== 通用实现（所有子类共享）==========
 
-    def __init__(self, api_key: str = "", timeout: int = 30, max_retries: int = 3, filter_thinking: bool = True):
+    def __init__(
+        self,
+        api_key: str = "",
+        timeout: int = 30,
+        max_retries: int = 3,
+        filter_thinking: bool = True,
+    ):
         """初始化 AI 客户端
 
         Args:
@@ -205,12 +214,17 @@ class BaseAIClient(IAIService):
         # 设置请求头
         self._update_headers()
 
-        app_logger.log_audio_event(f"{self.get_provider_name()} client initialized", {
-            "has_api_key": bool(api_key),
-            "api_key_length": len(api_key) if api_key else 0,
-            "encryption_enabled": self._secure_storage.is_encryption_available() if self._secure_storage else False,
-            "base_url": self.get_base_url()
-        })
+        app_logger.log_audio_event(
+            f"{self.get_provider_name()} client initialized",
+            {
+                "has_api_key": bool(api_key),
+                "api_key_length": len(api_key) if api_key else 0,
+                "encryption_enabled": self._secure_storage.is_encryption_available()
+                if self._secure_storage
+                else False,
+                "base_url": self.get_base_url(),
+            },
+        )
 
     def _setup_connection_pool(self) -> None:
         """配置连接池"""
@@ -228,8 +242,8 @@ class BaseAIClient(IAIService):
             # 创建适配器
             adapter = HTTPAdapter(
                 pool_connections=10,  # 连接池数量
-                pool_maxsize=20,       # 每个连接池的最大连接数
-                max_retries=retry_strategy
+                pool_maxsize=20,  # 每个连接池的最大连接数
+                max_retries=retry_strategy,
             )
 
             # 应用到session
@@ -246,9 +260,12 @@ class BaseAIClient(IAIService):
         """初始化安全存储"""
         try:
             from ..utils.secure_storage import get_secure_storage
+
             self._secure_storage = get_secure_storage()
         except ImportError as e:
-            app_logger.log_warning("Secure storage not available, using plain text", {"error": str(e)})
+            app_logger.log_warning(
+                "Secure storage not available, using plain text", {"error": str(e)}
+            )
             self._secure_storage = None
 
     def health_check(self) -> Dict[str, Any]:
@@ -261,7 +278,7 @@ class BaseAIClient(IAIService):
             response = self.session.get(
                 health_url,
                 timeout=5,  # 短超时用于健康检查
-                headers=self.session.headers
+                headers=self.session.headers,
             )
             response_time = time.time() - start_time
 
@@ -270,7 +287,7 @@ class BaseAIClient(IAIService):
                 "response_time": response_time,
                 "status_code": response.status_code,
                 "provider": self.get_provider_name(),
-                "base_url": self.get_base_url()
+                "base_url": self.get_base_url(),
             }
 
         except Exception as e:
@@ -279,7 +296,7 @@ class BaseAIClient(IAIService):
                 "error": str(e),
                 "response_time": 0,
                 "provider": self.get_provider_name(),
-                "base_url": self.get_base_url()
+                "base_url": self.get_base_url(),
             }
 
     def _get_secure_api_key(self) -> str:
@@ -291,7 +308,11 @@ class BaseAIClient(IAIService):
         if len(self._raw_api_key) <= 8:
             return "*" * len(self._raw_api_key)
         else:
-            return self._raw_api_key[:4] + "*" * (len(self._raw_api_key) - 8) + self._raw_api_key[-4:]
+            return (
+                self._raw_api_key[:4]
+                + "*" * (len(self._raw_api_key) - 8)
+                + self._raw_api_key[-4:]
+            )
 
     @property
     def api_key(self) -> str:
@@ -321,8 +342,10 @@ class BaseAIClient(IAIService):
         """
         self.api_key = api_key
         self._update_headers()
-        app_logger.log_audio_event(f"API key updated for {self.get_provider_name()}",
-                                   {"has_key": bool(api_key)})
+        app_logger.log_audio_event(
+            f"API key updated for {self.get_provider_name()}",
+            {"has_key": bool(api_key)},
+        )
 
     def _prepare_messages(self, text: str, prompt_template: str) -> Tuple[str, str]:
         """准备聊天消息
@@ -349,8 +372,9 @@ class BaseAIClient(IAIService):
 
         return system_message, user_message
 
-    def _build_request_data(self, text: str, prompt_template: str,
-                           model: str, max_tokens: int) -> Dict[str, Any]:
+    def _build_request_data(
+        self, text: str, prompt_template: str, model: str, max_tokens: int
+    ) -> Dict[str, Any]:
         """构建 API 请求数据
 
         Args:
@@ -368,18 +392,19 @@ class BaseAIClient(IAIService):
             "model": model,
             "messages": [
                 {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message}
+                {"role": "user", "content": user_message},
             ],
             "max_tokens": max_tokens,
             "temperature": 0.3,
             "top_p": 0.9,
             "frequency_penalty": 0.0,
             "presence_penalty": 0.0,
-            "stream": False
+            "stream": False,
         }
 
-    def _extract_token_stats(self, result: Dict[str, Any],
-                            response_time: float) -> Dict[str, Any]:
+    def _extract_token_stats(
+        self, result: Dict[str, Any], response_time: float
+    ) -> Dict[str, Any]:
         """提取 token 使用统计
 
         Args:
@@ -405,7 +430,9 @@ class BaseAIClient(IAIService):
 
             # 分别计算prompt和completion的TPS
             prompt_tps = prompt_tokens / response_time if prompt_tokens > 0 else 0.0
-            completion_tps = completion_tokens / response_time if completion_tokens > 0 else 0.0
+            completion_tps = (
+                completion_tokens / response_time if completion_tokens > 0 else 0.0
+            )
         else:
             self._last_tps = 0.0
             prompt_tps = 0.0
@@ -418,7 +445,7 @@ class BaseAIClient(IAIService):
             "tps": self._last_tps,
             "prompt_tps": prompt_tps,
             "completion_tps": completion_tps,
-            "response_time": response_time
+            "response_time": response_time,
         }
 
     def _handle_rate_limit(self, attempt: int, response_time: float) -> bool:
@@ -432,31 +459,34 @@ class BaseAIClient(IAIService):
             True 如果应该重试，False 如果应该放弃
         """
         provider = self.get_provider_name()
-        app_logger.log_api_call(provider, response_time, False,
-                               f"Rate limit (attempt {attempt + 1})")
+        app_logger.log_api_call(
+            provider, response_time, False, f"Rate limit (attempt {attempt + 1})"
+        )
 
         if attempt < self.max_retries - 1:
             # 智能等待时间：指数退避，但有最大限制
-            wait_time = min(self.retry_delay * (2 ** attempt), 60.0)  # 最大等待60秒
+            wait_time = min(self.retry_delay * (2**attempt), 60.0)  # 最大等待60秒
 
             # 如果等待时间过长，提前放弃
             if wait_time > 30.0:
-                app_logger.log_warning(f"Excessive wait time for {provider}, giving up", {
-                    "wait_time": wait_time,
-                    "attempt": attempt + 1
-                })
-                raise self._create_api_error(f"Excessive wait time for rate limit with {provider}")
+                app_logger.log_warning(
+                    f"Excessive wait time for {provider}, giving up",
+                    {"wait_time": wait_time, "attempt": attempt + 1},
+                )
+                raise self._create_api_error(
+                    f"Excessive wait time for rate limit with {provider}"
+                )
 
             app_logger.log_audio_event(
-                f"{provider} rate limit, retrying {attempt + 2}/{self.max_retries}", {
-                    "wait_time": wait_time,
-                    "status_code": 429,
-                    "max_wait_allowed": 60.0
-                })
+                f"{provider} rate limit, retrying {attempt + 2}/{self.max_retries}",
+                {"wait_time": wait_time, "status_code": 429, "max_wait_allowed": 60.0},
+            )
             time.sleep(wait_time)
             return True
         else:
-            raise self._create_api_error(f"Rate limit after all retries with {provider}")
+            raise self._create_api_error(
+                f"Rate limit after all retries with {provider}"
+            )
 
     def _handle_timeout(self, attempt: int) -> bool:
         """处理超时错误 - 增强超时处理
@@ -473,18 +503,22 @@ class BaseAIClient(IAIService):
 
         if attempt < self.max_retries - 1:
             # 超时重试的等待时间相对较短
-            wait_time = min(self.retry_delay * (1.5 ** attempt), 10.0)  # 最大等待10秒
+            wait_time = min(self.retry_delay * (1.5**attempt), 10.0)  # 最大等待10秒
 
             app_logger.log_audio_event(
-                f"{provider} timeout, retrying {attempt + 2}/{self.max_retries}", {
+                f"{provider} timeout, retrying {attempt + 2}/{self.max_retries}",
+                {
                     "wait_time": wait_time,
                     "error": "Request timeout",
-                    "timeout_setting": self.timeout
-                })
+                    "timeout_setting": self.timeout,
+                },
+            )
             time.sleep(wait_time)
             return True
         else:
-            raise self._create_api_error(f"Request timeout after all retries with {provider}")
+            raise self._create_api_error(
+                f"Request timeout after all retries with {provider}"
+            )
 
     def _handle_network_error(self, error: Exception, attempt: int) -> bool:
         """处理网络错误
@@ -498,23 +532,30 @@ class BaseAIClient(IAIService):
         """
         provider = self.get_provider_name()
         error_msg = f"{type(error).__name__}: {str(error)}"
-        app_logger.log_api_call(provider, 0, False,
-                               f"Network error (attempt {attempt + 1}): {error_msg}")
+        app_logger.log_api_call(
+            provider, 0, False, f"Network error (attempt {attempt + 1}): {error_msg}"
+        )
 
         if attempt < self.max_retries - 1:
-            wait_time = self.retry_delay * (2 ** attempt)
+            wait_time = self.retry_delay * (2**attempt)
             app_logger.log_audio_event(
-                f"{provider} network error, retrying {attempt + 2}/{self.max_retries}", {
-                    "wait_time": wait_time,
-                    "error": error_msg
-                })
+                f"{provider} network error, retrying {attempt + 2}/{self.max_retries}",
+                {"wait_time": wait_time, "error": error_msg},
+            )
             time.sleep(wait_time)
             return True
         else:
-            raise self._create_api_error(f"Network error after all retries with {provider}: {error_msg}")
+            raise self._create_api_error(
+                f"Network error after all retries with {provider}: {error_msg}"
+            )
 
-    def refine_text(self, text: str, prompt_template: str,
-                   model: Optional[str] = None, max_tokens: int = 1000) -> str:
+    def refine_text(
+        self,
+        text: str,
+        prompt_template: str,
+        model: Optional[str] = None,
+        max_tokens: int = 1000,
+    ) -> str:
         """使用 AI 优化文本
 
         Args:
@@ -531,7 +572,9 @@ class BaseAIClient(IAIService):
         """
         # 验证 API key（修复：正确捕获 None 和空字符串）
         if not self.api_key or not self.api_key.strip():
-            raise self._create_api_error(f"API key not set for {self.get_provider_name()}")
+            raise self._create_api_error(
+                f"API key not set for {self.get_provider_name()}"
+            )
 
         if not text.strip():
             return text
@@ -548,13 +591,15 @@ class BaseAIClient(IAIService):
                 start_time = time.time()
 
                 # 构建请求
-                request_data = self._build_request_data(text, prompt_template, model, max_tokens)
+                request_data = self._build_request_data(
+                    text, prompt_template, model, max_tokens
+                )
 
                 # 发送请求
                 response = self.session.post(
                     f"{self.get_base_url()}/chat/completions",
                     json=request_data,
-                    timeout=self.timeout
+                    timeout=self.timeout,
                 )
 
                 response_time = time.time() - start_time
@@ -573,11 +618,15 @@ class BaseAIClient(IAIService):
 
                         # 记录过滤信息（如果有内容被过滤）
                         if len(refined_text) < original_length:
-                            app_logger.log_audio_event("Thinking tags filtered", {
-                                "original_length": original_length,
-                                "filtered_length": len(refined_text),
-                                "removed_chars": original_length - len(refined_text)
-                            })
+                            app_logger.log_audio_event(
+                                "Thinking tags filtered",
+                                {
+                                    "original_length": original_length,
+                                    "filtered_length": len(refined_text),
+                                    "removed_chars": original_length
+                                    - len(refined_text),
+                                },
+                            )
 
                     # 提取 token 统计
                     token_stats = self._extract_token_stats(result, response_time)
@@ -589,18 +638,21 @@ class BaseAIClient(IAIService):
                         True,
                         prompt_tokens=token_stats["prompt_tokens"],
                         completion_tokens=token_stats["completion_tokens"],
-                        total_tokens=token_stats["total_tokens"]
+                        total_tokens=token_stats["total_tokens"],
                     )
 
-                    app_logger.log_audio_event(f"Text refined by {provider}", {
-                        "model": model,
-                        "original_length": len(text),
-                        "refined_length": len(refined_text),
-                        "response_time": response_time,
-                        "attempt": attempt + 1,
-                        "filter_thinking_enabled": self.filter_thinking,
-                        **token_stats
-                    })
+                    app_logger.log_audio_event(
+                        f"Text refined by {provider}",
+                        {
+                            "model": model,
+                            "original_length": len(text),
+                            "refined_length": len(refined_text),
+                            "response_time": response_time,
+                            "attempt": attempt + 1,
+                            "filter_thinking_enabled": self.filter_thinking,
+                            **token_stats,
+                        },
+                    )
 
                     return refined_text
 
@@ -612,28 +664,33 @@ class BaseAIClient(IAIService):
                 # 处理其他 HTTP 错误
                 else:
                     error_msg = self._handle_http_error(
-                        response.status_code,
-                        response.text,
-                        attempt,
-                        response_time
+                        response.status_code, response.text, attempt, response_time
                     )
 
                     if error_msg:
-                        app_logger.log_api_call(provider, response_time, False,
-                                               f"API error (attempt {attempt + 1}): {error_msg}")
+                        app_logger.log_api_call(
+                            provider,
+                            response_time,
+                            False,
+                            f"API error (attempt {attempt + 1}): {error_msg}",
+                        )
 
                         if attempt < self.max_retries - 1:
-                            wait_time = self.retry_delay * (2 ** attempt)
+                            wait_time = self.retry_delay * (2**attempt)
                             app_logger.log_audio_event(
-                                f"{provider} API error, retrying {attempt + 2}/{self.max_retries}", {
+                                f"{provider} API error, retrying {attempt + 2}/{self.max_retries}",
+                                {
                                     "wait_time": wait_time,
                                     "status_code": response.status_code,
-                                    "error": error_msg[:200]
-                                })
+                                    "error": error_msg[:200],
+                                },
+                            )
                             time.sleep(wait_time)
                             continue
                         else:
-                            raise self._create_api_error(f"HTTP error after all retries with {provider}: {error_msg}")
+                            raise self._create_api_error(
+                                f"HTTP error after all retries with {provider}: {error_msg}"
+                            )
 
             except requests.exceptions.Timeout:
                 if self._handle_timeout(attempt):
@@ -646,7 +703,7 @@ class BaseAIClient(IAIService):
         # 所有重试失败
         app_logger.log_error(
             self._create_api_error(f"All retry attempts failed with {provider}"),
-            "refine_text"
+            "refine_text",
         )
         return text
 
@@ -664,10 +721,7 @@ class BaseAIClient(IAIService):
         # API key 验证
         if self.api_key and not self.api_key.strip():
             error_msg = f"API key not set for {provider}"
-            app_logger.log_error(
-                self._create_api_error(error_msg),
-                "test_connection"
-            )
+            app_logger.log_error(self._create_api_error(error_msg), "test_connection")
             return False, error_msg
 
         try:
@@ -679,17 +733,16 @@ class BaseAIClient(IAIService):
             # 确定使用的模型
             test_model = model if model else self.get_default_model()
 
-            app_logger.log_audio_event(f"Testing {provider} connection", {
-                "method": "refine_text",
-                "model": test_model,
-                "max_tokens": 5
-            })
+            app_logger.log_audio_event(
+                f"Testing {provider} connection",
+                {"method": "refine_text", "model": test_model, "max_tokens": 5},
+            )
 
             result = self.refine_text(
                 text=test_text,
                 prompt_template=prompt,
                 model=model,  # 传递用户指定的模型或None（让refine_text处理fallback）
-                max_tokens=5  # 最小 token 数
+                max_tokens=5,  # 最小 token 数
             )
 
             # refine_text 成功返回意味着连接正常

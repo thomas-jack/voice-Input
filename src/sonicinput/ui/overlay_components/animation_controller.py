@@ -87,7 +87,7 @@ class AnimationController:
                 self.breathing_timer.stop()
             self.breathing_phase = 0
             # 请求重绘以清除动画效果
-            if hasattr(self.parent, 'update'):
+            if hasattr(self.parent, "update"):
                 self.parent.update()
             app_logger.log_audio_event("Breathing animation stopped", {})
         except Exception as e:
@@ -109,7 +109,7 @@ class AnimationController:
                 self.breathing_phase = 0
 
             # 请求重绘
-            if hasattr(self.parent, 'update'):
+            if hasattr(self.parent, "update"):
                 self.parent.update()
 
     def get_breathing_intensity(self) -> float:
@@ -131,9 +131,11 @@ class AnimationController:
         Returns:
             是否有动画活跃
         """
-        return (self.fade_animation.state() == QPropertyAnimation.State.Running or
-                self.breathing_timer.isActive() or
-                self.status_animation.state() == QPropertyAnimation.State.Running)
+        return (
+            self.fade_animation.state() == QPropertyAnimation.State.Running
+            or self.breathing_timer.isActive()
+            or self.status_animation.state() == QPropertyAnimation.State.Running
+        )
 
     def stop_all_animations(self) -> None:
         """停止所有动画"""

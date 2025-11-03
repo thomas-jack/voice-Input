@@ -8,6 +8,6 @@ from .settings_dialog import SettingsDialog
 from .model_loader_dialog import ModelLoaderDialog
 
 __all__ = [
-    'SettingsDialog',
-    'ModelLoaderDialog',
+    "SettingsDialog",
+    "ModelLoaderDialog",
 ]

@@ -25,19 +25,29 @@ class CLIModelTester:
 
     # Common hallucinations from low-amplitude audio
     COMMON_HALLUCINATIONS = [
-        "thank you", "thanks for watching",
-        "bye", "goodbye",
-        "yes", "no", "okay", "yeah",
-        "music", "applause", "laughter",
-        "silence", "quiet", "pause",
-        "thank you for watching", "thanks for your attention",
+        "thank you",
+        "thanks for watching",
+        "bye",
+        "goodbye",
+        "yes",
+        "no",
+        "okay",
+        "yeah",
+        "music",
+        "applause",
+        "laughter",
+        "silence",
+        "quiet",
+        "pause",
+        "thank you for watching",
+        "thanks for your attention",
     ]
 
     def __init__(
         self,
         whisper_engine: ISpeechService,
         timeout_seconds: int = 120,
-        sample_rate: int = 16000
+        sample_rate: int = 16000,
     ):
         """
         Initialize the CLI model tester.
@@ -69,9 +79,7 @@ class CLIModelTester:
             print(f"[TEST] {message}")
 
     def _generate_test_audio(
-        self,
-        duration: float = 2.0,
-        amplitude: float = 0.001
+        self, duration: float = 2.0, amplitude: float = 0.001
     ) -> np.ndarray:
         """
         Generate test audio with very low amplitude.
@@ -137,7 +145,7 @@ class CLIModelTester:
             "confidence": 0.0,
             "is_hallucination": False,
             "transcription_time": 0.0,
-            "error": None
+            "error": None,
         }
 
         try:
@@ -164,7 +172,7 @@ class CLIModelTester:
             try:
                 transcription_result = self.whisper_engine.transcribe(
                     test_audio,
-                    language=None  # Auto-detect
+                    language=None,  # Auto-detect
                 )
             except Exception as e:
                 # Handle case where transcribe returns string instead of dict
@@ -187,14 +195,16 @@ class CLIModelTester:
             is_hallucination = self._is_likely_hallucination(text)
 
             # Build result
-            result.update({
-                "success": True,
-                "text": text,
-                "language": language,
-                "confidence": confidence,
-                "is_hallucination": is_hallucination,
-                "transcription_time": transcription_time
-            })
+            result.update(
+                {
+                    "success": True,
+                    "text": text,
+                    "language": language,
+                    "confidence": confidence,
+                    "is_hallucination": is_hallucination,
+                    "transcription_time": transcription_time,
+                }
+            )
 
             self._report_progress("Test completed successfully")
 
@@ -203,6 +213,7 @@ class CLIModelTester:
             self._report_progress(f"ERROR: {error_msg}")
             result["error"] = error_msg
             import traceback
+
             traceback.print_exc()
 
         return result
@@ -219,11 +230,11 @@ class CLIModelTester:
         """
         if not result["success"]:
             return f"""
-{'='*60}
+{"=" * 60}
 MODEL TEST FAILED
-{'='*60}
-Error: {result.get('error', 'Unknown error')}
-{'='*60}
+{"=" * 60}
+Error: {result.get("error", "Unknown error")}
+{"=" * 60}
 """
 
         # Determine result interpretation
@@ -238,26 +249,30 @@ Error: {result.get('error', 'Unknown error')}
             status = "[!] UNEXPECTED"
 
         # Clean text to remove Unicode characters for Windows console
-        safe_text = result['text'].encode('ascii', errors='ignore').decode('ascii') if result['text'] else ''
+        safe_text = (
+            result["text"].encode("ascii", errors="ignore").decode("ascii")
+            if result["text"]
+            else ""
+        )
 
         return f"""
-{'='*60}
+{"=" * 60}
 MODEL TEST RESULTS
-{'='*60}
+{"=" * 60}
 Status: {status}
 
 Transcription:
-  Text: "{safe_text}" {' (empty)' if not safe_text else ''}
-  Language: {result['language']}
-  Confidence: {result['confidence']:.2%}
+  Text: "{safe_text}" {" (empty)" if not safe_text else ""}
+  Language: {result["language"]}
+  Confidence: {result["confidence"]:.2%}
 
 Performance:
-  Transcription Time: {result['transcription_time']:.2f}s
-  RTF (Real-Time Factor): {result['transcription_time'] / 2.0:.2f}x
+  Transcription Time: {result["transcription_time"]:.2f}s
+  RTF (Real-Time Factor): {result["transcription_time"] / 2.0:.2f}x
 
 Analysis:
-  Is Hallucination: {result['is_hallucination']}
+  Is Hallucination: {result["is_hallucination"]}
   Interpretation: {interpretation}
 
-{'='*60}
+{"=" * 60}
 """

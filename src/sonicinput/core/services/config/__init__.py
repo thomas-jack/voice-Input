@@ -8,10 +8,10 @@ from .config_backup import ConfigBackupService
 from .config_service_refactored import RefactoredConfigService
 
 __all__ = [
-    'ConfigReader',
-    'ConfigWriter',
-    'ConfigValidator',
-    'ConfigMigrator',
-    'ConfigBackupService',
-    'RefactoredConfigService'
+    "ConfigReader",
+    "ConfigWriter",
+    "ConfigValidator",
+    "ConfigMigrator",
+    "ConfigBackupService",
+    "RefactoredConfigService",
 ]

@@ -16,6 +16,7 @@ from ..interfaces.ui import IUIEventProcessor
 @dataclass
 class EventContext:
     """事件上下文"""
+
     event_name: str
     data: Any
     priority: EventPriority
@@ -31,10 +32,10 @@ class EventHandler(ABC):
     def __init__(self, name: str, priority: int = 0):
         self.name = name
         self.priority = priority
-        self.next_handler: Optional['EventHandler'] = None
+        self.next_handler: Optional["EventHandler"] = None
         self.event_service: Optional[IEventService] = None
 
-    def set_next(self, handler: 'EventHandler') -> 'EventHandler':
+    def set_next(self, handler: "EventHandler") -> "EventHandler":
         """设置下一个处理器"""
         self.next_handler = handler
         return handler
@@ -79,12 +80,15 @@ class EventHandler(ABC):
         except Exception as e:
             # 记录错误并继续处理
             if self.event_service:
-                self.event_service.emit("event_handler_error", {
-                    "handler_name": self.name,
-                    "event_name": event_name,
-                    "error": str(e),
-                    "error_type": type(e).__name__
-                })
+                self.event_service.emit(
+                    "event_handler_error",
+                    {
+                        "handler_name": self.name,
+                        "event_name": event_name,
+                        "error": str(e),
+                        "error_type": type(e).__name__,
+                    },
+                )
 
             if self.next_handler:
                 return self.next_handler.handle(event_name, context)
@@ -108,13 +112,17 @@ class ValidationHandler(EventHandler):
             return None
 
         # 检查事件数据类型
-        if hasattr(context.data, '__dict__'):
+        if hasattr(context.data, "__dict__"):
             # 如果是对象，检查必要属性
-            required_attrs = getattr(context.data, '_required_attrs', [])
-            missing_attrs = [attr for attr in required_attrs if not hasattr(context.data, attr)]
+            required_attrs = getattr(context.data, "_required_attrs", [])
+            missing_attrs = [
+                attr for attr in required_attrs if not hasattr(context.data, attr)
+            ]
 
             if missing_attrs:
-                context.metadata["validation_error"] = f"Missing required attributes: {missing_attrs}"
+                context.metadata["validation_error"] = (
+                    f"Missing required attributes: {missing_attrs}"
+                )
                 context.halted = True
                 return None
 
@@ -131,8 +139,12 @@ class LoggingHandler(EventHandler):
     def can_handle(self, event_name: str, context: EventContext) -> bool:
         # 只记录重要事件或配置记录所有事件
         important_events = {
-            "recording_started", "recording_stopped", "transcription_completed",
-            "ai_processing_started", "ai_processing_completed", "text_input_started"
+            "recording_started",
+            "recording_stopped",
+            "transcription_completed",
+            "ai_processing_started",
+            "ai_processing_completed",
+            "text_input_started",
         }
 
         return self.log_all_events or event_name in important_events
@@ -140,13 +152,16 @@ class LoggingHandler(EventHandler):
     def process(self, context: EventContext) -> Any:
         # 记录事件
         if self.event_service:
-            self.event_service.emit("event_logged", {
-                "event_name": context.event_name,
-                "priority": context.priority.name,
-                "timestamp": context.timestamp,
-                "has_data": context.data is not None,
-                "metadata": context.metadata
-            })
+            self.event_service.emit(
+                "event_logged",
+                {
+                    "event_name": context.event_name,
+                    "priority": context.priority.name,
+                    "timestamp": context.timestamp,
+                    "has_data": context.data is not None,
+                    "metadata": context.metadata,
+                },
+            )
 
         return context.data
 
@@ -163,7 +178,9 @@ class TransformationHandler(EventHandler):
 
     def process(self, context: EventContext) -> Any:
         # 数据转换逻辑
-        if context.event_name == "audio_level_update" and isinstance(context.data, (int, float)):
+        if context.event_name == "audio_level_update" and isinstance(
+            context.data, (int, float)
+        ):
             # 音频级别标准化
             normalized_value = min(1.0, max(0.0, float(context.data) / 100.0))
             context.metadata["normalized_value"] = normalized_value
@@ -187,7 +204,7 @@ class EventProcessorPipeline:
         self._lock = threading.RLock()
         self.pipeline_initialized = False
 
-    def add_handler(self, handler: EventHandler) -> 'EventProcessorPipeline':
+    def add_handler(self, handler: EventHandler) -> "EventProcessorPipeline":
         """添加处理器"""
         with self._lock:
             self.handlers.append(handler)
@@ -204,8 +221,12 @@ class EventProcessorPipeline:
 
         return self
 
-    def process_event(self, event_name: str, data: Any = None,
-                     priority: EventPriority = EventPriority.NORMAL) -> Any:
+    def process_event(
+        self,
+        event_name: str,
+        data: Any = None,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> Any:
         """处理事件"""
         if not self.pipeline_initialized:
             return data
@@ -217,7 +238,7 @@ class EventProcessorPipeline:
                 data=data,
                 priority=priority,
                 timestamp=time.time(),
-                metadata={}
+                metadata={},
             )
 
             # 从第一个处理器开始处理
@@ -269,7 +290,7 @@ class UIEventProcessor(IUIEventProcessor):
         return {
             "handler_count": len(self.pipeline.handlers),
             "handler_names": self.pipeline.get_handler_names(),
-            "pipeline_initialized": self.pipeline.pipeline_initialized
+            "pipeline_initialized": self.pipeline.pipeline_initialized,
         }
 
 

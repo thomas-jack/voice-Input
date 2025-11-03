@@ -1,7 +1,16 @@
 """文本输入设置标签页"""
 
-from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
-                            QCheckBox, QComboBox, QDoubleSpinBox, QPushButton, QLabel)
+from PySide6.QtWidgets import (
+    QVBoxLayout,
+    QGroupBox,
+    QFormLayout,
+    QHBoxLayout,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QPushButton,
+    QLabel,
+)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -31,7 +40,9 @@ class InputTab(BaseSettingsTab):
         method_layout.addRow("Preferred Method:", self.input_method_combo)
 
         # 启用回退
-        self.fallback_enabled_checkbox = QCheckBox("Enable fallback to alternative method")
+        self.fallback_enabled_checkbox = QCheckBox(
+            "Enable fallback to alternative method"
+        )
         method_layout.addRow("", self.fallback_enabled_checkbox)
 
         # 自动检测终端
@@ -92,12 +103,12 @@ class InputTab(BaseSettingsTab):
 
         # 保存控件引用
         self.controls = {
-            'input_method': self.input_method_combo,
-            'fallback_enabled': self.fallback_enabled_checkbox,
-            'auto_detect': self.auto_detect_checkbox,
-            'clipboard_delay': self.clipboard_delay_spinbox,
-            'typing_delay': self.typing_delay_spinbox,
-            'test_status': self.input_test_status_label,
+            "input_method": self.input_method_combo,
+            "fallback_enabled": self.fallback_enabled_checkbox,
+            "auto_detect": self.auto_detect_checkbox,
+            "clipboard_delay": self.clipboard_delay_spinbox,
+            "typing_delay": self.typing_delay_spinbox,
+            "test_status": self.input_test_status_label,
         }
 
         # 暴露控件到parent_window
@@ -129,9 +140,7 @@ class InputTab(BaseSettingsTab):
         self.clipboard_delay_spinbox.setValue(
             input_config.get("clipboard_restore_delay", 0.5)
         )
-        self.typing_delay_spinbox.setValue(
-            input_config.get("typing_delay", 0.01)
-        )
+        self.typing_delay_spinbox.setValue(input_config.get("typing_delay", 0.01))
 
     def save_config(self) -> Dict[str, Any]:
         """保存UI状态到配置
@@ -153,12 +162,12 @@ class InputTab(BaseSettingsTab):
 
     def _test_clipboard(self) -> None:
         """测试剪贴板方法 - 调用父窗口的方法"""
-        if hasattr(self.parent_window, 'test_clipboard'):
+        if hasattr(self.parent_window, "test_clipboard"):
             self.parent_window.test_clipboard()
 
     def _test_sendinput(self) -> None:
         """测试SendInput方法 - 调用父窗口的方法"""
-        if hasattr(self.parent_window, 'test_sendinput'):
+        if hasattr(self.parent_window, "test_sendinput"):
             self.parent_window.test_sendinput()
 
     def update_test_status(self, status: str, is_error: bool = False) -> None:

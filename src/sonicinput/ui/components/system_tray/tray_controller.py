@@ -32,17 +32,19 @@ class TrayController(LifecycleComponent):
     toggle_recording_requested = Signal()
     exit_application_requested = Signal()
 
-    def __init__(self,
-                 config_service: Optional[IConfigService] = None,
-                 event_service: Optional[IEventService] = None,
-                 state_manager: Optional[IStateManager] = None,
-                 parent: Optional[QObject] = None):
+    def __init__(
+        self,
+        config_service: Optional[IConfigService] = None,
+        event_service: Optional[IEventService] = None,
+        state_manager: Optional[IStateManager] = None,
+        parent: Optional[QObject] = None,
+    ):
         super().__init__(
             component_name="tray_controller",
             config_service=config_service,
             event_service=event_service,
             state_manager=state_manager,
-            parent=parent
+            parent=parent,
         )
         app_logger.debug("TrayController __init__ started.")
 
@@ -75,9 +77,10 @@ class TrayController(LifecycleComponent):
 
         # Check if tray widget was successfully created (system tray available)
         if not self._tray_widget.is_tray_available():
-            self._log_event("system_tray_not_available", {
-                "message": "System tray not available, continuing without tray"
-            })
+            self._log_event(
+                "system_tray_not_available",
+                {"message": "System tray not available, continuing without tray"},
+            )
             # Even if tray is not available, we consider this a successful initialization
             # The controller can still handle events and provide functionality
         else:
@@ -133,21 +136,17 @@ class TrayController(LifecycleComponent):
             Dictionary of component-specific health data
         """
         widget_created = self._tray_widget is not None
-        widget_available = (
-            widget_created and
-            self._tray_widget.is_tray_available()
-        )
+        widget_available = widget_created and self._tray_widget.is_tray_available()
 
         return {
             "widget_created": widget_created,
             "widget_available": widget_available,
             "widget_visible": (
-                self._tray_widget.is_visible()
-                if self._tray_widget else False
+                self._tray_widget.is_visible() if self._tray_widget else False
             ),
             "notifications_enabled": self._notifications_enabled,
             "recording_state": self._recording_state.value,
-            "app_state": self._app_state.value
+            "app_state": self._app_state.value,
         }
 
     # ==================== Configuration ====================
@@ -182,33 +181,33 @@ class TrayController(LifecycleComponent):
             self._event_service.subscribe(
                 Events.RECORDING_STATE_CHANGED,
                 self._on_recording_state_changed,
-                priority=EventPriority.HIGH
+                priority=EventPriority.HIGH,
             )
 
             # Subscribe to app state changes
             self._event_service.subscribe(
                 Events.APP_STATE_CHANGED,
                 self._on_app_state_changed,
-                priority=EventPriority.HIGH
+                priority=EventPriority.HIGH,
             )
 
             # Subscribe to processing events
             self._event_service.subscribe(
                 Events.TRANSCRIPTION_STARTED,
                 self._on_processing_started,
-                priority=EventPriority.NORMAL
+                priority=EventPriority.NORMAL,
             )
 
             self._event_service.subscribe(
                 Events.TRANSCRIPTION_COMPLETED,
                 self._on_processing_completed,
-                priority=EventPriority.NORMAL
+                priority=EventPriority.NORMAL,
             )
 
             self._event_service.subscribe(
                 Events.TRANSCRIPTION_ERROR,
                 self._on_processing_failed,
-                priority=EventPriority.NORMAL
+                priority=EventPriority.NORMAL,
             )
 
         except Exception as e:
@@ -227,7 +226,7 @@ class TrayController(LifecycleComponent):
             Events.APP_STATE_CHANGED,
             Events.TRANSCRIPTION_STARTED,
             Events.TRANSCRIPTION_COMPLETED,
-            Events.TRANSCRIPTION_ERROR
+            Events.TRANSCRIPTION_ERROR,
         ]
 
         for event in events_to_unsubscribe:
@@ -245,32 +244,35 @@ class TrayController(LifecycleComponent):
         try:
             with self._lock:
                 # Extract integer value from PySide6 enum (uses .value attribute)
-                reason_value = reason.value if hasattr(reason, 'value') else int(reason)
+                reason_value = reason.value if hasattr(reason, "value") else int(reason)
 
                 # Handle different activation types
                 if reason_value == 2:  # DoubleClick
-                    app_logger.log_audio_event("Processing double-click event", {
-                        "action": "show_settings"
-                    })
+                    app_logger.log_audio_event(
+                        "Processing double-click event", {"action": "show_settings"}
+                    )
                     self._handle_show_settings()
                 elif reason_value == 4:  # MiddleClick
-                    app_logger.log_audio_event("Processing middle-click event", {
-                        "action": "toggle_recording"
-                    })
+                    app_logger.log_audio_event(
+                        "Processing middle-click event", {"action": "toggle_recording"}
+                    )
                     self._handle_toggle_recording()
 
                 # 详细日志记录激活事件
-                app_logger.log_audio_event("Tray icon activation detailed", {
-                    "reason_raw": reason,  # 让 logger 序列化器处理枚举
-                    "reason_value": reason_value,
-                    "reason_type": type(reason).__name__,
-                    "component": self._component_name
-                })
+                app_logger.log_audio_event(
+                    "Tray icon activation detailed",
+                    {
+                        "reason_raw": reason,  # 让 logger 序列化器处理枚举
+                        "reason_value": reason_value,
+                        "reason_type": type(reason).__name__,
+                        "component": self._component_name,
+                    },
+                )
 
-                app_logger.log_audio_event("Tray icon activated", {
-                    "reason": reason_value,
-                    "component": self._component_name
-                })
+                app_logger.log_audio_event(
+                    "Tray icon activated",
+                    {"reason": reason_value, "component": self._component_name},
+                )
 
         except Exception as e:
             self._handle_exception(e, "icon_activation")
@@ -294,10 +296,10 @@ class TrayController(LifecycleComponent):
                 elif action_name == "exit_application":
                     self._handle_exit_application()
 
-                app_logger.log_audio_event("Tray menu action triggered", {
-                    "action": action_name,
-                    "component": self._component_name
-                })
+                app_logger.log_audio_event(
+                    "Tray menu action triggered",
+                    {"action": action_name, "component": self._component_name},
+                )
 
         except Exception as e:
             app_logger.log_error(e, f"tray_menu_action_{action_name}")
@@ -310,14 +312,17 @@ class TrayController(LifecycleComponent):
 
     def _handle_show_settings(self) -> None:
         """Handle show settings request"""
-        app_logger.log_audio_event("Show settings handler called", {
-            "component": self._component_name,
-            "signal_about_to_emit": "show_settings_requested"
-        })
+        app_logger.log_audio_event(
+            "Show settings handler called",
+            {
+                "component": self._component_name,
+                "signal_about_to_emit": "show_settings_requested",
+            },
+        )
         self.show_settings_requested.emit()
-        app_logger.log_audio_event("Show settings signal emitted", {
-            "component": self._component_name
-        })
+        app_logger.log_audio_event(
+            "Show settings signal emitted", {"component": self._component_name}
+        )
 
     def _handle_show_about(self) -> None:
         """Handle show about request"""
@@ -386,7 +391,7 @@ class TrayController(LifecycleComponent):
                 self._tray_widget.show_message(
                     "Voice Input",
                     "Text processed successfully!",
-                    QSystemTrayIcon.MessageIcon.Information
+                    QSystemTrayIcon.MessageIcon.Information,
                 )
 
     def _on_processing_failed(self, event_data: Dict[str, Any] = None) -> None:
@@ -398,11 +403,15 @@ class TrayController(LifecycleComponent):
         if self._tray_widget:
             self._tray_widget.update_status_text("Error")
             if self._notifications_enabled:
-                error_msg = event_data.get("error", "Unknown error") if event_data else "Unknown error"
+                error_msg = (
+                    event_data.get("error", "Unknown error")
+                    if event_data
+                    else "Unknown error"
+                )
                 self._tray_widget.show_message(
                     "Voice Input Error",
                     f"Processing failed: {error_msg}",
-                    QSystemTrayIcon.MessageIcon.Critical
+                    QSystemTrayIcon.MessageIcon.Critical,
                 )
 
     # ==================== UI Updates ====================
@@ -435,7 +444,7 @@ class TrayController(LifecycleComponent):
                 "Recording Started",
                 "Voice recording is active. Speak now!",
                 QSystemTrayIcon.MessageIcon.Information,
-                3000
+                3000,
             )
 
     def _update_ui_for_app_state(self) -> None:
@@ -451,7 +460,7 @@ class TrayController(LifecycleComponent):
             AppState.PROCESSING: "Processing...",
             AppState.INPUT_READY: "Input Ready",
             AppState.ERROR: "Error",
-            AppState.STOPPING: "Stopping..."
+            AppState.STOPPING: "Stopping...",
         }.get(self._app_state, "Unknown")
 
         self._tray_widget.update_status_text(status_text)
@@ -465,7 +474,7 @@ class TrayController(LifecycleComponent):
                 "Voice Input Software",
                 "Application is running! Right-click the tray icon (green dot) to access features, or double-click to open settings.",
                 QSystemTrayIcon.MessageIcon.Information,
-                8000  # 8 seconds
+                8000,  # 8 seconds
             )
 
     def _show_about_dialog(self) -> None:
@@ -489,7 +498,7 @@ class TrayController(LifecycleComponent):
             <li>Double-click tray icon: Settings</li>
             <li>Middle-click tray icon: Toggle recording</li>
             </ul>
-            """
+            """,
         )
 
     # ==================== Public Interface ====================
@@ -503,14 +512,18 @@ class TrayController(LifecycleComponent):
         with self._lock:
             self._notifications_enabled = enabled
 
-            app_logger.log_audio_event("Notifications setting changed", {
-                "enabled": enabled,
-                "component": self._component_name
-            })
+            app_logger.log_audio_event(
+                "Notifications setting changed",
+                {"enabled": enabled, "component": self._component_name},
+            )
 
-    def show_notification(self, title: str, message: str,
-                         icon: QSystemTrayIcon.MessageIcon = QSystemTrayIcon.MessageIcon.Information,
-                         timeout: int = 3000) -> bool:
+    def show_notification(
+        self,
+        title: str,
+        message: str,
+        icon: QSystemTrayIcon.MessageIcon = QSystemTrayIcon.MessageIcon.Information,
+        timeout: int = 3000,
+    ) -> bool:
         """Show a notification
 
         Args:
@@ -536,9 +549,7 @@ class TrayController(LifecycleComponent):
             True if notification was shown
         """
         return self.show_notification(
-            "Voice Input Error",
-            message,
-            QSystemTrayIcon.MessageIcon.Critical
+            "Voice Input Error", message, QSystemTrayIcon.MessageIcon.Critical
         )
 
     def show_success_notification(self, message: str) -> bool:
@@ -551,7 +562,5 @@ class TrayController(LifecycleComponent):
             True if notification was shown
         """
         return self.show_notification(
-            "Voice Input",
-            message,
-            QSystemTrayIcon.MessageIcon.Information
+            "Voice Input", message, QSystemTrayIcon.MessageIcon.Information
         )

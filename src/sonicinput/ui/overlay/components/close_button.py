@@ -29,7 +29,11 @@ class CloseButton(QWidget):
             painter.drawRoundedRect(0, 0, self.width(), self.height(), 4, 4)
 
         # 绘制×符号 - 两条对角线
-        painter.setPen(QPen(QColor(255, 255, 255), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        painter.setPen(
+            QPen(
+                QColor(255, 255, 255), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap
+            )
+        )
 
         # 计算×的绘制区域（留出边距），向上偏移3px与StatusIndicator对齐
         margin = 7
@@ -39,14 +43,18 @@ class CloseButton(QWidget):
 
         # 左上到右下的对角线
         painter.drawLine(
-            center_x - half_size, center_y - half_size,
-            center_x + half_size, center_y + half_size
+            center_x - half_size,
+            center_y - half_size,
+            center_x + half_size,
+            center_y + half_size,
         )
 
         # 右上到左下的对角线
         painter.drawLine(
-            center_x + half_size, center_y - half_size,
-            center_x - half_size, center_y + half_size
+            center_x + half_size,
+            center_y - half_size,
+            center_x - half_size,
+            center_y + half_size,
         )
 
     def enterEvent(self, event):

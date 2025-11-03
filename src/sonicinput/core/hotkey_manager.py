@@ -13,14 +13,14 @@ WM_KEYUP = 0x0101
 WM_SYSKEYDOWN = 0x0104  # Alt 组合键
 WM_SYSKEYUP = 0x0105
 
-VK_LMENU = 0xA4     # Left Alt
-VK_RMENU = 0xA5     # Right Alt
+VK_LMENU = 0xA4  # Left Alt
+VK_RMENU = 0xA5  # Right Alt
 VK_LCONTROL = 0xA2  # Left Ctrl
 VK_RCONTROL = 0xA3  # Right Ctrl
-VK_LSHIFT = 0xA0    # Left Shift
-VK_RSHIFT = 0xA1    # Right Shift
-VK_LWIN = 0x5B      # Left Windows
-VK_RWIN = 0x5C      # Right Windows
+VK_LSHIFT = 0xA0  # Left Shift
+VK_RSHIFT = 0xA1  # Right Shift
+VK_LWIN = 0x5B  # Left Windows
+VK_RWIN = 0x5C  # Right Windows
 
 
 class HotkeyManager(IHotkeyService):
@@ -28,11 +28,15 @@ class HotkeyManager(IHotkeyService):
 
     def __init__(self, callback: Callable[[str], None]):
         self.callback = callback
-        self.registered_hotkeys: Dict[str, Dict[str, Any]] = {}  # hotkey_string -> {hotkey_obj, action, keys}
+        self.registered_hotkeys: Dict[
+            str, Dict[str, Any]
+        ] = {}  # hotkey_string -> {hotkey_obj, action, keys}
         self._listener: Optional[keyboard.Listener] = None
         self._is_listening_flag = False
 
-        app_logger.log_audio_event("Hotkey manager initialized (win32_event_filter)", {})
+        app_logger.log_audio_event(
+            "Hotkey manager initialized (win32_event_filter)", {}
+        )
 
     @property
     def is_listening(self) -> bool:
@@ -55,11 +59,13 @@ class HotkeyManager(IHotkeyService):
             # 测试快捷键可用性
             availability_test = self.test_hotkey_availability(hotkey)
             if not availability_test["available"]:
-                app_logger.log_audio_event("Hotkey unavailable", {
-                    "hotkey": hotkey,
-                    "reason": availability_test["message"]
-                })
-                raise HotkeyRegistrationError(f"Hotkey '{hotkey}' is not available: {availability_test['message']}")
+                app_logger.log_audio_event(
+                    "Hotkey unavailable",
+                    {"hotkey": hotkey, "reason": availability_test["message"]},
+                )
+                raise HotkeyRegistrationError(
+                    f"Hotkey '{hotkey}' is not available: {availability_test['message']}"
+                )
 
             # 解析热键为pynput格式
             pynput_keys = self._parse_hotkey_to_pynput(normalized_hotkey)
@@ -67,17 +73,22 @@ class HotkeyManager(IHotkeyService):
             # 创建回调函数
             def hotkey_callback():
                 try:
-                    app_logger.log_audio_event("Hotkey triggered", {
-                        "hotkey": normalized_hotkey,
-                        "action": action,
-                        "timestamp": time.time()
-                    })
+                    app_logger.log_audio_event(
+                        "Hotkey triggered",
+                        {
+                            "hotkey": normalized_hotkey,
+                            "action": action,
+                            "timestamp": time.time(),
+                        },
+                    )
 
                     app_logger.log_hotkey_event(normalized_hotkey, action)
 
                     if self.callback:
                         self.callback(action)
-                        app_logger.log_audio_event("Hotkey callback completed", {"action": action})
+                        app_logger.log_audio_event(
+                            "Hotkey callback completed", {"action": action}
+                        )
 
                 except Exception as e:
                     app_logger.log_error(e, f"hotkey_callback_{action}")
@@ -90,18 +101,21 @@ class HotkeyManager(IHotkeyService):
                 "hotkey_obj": hotkey_obj,
                 "action": action,
                 "normalized": normalized_hotkey,
-                "keys": pynput_keys
+                "keys": pynput_keys,
             }
 
             # 重启listener以应用新热键
             self._restart_listener()
 
-            app_logger.log_audio_event("Hotkey registered (pynput)", {
-                "hotkey": hotkey,
-                "normalized": normalized_hotkey,
-                "action": action,
-                "availability_tested": True
-            })
+            app_logger.log_audio_event(
+                "Hotkey registered (pynput)",
+                {
+                    "hotkey": hotkey,
+                    "normalized": normalized_hotkey,
+                    "action": action,
+                    "availability_tested": True,
+                },
+            )
 
             return True
 
@@ -119,17 +133,17 @@ class HotkeyManager(IHotkeyService):
             pynput键集合，如 {Key.alt_l, KeyCode.from_char('h')}
         """
         keys = set()
-        parts = hotkey.lower().split('+')
+        parts = hotkey.lower().split("+")
 
         for part in parts:
             part = part.strip()
-            if part == 'ctrl' or part == 'control':
+            if part == "ctrl" or part == "control":
                 keys.add(Key.ctrl_l)
-            elif part == 'alt':
+            elif part == "alt":
                 keys.add(Key.alt_l)
-            elif part == 'shift':
+            elif part == "shift":
                 keys.add(Key.shift_l)
-            elif part == 'cmd' or part == 'windows' or part == 'win':
+            elif part == "cmd" or part == "windows" or part == "win":
                 keys.add(Key.cmd)
             elif len(part) == 1:
                 # 单个字符
@@ -139,10 +153,9 @@ class HotkeyManager(IHotkeyService):
                 try:
                     keys.add(getattr(Key, part))
                 except AttributeError:
-                    app_logger.log_audio_event("Unknown key in hotkey", {
-                        "key": part,
-                        "hotkey": hotkey
-                    })
+                    app_logger.log_audio_event(
+                        "Unknown key in hotkey", {"key": part, "hotkey": hotkey}
+                    )
 
         return keys
 
@@ -249,14 +262,18 @@ class HotkeyManager(IHotkeyService):
         # 调试日志：记录重启（DEBUG级别）
         if app_logger.is_debug_enabled():
             import inspect
+
             caller_frame = inspect.currentframe().f_back
             caller_info = f"{caller_frame.f_code.co_filename}:{caller_frame.f_lineno}"
 
-            app_logger.log_audio_event("Hotkey listener restarting", {
-                "caller": caller_info,
-                "was_listening": self._is_listening_flag,
-                "registered_count": len(self.registered_hotkeys)
-            })
+            app_logger.log_audio_event(
+                "Hotkey listener restarting",
+                {
+                    "caller": caller_info,
+                    "was_listening": self._is_listening_flag,
+                    "registered_count": len(self.registered_hotkeys),
+                },
+            )
 
         # 停止旧listener
         if self._listener and self._is_listening_flag:
@@ -264,6 +281,7 @@ class HotkeyManager(IHotkeyService):
 
             # 等待 listener 线程完全退出，避免进程泄漏
             import time
+
             for _ in range(10):  # 最多等待 1 秒
                 if not self._listener.is_alive():
                     break
@@ -276,10 +294,13 @@ class HotkeyManager(IHotkeyService):
             hotkey_obj = hotkey_info["hotkey_obj"]
             if hotkey_obj._state:
                 if app_logger.is_debug_enabled():
-                    app_logger.log_audio_event("Resetting hotkey state on listener restart", {
-                        "hotkey": hotkey_info.get("normalized", "unknown"),
-                        "stale_state": str(hotkey_obj._state)
-                    })
+                    app_logger.log_audio_event(
+                        "Resetting hotkey state on listener restart",
+                        {
+                            "hotkey": hotkey_info.get("normalized", "unknown"),
+                            "stale_state": str(hotkey_obj._state),
+                        },
+                    )
                 hotkey_obj._state.clear()
 
         # 跟踪当前按下的键 (VK 码 -> 按下时间戳)
@@ -303,23 +324,46 @@ class HotkeyManager(IHotkeyService):
                     current_time = time.time()
 
                     # 清理超时的按键（超过 2 秒未释放）
-                    timeout_keys = [vk for vk, ts in current_vk_keys.items() if current_time - ts > 2.0]
+                    timeout_keys = [
+                        vk
+                        for vk, ts in current_vk_keys.items()
+                        if current_time - ts > 2.0
+                    ]
                     for vk in timeout_keys:
                         del current_vk_keys[vk]
                         if app_logger.is_debug_enabled():
-                            app_logger.log_audio_event(f"Timeout key cleaned (VK={hex(vk)})", {
-                                "vk_code": vk,
-                                "age_seconds": current_time - current_vk_keys.get(vk, current_time)
-                            })
+                            app_logger.log_audio_event(
+                                f"Timeout key cleaned (VK={hex(vk)})",
+                                {
+                                    "vk_code": vk,
+                                    "age_seconds": current_time
+                                    - current_vk_keys.get(vk, current_time),
+                                },
+                            )
 
                     # 调试日志：记录按键事件（DEBUG级别）
-                    if app_logger.is_debug_enabled() and vk_code in [0x7B, 0xA4, 0xA5, 0x48]:  # F12, Left Alt, Right Alt, H
-                        app_logger.log_audio_event(f"KeyDown detected (VK={hex(vk_code)})", {
-                            "vk_code": vk_code,
-                            "current_vk_keys": {hex(k): current_time - v for k, v in current_vk_keys.items()},
-                            "suppressed_vk_keys": [hex(k) for k in suppressed_vk_keys],
-                            "registered_hotkeys_count": len(self.registered_hotkeys)
-                        })
+                    if app_logger.is_debug_enabled() and vk_code in [
+                        0x7B,
+                        0xA4,
+                        0xA5,
+                        0x48,
+                    ]:  # F12, Left Alt, Right Alt, H
+                        app_logger.log_audio_event(
+                            f"KeyDown detected (VK={hex(vk_code)})",
+                            {
+                                "vk_code": vk_code,
+                                "current_vk_keys": {
+                                    hex(k): current_time - v
+                                    for k, v in current_vk_keys.items()
+                                },
+                                "suppressed_vk_keys": [
+                                    hex(k) for k in suppressed_vk_keys
+                                ],
+                                "registered_hotkeys_count": len(
+                                    self.registered_hotkeys
+                                ),
+                            },
+                        )
 
                     current_vk_keys[vk_code] = current_time
 
@@ -338,44 +382,78 @@ class HotkeyManager(IHotkeyService):
                     normalized_current = self._normalize_key_set(current_pynput_keys)
 
                     # 调试日志：显示所有已注册快捷键的比较（DEBUG级别）
-                    if app_logger.is_debug_enabled() and vk_code in [0x7B, 0xA4, 0xA5, 0x48]:  # F12, Alt, H
-                        app_logger.log_audio_event(f"Checking hotkey match (VK={hex(vk_code)})", {
-                            "normalized_current": str(normalized_current),
-                            "registered_hotkeys": {k: str(v["keys"]) for k, v in self.registered_hotkeys.items()}
-                        })
+                    if app_logger.is_debug_enabled() and vk_code in [
+                        0x7B,
+                        0xA4,
+                        0xA5,
+                        0x48,
+                    ]:  # F12, Alt, H
+                        app_logger.log_audio_event(
+                            f"Checking hotkey match (VK={hex(vk_code)})",
+                            {
+                                "normalized_current": str(normalized_current),
+                                "registered_hotkeys": {
+                                    k: str(v["keys"])
+                                    for k, v in self.registered_hotkeys.items()
+                                },
+                            },
+                        )
 
                     # 检查是否匹配任何已注册的快捷键
                     for hotkey_info in self.registered_hotkeys.values():
                         hotkey_keys = hotkey_info["keys"]
                         if normalized_current == hotkey_keys:
                             # 时间窗口检查：所有按键必须在 500ms 内按下
-                            timestamps = [current_vk_keys[vk] for vk in current_vk_keys.keys()]
+                            timestamps = [
+                                current_vk_keys[vk] for vk in current_vk_keys.keys()
+                            ]
                             time_span = max(timestamps) - min(timestamps)
 
                             if time_span > 0.5:  # 超过 500ms
                                 # 不触发快捷键
                                 if app_logger.is_debug_enabled():
-                                    app_logger.log_audio_event("Hotkey REJECTED (time window)", {
-                                        "hotkey": hotkey_info.get("normalized", "unknown"),
-                                        "time_span_ms": time_span * 1000,
-                                        "threshold_ms": 500,
-                                        "vk_codes": [hex(vk) for vk in current_vk_keys.keys()],
-                                        "timestamps_age": {hex(vk): current_time - ts for vk, ts in current_vk_keys.items()}
-                                    })
+                                    app_logger.log_audio_event(
+                                        "Hotkey REJECTED (time window)",
+                                        {
+                                            "hotkey": hotkey_info.get(
+                                                "normalized", "unknown"
+                                            ),
+                                            "time_span_ms": time_span * 1000,
+                                            "threshold_ms": 500,
+                                            "vk_codes": [
+                                                hex(vk) for vk in current_vk_keys.keys()
+                                            ],
+                                            "timestamps_age": {
+                                                hex(vk): current_time - ts
+                                                for vk, ts in current_vk_keys.items()
+                                            },
+                                        },
+                                    )
 
                                 # ⭐ 修复误触发：拒绝快捷键时，清理超时的修饰键（Alt/Ctrl/Shift）
                                 # 防止它们与后续打字组合成误触发
-                                modifier_vks = {VK_LMENU, VK_RMENU, VK_LCONTROL, VK_RCONTROL, VK_LSHIFT, VK_RSHIFT}
+                                modifier_vks = {
+                                    VK_LMENU,
+                                    VK_RMENU,
+                                    VK_LCONTROL,
+                                    VK_RCONTROL,
+                                    VK_LSHIFT,
+                                    VK_RSHIFT,
+                                }
                                 cleaned_modifiers = []
                                 for vk in list(current_vk_keys.keys()):
-                                    if vk in modifier_vks and (current_time - current_vk_keys[vk]) > 0.5:
+                                    if (
+                                        vk in modifier_vks
+                                        and (current_time - current_vk_keys[vk]) > 0.5
+                                    ):
                                         del current_vk_keys[vk]
                                         cleaned_modifiers.append(hex(vk))
 
                                 if cleaned_modifiers and app_logger.is_debug_enabled():
-                                    app_logger.log_audio_event("Modifier keys cleaned (time window reject)", {
-                                        "cleaned_vk_codes": cleaned_modifiers
-                                    })
+                                    app_logger.log_audio_event(
+                                        "Modifier keys cleaned (time window reject)",
+                                        {"cleaned_vk_codes": cleaned_modifiers},
+                                    )
 
                                 continue  # 跳过此快捷键，不触发
                             # 匹配！抑制此事件并手动通知 HotKey
@@ -385,22 +463,30 @@ class HotkeyManager(IHotkeyService):
 
                             # 调试日志：热键匹配成功（DEBUG级别）
                             if app_logger.is_debug_enabled():
-                                app_logger.log_audio_event(f"Hotkey MATCHED (VK={hex(vk_code)})", {
-                                    "hotkey": hotkey_info.get("normalized", "unknown"),
-                                    "normalized_current": str(normalized_current),
-                                    "hotkey_keys": str(hotkey_keys),
-                                    "hotkey_state_before": str(hotkey_obj._state),
-                                    "action": hotkey_info.get("action", "unknown")
-                                })
+                                app_logger.log_audio_event(
+                                    f"Hotkey MATCHED (VK={hex(vk_code)})",
+                                    {
+                                        "hotkey": hotkey_info.get(
+                                            "normalized", "unknown"
+                                        ),
+                                        "normalized_current": str(normalized_current),
+                                        "hotkey_keys": str(hotkey_keys),
+                                        "hotkey_state_before": str(hotkey_obj._state),
+                                        "action": hotkey_info.get("action", "unknown"),
+                                    },
+                                )
 
                             # 重建完整的按键状态（修复组合键触发问题）
                             # 清空旧状态并重新添加所有当前按下的键
                             if app_logger.is_debug_enabled():
-                                app_logger.log_audio_event("Rebuilding hotkey state", {
-                                    "old_state": str(hotkey_obj._state),
-                                    "current_keys": str(normalized_current),
-                                    "vk_code": vk_code
-                                })
+                                app_logger.log_audio_event(
+                                    "Rebuilding hotkey state",
+                                    {
+                                        "old_state": str(hotkey_obj._state),
+                                        "current_keys": str(normalized_current),
+                                        "vk_code": vk_code,
+                                    },
+                                )
                             hotkey_obj._state.clear()
 
                             # 逐个添加当前所有按下的键到 _state
@@ -409,18 +495,28 @@ class HotkeyManager(IHotkeyService):
 
                             # 调试日志：press 后的状态（DEBUG级别）
                             if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                                app_logger.log_audio_event("F12 after press()", {
-                                    "hotkey_state_after": str(hotkey_obj._state)
-                                })
+                                app_logger.log_audio_event(
+                                    "F12 after press()",
+                                    {"hotkey_state_after": str(hotkey_obj._state)},
+                                )
 
                             # ⭐ 修复误触发：快捷键触发后立即清空所有跟踪状态
                             # 防止修饰键（Alt/Ctrl/Shift）状态残留导致后续打字误触发
                             if app_logger.is_debug_enabled():
-                                app_logger.log_audio_event("Clearing all key states after hotkey trigger", {
-                                    "hotkey": hotkey_info.get("normalized", "unknown"),
-                                    "cleared_vk_keys": [hex(vk) for vk in current_vk_keys.keys()],
-                                    "cleared_suppressed_keys": [hex(vk) for vk in suppressed_vk_keys]
-                                })
+                                app_logger.log_audio_event(
+                                    "Clearing all key states after hotkey trigger",
+                                    {
+                                        "hotkey": hotkey_info.get(
+                                            "normalized", "unknown"
+                                        ),
+                                        "cleared_vk_keys": [
+                                            hex(vk) for vk in current_vk_keys.keys()
+                                        ],
+                                        "cleared_suppressed_keys": [
+                                            hex(vk) for vk in suppressed_vk_keys
+                                        ],
+                                    },
+                                )
 
                             current_vk_keys.clear()
                             suppressed_vk_keys.clear()
@@ -440,11 +536,14 @@ class HotkeyManager(IHotkeyService):
 
                     # 调试日志：F12 释放（DEBUG级别）
                     if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                        app_logger.log_audio_event("F12 KeyUp detected", {
-                            "vk_code": vk_code,
-                            "in_suppressed": vk_code in suppressed_vk_keys,
-                            "current_vk_keys": list(current_vk_keys.keys())
-                        })
+                        app_logger.log_audio_event(
+                            "F12 KeyUp detected",
+                            {
+                                "vk_code": vk_code,
+                                "in_suppressed": vk_code in suppressed_vk_keys,
+                                "current_vk_keys": list(current_vk_keys.keys()),
+                            },
+                        )
 
                     if vk_code in current_vk_keys:
                         del current_vk_keys[vk_code]
@@ -463,17 +562,19 @@ class HotkeyManager(IHotkeyService):
 
                             # 调试日志：release 前的状态（DEBUG级别）
                             if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                                app_logger.log_audio_event("F12 before release()", {
-                                    "hotkey_state_before": str(hotkey_obj._state)
-                                })
+                                app_logger.log_audio_event(
+                                    "F12 before release()",
+                                    {"hotkey_state_before": str(hotkey_obj._state)},
+                                )
 
                             hotkey_obj.release(pynput_key)
 
                             # 调试日志：release 后的状态（DEBUG级别）
                             if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                                app_logger.log_audio_event("F12 after release()", {
-                                    "hotkey_state_after": str(hotkey_obj._state)
-                                })
+                                app_logger.log_audio_event(
+                                    "F12 after release()",
+                                    {"hotkey_state_after": str(hotkey_obj._state)},
+                                )
 
                         return False  # 抑制事件
 
@@ -501,15 +602,16 @@ class HotkeyManager(IHotkeyService):
         self._listener = keyboard.Listener(
             on_press=on_press,
             on_release=on_release,
-            win32_event_filter=win32_event_filter
+            win32_event_filter=win32_event_filter,
         )
 
         self._listener.start()
         self._is_listening_flag = True
 
-        app_logger.log_audio_event("Hotkey listener started (win32_event_filter)", {
-            "registered_count": len(self.registered_hotkeys)
-        })
+        app_logger.log_audio_event(
+            "Hotkey listener started (win32_event_filter)",
+            {"registered_count": len(self.registered_hotkeys)},
+        )
 
     def unregister_hotkey(self, hotkey: str) -> None:
         """注销快捷键"""
@@ -528,9 +630,7 @@ class HotkeyManager(IHotkeyService):
                     self._listener.stop()
                     self._is_listening_flag = False
 
-            app_logger.log_audio_event("Hotkey unregistered", {
-                "hotkey": hotkey
-            })
+            app_logger.log_audio_event("Hotkey unregistered", {"hotkey": hotkey})
 
         except Exception as e:
             app_logger.log_error(e, f"unregister_hotkey_{hotkey}")
@@ -550,6 +650,7 @@ class HotkeyManager(IHotkeyService):
 
             # 等待 listener 线程完全退出，避免进程泄漏
             import time
+
             for _ in range(10):  # 最多等待 1 秒
                 if not self._listener.is_alive():
                     break
@@ -558,9 +659,9 @@ class HotkeyManager(IHotkeyService):
             self._listener = None
             self._is_listening_flag = False
 
-        app_logger.log_audio_event("All hotkeys unregistered (pynput)", {
-            "count": len(hotkeys_to_remove)
-        })
+        app_logger.log_audio_event(
+            "All hotkeys unregistered (pynput)", {"count": len(hotkeys_to_remove)}
+        )
 
     def is_hotkey_registered(self, hotkey: str) -> bool:
         """检查快捷键是否已注册"""
@@ -581,17 +682,22 @@ class HotkeyManager(IHotkeyService):
 
         # 检查是否有已注册的快捷键
         if not self.registered_hotkeys:
-            app_logger.log_audio_event("No hotkeys registered, skipping listening start", {})
+            app_logger.log_audio_event(
+                "No hotkeys registered, skipping listening start", {}
+            )
             return False
 
         try:
             # 启动listener
             self._restart_listener()
 
-            app_logger.log_audio_event("Hotkey listening started (pynput)", {
-                "registered_count": len(self.registered_hotkeys),
-                "hotkeys": list(self.registered_hotkeys.keys())
-            })
+            app_logger.log_audio_event(
+                "Hotkey listening started (pynput)",
+                {
+                    "registered_count": len(self.registered_hotkeys),
+                    "hotkeys": list(self.registered_hotkeys.keys()),
+                },
+            )
             return True
 
         except Exception as e:
@@ -617,12 +723,12 @@ class HotkeyManager(IHotkeyService):
         normalized = hotkey.strip().lower()
 
         # 标准化分隔符
-        normalized = normalized.replace(' ', '').replace('_', '+')
+        normalized = normalized.replace(" ", "").replace("_", "+")
 
         # 标准化键名
-        normalized = normalized.replace('control', 'ctrl')
-        normalized = normalized.replace('command', 'cmd')
-        normalized = normalized.replace('windows', 'win')
+        normalized = normalized.replace("control", "ctrl")
+        normalized = normalized.replace("command", "cmd")
+        normalized = normalized.replace("windows", "win")
 
         return normalized
 
@@ -631,58 +737,66 @@ class HotkeyManager(IHotkeyService):
         try:
             # 基本检查
             if not hotkey or not hotkey.strip():
-                return {
-                    "available": False,
-                    "message": "Hotkey cannot be empty"
-                }
+                return {"available": False, "message": "Hotkey cannot be empty"}
 
             # 规范化
             normalized = self._normalize_hotkey(hotkey)
-            parts = normalized.split('+')
+            parts = normalized.split("+")
 
             # 检查是否为单键（除非是特殊键）
-            allowed_single_keys = ['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10',
-                                   'f11', 'f12', 'esc', 'space', 'pause', 'print_screen', 'scroll_lock']
+            allowed_single_keys = [
+                "f1",
+                "f2",
+                "f3",
+                "f4",
+                "f5",
+                "f6",
+                "f7",
+                "f8",
+                "f9",
+                "f10",
+                "f11",
+                "f12",
+                "esc",
+                "space",
+                "pause",
+                "print_screen",
+                "scroll_lock",
+            ]
             if len(parts) == 1 and parts[0] not in allowed_single_keys:
                 return {
                     "available": False,
-                    "message": "Single key hotkeys are not recommended (except function keys)"
+                    "message": "Single key hotkeys are not recommended (except function keys)",
                 }
 
             # 检查是否有修饰键
-            modifiers = ['ctrl', 'alt', 'shift', 'cmd', 'win']
+            modifiers = ["ctrl", "alt", "shift", "cmd", "win"]
             has_modifier = any(part in modifiers for part in parts)
 
             if len(parts) > 1 and not has_modifier:
                 return {
                     "available": False,
-                    "message": "Multi-key hotkeys must include a modifier (ctrl, alt, shift)"
+                    "message": "Multi-key hotkeys must include a modifier (ctrl, alt, shift)",
                 }
 
             # 检查是否与系统热键冲突（基本检查）
             system_hotkeys = [
-                'ctrl+alt+del',
-                'ctrl+shift+esc',
-                'win+l',
-                'win+d',
-                'alt+tab',
-                'alt+f4'
+                "ctrl+alt+del",
+                "ctrl+shift+esc",
+                "win+l",
+                "win+d",
+                "alt+tab",
+                "alt+f4",
             ]
 
             if normalized in system_hotkeys:
                 return {
                     "available": False,
-                    "message": f"Hotkey conflicts with system hotkey: {normalized}"
+                    "message": f"Hotkey conflicts with system hotkey: {normalized}",
                 }
 
-            return {
-                "available": True,
-                "message": "Hotkey is available"
-            }
+            return {"available": True, "message": "Hotkey is available"}
 
         except Exception as e:
             app_logger.log_error(e, f"test_hotkey_availability_{hotkey}")
-            return {
-                "available": False,
-                "message": f"Error testing hotkey: {str(e)}"
-            }
+            return {"available": False, "message": f"Error testing hotkey: {str(e)}"}

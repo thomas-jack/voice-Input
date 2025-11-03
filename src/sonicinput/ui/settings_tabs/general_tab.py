@@ -1,7 +1,17 @@
 """常规设置标签页"""
 
-from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
-                            QCheckBox, QComboBox, QSpinBox, QPushButton, QHBoxLayout, QMessageBox, QFileDialog)
+from PySide6.QtWidgets import (
+    QVBoxLayout,
+    QGroupBox,
+    QFormLayout,
+    QCheckBox,
+    QComboBox,
+    QSpinBox,
+    QPushButton,
+    QHBoxLayout,
+    QMessageBox,
+    QFileDialog,
+)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -80,16 +90,18 @@ class GeneralTab(BaseSettingsTab):
 
         # 保存控件引用
         self.controls = {
-            'start_minimized': self.start_minimized_checkbox,
-            'tray_notifications': self.tray_notifications_checkbox,
-            'log_level': self.log_level_combo,
-            'console_output': self.console_output_checkbox,
-            'max_log_size': self.max_log_size_spinbox,
+            "start_minimized": self.start_minimized_checkbox,
+            "tray_notifications": self.tray_notifications_checkbox,
+            "log_level": self.log_level_combo,
+            "console_output": self.console_output_checkbox,
+            "max_log_size": self.max_log_size_spinbox,
         }
 
         # 暴露控件到parent_window
         self.parent_window.start_minimized_checkbox = self.start_minimized_checkbox
-        self.parent_window.tray_notifications_checkbox = self.tray_notifications_checkbox
+        self.parent_window.tray_notifications_checkbox = (
+            self.tray_notifications_checkbox
+        )
         self.parent_window.log_level_combo = self.log_level_combo
         self.parent_window.console_output_checkbox = self.console_output_checkbox
         self.parent_window.max_log_size_spinbox = self.max_log_size_spinbox
@@ -103,24 +115,18 @@ class GeneralTab(BaseSettingsTab):
         ui_config = config.get("ui", {})
 
         # 加载应用设置
-        self.start_minimized_checkbox.setChecked(
-            ui_config.get("start_minimized", True)
-        )
+        self.start_minimized_checkbox.setChecked(ui_config.get("start_minimized", True))
         self.tray_notifications_checkbox.setChecked(
             ui_config.get("tray_notifications", True)
         )
 
         # 加载日志设置
         logging_config = config.get("logging", {})
-        self.log_level_combo.setCurrentText(
-            logging_config.get("level", "INFO")
-        )
+        self.log_level_combo.setCurrentText(logging_config.get("level", "INFO"))
         self.console_output_checkbox.setChecked(
             logging_config.get("console_output", False)
         )
-        self.max_log_size_spinbox.setValue(
-            logging_config.get("max_log_size_mb", 10)
-        )
+        self.max_log_size_spinbox.setValue(logging_config.get("max_log_size_mb", 10))
 
     def save_config(self) -> Dict[str, Any]:
         """保存UI状态到配置
@@ -137,7 +143,7 @@ class GeneralTab(BaseSettingsTab):
                 "level": self.log_level_combo.currentText(),
                 "console_output": self.console_output_checkbox.isChecked(),
                 "max_log_size_mb": self.max_log_size_spinbox.value(),
-            }
+            },
         }
 
         return config
@@ -145,14 +151,21 @@ class GeneralTab(BaseSettingsTab):
     def _export_config(self) -> None:
         """导出配置"""
         file_path, _ = QFileDialog.getSaveFileName(
-            self.parent_window, "Export Settings", "voice_input_settings.json", "JSON Files (*.json)"
+            self.parent_window,
+            "Export Settings",
+            "voice_input_settings.json",
+            "JSON Files (*.json)",
         )
         if file_path:
             try:
                 self.config_manager.export_config(file_path)
-                QMessageBox.information(self.parent_window, "Export", "Settings exported successfully!")
+                QMessageBox.information(
+                    self.parent_window, "Export", "Settings exported successfully!"
+                )
             except Exception as e:
-                QMessageBox.critical(self.parent_window, "Error", f"Failed to export settings: {e}")
+                QMessageBox.critical(
+                    self.parent_window, "Error", f"Failed to export settings: {e}"
+                )
 
     def _import_config(self) -> None:
         """导入配置"""
@@ -163,26 +176,35 @@ class GeneralTab(BaseSettingsTab):
             try:
                 self.config_manager.import_config(file_path)
                 # 通知父窗口重新加载配置
-                if hasattr(self.parent_window, 'load_current_config'):
+                if hasattr(self.parent_window, "load_current_config"):
                     self.parent_window.load_current_config()
-                QMessageBox.information(self.parent_window, "Import", "Settings imported successfully!")
+                QMessageBox.information(
+                    self.parent_window, "Import", "Settings imported successfully!"
+                )
             except Exception as e:
-                QMessageBox.critical(self.parent_window, "Error", f"Failed to import settings: {e}")
+                QMessageBox.critical(
+                    self.parent_window, "Error", f"Failed to import settings: {e}"
+                )
 
     def _reset_config(self) -> None:
         """重置配置"""
         reply = QMessageBox.question(
-            self.parent_window, "Reset Settings",
+            self.parent_window,
+            "Reset Settings",
             "Are you sure you want to reset all settings to default values?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 self.config_manager.reset_to_defaults()
                 # 通知父窗口重新加载配置
-                if hasattr(self.parent_window, 'load_current_config'):
+                if hasattr(self.parent_window, "load_current_config"):
                     self.parent_window.load_current_config()
-                QMessageBox.information(self.parent_window, "Reset", "Settings reset to defaults!")
+                QMessageBox.information(
+                    self.parent_window, "Reset", "Settings reset to defaults!"
+                )
             except Exception as e:
-                QMessageBox.critical(self.parent_window, "Error", f"Failed to reset settings: {e}")
+                QMessageBox.critical(
+                    self.parent_window, "Error", f"Failed to reset settings: {e}"
+                )

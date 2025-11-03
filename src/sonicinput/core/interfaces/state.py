@@ -4,11 +4,12 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Callable, TypeVar, List
 from enum import Enum
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AppState(Enum):
     """应用程序状态枚举"""
+
     STARTING = "starting"
     IDLE = "idle"
     RECORDING = "recording"
@@ -20,6 +21,7 @@ class AppState(Enum):
 
 class RecordingState(Enum):
     """录音状态枚举"""
+
     IDLE = "idle"
     STARTING = "starting"
     RECORDING = "recording"

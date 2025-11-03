@@ -13,7 +13,7 @@ from ..interfaces import (
     IConfigService,
     IEventService,
     IStateManager,
-    ISpeechService
+    ISpeechService,
 )
 from ..interfaces.state import RecordingState, AppState
 from ..services.event_bus import Events
@@ -36,7 +36,7 @@ class RecordingController(IRecordingController):
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
-        speech_service: ISpeechService
+        speech_service: ISpeechService,
     ):
         self._audio_service = audio_service
         self._config = config_service
@@ -56,22 +56,28 @@ class RecordingController(IRecordingController):
         # 检查状态并强制重置卡住的状态
         current_app_state = self._state.get_app_state()
         if current_app_state == AppState.PROCESSING:
-            app_logger.log_audio_event("Detected stuck PROCESSING state, forcing reset", {
-                "current_app_state": current_app_state.name,
-                "recording_state": self._state.get_recording_state().name
-            })
+            app_logger.log_audio_event(
+                "Detected stuck PROCESSING state, forcing reset",
+                {
+                    "current_app_state": current_app_state.name,
+                    "recording_state": self._state.get_recording_state().name,
+                },
+            )
             # 强制重置状态
             self._state.set_app_state(AppState.IDLE)
             self._state.set_recording_state(RecordingState.IDLE)
 
         # 再次检查状态
         if self.is_recording() or self._state.is_processing():
-            app_logger.log_audio_event("Cannot start recording - already recording or processing", {
-                "is_recording": self.is_recording(),
-                "is_processing": self._state.is_processing(),
-                "app_state": self._state.get_app_state().name,
-                "recording_state": self._state.get_recording_state().name
-            })
+            app_logger.log_audio_event(
+                "Cannot start recording - already recording or processing",
+                {
+                    "is_recording": self.is_recording(),
+                    "is_processing": self._state.is_processing(),
+                    "app_state": self._state.get_app_state().name,
+                    "recording_state": self._state.get_recording_state().name,
+                },
+            )
             return
 
         try:
@@ -80,22 +86,27 @@ class RecordingController(IRecordingController):
                 device_id = self._config.get_setting("audio.device_id")
 
             # 启用流式转录模式（使用新的TranscriptionService API）
-            if hasattr(self._speech_service, 'start_streaming'):
+            if hasattr(self._speech_service, "start_streaming"):
                 # 重构后的转录服务
                 self._speech_service.start_streaming()
                 app_logger.log_audio_event("Streaming transcription started", {})
             else:
-                app_logger.log_audio_event("Streaming not supported by speech service", {})
+                app_logger.log_audio_event(
+                    "Streaming not supported by speech service", {}
+                )
 
             # 设置30秒块回调（流式转录）
-            if hasattr(self._audio_service, 'chunk_callback') and hasattr(self._speech_service, 'add_streaming_chunk'):
+            if hasattr(self._audio_service, "chunk_callback") and hasattr(
+                self._speech_service, "add_streaming_chunk"
+            ):
+
                 def streaming_chunk_callback(audio_data):
                     """流式转录块回调"""
                     try:
                         self._speech_service.add_streaming_chunk(audio_data)
-                        app_logger.log_audio_event("Streaming chunk added", {
-                            "audio_length": len(audio_data)
-                        })
+                        app_logger.log_audio_event(
+                            "Streaming chunk added", {"audio_length": len(audio_data)}
+                        )
                     except Exception as e:
                         app_logger.log_error(e, "streaming_chunk_callback")
 
@@ -106,7 +117,7 @@ class RecordingController(IRecordingController):
                 app_logger.log_audio_event("Streaming chunk callback not available", {})
 
             # 设置音频数据回调（用于实时波形显示）
-            if hasattr(self._audio_service, 'set_callback'):
+            if hasattr(self._audio_service, "set_callback"):
                 self._audio_service.set_callback(self._on_audio_data)
 
             # 启动录音
@@ -121,10 +132,9 @@ class RecordingController(IRecordingController):
             # 发送事件
             self._events.emit(Events.RECORDING_STARTED)
 
-            app_logger.log_audio_event("Recording started", {
-                "device_id": device_id,
-                "streaming_enabled": True
-            })
+            app_logger.log_audio_event(
+                "Recording started", {"device_id": device_id, "streaming_enabled": True}
+            )
 
         except Exception as e:
             app_logger.log_error(e, "start_recording")
@@ -146,7 +156,9 @@ class RecordingController(IRecordingController):
 
             # 记录停止时间和音频时长
             self._recording_stop_time = time.time()
-            self._last_audio_duration = self._recording_stop_time - self._recording_start_time
+            self._last_audio_duration = (
+                self._recording_stop_time - self._recording_start_time
+            )
 
             # 更新状态
             self._state.set_recording_state(RecordingState.IDLE)
@@ -155,27 +167,39 @@ class RecordingController(IRecordingController):
             self._events.emit(Events.RECORDING_STOPPED, len(audio_data))
 
             # 如果有最后一个音频块，提交给转录服务（使用新的API）
-            if len(audio_data) > 0 and self._speech_service and hasattr(self._speech_service, 'add_streaming_chunk'):
+            if (
+                len(audio_data) > 0
+                and self._speech_service
+                and hasattr(self._speech_service, "add_streaming_chunk")
+            ):
                 try:
                     self._speech_service.add_streaming_chunk(audio_data)
-                    app_logger.log_audio_event("Final streaming chunk added", {
-                        "audio_length": len(audio_data)
-                    })
+                    app_logger.log_audio_event(
+                        "Final streaming chunk added", {"audio_length": len(audio_data)}
+                    )
                 except Exception as e:
                     app_logger.log_error(e, "add_final_streaming_chunk")
             else:
-                app_logger.log_audio_event("Cannot add final chunk - streaming not available", {})
+                app_logger.log_audio_event(
+                    "Cannot add final chunk - streaming not available", {}
+                )
 
             # 发送转录请求事件（由 TranscriptionController 监听）
-            self._events.emit("transcription_request", {
-                "audio_duration": self._last_audio_duration,
-                "recording_stop_time": self._recording_stop_time
-            })
+            self._events.emit(
+                "transcription_request",
+                {
+                    "audio_duration": self._last_audio_duration,
+                    "recording_stop_time": self._recording_stop_time,
+                },
+            )
 
-            app_logger.log_audio_event("Recording stopped", {
-                "audio_duration": f"{self._last_audio_duration:.1f}s",
-                "final_chunk_length": len(audio_data)
-            })
+            app_logger.log_audio_event(
+                "Recording stopped",
+                {
+                    "audio_duration": f"{self._last_audio_duration:.1f}s",
+                    "final_chunk_length": len(audio_data),
+                },
+            )
 
         except Exception as e:
             self._state.set_recording_state(RecordingState.IDLE)

@@ -1,11 +1,16 @@
 """Recording Overlay Window - 重构版本使用组件化架构"""
 
-from PySide6.QtWidgets import (QWidget)
+from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation
 from ..utils import app_logger
 from ..core.interfaces import IConfigService
 from .overlay import StatusIndicator
-from .overlay_components import AnimationController, AudioVisualizer, TimerManager, OverlayUIBuilder
+from .overlay_components import (
+    AnimationController,
+    AudioVisualizer,
+    TimerManager,
+    OverlayUIBuilder,
+)
 
 
 class RecordingOverlay(QWidget):
@@ -35,14 +40,19 @@ class RecordingOverlay(QWidget):
         # 初始化线程锁（只在首次需要时创建）
         if cls._creation_lock is None:
             import threading
+
             cls._creation_lock = threading.Lock()
 
         with cls._creation_lock:
             if cls._instance is None:
                 try:
-                    app_logger.log_audio_event("Creating new RecordingOverlay singleton instance", {})
+                    app_logger.log_audio_event(
+                        "Creating new RecordingOverlay singleton instance", {}
+                    )
                     cls._instance = super().__new__(cls)
-                    app_logger.log_audio_event("RecordingOverlay singleton instance created successfully", {})
+                    app_logger.log_audio_event(
+                        "RecordingOverlay singleton instance created successfully", {}
+                    )
                 except Exception as e:
                     app_logger.log_error(e, "RecordingOverlay_singleton_creation")
                     # 即使创建失败，也不要让整个应用崩溃
@@ -53,7 +63,9 @@ class RecordingOverlay(QWidget):
         """Qt-safe initialization (no locks needed - main thread only)"""
         # Prevent re-initialization
         if self._initialized:
-            app_logger.log_audio_event("RecordingOverlay already initialized, resetting for reuse", {})
+            app_logger.log_audio_event(
+                "RecordingOverlay already initialized, resetting for reuse", {}
+            )
             try:
                 self._reset_for_reuse()
             except Exception as e:
@@ -64,7 +76,9 @@ class RecordingOverlay(QWidget):
             app_logger.log_audio_event("Starting RecordingOverlay initialization", {})
             super().__init__(parent)
             self._initialized = True
-            app_logger.log_audio_event("RecordingOverlay parent initialization completed", {})
+            app_logger.log_audio_event(
+                "RecordingOverlay parent initialization completed", {}
+            )
         except Exception as e:
             app_logger.log_error(e, "RecordingOverlay_parent_initialization")
             # 尝试基本的初始化
@@ -76,26 +90,34 @@ class RecordingOverlay(QWidget):
                 raise
 
         try:
-            app_logger.log_audio_event("Setting up RecordingOverlay state variables", {})
+            app_logger.log_audio_event(
+                "Setting up RecordingOverlay state variables", {}
+            )
             self.is_recording = False
             self.current_status = "Ready"
             self.recording_duration = 0
-            app_logger.log_audio_event("RecordingOverlay state variables initialized", {})
+            app_logger.log_audio_event(
+                "RecordingOverlay state variables initialized", {}
+            )
         except Exception as e:
             app_logger.log_error(e, "RecordingOverlay_state_setup")
             raise
 
         try:
-            app_logger.log_audio_event("Setting up RecordingOverlay window attributes", {})
+            app_logger.log_audio_event(
+                "Setting up RecordingOverlay window attributes", {}
+            )
             # 设置窗口属性
             self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint |
-                Qt.WindowType.WindowStaysOnTopHint |
-                Qt.WindowType.Tool |
-                Qt.WindowType.WindowDoesNotAcceptFocus
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowStaysOnTopHint
+                | Qt.WindowType.Tool
+                | Qt.WindowType.WindowDoesNotAcceptFocus
             )
             self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
-            app_logger.log_audio_event("RecordingOverlay window attributes configured", {})
+            app_logger.log_audio_event(
+                "RecordingOverlay window attributes configured", {}
+            )
         except Exception as e:
             app_logger.log_error(e, "RecordingOverlay_window_attributes")
             raise
@@ -107,13 +129,13 @@ class RecordingOverlay(QWidget):
             ui_components = ui_builder.build_ui(self, self.hide_recording)
 
             # 设置UI组件属性
-            self.background_frame = ui_components['background_frame']
-            self.status_indicator = ui_components['status_indicator']
-            self.audio_level_bars = ui_components['audio_level_bars']
-            self.time_label = ui_components['time_label']
-            self.close_button = ui_components['close_button']
-            self.position_manager = ui_components['position_manager']
-            self.current_audio_level = ui_components['current_audio_level']
+            self.background_frame = ui_components["background_frame"]
+            self.status_indicator = ui_components["status_indicator"]
+            self.audio_level_bars = ui_components["audio_level_bars"]
+            self.time_label = ui_components["time_label"]
+            self.close_button = ui_components["close_button"]
+            self.position_manager = ui_components["position_manager"]
+            self.current_audio_level = ui_components["current_audio_level"]
             self.config_service = None  # 将在set_config_service中设置
 
             app_logger.log_audio_event("RecordingOverlay UI setup completed", {})
@@ -131,8 +153,12 @@ class RecordingOverlay(QWidget):
             self.delayed_hide_timer = self.timer_manager.delayed_hide_timer
 
             # 连接定时器回调
-            self.timer_manager.safe_connect(self.update_timer, self.update_recording_time, "recording_timer")
-            self.timer_manager.safe_connect(self.delayed_hide_timer, self._hide_recording_impl, "delayed_hide")
+            self.timer_manager.safe_connect(
+                self.update_timer, self.update_recording_time, "recording_timer"
+            )
+            self.timer_manager.safe_connect(
+                self.delayed_hide_timer, self._hide_recording_impl, "delayed_hide"
+            )
 
             # 初始化动画控制器
             self.animation_controller = AnimationController(self)
@@ -152,7 +178,9 @@ class RecordingOverlay(QWidget):
                 app_logger.log_error(e, "audio_visualizer_init")
                 self.audio_visualizer = None
 
-            app_logger.log_audio_event("Overlay components initialized successfully", {})
+            app_logger.log_audio_event(
+                "Overlay components initialized successfully", {}
+            )
 
         except Exception as e:
             app_logger.log_error(e, "overlay_components_init")
@@ -160,7 +188,9 @@ class RecordingOverlay(QWidget):
             pass
 
         try:
-            app_logger.log_audio_event("Connecting RecordingOverlay thread-safe signals", {})
+            app_logger.log_audio_event(
+                "Connecting RecordingOverlay thread-safe signals", {}
+            )
             # 连接线程安全信号
             self.show_recording_requested.connect(self._show_recording_impl)
             self.hide_recording_requested.connect(self._hide_recording_impl)
@@ -169,16 +199,24 @@ class RecordingOverlay(QWidget):
             self.set_status_requested.connect(self._set_status_text_impl)
             self.update_waveform_requested.connect(self._update_waveform_impl)
             self.update_audio_level_requested.connect(self._update_audio_level_impl)
-            self.start_processing_animation_requested.connect(self._start_processing_animation_impl)
-            self.stop_processing_animation_requested.connect(self._stop_processing_animation_impl)
-            self.hide_recording_delayed_requested.connect(self._hide_recording_delayed_impl)
-            app_logger.log_audio_event("RecordingOverlay all thread-safe signals connected", {})
+            self.start_processing_animation_requested.connect(
+                self._start_processing_animation_impl
+            )
+            self.stop_processing_animation_requested.connect(
+                self._stop_processing_animation_impl
+            )
+            self.hide_recording_delayed_requested.connect(
+                self._hide_recording_delayed_impl
+            )
+            app_logger.log_audio_event(
+                "RecordingOverlay all thread-safe signals connected", {}
+            )
         except Exception as e:
             app_logger.log_error(e, "thread_safe_signals_connection")
 
-        app_logger.log_audio_event("Recording overlay initialized successfully", {
-            "singleton_id": id(self)
-        })
+        app_logger.log_audio_event(
+            "Recording overlay initialized successfully", {"singleton_id": id(self)}
+        )
 
     # ==================== 状态管理 ====================
 
@@ -199,23 +237,29 @@ class RecordingOverlay(QWidget):
         """设置配置服务"""
         self.config_service = config_service
         # 传递给PositionManager
-        if hasattr(self, 'position_manager'):
+        if hasattr(self, "position_manager"):
             self.position_manager.set_config_service(config_service)
         app_logger.log_audio_event("Config service set for overlay", {})
 
     def _reset_for_reuse(self) -> None:
         """重置overlay状态以支持稳定的多次使用（Qt main thread only）"""
         try:
-            app_logger.log_audio_event("Starting overlay reset for reuse", {
-                "singleton_id": id(self),
-                "is_visible": self.isVisible() if hasattr(self, 'isVisible') else False
-            })
+            app_logger.log_audio_event(
+                "Starting overlay reset for reuse",
+                {
+                    "singleton_id": id(self),
+                    "is_visible": self.isVisible()
+                    if hasattr(self, "isVisible")
+                    else False,
+                },
+            )
 
             # 改进：立即停止所有动画和定时器，避免竞态条件
             self._force_stop_all_animations()
 
             # 短暂延迟让Qt事件循环处理
             from PySide6.QtCore import QTimer
+
             QTimer.singleShot(10, self._delayed_reset)
 
         except Exception as e:
@@ -224,7 +268,7 @@ class RecordingOverlay(QWidget):
             try:
                 self.is_recording = False
                 self.current_status = "Ready"
-                if hasattr(self, 'isVisible') and self.isVisible():
+                if hasattr(self, "isVisible") and self.isVisible():
                     self.hide()
             except (RuntimeError, AttributeError):
                 pass  # 忽略Qt对象已删除或属性不存在的错误
@@ -233,27 +277,27 @@ class RecordingOverlay(QWidget):
         """强制停止所有动画和定时器"""
         try:
             # 停止所有定时器
-            timers_to_stop = [
-                'update_timer', 'breathing_timer', 'delayed_hide_timer'
-            ]
+            timers_to_stop = ["update_timer", "breathing_timer", "delayed_hide_timer"]
 
             for timer_name in timers_to_stop:
                 if hasattr(self, timer_name):
                     timer = getattr(self, timer_name)
-                    if timer and hasattr(timer, 'isActive'):
+                    if timer and hasattr(timer, "isActive"):
                         try:
                             if timer.isActive():
                                 timer.stop()
                             # 立即删除定时器对象
                             timer.deleteLater()
                             setattr(self, timer_name, None)
-                            app_logger.log_audio_event(f"Force stopped and deleted {timer_name}", {})
+                            app_logger.log_audio_event(
+                                f"Force stopped and deleted {timer_name}", {}
+                            )
                         except (RuntimeError, AttributeError):
                             # 对象可能已被删除
                             setattr(self, timer_name, None)
 
             # 停止动画
-            if hasattr(self, 'status_animation') and self.status_animation:
+            if hasattr(self, "status_animation") and self.status_animation:
                 try:
                     if self.status_animation.state() == QPropertyAnimation.Running:
                         self.status_animation.stop()
@@ -272,7 +316,7 @@ class RecordingOverlay(QWidget):
             app_logger.log_audio_event("Starting delayed overlay reset", {})
 
             # 首先隐藏窗口，避免在重置过程中出现闪烁
-            if hasattr(self, 'isVisible') and self.isVisible():
+            if hasattr(self, "isVisible") and self.isVisible():
                 self.hide()
                 app_logger.log_audio_event("Overlay hidden during delayed reset", {})
 
@@ -284,7 +328,7 @@ class RecordingOverlay(QWidget):
             self.is_processing = False
 
             # 清理音频级别条状态
-            if hasattr(self, 'audio_level_bars'):
+            if hasattr(self, "audio_level_bars"):
                 try:
                     for bar in self.audio_level_bars:
                         if bar:
@@ -303,9 +347,9 @@ class RecordingOverlay(QWidget):
             # 重置窗口属性
             self._reset_window_properties()
 
-            app_logger.log_audio_event("Recording overlay delayed reset completed", {
-                "singleton_id": id(self)
-            })
+            app_logger.log_audio_event(
+                "Recording overlay delayed reset completed", {"singleton_id": id(self)}
+            )
 
         except Exception as e:
             app_logger.log_error(e, "delayed_reset")
@@ -313,7 +357,7 @@ class RecordingOverlay(QWidget):
             try:
                 self.is_recording = False
                 self.current_status = "Ready"
-                if hasattr(self, 'isVisible') and self.isVisible():
+                if hasattr(self, "isVisible") and self.isVisible():
                     self.hide()
             except (RuntimeError, AttributeError):
                 pass  # 忽略Qt对象已删除或属性不存在的错误
@@ -322,10 +366,10 @@ class RecordingOverlay(QWidget):
         """彻底清理所有定时器"""
         try:
             timers_to_cleanup = [
-                ('update_timer', 'update_recording_time'),
-                ('breathing_timer', 'update_breathing'),
-                ('delayed_hide_timer', '_hide_recording_impl'),
-                ('status_animation', None)  # QPropertyAnimation
+                ("update_timer", "update_recording_time"),
+                ("breathing_timer", "update_breathing"),
+                ("delayed_hide_timer", "_hide_recording_impl"),
+                ("status_animation", None),  # QPropertyAnimation
             ]
 
             for timer_name, callback_name in timers_to_cleanup:
@@ -333,12 +377,12 @@ class RecordingOverlay(QWidget):
                     timer = getattr(self, timer_name)
                     if timer:
                         try:
-                            if hasattr(timer, 'isActive') and timer.isActive():
+                            if hasattr(timer, "isActive") and timer.isActive():
                                 timer.stop()
                                 app_logger.log_audio_event(f"Stopped {timer_name}", {})
 
                             # 断开信号连接
-                            if callback_name and hasattr(timer, 'timeout'):
+                            if callback_name and hasattr(timer, "timeout"):
                                 try:
                                     timer.timeout.disconnect()
                                 except (TypeError, RuntimeError):
@@ -363,9 +407,18 @@ class RecordingOverlay(QWidget):
                 (self.set_status_requested, self._set_status_text_impl),
                 (self.update_waveform_requested, self._update_waveform_impl),
                 (self.update_audio_level_requested, self._update_audio_level_impl),
-                (self.start_processing_animation_requested, self._start_processing_animation_impl),
-                (self.stop_processing_animation_requested, self._stop_processing_animation_impl),
-                (self.hide_recording_delayed_requested, self._hide_recording_delayed_impl),
+                (
+                    self.start_processing_animation_requested,
+                    self._start_processing_animation_impl,
+                ),
+                (
+                    self.stop_processing_animation_requested,
+                    self._stop_processing_animation_impl,
+                ),
+                (
+                    self.hide_recording_delayed_requested,
+                    self._hide_recording_delayed_impl,
+                ),
             ]
 
             for signal, slot in signal_connections:
@@ -393,16 +446,16 @@ class RecordingOverlay(QWidget):
             self.setWindowOpacity(1.0)
 
             # 重置样式
-            if hasattr(self, 'status_label') and self.status_label:
+            if hasattr(self, "status_label") and self.status_label:
                 self.status_label.setText("Ready")
                 self.status_label.setStyleSheet("color: #CCCCCC; font-weight: bold;")
 
             # 确保窗口标志正确
             self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint |
-                Qt.WindowType.WindowStaysOnTopHint |
-                Qt.WindowType.Tool |
-                Qt.WindowType.WindowDoesNotAcceptFocus
+                Qt.WindowType.FramelessWindowHint
+                | Qt.WindowType.WindowStaysOnTopHint
+                | Qt.WindowType.Tool
+                | Qt.WindowType.WindowDoesNotAcceptFocus
             )
 
             app_logger.log_audio_event("Window properties reset", {})
@@ -418,9 +471,9 @@ class RecordingOverlay(QWidget):
                 app_logger.log_audio_event("Force resetting overlay singleton", {})
                 # 尝试清理现有实例
                 try:
-                    if hasattr(cls._instance, 'update_timer'):
+                    if hasattr(cls._instance, "update_timer"):
                         cls._instance.update_timer.stop()
-                    if hasattr(cls._instance, 'breathing_timer'):
+                    if hasattr(cls._instance, "breathing_timer"):
                         cls._instance.breathing_timer.stop()
                     if cls._instance.isVisible():
                         cls._instance.hide()
@@ -432,7 +485,7 @@ class RecordingOverlay(QWidget):
                 app_logger.log_audio_event("Overlay singleton reset completed", {})
         except Exception as e:
             app_logger.log_error(e, "force_reset_singleton")
-    
+
     # setup_overlay_ui方法已迁移到OverlayUIBuilder类
 
     def show_recording(self) -> None:
@@ -481,7 +534,7 @@ class RecordingOverlay(QWidget):
             app_logger.log_error(e, "fade_animation_show")
 
         app_logger.log_audio_event("Recording overlay shown", {})
-    
+
     def hide_recording(self) -> None:
         """Hide recording status - Thread-safe public interface"""
         self.hide_recording_requested.emit()
@@ -583,7 +636,9 @@ class RecordingOverlay(QWidget):
         app_logger.log_audio_event("Recording overlay hidden", {})
 
         # 保存位置（如果有配置服务且开启自动保存）
-        if self.config_service and self.config_service.get_setting("ui.overlay_position.auto_save", True):
+        if self.config_service and self.config_service.get_setting(
+            "ui.overlay_position.auto_save", True
+        ):
             self.position_manager.save_position()
 
     def _safe_hide(self) -> None:
@@ -619,8 +674,9 @@ class RecordingOverlay(QWidget):
         if self.is_recording and audio_data is not None:
             try:
                 import numpy as np
+
                 # 计算音频级别 (RMS)
-                if hasattr(audio_data, '__len__') and len(audio_data) > 0:
+                if hasattr(audio_data, "__len__") and len(audio_data) > 0:
                     if isinstance(audio_data, np.ndarray):
                         level = float(np.sqrt(np.mean(audio_data**2)))
                     else:
@@ -702,8 +758,11 @@ class RecordingOverlay(QWidget):
     def _stop_timer_if_needed(self) -> None:
         """Stop recording timer when not in recording state"""
         try:
-            if hasattr(self, 'update_timer') and self.update_timer.isActive():
-                if not self.is_recording or "recording" not in self.current_status.lower():
+            if hasattr(self, "update_timer") and self.update_timer.isActive():
+                if (
+                    not self.is_recording
+                    or "recording" not in self.current_status.lower()
+                ):
                     self.update_timer.stop()
                     # 断开计时器连接
                     try:
@@ -712,7 +771,7 @@ class RecordingOverlay(QWidget):
                         pass  # 信号未连接或对象已删除
         except Exception as e:
             app_logger.log_error(e, "stop_timer_if_needed")
-    
+
     def update_recording_time(self) -> None:
         """Update recording time (Qt main thread only)"""
         if self.is_recording:
@@ -726,7 +785,7 @@ class RecordingOverlay(QWidget):
         else:
             # If not recording, stop the timer immediately
             try:
-                if hasattr(self, 'update_timer') and self.update_timer.isActive():
+                if hasattr(self, "update_timer") and self.update_timer.isActive():
                     self.update_timer.stop()
                     try:
                         self.update_timer.timeout.disconnect(self.update_recording_time)
@@ -734,21 +793,23 @@ class RecordingOverlay(QWidget):
                         pass  # 信号未连接或对象已删除
             except Exception as e:
                 app_logger.log_error(e, "stop_timer_in_update")
-    
+
     def center_on_screen(self) -> None:
         """Center on screen - Delegate to PositionManager"""
         self.position_manager.center_on_screen()
-    
+
     def set_position(self, position: str) -> None:
         """Set window position - Delegate to PositionManager"""
         self.position_manager.set_preset_position(position)
-    
+
     def mousePressEvent(self, event):
         """鼠标按下事件 - 用于拖拽窗口"""
         if event.button() == Qt.MouseButton.LeftButton:
-            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            self.drag_position = (
+                event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            )
             event.accept()
-    
+
     def mouseMoveEvent(self, event):
         """鼠标移动事件 - 拖拽窗口"""
         if event.buttons() == Qt.MouseButton.LeftButton:
@@ -759,7 +820,9 @@ class RecordingOverlay(QWidget):
         """鼠标释放事件 - 拖拽结束后保存位置"""
         if event.button() == Qt.MouseButton.LeftButton:
             # 拖拽结束后保存位置
-            if self.config_service and self.config_service.get_setting("ui.overlay_position.auto_save", True):
+            if self.config_service and self.config_service.get_setting(
+                "ui.overlay_position.auto_save", True
+            ):
                 self.position_manager.save_position()
             event.accept()
 
@@ -815,9 +878,9 @@ class RecordingOverlay(QWidget):
         try:
             # 停止所有定时器
             timers = [
-                ('update_timer', self.update_timer),
-                ('breathing_timer', self.breathing_timer),
-                ('delayed_hide_timer', self.delayed_hide_timer)
+                ("update_timer", self.update_timer),
+                ("breathing_timer", self.breathing_timer),
+                ("delayed_hide_timer", self.delayed_hide_timer),
             ]
 
             for timer_name, timer in timers:
@@ -827,6 +890,7 @@ class RecordingOverlay(QWidget):
 
                     # 彻底断开信号连接
                     import warnings
+
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", RuntimeWarning)
                         timer.timeout.disconnect()
@@ -836,14 +900,14 @@ class RecordingOverlay(QWidget):
                     setattr(self, timer_name, None)
 
             # 清理图形效果
-            if hasattr(self, 'background_frame') and self.background_frame:
+            if hasattr(self, "background_frame") and self.background_frame:
                 graphics_effect = self.background_frame.graphicsEffect()
                 if graphics_effect:
                     graphics_effect.deleteLater()
                     self.background_frame.setGraphicsEffect(None)
 
             # 清理音频级别条
-            if hasattr(self, 'audio_level_bars'):
+            if hasattr(self, "audio_level_bars"):
                 for bar in self.audio_level_bars:
                     if bar:
                         bar.deleteLater()
@@ -855,7 +919,9 @@ class RecordingOverlay(QWidget):
             except:
                 pass
 
-            app_logger.log_audio_event("RecordingOverlay resources cleaned up successfully", {})
+            app_logger.log_audio_event(
+                "RecordingOverlay resources cleaned up successfully", {}
+            )
 
         except Exception as e:
             app_logger.log_error(e, "RecordingOverlay_cleanup_resources")
@@ -869,7 +935,7 @@ class RecordingOverlay(QWidget):
             self._cleanup_all_timers()
 
             # 2. 停止所有动画
-            if hasattr(self, 'fade_animation') and self.fade_animation:
+            if hasattr(self, "fade_animation") and self.fade_animation:
                 self.fade_animation.stop()
 
             # 3. 隐藏窗口

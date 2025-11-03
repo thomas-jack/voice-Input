@@ -10,7 +10,7 @@ from ..interfaces import (
     IInputService,
     IConfigService,
     IEventService,
-    IStateManager
+    IStateManager,
 )
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
@@ -32,7 +32,7 @@ class InputController(IInputController):
         input_service: IInputService,
         config_service: IConfigService,
         event_service: IEventService,
-        state_manager: IStateManager
+        state_manager: IStateManager,
     ):
         self._input_service = input_service
         self._config = config_service
@@ -79,11 +79,14 @@ class InputController(IInputController):
                 # 重置应用状态为 IDLE（完成整个语音输入流程）
                 self._state.set_app_state(AppState.IDLE)
 
-                app_logger.log_audio_event("Text input completed", {
-                    "duration": f"{input_duration:.3f}s",
-                    "text_length": len(text),
-                    "text": text[:50] + "..." if len(text) > 50 else text
-                })
+                app_logger.log_audio_event(
+                    "Text input completed",
+                    {
+                        "duration": f"{input_duration:.3f}s",
+                        "text_length": len(text),
+                        "text": text[:50] + "..." if len(text) > 50 else text,
+                    },
+                )
                 return True
             else:
                 self._events.emit(Events.TEXT_INPUT_ERROR, "Failed to input text")
@@ -111,9 +114,7 @@ class InputController(IInputController):
         self._input_service.set_preferred_method(method)
         self._config.set_setting("input.preferred_method", method)
 
-        app_logger.log_audio_event("Input method changed", {
-            "method": method
-        })
+        app_logger.log_audio_event("Input method changed", {"method": method})
 
     def _log_performance(self, data: dict) -> None:
         """记录整体性能日志
@@ -139,13 +140,16 @@ class InputController(IInputController):
                     "wait_time": f"{wait_time:.2f}s",
                     "final_chunk_transcribe": f"{transcribe_duration:.2f}s",
                     "ai_tps": f"{ai_tps:.2f}" if ai_tps > 0 else "N/A",
-                }
+                },
             )
 
-            app_logger.log_audio_event("Voice input completed", {
-                "audio_duration": f"{audio_duration:.1f}s",
-                "wait_time": f"{wait_time:.2f}s"
-            })
+            app_logger.log_audio_event(
+                "Voice input completed",
+                {
+                    "audio_duration": f"{audio_duration:.1f}s",
+                    "wait_time": f"{wait_time:.2f}s",
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, "_log_performance")

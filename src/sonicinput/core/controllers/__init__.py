@@ -9,8 +9,8 @@ from .ai_processing_controller import AIProcessingController
 from .input_controller import InputController
 
 __all__ = [
-    'RecordingController',
-    'TranscriptionController',
-    'AIProcessingController',
-    'InputController',
+    "RecordingController",
+    "TranscriptionController",
+    "AIProcessingController",
+    "InputController",
 ]

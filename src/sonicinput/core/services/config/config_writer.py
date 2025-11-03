@@ -45,36 +45,38 @@ class ConfigWriter:
             ConfigurationError: 配置项无效或类型不匹配时
         """
         try:
-            keys = key.split('.')
+            keys = key.split(".")
             config = self._config
 
             # 导航到正确的嵌套位置，包含类型验证和自修复
             for i, k in enumerate(keys[:-1]):
                 if k not in config:
                     config[k] = {}
-                    app_logger.log_audio_event("Config auto-created missing key", {
-                        "key": k,
-                        "path": ".".join(keys[:i+1])
-                    })
+                    app_logger.log_audio_event(
+                        "Config auto-created missing key",
+                        {"key": k, "path": ".".join(keys[: i + 1])},
+                    )
                 elif not isinstance(config[k], dict):
                     # 关键修复：检测到非字典类型时自动修复
                     old_type = type(config[k]).__name__
                     config[k] = {}
-                    app_logger.log_audio_event("Config auto-repaired type conflict", {
-                        "key": k,
-                        "path": ".".join(keys[:i+1]),
-                        "old_type": old_type,
-                        "new_type": "dict"
-                    })
+                    app_logger.log_audio_event(
+                        "Config auto-repaired type conflict",
+                        {
+                            "key": k,
+                            "path": ".".join(keys[: i + 1]),
+                            "old_type": old_type,
+                            "new_type": "dict",
+                        },
+                    )
                 config = config[k]
 
             # 设置值
             config[keys[-1]] = value
 
-            app_logger.log_audio_event("Setting updated", {
-                "key": key,
-                "value_type": type(value).__name__
-            })
+            app_logger.log_audio_event(
+                "Setting updated", {"key": key, "value_type": type(value).__name__}
+            )
 
         except Exception as e:
             app_logger.log_error(e, f"config_writer_set_{key}")
@@ -98,13 +100,13 @@ class ConfigWriter:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
             # 保存配置
-            with open(self.config_path, 'w', encoding='utf-8') as f:
+            with open(self.config_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2, ensure_ascii=False)
 
-            app_logger.log_audio_event("Configuration saved", {
-                "config_path": str(self.config_path),
-                "keys_saved": len(self._config)
-            })
+            app_logger.log_audio_event(
+                "Configuration saved",
+                {"config_path": str(self.config_path), "keys_saved": len(self._config)},
+            )
 
             return True
 

@@ -19,38 +19,33 @@ from .controller import (
     IRecordingController,
     ITranscriptionController,
     IAIProcessingController,
-    IInputController
+    IInputController,
 )
 
 __all__ = [
     # 核心服务接口
-    'IConfigService',
-    'IAudioService',
-    'ISpeechService',
-    'IAIService',
-    'IInputService',
-    'IHotkeyService',
-    'IEventService',
-
+    "IConfigService",
+    "IAudioService",
+    "ISpeechService",
+    "IAIService",
+    "IInputService",
+    "IHotkeyService",
+    "IEventService",
     # UI组件接口
-    'IUIComponent',
-    'IOverlayComponent',
-    'ITrayComponent',
-
+    "IUIComponent",
+    "IOverlayComponent",
+    "ITrayComponent",
     # 数据存储接口
-    'IStorageService',
-    'ICacheService',
-
+    "IStorageService",
+    "ICacheService",
     # 生命周期管理接口
-    'ILifecycleManaged',
-    'ILifecycleManager',
-
+    "ILifecycleManaged",
+    "ILifecycleManager",
     # 状态管理接口
-    'IStateManager',
-
+    "IStateManager",
     # 控制器接口
-    'IRecordingController',
-    'ITranscriptionController',
-    'IAIProcessingController',
-    'IInputController',
+    "IRecordingController",
+    "ITranscriptionController",
+    "IAIProcessingController",
+    "IInputController",
 ]

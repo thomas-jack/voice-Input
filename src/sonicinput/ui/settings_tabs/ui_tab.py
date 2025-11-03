@@ -1,7 +1,6 @@
 """UI设置标签页"""
 
-from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
-                            QCheckBox, QComboBox)
+from PySide6.QtWidgets import QVBoxLayout, QGroupBox, QFormLayout, QCheckBox, QComboBox
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -28,9 +27,9 @@ class UITab(BaseSettingsTab):
 
         # 悬浮窗位置
         self.overlay_position_combo = QComboBox()
-        self.overlay_position_combo.addItems([
-            "center", "top_left", "top_right", "bottom_left", "bottom_right"
-        ])
+        self.overlay_position_combo.addItems(
+            ["center", "top_left", "top_right", "bottom_left", "bottom_right"]
+        )
         overlay_layout.addRow("Position:", self.overlay_position_combo)
 
         # 始终置顶
@@ -44,19 +43,22 @@ class UITab(BaseSettingsTab):
         theme_layout = QFormLayout(theme_group)
 
         self.theme_color_combo = QComboBox()
-        self.theme_color_combo.addItems([
-            "Cyan",
-            "Blue",
-            "Teal",
-            "Purple",
-            "Red",
-            "Pink",
-            "Amber",
-        ])
+        self.theme_color_combo.addItems(
+            [
+                "Cyan",
+                "Blue",
+                "Teal",
+                "Purple",
+                "Red",
+                "Pink",
+                "Amber",
+            ]
+        )
         theme_layout.addRow("Color Theme:", self.theme_color_combo)
 
         # 添加提示
         from PySide6.QtWidgets import QLabel
+
         theme_hint = QLabel("⚠️ Changing theme requires application restart")
         theme_hint.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
         theme_layout.addRow("", theme_hint)
@@ -67,10 +69,10 @@ class UITab(BaseSettingsTab):
 
         # 保存控件引用
         self.controls = {
-            'show_overlay': self.show_overlay_checkbox,
-            'overlay_position': self.overlay_position_combo,
-            'overlay_on_top': self.overlay_on_top_checkbox,
-            'theme_color': self.theme_color_combo,
+            "show_overlay": self.show_overlay_checkbox,
+            "overlay_position": self.overlay_position_combo,
+            "overlay_on_top": self.overlay_on_top_checkbox,
+            "theme_color": self.theme_color_combo,
         }
 
         # 暴露控件到parent_window
@@ -88,9 +90,7 @@ class UITab(BaseSettingsTab):
         ui_config = config.get("ui", {})
 
         # 加载显示悬浮窗设置
-        self.show_overlay_checkbox.setChecked(
-            ui_config.get("show_overlay", True)
-        )
+        self.show_overlay_checkbox.setChecked(ui_config.get("show_overlay", True))
 
         # 加载悬浮窗始终置顶设置
         self.overlay_on_top_checkbox.setChecked(

@@ -15,6 +15,7 @@ from ...utils import app_logger
 
 class AnimationType(Enum):
     """动画类型枚举"""
+
     FADE_IN = "fade_in"
     FADE_OUT = "fade_out"
     SLIDE_IN = "slide_in"
@@ -26,6 +27,7 @@ class AnimationType(Enum):
 
 class AnimationDirection(Enum):
     """动画方向枚举"""
+
     UP = "up"
     DOWN = "down"
     LEFT = "left"
@@ -54,7 +56,9 @@ class AnimationEngine(QObject):
 
         app_logger.log_audio_event("AnimationEngine initialized", {})
 
-    def fade_in(self, widget: QWidget, duration: int = None, callback: Optional[Callable] = None) -> str:
+    def fade_in(
+        self, widget: QWidget, duration: int = None, callback: Optional[Callable] = None
+    ) -> str:
         """淡入动画
 
         Args:
@@ -70,7 +74,9 @@ class AnimationEngine(QObject):
             widget, 0.0, 1.0, duration, AnimationType.FADE_IN, callback
         )
 
-    def fade_out(self, widget: QWidget, duration: int = None, callback: Optional[Callable] = None) -> str:
+    def fade_out(
+        self, widget: QWidget, duration: int = None, callback: Optional[Callable] = None
+    ) -> str:
         """淡出动画
 
         Args:
@@ -86,8 +92,13 @@ class AnimationEngine(QObject):
             widget, 1.0, 0.0, duration, AnimationType.FADE_OUT, callback
         )
 
-    def slide_in(self, widget: QWidget, direction: AnimationDirection = AnimationDirection.UP,
-                 duration: int = None, callback: Optional[Callable] = None) -> str:
+    def slide_in(
+        self,
+        widget: QWidget,
+        direction: AnimationDirection = AnimationDirection.UP,
+        duration: int = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """滑入动画
 
         Args:
@@ -100,12 +111,15 @@ class AnimationEngine(QObject):
             动画ID
         """
         duration = duration or UI.SLIDE_DURATION
-        return self._create_slide_animation(
-            widget, direction, True, duration, callback
-        )
+        return self._create_slide_animation(widget, direction, True, duration, callback)
 
-    def slide_out(self, widget: QWidget, direction: AnimationDirection = AnimationDirection.DOWN,
-                  duration: int = None, callback: Optional[Callable] = None) -> str:
+    def slide_out(
+        self,
+        widget: QWidget,
+        direction: AnimationDirection = AnimationDirection.DOWN,
+        duration: int = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """滑出动画
 
         Args:
@@ -122,8 +136,13 @@ class AnimationEngine(QObject):
             widget, direction, False, duration, callback
         )
 
-    def bounce(self, widget: QWidget, intensity: float = 1.2, duration: int = None,
-               callback: Optional[Callable] = None) -> str:
+    def bounce(
+        self,
+        widget: QWidget,
+        intensity: float = 1.2,
+        duration: int = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """弹跳动画
 
         Args:
@@ -136,12 +155,15 @@ class AnimationEngine(QObject):
             动画ID
         """
         duration = duration or UI.BOUNCE_DURATION
-        return self._create_bounce_animation(
-            widget, intensity, duration, callback
-        )
+        return self._create_bounce_animation(widget, intensity, duration, callback)
 
-    def pulse(self, widget: QWidget, cycles: int = 3, intensity: float = 0.7,
-              callback: Optional[Callable] = None) -> str:
+    def pulse(
+        self,
+        widget: QWidget,
+        cycles: int = 3,
+        intensity: float = 0.7,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """脉冲动画
 
         Args:
@@ -153,12 +175,16 @@ class AnimationEngine(QObject):
         Returns:
             动画ID
         """
-        return self._create_pulse_animation(
-            widget, cycles, intensity, callback
-        )
+        return self._create_pulse_animation(widget, cycles, intensity, callback)
 
-    def scale_animation(self, widget: QWidget, from_scale: float, to_scale: float,
-                       duration: int = None, callback: Optional[Callable] = None) -> str:
+    def scale_animation(
+        self,
+        widget: QWidget,
+        from_scale: float,
+        to_scale: float,
+        duration: int = None,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """缩放动画
 
         Args:
@@ -191,9 +217,9 @@ class AnimationEngine(QObject):
                 animation.stop()
                 del self._active_animations[animation_id]
 
-                app_logger.log_audio_event("Animation stopped", {
-                    "animation_id": animation_id
-                })
+                app_logger.log_audio_event(
+                    "Animation stopped", {"animation_id": animation_id}
+                )
                 return True
             return False
 
@@ -213,9 +239,9 @@ class AnimationEngine(QObject):
                 animation.stop()
             self._active_animations.clear()
 
-            app_logger.log_audio_event("All animations stopped", {
-                "stopped_count": count
-            })
+            app_logger.log_audio_event(
+                "All animations stopped", {"stopped_count": count}
+            )
             return count
 
         except Exception as e:
@@ -237,9 +263,15 @@ class AnimationEngine(QObject):
             app_logger.log_error(e, "get_active_animations")
             return {}
 
-    def _create_opacity_animation(self, widget: QWidget, start_opacity: float, end_opacity: float,
-                                 duration: int, animation_type: AnimationType,
-                                 callback: Optional[Callable] = None) -> str:
+    def _create_opacity_animation(
+        self,
+        widget: QWidget,
+        start_opacity: float,
+        end_opacity: float,
+        duration: int,
+        animation_type: AnimationType,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """创建透明度动画
 
         Args:
@@ -255,7 +287,9 @@ class AnimationEngine(QObject):
         """
         try:
             # 确保组件有透明度效果
-            if widget.graphicsEffect() is None or not isinstance(widget.graphicsEffect(), QGraphicsOpacityEffect):
+            if widget.graphicsEffect() is None or not isinstance(
+                widget.graphicsEffect(), QGraphicsOpacityEffect
+            ):
                 effect = QGraphicsOpacityEffect()
                 widget.setGraphicsEffect(effect)
             else:
@@ -279,11 +313,14 @@ class AnimationEngine(QObject):
             self._active_animations[animation_id] = animation
             animation.start()
 
-            app_logger.log_audio_event("Opacity animation started", {
-                "animation_id": animation_id,
-                "type": animation_type.value,
-                "duration": duration
-            })
+            app_logger.log_audio_event(
+                "Opacity animation started",
+                {
+                    "animation_id": animation_id,
+                    "type": animation_type.value,
+                    "duration": duration,
+                },
+            )
 
             return animation_id
 
@@ -291,9 +328,14 @@ class AnimationEngine(QObject):
             app_logger.log_error(e, "create_opacity_animation")
             return ""
 
-    def _create_slide_animation(self, widget: QWidget, direction: AnimationDirection,
-                               slide_in: bool, duration: int,
-                               callback: Optional[Callable] = None) -> str:
+    def _create_slide_animation(
+        self,
+        widget: QWidget,
+        direction: AnimationDirection,
+        slide_in: bool,
+        duration: int,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """创建滑动动画
 
         Args:
@@ -313,23 +355,39 @@ class AnimationEngine(QObject):
             if slide_in:
                 end_pos = current_pos
                 if direction == AnimationDirection.UP:
-                    start_pos = current_pos + widget.parent().rect().bottomLeft() - current_pos
+                    start_pos = (
+                        current_pos + widget.parent().rect().bottomLeft() - current_pos
+                    )
                 elif direction == AnimationDirection.DOWN:
-                    start_pos = current_pos - widget.parent().rect().topLeft() + current_pos
+                    start_pos = (
+                        current_pos - widget.parent().rect().topLeft() + current_pos
+                    )
                 elif direction == AnimationDirection.LEFT:
-                    start_pos = current_pos + widget.parent().rect().topRight() - current_pos
+                    start_pos = (
+                        current_pos + widget.parent().rect().topRight() - current_pos
+                    )
                 else:  # RIGHT
-                    start_pos = current_pos + widget.parent().rect().topLeft() - current_pos
+                    start_pos = (
+                        current_pos + widget.parent().rect().topLeft() - current_pos
+                    )
             else:
                 start_pos = current_pos
                 if direction == AnimationDirection.UP:
-                    end_pos = current_pos - widget.parent().rect().topLeft() + current_pos
+                    end_pos = (
+                        current_pos - widget.parent().rect().topLeft() + current_pos
+                    )
                 elif direction == AnimationDirection.DOWN:
-                    end_pos = current_pos + widget.parent().rect().bottomLeft() - current_pos
+                    end_pos = (
+                        current_pos + widget.parent().rect().bottomLeft() - current_pos
+                    )
                 elif direction == AnimationDirection.LEFT:
-                    end_pos = current_pos + widget.parent().rect().topLeft() - current_pos
+                    end_pos = (
+                        current_pos + widget.parent().rect().topLeft() - current_pos
+                    )
                 else:  # RIGHT
-                    end_pos = current_pos + widget.parent().rect().topRight() - current_pos
+                    end_pos = (
+                        current_pos + widget.parent().rect().topRight() - current_pos
+                    )
 
             # 创建位置动画
             animation_id = self._generate_animation_id("slide")
@@ -356,8 +414,13 @@ class AnimationEngine(QObject):
             app_logger.log_error(e, "create_slide_animation")
             return ""
 
-    def _create_bounce_animation(self, widget: QWidget, intensity: float, duration: int,
-                                callback: Optional[Callable] = None) -> str:
+    def _create_bounce_animation(
+        self,
+        widget: QWidget,
+        intensity: float,
+        duration: int,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """创建弹跳动画
 
         Args:
@@ -416,8 +479,13 @@ class AnimationEngine(QObject):
             app_logger.log_error(e, "create_bounce_animation")
             return ""
 
-    def _create_pulse_animation(self, widget: QWidget, cycles: int, intensity: float,
-                               callback: Optional[Callable] = None) -> str:
+    def _create_pulse_animation(
+        self,
+        widget: QWidget,
+        cycles: int,
+        intensity: float,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """创建脉冲动画
 
         Args:
@@ -433,7 +501,9 @@ class AnimationEngine(QObject):
             animation_id = self._generate_animation_id("pulse")
 
             # 确保组件有透明度效果
-            if widget.graphicsEffect() is None or not isinstance(widget.graphicsEffect(), QGraphicsOpacityEffect):
+            if widget.graphicsEffect() is None or not isinstance(
+                widget.graphicsEffect(), QGraphicsOpacityEffect
+            ):
                 effect = QGraphicsOpacityEffect()
                 widget.setGraphicsEffect(effect)
             else:
@@ -464,8 +534,14 @@ class AnimationEngine(QObject):
             app_logger.log_error(e, "create_pulse_animation")
             return ""
 
-    def _create_scale_animation(self, widget: QWidget, from_scale: float, to_scale: float,
-                               duration: int, callback: Optional[Callable] = None) -> str:
+    def _create_scale_animation(
+        self,
+        widget: QWidget,
+        from_scale: float,
+        to_scale: float,
+        duration: int,
+        callback: Optional[Callable] = None,
+    ) -> str:
         """创建缩放动画
 
         Args:
@@ -527,7 +603,9 @@ class AnimationEngine(QObject):
         self._animation_counter += 1
         return f"{prefix}_{self._animation_counter}"
 
-    def _on_animation_finished(self, animation_id: str, callback: Optional[Callable] = None) -> None:
+    def _on_animation_finished(
+        self, animation_id: str, callback: Optional[Callable] = None
+    ) -> None:
         """动画完成处理
 
         Args:
@@ -546,9 +624,9 @@ class AnimationEngine(QObject):
             if callback:
                 callback()
 
-            app_logger.log_audio_event("Animation finished", {
-                "animation_id": animation_id
-            })
+            app_logger.log_audio_event(
+                "Animation finished", {"animation_id": animation_id}
+            )
 
         except Exception as e:
             app_logger.log_error(e, f"animation_finished_{animation_id}")

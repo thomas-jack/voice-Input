@@ -10,68 +10,78 @@ from ..core.interfaces.config import IConfigService
 
 class SmartTextInput(IInputService):
     """智能文本输入管理器"""
-    
+
     def __init__(self, config_service: IConfigService):
         self.config_service = config_service
         self.clipboard_input = ClipboardInput()
         self.sendinput_method = SendInputMethod()
-        
+
         # Load settings from config service
-        self.preferred_method = self.config_service.get_setting("input.preferred_method", "sendinput")
-        self.fallback_enabled = self.config_service.get_setting("input.fallback_enabled", True)
-        
-        app_logger.log_audio_event("Smart text input initialized", {
-            "preferred_method": self.preferred_method,
-            "fallback_enabled": self.fallback_enabled
-        })
+        self.preferred_method = self.config_service.get_setting(
+            "input.preferred_method", "sendinput"
+        )
+        self.fallback_enabled = self.config_service.get_setting(
+            "input.fallback_enabled", True
+        )
+
+        app_logger.log_audio_event(
+            "Smart text input initialized",
+            {
+                "preferred_method": self.preferred_method,
+                "fallback_enabled": self.fallback_enabled,
+            },
+        )
 
         # 故障转移增强：记录方法失败历史
         self._method_failures = {}
         self._last_failure_time = {}
-    
+
     def input_text(self, text: str, force_method: Optional[str] = None) -> bool:
         """智能输入文本"""
         if not text:
             return True
-        
+
         # 确定使用的输入方法
         method = force_method or self._determine_best_method()
-        
-        app_logger.log_audio_event("Starting text input", {
-            "text_length": len(text),
-            "method": method,
-            "force_method": force_method is not None
-        })
-        
+
+        app_logger.log_audio_event(
+            "Starting text input",
+            {
+                "text_length": len(text),
+                "method": method,
+                "force_method": force_method is not None,
+            },
+        )
+
         # 尝试主要方法
         success = self._try_input_method(text, method)
-        
+
         if success:
             return True
-        
+
         # 如果启用了回退且主要方法失败，尝试备用方法
         if self.fallback_enabled and not force_method:
             fallback_method = "sendinput" if method == "clipboard" else "clipboard"
-            
-            app_logger.log_audio_event("Trying fallback method", {
-                "fallback_method": fallback_method
-            })
-            
+
+            app_logger.log_audio_event(
+                "Trying fallback method", {"fallback_method": fallback_method}
+            )
+
             success = self._try_input_method(text, fallback_method)
-            
+
             if success:
-                app_logger.log_audio_event("Fallback method succeeded", {
-                    "method": fallback_method
-                })
+                app_logger.log_audio_event(
+                    "Fallback method succeeded", {"method": fallback_method}
+                )
                 return True
-        
+
         # 所有方法都失败
         app_logger.log_error(
             TextInputError(f"All input methods failed for text: {text[:50]}..."),
-            "input_text"
+            "input_text",
         )
         return False
-    
+
     def _determine_best_method(self) -> str:
         """智能确定最佳输入方法（基于失败历史）"""
         import time
@@ -80,22 +90,29 @@ class SmartTextInput(IInputService):
         current_time = time.time()
 
         # 如果首选方法在过去5分钟内失败超过3次，切换到备用方法
-        if (self.preferred_method in self._method_failures and
-            self._method_failures[self.preferred_method] >= 3 and
-            current_time - self._last_failure_time.get(self.preferred_method, 0) < 300):
-
+        if (
+            self.preferred_method in self._method_failures
+            and self._method_failures[self.preferred_method] >= 3
+            and current_time - self._last_failure_time.get(self.preferred_method, 0)
+            < 300
+        ):
             # 选择备用方法
-            fallback_method = "clipboard" if self.preferred_method == "sendinput" else "sendinput"
-            app_logger.log_audio_event("Switching to fallback method due to repeated failures", {
-                "failed_method": self.preferred_method,
-                "fallback_method": fallback_method,
-                "failure_count": self._method_failures[self.preferred_method]
-            })
+            fallback_method = (
+                "clipboard" if self.preferred_method == "sendinput" else "sendinput"
+            )
+            app_logger.log_audio_event(
+                "Switching to fallback method due to repeated failures",
+                {
+                    "failed_method": self.preferred_method,
+                    "fallback_method": fallback_method,
+                    "failure_count": self._method_failures[self.preferred_method],
+                },
+            )
             return fallback_method
 
         # 否则使用首选方法
         return self.preferred_method
-    
+
     def _try_input_method(self, text: str, method: str) -> bool:
         """尝试特定的输入方法"""
         try:
@@ -106,16 +123,16 @@ class SmartTextInput(IInputService):
             else:
                 app_logger.log_error(
                     TextInputError(f"Unknown input method: {method}"),
-                    "_try_input_method"
+                    "_try_input_method",
                 )
                 return False
-                
+
         except Exception as e:
             app_logger.log_error(e, f"_try_input_method_{method}")
             # 增强错误恢复：记录失败方法以便智能选择下次尝试
             self._record_method_failure(method, str(e))
             return False
-    
+
     def _try_clipboard_method(self, text: str) -> bool:
         """尝试剪贴板输入方法"""
         try:
@@ -123,17 +140,17 @@ class SmartTextInput(IInputService):
             if not self.clipboard_input.test_clipboard_access():
                 app_logger.log_error(
                     TextInputError("Clipboard access test failed"),
-                    "_try_clipboard_method"
+                    "_try_clipboard_method",
                 )
                 return False
-            
+
             # 执行剪贴板输入
             return self.clipboard_input.input_via_clipboard(text)
-            
+
         except Exception as e:
             app_logger.log_error(e, "_try_clipboard_method")
             return False
-    
+
     def _try_sendinput_method(self, text: str) -> bool:
         """尝试SendInput输入方法"""
         try:
@@ -141,22 +158,21 @@ class SmartTextInput(IInputService):
             if not self.sendinput_method.test_sendinput_capability():
                 app_logger.log_error(
                     TextInputError("SendInput capability test failed"),
-                    "_try_sendinput_method"
+                    "_try_sendinput_method",
                 )
                 return False
-            
+
             # 执行SendInput输入
             return self.sendinput_method.input_via_sendinput(text)
-            
+
         except Exception as e:
             app_logger.log_error(e, "_try_sendinput_method")
             return False
-    
+
     def _backup_clipboard(self) -> str:
         """备份剪贴板内容"""
         return self.clipboard_input.backup_clipboard()
-    
-    
+
     def set_preferred_method(self, method: str) -> None:
         """设置首选输入方法"""
         if method not in ["clipboard", "sendinput"]:
@@ -167,10 +183,8 @@ class SmartTextInput(IInputService):
         # 持久化到配置
         self.config_service.set_setting("input.preferred_method", method)
 
-        app_logger.log_audio_event("Preferred method set", {
-            "method": method
-        })
-    
+        app_logger.log_audio_event("Preferred method set", {"method": method})
+
     def set_fallback_enabled(self, enabled: bool) -> None:
         """设置是否启用回退机制"""
         self.fallback_enabled = enabled
@@ -178,35 +192,32 @@ class SmartTextInput(IInputService):
         # 持久化到配置
         self.config_service.set_setting("input.fallback_enabled", enabled)
 
-        app_logger.log_audio_event("Fallback setting changed", {
-            "enabled": enabled
-        })
-    
-    
+        app_logger.log_audio_event("Fallback setting changed", {"enabled": enabled})
+
     def set_clipboard_restore_delay(self, delay: float) -> None:
         """设置剪贴板恢复延迟"""
         self.clipboard_input.set_restore_delay(delay)
-    
+
     def set_typing_delay(self, delay: float) -> None:
         """设置SendInput字符间延迟"""
         self.sendinput_method.set_typing_delay(delay)
-    
+
     def test_all_methods(self) -> Dict[str, bool]:
         """测试所有输入方法"""
         results = {}
-        
+
         # 测试剪贴板方法
         try:
             results["clipboard"] = self.clipboard_input.test_clipboard_access()
         except Exception:
             results["clipboard"] = False
-        
+
         # 测试SendInput方法
         try:
             results["sendinput"] = self.sendinput_method.test_sendinput_capability()
         except Exception:
             results["sendinput"] = False
-        
+
         app_logger.log_audio_event("Input methods tested", results)
 
         return results
@@ -219,20 +230,28 @@ class SmartTextInput(IInputService):
         self._method_failures[method] = self._method_failures.get(method, 0) + 1
         self._last_failure_time[method] = current_time
 
-        app_logger.log_audio_event("Input method failure recorded", {
-            "method": method,
-            "error_message": error_msg,
-            "failure_count": self._method_failures[method],
-            "time_since_last_failure": current_time - self._last_failure_time.get(method, current_time)
-        })
+        app_logger.log_audio_event(
+            "Input method failure recorded",
+            {
+                "method": method,
+                "error_message": error_msg,
+                "failure_count": self._method_failures[method],
+                "time_since_last_failure": current_time
+                - self._last_failure_time.get(method, current_time),
+            },
+        )
 
         # 如果失败次数过多，清理旧的失败记录（避免永久性禁用）
         if current_time - self._last_failure_time[method] > 1800:  # 30分钟后清理
             if self._method_failures[method] > 10:
-                self._method_failures[method] = max(1, self._method_failures[method] // 2)
-                app_logger.log_audio_event("Reduced failure count for method", {
-                    "method": method,
-                    "old_count": self._method_failures[method] * 2,
-                    "new_count": self._method_failures[method]
-                })
-    
+                self._method_failures[method] = max(
+                    1, self._method_failures[method] // 2
+                )
+                app_logger.log_audio_event(
+                    "Reduced failure count for method",
+                    {
+                        "method": method,
+                        "old_count": self._method_failures[method] * 2,
+                        "new_count": self._method_failures[method],
+                    },
+                )

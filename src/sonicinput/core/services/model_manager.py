@@ -9,6 +9,7 @@ from ...utils import app_logger
 
 class ModelState(Enum):
     """模型状态"""
+
     UNLOADED = "unloaded"
     LOADING = "loading"
     LOADED = "loaded"
@@ -48,15 +49,16 @@ class ModelManager:
     def start(self) -> None:
         """启动模型管理器"""
         import threading
+
         self._state_lock = threading.Lock()
 
         # 初始化引擎实例
         self._whisper_engine = self.whisper_engine_factory()
         self._current_model_name = self._whisper_engine.model_name
 
-        app_logger.log_audio_event("ModelManager started", {
-            "initial_model": self._current_model_name
-        })
+        app_logger.log_audio_event(
+            "ModelManager started", {"initial_model": self._current_model_name}
+        )
 
     def stop(self) -> None:
         """停止模型管理器"""
@@ -68,11 +70,7 @@ class ModelManager:
         self._model_state = ModelState.UNLOADED
         app_logger.log_audio_event("ModelManager stopped", {})
 
-    def load_model(
-        self,
-        model_name: Optional[str] = None,
-        timeout: int = 300
-    ) -> bool:
+    def load_model(self, model_name: Optional[str] = None, timeout: int = 300) -> bool:
         """加载模型
 
         Args:
@@ -101,16 +99,18 @@ class ModelManager:
 
         try:
             # 广播模型加载开始事件
-            self._emit_model_event("model_loading_started", {
-                "model_name": model_name or self._current_model_name
-            })
+            self._emit_model_event(
+                "model_loading_started",
+                {"model_name": model_name or self._current_model_name},
+            )
 
             # 准备模型参数
             target_model_name = model_name or self._current_model_name
 
             # 检查是否需要重新创建引擎
-            if (model_name and model_name != self._current_model_name) or \
-               not self._whisper_engine:
+            if (
+                model_name and model_name != self._current_model_name
+            ) or not self._whisper_engine:
                 self._whisper_engine = self.whisper_engine_factory()
                 self._current_model_name = target_model_name
 
@@ -123,18 +123,24 @@ class ModelManager:
                 load_time = time.time() - self._load_start_time
 
             # 广播模型加载完成事件
-            self._emit_model_event("model_loaded", {
-                "model_name": self._current_model_name,
-                "device": self._whisper_engine.device,
-                "use_gpu": getattr(self._whisper_engine, 'use_gpu', False),
-                "load_time": f"{load_time:.2f}s"
-            })
+            self._emit_model_event(
+                "model_loaded",
+                {
+                    "model_name": self._current_model_name,
+                    "device": self._whisper_engine.device,
+                    "use_gpu": getattr(self._whisper_engine, "use_gpu", False),
+                    "load_time": f"{load_time:.2f}s",
+                },
+            )
 
-            app_logger.log_audio_event("Model loaded successfully", {
-                "model_name": self._current_model_name,
-                "device": self._whisper_engine.device,
-                "load_time": load_time
-            })
+            app_logger.log_audio_event(
+                "Model loaded successfully",
+                {
+                    "model_name": self._current_model_name,
+                    "device": self._whisper_engine.device,
+                    "load_time": load_time,
+                },
+            )
 
             return True
 
@@ -147,10 +153,10 @@ class ModelManager:
             app_logger.log_error(e, "load_model")
 
             # 广播模型加载失败事件
-            self._emit_model_event("model_loading_failed", {
-                "model_name": model_name or self._current_model_name,
-                "error": str(e)
-            })
+            self._emit_model_event(
+                "model_loading_failed",
+                {"model_name": model_name or self._current_model_name, "error": str(e)},
+            )
 
             return False
 
@@ -161,9 +167,9 @@ class ModelManager:
 
         try:
             # 广播模型卸载开始事件
-            self._emit_model_event("model_unloading_started", {
-                "model_name": self._current_model_name
-            })
+            self._emit_model_event(
+                "model_unloading_started", {"model_name": self._current_model_name}
+            )
 
             # 执行卸载
             self._whisper_engine.unload_model()
@@ -173,13 +179,13 @@ class ModelManager:
                 self._model_state = ModelState.UNLOADED
 
             # 广播模型卸载完成事件
-            self._emit_model_event("model_unloaded", {
-                "model_name": self._current_model_name
-            })
+            self._emit_model_event(
+                "model_unloaded", {"model_name": self._current_model_name}
+            )
 
-            app_logger.log_audio_event("Model unloaded", {
-                "model_name": self._current_model_name
-            })
+            app_logger.log_audio_event(
+                "Model unloaded", {"model_name": self._current_model_name}
+            )
 
         except Exception as e:
             app_logger.log_error(e, "unload_model")
@@ -188,9 +194,7 @@ class ModelManager:
                 self._last_load_error = str(e)
 
     def reload_model(
-        self,
-        model_name: Optional[str] = None,
-        use_gpu: Optional[bool] = None
+        self, model_name: Optional[str] = None, use_gpu: Optional[bool] = None
     ) -> bool:
         """重新加载模型（用于切换GPU/CPU或更换模型）
 
@@ -210,17 +214,23 @@ class ModelManager:
             self._model_state = ModelState.RELOADING
 
         try:
-            app_logger.log_audio_event("Reloading model with new settings", {
-                "model_name": model_name or self._current_model_name,
-                "use_gpu": use_gpu
-            })
+            app_logger.log_audio_event(
+                "Reloading model with new settings",
+                {
+                    "model_name": model_name or self._current_model_name,
+                    "use_gpu": use_gpu,
+                },
+            )
 
             # 广播重载开始事件
-            self._emit_model_event("model_reloading_started", {
-                "old_model": self._current_model_name,
-                "new_model": model_name or self._current_model_name,
-                "use_gpu": use_gpu
-            })
+            self._emit_model_event(
+                "model_reloading_started",
+                {
+                    "old_model": self._current_model_name,
+                    "new_model": model_name or self._current_model_name,
+                    "use_gpu": use_gpu,
+                },
+            )
 
             # 1. 卸载当前模型
             if self._model_state != ModelState.UNLOADED:
@@ -230,6 +240,7 @@ class ModelManager:
             if model_name or use_gpu is not None:
                 # 需要重新创建引擎以应用新配置
                 from ...speech import WhisperEngine
+
                 target_model_name = model_name or self._current_model_name
                 self._whisper_engine = WhisperEngine(target_model_name, use_gpu=use_gpu)
                 self._current_model_name = target_model_name
@@ -241,18 +252,24 @@ class ModelManager:
 
             if success:
                 # 广播重载成功事件
-                self._emit_model_event("model_reloaded", {
-                    "model_name": self._current_model_name,
-                    "device": self._whisper_engine.device,
-                    "use_gpu": getattr(self._whisper_engine, 'use_gpu', False),
-                    "reload_time": f"{reload_time:.2f}s"
-                })
+                self._emit_model_event(
+                    "model_reloaded",
+                    {
+                        "model_name": self._current_model_name,
+                        "device": self._whisper_engine.device,
+                        "use_gpu": getattr(self._whisper_engine, "use_gpu", False),
+                        "reload_time": f"{reload_time:.2f}s",
+                    },
+                )
 
-                app_logger.log_audio_event("Model reloaded successfully", {
-                    "model_name": self._current_model_name,
-                    "device": self._whisper_engine.device,
-                    "reload_time": reload_time
-                })
+                app_logger.log_audio_event(
+                    "Model reloaded successfully",
+                    {
+                        "model_name": self._current_model_name,
+                        "device": self._whisper_engine.device,
+                        "reload_time": reload_time,
+                    },
+                )
 
                 with self._state_lock:
                     self._model_state = ModelState.LOADED
@@ -272,10 +289,13 @@ class ModelManager:
                 self._last_load_error = error_msg
 
             # 广播重载失败事件
-            self._emit_model_event("model_reloading_failed", {
-                "model_name": model_name or self._current_model_name,
-                "error": error_msg
-            })
+            self._emit_model_event(
+                "model_reloading_failed",
+                {
+                    "model_name": model_name or self._current_model_name,
+                    "error": error_msg,
+                },
+            )
 
             return False
 
@@ -293,9 +313,11 @@ class ModelManager:
         Returns:
             True如果模型已加载
         """
-        return self._model_state == ModelState.LOADED and \
-               self._whisper_engine and \
-               self._whisper_engine.is_model_loaded
+        return (
+            self._model_state == ModelState.LOADED
+            and self._whisper_engine
+            and self._whisper_engine.is_model_loaded
+        )
 
     def get_whisper_engine(self):
         """获取Whisper引擎实例
@@ -316,14 +338,16 @@ class ModelManager:
         info = {
             "state": self._model_state.value,
             "model_name": self._current_model_name,
-            "is_loaded": self.is_model_loaded()
+            "is_loaded": self.is_model_loaded(),
         }
 
         if self._whisper_engine:
-            info.update({
-                "device": getattr(self._whisper_engine, 'device', 'unknown'),
-                "use_gpu": getattr(self._whisper_engine, 'use_gpu', False)
-            })
+            info.update(
+                {
+                    "device": getattr(self._whisper_engine, "device", "unknown"),
+                    "use_gpu": getattr(self._whisper_engine, "use_gpu", False),
+                }
+            )
 
         if self._load_start_time and self._model_state == ModelState.LOADING:
             info["load_time"] = time.time() - self._load_start_time

@@ -23,21 +23,28 @@ def _ensure_whisper_imported():
     with _whisper_import_lock:
         if faster_whisper is None:
             try:
-                app_logger.log_model_loading_step("Starting faster-whisper module import", {
-                    "thread_id": current_thread_id,
-                    "thread_name": threading.current_thread().name
-                })
+                app_logger.log_model_loading_step(
+                    "Starting faster-whisper module import",
+                    {
+                        "thread_id": current_thread_id,
+                        "thread_name": threading.current_thread().name,
+                    },
+                )
 
                 # Import faster-whisper
                 from faster_whisper import WhisperModel
+
                 faster_whisper = WhisperModel
 
                 _whisper_loaded_in_thread[current_thread_id] = True
 
-                app_logger.log_model_loading_step("faster-whisper module imported successfully", {
-                    "thread_id": current_thread_id,
-                    "thread_name": threading.current_thread().name
-                })
+                app_logger.log_model_loading_step(
+                    "faster-whisper module imported successfully",
+                    {
+                        "thread_id": current_thread_id,
+                        "thread_name": threading.current_thread().name,
+                    },
+                )
 
             except ImportError as e:
                 error_msg = f"Failed to import faster-whisper: {e}"
@@ -45,13 +52,13 @@ def _ensure_whisper_imported():
                     "Install faster-whisper: pip install faster-whisper",
                     "Check Python environment and dependencies",
                     "Verify CTranslate2 installation",
-                    "Try reinstalling with: pip uninstall faster-whisper && pip install faster-whisper"
+                    "Try reinstalling with: pip uninstall faster-whisper && pip install faster-whisper",
                 ]
                 app_logger.log_error(e, "faster_whisper_import")
-                app_logger.log_audio_event("faster-whisper import failed - suggestions", {
-                    "error": str(e),
-                    "suggestions": suggestions
-                })
+                app_logger.log_audio_event(
+                    "faster-whisper import failed - suggestions",
+                    {"error": str(e), "suggestions": suggestions},
+                )
                 raise WhisperLoadError(error_msg)
             except Exception as e:
                 error_msg = f"Unexpected error importing faster-whisper: {e}"
@@ -59,13 +66,13 @@ def _ensure_whisper_imported():
                     "Check Python version compatibility",
                     "Verify all dependencies are installed",
                     "Try creating a fresh virtual environment",
-                    "Check for conflicting packages"
+                    "Check for conflicting packages",
                 ]
                 app_logger.log_error(e, "faster_whisper_import_general")
-                app_logger.log_audio_event("faster-whisper import error - suggestions", {
-                    "error": str(e),
-                    "suggestions": suggestions
-                })
+                app_logger.log_audio_event(
+                    "faster-whisper import error - suggestions",
+                    {"error": str(e), "suggestions": suggestions},
+                )
                 raise WhisperLoadError(error_msg)
 
     return faster_whisper
@@ -79,7 +86,9 @@ def preload_whisper_module():
 class WhisperEngine(ISpeechService):
     """Whisper model management and inference engine - faster-whisper version"""
 
-    def __init__(self, model_name: str = "large-v3-turbo", use_gpu: Optional[bool] = None):
+    def __init__(
+        self, model_name: str = "large-v3-turbo", use_gpu: Optional[bool] = None
+    ):
         self.model_name = model_name
         self.model = None
         self.gpu_manager = GPUManager()
@@ -96,11 +105,14 @@ class WhisperEngine(ISpeechService):
             else:
                 # 用户明确指定：尊重用户选择，但添加警告日志
                 if use_gpu and not self.gpu_manager.is_gpu_available():
-                    app_logger.log_audio_event("Warning: GPU requested but hardware not available", {
-                        "requested_gpu": True,
-                        "hardware_available": False,
-                        "action": "forcing GPU mode (may fail at runtime)"
-                    })
+                    app_logger.log_audio_event(
+                        "Warning: GPU requested but hardware not available",
+                        {
+                            "requested_gpu": True,
+                            "hardware_available": False,
+                            "action": "forcing GPU mode (may fail at runtime)",
+                        },
+                    )
                 self.use_gpu = use_gpu
 
             self.device = "cuda" if self.use_gpu else "cpu"
@@ -116,29 +128,30 @@ class WhisperEngine(ISpeechService):
             "compute_type": self.compute_type,
             "num_workers": 4,  # Parallel processing threads
             "cpu_threads": 0,  # 0 = auto
-            "download_root": None  # Use default cache directory
+            "download_root": None,  # Use default cache directory
         }
 
-        app_logger.log_audio_event("Whisper engine initialized (faster-whisper)", {
-            "model_name": model_name,
-            "device": self.device,
-            "compute_type": self.compute_type
-        })
+        app_logger.log_audio_event(
+            "Whisper engine initialized (faster-whisper)",
+            {
+                "model_name": model_name,
+                "device": self.device,
+                "compute_type": self.compute_type,
+            },
+        )
 
     def set_model_name(self, model_name: str) -> None:
         """Set the model name to load"""
         if model_name != self.model_name:
             if self.model is not None:
-                app_logger.log_audio_event("Unloading model due to name change", {
-                    "old_model": self.model_name,
-                    "new_model": model_name
-                })
+                app_logger.log_audio_event(
+                    "Unloading model due to name change",
+                    {"old_model": self.model_name, "new_model": model_name},
+                )
                 self.unload_model()
 
             self.model_name = model_name
-            app_logger.log_audio_event("Model name updated", {
-                "new_model": model_name
-            })
+            app_logger.log_audio_event("Model name updated", {"new_model": model_name})
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
         """Load Whisper model - 符合 ISpeechService 接口定义
@@ -159,26 +172,34 @@ class WhisperEngine(ISpeechService):
             self.set_model_name(model_name)
 
         if self._is_model_loaded and self.model is not None:
-            app_logger.log_audio_event("Model already loaded", {"model_name": self.model_name})
+            app_logger.log_audio_event(
+                "Model already loaded", {"model_name": self.model_name}
+            )
             return True
 
         try:
-            app_logger.log_audio_event("Loading model directly", {
-                "model_name": self.model_name,
-                "device": self.device,
-                "thread_id": threading.get_ident(),
-                "thread_name": threading.current_thread().name
-            })
+            app_logger.log_audio_event(
+                "Loading model directly",
+                {
+                    "model_name": self.model_name,
+                    "device": self.device,
+                    "thread_id": threading.get_ident(),
+                    "thread_name": threading.current_thread().name,
+                },
+            )
 
             timeout_seconds = 300  # 固定超时时间
             self._load_model_internal(timeout_seconds)
             self._is_model_loaded = True
 
-            app_logger.log_audio_event("Model loaded successfully", {
-                "model_name": self.model_name,
-                "device": self.device,
-                "load_time": self._load_time
-            })
+            app_logger.log_audio_event(
+                "Model loaded successfully",
+                {
+                    "model_name": self.model_name,
+                    "device": self.device,
+                    "load_time": self._load_time,
+                },
+            )
 
             return True
 
@@ -193,27 +214,34 @@ class WhisperEngine(ISpeechService):
     def _load_model_internal(self, timeout_seconds: int = 300) -> None:
         """Internal method - direct model loading"""
         if self.model is not None:
-            app_logger.log_audio_event("Model already loaded", {"model_name": self.model_name})
+            app_logger.log_audio_event(
+                "Model already loaded", {"model_name": self.model_name}
+            )
             return
 
         current_thread_id = threading.get_ident()
         thread_name = threading.current_thread().name
 
         try:
-            app_logger.log_model_loading_step("Starting model loading process", {
-                "model_name": self.model_name,
-                "device": self.device,
-                "timeout": timeout_seconds,
-                "thread_id": current_thread_id,
-                "thread_name": thread_name
-            })
+            app_logger.log_model_loading_step(
+                "Starting model loading process",
+                {
+                    "model_name": self.model_name,
+                    "device": self.device,
+                    "timeout": timeout_seconds,
+                    "thread_id": current_thread_id,
+                    "thread_name": thread_name,
+                },
+            )
 
             start_time = time.time()
 
             # Step 1: Import faster-whisper module
             app_logger.log_model_loading_step("Importing faster-whisper module")
             WhisperModel = _ensure_whisper_imported()
-            app_logger.log_model_loading_step("faster-whisper module imported successfully")
+            app_logger.log_model_loading_step(
+                "faster-whisper module imported successfully"
+            )
 
             # Step 2: Prepare GPU (if available)
             if self.use_gpu:
@@ -222,26 +250,30 @@ class WhisperEngine(ISpeechService):
                     self.gpu_manager.prepare_for_model_loading()
                     app_logger.log_model_loading_step("GPU preparation completed")
                 except Exception as gpu_error:
-                    app_logger.log_model_loading_step("GPU preparation failed, proceeding anyway", {
-                        "error": str(gpu_error),
-                        "thread_id": current_thread_id
-                    })
+                    app_logger.log_model_loading_step(
+                        "GPU preparation failed, proceeding anyway",
+                        {"error": str(gpu_error), "thread_id": current_thread_id},
+                    )
 
             # Step 3: Load model (with fallback strategy)
-            app_logger.log_model_loading_step("Loading faster-whisper model", {
-                "model_name": self.model_name,
-                "device": self.device,
-                "compute_type": self.compute_type,
-                "thread_id": current_thread_id
-            })
+            app_logger.log_model_loading_step(
+                "Loading faster-whisper model",
+                {
+                    "model_name": self.model_name,
+                    "device": self.device,
+                    "compute_type": self.compute_type,
+                    "thread_id": current_thread_id,
+                },
+            )
 
             # Try local-first approach to avoid unnecessary network requests
             model = None
             try:
                 # First attempt: Try loading from local cache only
-                app_logger.log_model_loading_step("Attempting to load from local cache", {
-                    "model_name": self.model_name
-                })
+                app_logger.log_model_loading_step(
+                    "Attempting to load from local cache",
+                    {"model_name": self.model_name},
+                )
                 model = WhisperModel(
                     self.model_name,
                     device=self.device,
@@ -249,17 +281,17 @@ class WhisperEngine(ISpeechService):
                     num_workers=self.model_config["num_workers"],
                     cpu_threads=self.model_config["cpu_threads"],
                     download_root=self.model_config["download_root"],
-                    local_files_only=True  # Priority: use local cache first
+                    local_files_only=True,  # Priority: use local cache first
                 )
-                app_logger.log_model_loading_step("Model loaded from local cache", {
-                    "model_name": self.model_name
-                })
+                app_logger.log_model_loading_step(
+                    "Model loaded from local cache", {"model_name": self.model_name}
+                )
             except (OSError, ValueError) as local_error:
                 # Local cache not available, try downloading
-                app_logger.log_model_loading_step("Local cache not found, downloading model", {
-                    "model_name": self.model_name,
-                    "local_error": str(local_error)
-                })
+                app_logger.log_model_loading_step(
+                    "Local cache not found, downloading model",
+                    {"model_name": self.model_name, "local_error": str(local_error)},
+                )
                 model = WhisperModel(
                     self.model_name,
                     device=self.device,
@@ -267,11 +299,11 @@ class WhisperEngine(ISpeechService):
                     num_workers=self.model_config["num_workers"],
                     cpu_threads=self.model_config["cpu_threads"],
                     download_root=self.model_config["download_root"],
-                    local_files_only=False  # Allow network download
+                    local_files_only=False,  # Allow network download
                 )
-                app_logger.log_model_loading_step("Model downloaded successfully", {
-                    "model_name": self.model_name
-                })
+                app_logger.log_model_loading_step(
+                    "Model downloaded successfully", {"model_name": self.model_name}
+                )
 
             load_time = time.time() - start_time
             self._load_time = load_time
@@ -284,14 +316,17 @@ class WhisperEngine(ISpeechService):
             # Record loading info
             memory_info = self.gpu_manager.get_memory_usage() if self.use_gpu else {}
 
-            app_logger.log_model_loading_step("Model loaded successfully", {
-                "model_name": self.model_name,
-                "load_time": f"{load_time:.2f}s",
-                "device": self.device,
-                "memory_usage": memory_info,
-                "thread_id": current_thread_id,
-                "thread_name": thread_name
-            })
+            app_logger.log_model_loading_step(
+                "Model loaded successfully",
+                {
+                    "model_name": self.model_name,
+                    "load_time": f"{load_time:.2f}s",
+                    "device": self.device,
+                    "memory_usage": memory_info,
+                    "thread_id": current_thread_id,
+                    "thread_name": thread_name,
+                },
+            )
 
             # Success
             self.model = model
@@ -303,46 +338,53 @@ class WhisperEngine(ISpeechService):
             suggestions = []
             error_str = str(e).lower()
 
-            if "could not find" in error_str or "dll" in error_str or "shared" in error_str:
+            if (
+                "could not find" in error_str
+                or "dll" in error_str
+                or "shared" in error_str
+            ):
                 suggestions = [
                     "Install Microsoft Visual C++ Redistributables",
                     "Check CUDA installation: nvidia-smi",
                     "Reinstall faster-whisper: pip uninstall faster-whisper && pip install faster-whisper",
                     "Run as administrator",
-                    "Try CPU mode: set device to 'cpu' in settings"
+                    "Try CPU mode: set device to 'cpu' in settings",
                 ]
             elif "memory" in error_str or "cuda" in error_str:
                 suggestions = [
                     "Try a smaller model (base or small instead of large)",
                     "Close other GPU applications",
                     "Restart the application",
-                    "Switch to CPU mode if GPU memory is insufficient"
+                    "Switch to CPU mode if GPU memory is insufficient",
                 ]
             elif "network" in error_str or "download" in error_str:
                 suggestions = [
                     "Check internet connection",
                     "Try downloading the model manually",
                     "Use a different network or VPN",
-                    "Check firewall settings"
+                    "Check firewall settings",
                 ]
             else:
                 suggestions = [
                     "Check Python environment and dependencies",
                     "Try reinstalling faster-whisper: pip uninstall faster-whisper && pip install faster-whisper",
                     "Create a fresh virtual environment",
-                    "Check system compatibility"
+                    "Check system compatibility",
                 ]
 
             app_logger.log_error(e, f"faster_whisper_model_load_{self.model_name}")
-            app_logger.log_audio_event("Model load failed - suggestions", {
-                "model": self.model_name,
-                "error": str(e),
-                "suggestions": suggestions
-            })
+            app_logger.log_audio_event(
+                "Model load failed - suggestions",
+                {"model": self.model_name, "error": str(e), "suggestions": suggestions},
+            )
             raise WhisperLoadError(error_msg)
 
-    def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None,
-                  temperature: float = 0.0) -> Dict[str, Any]:
+    def transcribe(
+        self,
+        audio_data: np.ndarray,
+        language: Optional[str] = None,
+        temperature: float = 0.0,
+    ) -> Dict[str, Any]:
         """Transcribe audio"""
         start_time = time.time()
 
@@ -382,7 +424,7 @@ class WhisperEngine(ISpeechService):
                     no_speech_threshold=0.6,
                     condition_on_previous_text=False,
                     initial_prompt=None,
-                    vad_filter=False
+                    vad_filter=False,
                 )
             except Exception as transcribe_error:
                 # 直接抛出错误，保留完整堆栈信息
@@ -399,7 +441,7 @@ class WhisperEngine(ISpeechService):
                     "end": segment.end,
                     "text": segment.text,
                     "avg_logprob": segment.avg_logprob,
-                    "no_speech_prob": segment.no_speech_prob
+                    "no_speech_prob": segment.no_speech_prob,
                 }
                 segment_list.append(segment_dict)
                 text_parts.append(segment.text)
@@ -409,8 +451,14 @@ class WhisperEngine(ISpeechService):
             transcription_time = time.time() - transcription_start
 
             # Extract info
-            detected_language = info.language if hasattr(info, 'language') else "unknown"
-            language_probability = info.language_probability if hasattr(info, 'language_probability') else 0.5
+            detected_language = (
+                info.language if hasattr(info, "language") else "unknown"
+            )
+            language_probability = (
+                info.language_probability
+                if hasattr(info, "language_probability")
+                else 0.5
+            )
 
             # Calculate average confidence from segments
             if segment_list:
@@ -428,27 +476,28 @@ class WhisperEngine(ISpeechService):
 
             # Log transcription result
             app_logger.log_transcription(
-                audio_length=len(audio_data) / 16000,
-                text=text,
-                confidence=confidence
+                audio_length=len(audio_data) / 16000, text=text, confidence=confidence
             )
 
-            app_logger.log_audio_event("Transcription completed", {
-                "transcription_time": transcription_time,
-                "audio_duration": len(audio_data) / 16000,
-                "text_length": len(text),
-                "detected_language": detected_language,
-                "language_probability": language_probability,
-                "confidence": confidence,
-                "segments_count": len(segment_list)
-            })
+            app_logger.log_audio_event(
+                "Transcription completed",
+                {
+                    "transcription_time": transcription_time,
+                    "audio_duration": len(audio_data) / 16000,
+                    "text_length": len(text),
+                    "detected_language": detected_language,
+                    "language_probability": language_probability,
+                    "confidence": confidence,
+                    "segments_count": len(segment_list),
+                },
+            )
 
             return {
                 "text": text,
                 "language": detected_language,
                 "confidence": confidence,
                 "segments": segment_list,
-                "transcription_time": transcription_time
+                "transcription_time": transcription_time,
             }
 
         except WhisperLoadError:
@@ -459,8 +508,9 @@ class WhisperEngine(ISpeechService):
             app_logger.log_error(WhisperLoadError(error_msg), "whisper_transcribe")
             raise WhisperLoadError(error_msg)
 
-    def transcribe_with_timestamps(self, audio_data: np.ndarray,
-                                 language: Optional[str] = None) -> Dict[str, Any]:
+    def transcribe_with_timestamps(
+        self, audio_data: np.ndarray, language: Optional[str] = None
+    ) -> Dict[str, Any]:
         """Transcribe with word-level timestamps"""
         if self.model is None:
             raise WhisperLoadError("Model not loaded. Call load_model() first.")
@@ -471,7 +521,7 @@ class WhisperEngine(ISpeechService):
                 audio_data,
                 language=language if language != "auto" else None,
                 task="transcribe",
-                word_timestamps=True
+                word_timestamps=True,
             )
 
             # Collect all segments with word timestamps
@@ -482,30 +532,34 @@ class WhisperEngine(ISpeechService):
                     "start": segment.start,
                     "end": segment.end,
                     "text": segment.text,
-                    "words": []
+                    "words": [],
                 }
 
                 # Add word-level timestamps if available
-                if hasattr(segment, 'words') and segment.words:
+                if hasattr(segment, "words") and segment.words:
                     for word in segment.words:
-                        segment_dict["words"].append({
-                            "word": word.word,
-                            "start": word.start,
-                            "end": word.end,
-                            "probability": word.probability
-                        })
+                        segment_dict["words"].append(
+                            {
+                                "word": word.word,
+                                "start": word.start,
+                                "end": word.end,
+                                "probability": word.probability,
+                            }
+                        )
 
                 segment_list.append(segment_dict)
 
             return {
                 "text": " ".join([seg["text"] for seg in segment_list]).strip(),
-                "language": info.language if hasattr(info, 'language') else "unknown",
-                "segments": segment_list
+                "language": info.language if hasattr(info, "language") else "unknown",
+                "segments": segment_list,
             }
 
         except Exception as e:
             error_msg = f"Transcription with timestamps failed: {e}"
-            app_logger.log_error(WhisperLoadError(error_msg), "transcribe_with_timestamps")
+            app_logger.log_error(
+                WhisperLoadError(error_msg), "transcribe_with_timestamps"
+            )
             raise WhisperLoadError(error_msg)
 
     def detect_language(self, audio_data: np.ndarray) -> Dict[str, Any]:
@@ -517,26 +571,30 @@ class WhisperEngine(ISpeechService):
             # Use faster-whisper's language detection
             # Transcribe with language detection enabled
             segments, info = self.model.transcribe(
-                audio_data[:int(16000 * 30)],  # Use first 30 seconds for detection
+                audio_data[: int(16000 * 30)],  # Use first 30 seconds for detection
                 task="transcribe",
-                beam_size=1
+                beam_size=1,
             )
 
             # Consume segments iterator (required)
             _ = list(segments)
 
-            detected_language = info.language if hasattr(info, 'language') else "en"
-            confidence = info.language_probability if hasattr(info, 'language_probability') else 0.5
+            detected_language = info.language if hasattr(info, "language") else "en"
+            confidence = (
+                info.language_probability
+                if hasattr(info, "language_probability")
+                else 0.5
+            )
 
-            app_logger.log_audio_event("Language detected", {
-                "language": detected_language,
-                "confidence": confidence
-            })
+            app_logger.log_audio_event(
+                "Language detected",
+                {"language": detected_language, "confidence": confidence},
+            )
 
             return {
                 "language": detected_language,
                 "confidence": confidence,
-                "all_probabilities": {}  # faster-whisper doesn't provide all probabilities
+                "all_probabilities": {},  # faster-whisper doesn't provide all probabilities
             }
 
         except Exception as e:
@@ -555,6 +613,7 @@ class WhisperEngine(ISpeechService):
 
                 # 强制Python垃圾回收
                 import gc
+
                 gc.collect()
 
                 # Clean GPU cache with enhanced cleanup
@@ -564,10 +623,10 @@ class WhisperEngine(ISpeechService):
                 self._is_model_loaded = False
                 self._load_time = None
 
-                app_logger.log_audio_event("Whisper model unloaded successfully", {
-                    "model_name": self.model_name,
-                    "was_gpu": self.use_gpu
-                })
+                app_logger.log_audio_event(
+                    "Whisper model unloaded successfully",
+                    {"model_name": self.model_name, "was_gpu": self.use_gpu},
+                )
 
             except Exception as e:
                 app_logger.log_error(e, "unload_model")
@@ -588,7 +647,7 @@ class WhisperEngine(ISpeechService):
             "is_loaded": self.is_model_loaded,
             "device": self.device,
             "gpu_available": self.use_gpu,
-            "model_config": self.model_config.copy()
+            "model_config": self.model_config.copy(),
         }
 
         if self.use_gpu:
@@ -605,7 +664,9 @@ class WhisperEngine(ISpeechService):
     def set_task(self, task: str) -> None:
         """Set task type (transcribe or translate)"""
         if task not in ["transcribe", "translate"]:
-            raise ValueError(f"Invalid task: {task}. Must be 'transcribe' or 'translate'")
+            raise ValueError(
+                f"Invalid task: {task}. Must be 'transcribe' or 'translate'"
+            )
 
         self.model_config["task"] = task
         app_logger.log_audio_event("Task set", {"task": task})
@@ -613,13 +674,7 @@ class WhisperEngine(ISpeechService):
     def get_available_models(self) -> list:
         """Get list of available models"""
         # Standard Whisper models supported by faster-whisper (multilingual only)
-        return [
-            "tiny",
-            "base",
-            "small",
-            "medium",
-            "large-v3", "large-v3-turbo"
-        ]
+        return ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"]
 
     def benchmark_performance(self, test_duration: float = 10.0) -> Dict[str, float]:
         """Performance benchmark test"""
@@ -641,9 +696,13 @@ class WhisperEngine(ISpeechService):
             "test_duration": test_duration,
             "processing_time": processing_time,
             "real_time_factor": real_time_factor,
-            "performance_rating": "excellent" if real_time_factor < 0.1 else
-                                "good" if real_time_factor < 0.3 else
-                                "fair" if real_time_factor < 0.8 else "poor"
+            "performance_rating": "excellent"
+            if real_time_factor < 0.1
+            else "good"
+            if real_time_factor < 0.3
+            else "fair"
+            if real_time_factor < 0.8
+            else "poor",
         }
 
         app_logger.log_audio_event("Performance benchmark completed", benchmark_results)
@@ -657,13 +716,16 @@ class WhisperEngine(ISpeechService):
 
         try:
             import torch
+
             if not torch.cuda.is_available():
                 return False
 
             # 检查模型是否已经在这个线程中成功初始化
             if self.model is not None and self._is_model_loaded:
                 # 如果模型已经加载且可使用，说明CUDA上下文在这个线程中是有效的
-                app_logger.debug("CUDA context validation: model already loaded and valid")
+                app_logger.debug(
+                    "CUDA context validation: model already loaded and valid"
+                )
                 return True
 
             # 尝试设置当前设备的CUDA上下文
@@ -685,7 +747,9 @@ class WhisperEngine(ISpeechService):
         except RuntimeError as cuda_error:
             # 特殊处理CUDA相关的运行时错误
             error_str = str(cuda_error).lower()
-            if "cuda" in error_str and ("context" in error_str or "device" in error_str):
+            if "cuda" in error_str and (
+                "context" in error_str or "device" in error_str
+            ):
                 app_logger.debug(f"CUDA context issue detected: {cuda_error}")
                 return False
             else:

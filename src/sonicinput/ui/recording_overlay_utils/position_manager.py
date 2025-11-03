@@ -21,7 +21,9 @@ class PositionManager:
     - Screen bounds validation
     """
 
-    def __init__(self, widget: 'QWidget', config_service: Optional['IConfigService'] = None):
+    def __init__(
+        self, widget: "QWidget", config_service: Optional["IConfigService"] = None
+    ):
         """Initialize position manager
 
         Args:
@@ -34,7 +36,7 @@ class PositionManager:
 
         app_logger.log_audio_event("Position manager initialized", {})
 
-    def set_config_service(self, config_service: 'IConfigService') -> None:
+    def set_config_service(self, config_service: "IConfigService") -> None:
         """Set or update the config service
 
         Args:
@@ -78,7 +80,7 @@ class PositionManager:
                     f"{current_screen.geometry().width()}x{current_screen.geometry().height()}"
                     f"+{current_screen.geometry().x()}+{current_screen.geometry().y()}"
                 ),
-                "device_pixel_ratio": float(current_screen.devicePixelRatio())
+                "device_pixel_ratio": float(current_screen.devicePixelRatio()),
             }
 
             app_logger.log_audio_event("Current screen info collected", screen_info)
@@ -109,18 +111,18 @@ class PositionManager:
             if target_index < len(screens):
                 candidate = screens[target_index]
                 if candidate.name() == target_name:
-                    app_logger.log_audio_event("Found exact screen match", {
-                        "index": target_index,
-                        "name": target_name
-                    })
+                    app_logger.log_audio_event(
+                        "Found exact screen match",
+                        {"index": target_index, "name": target_name},
+                    )
                     return candidate
 
             # 2. 尝试按名称匹配
             for screen in screens:
                 if screen.name() == target_name:
-                    app_logger.log_audio_event("Found screen by name", {
-                        "name": target_name
-                    })
+                    app_logger.log_audio_event(
+                        "Found screen by name", {"name": target_name}
+                    )
                     return screen
 
             # 3. 尝试按几何信息相似度匹配
@@ -132,23 +134,26 @@ class PositionManager:
                         f"+{screen.geometry().x()}+{screen.geometry().y()}"
                     )
                     if current_geometry == target_geometry:
-                        app_logger.log_audio_event("Found screen by geometry", {
-                            "geometry": current_geometry
-                        })
+                        app_logger.log_audio_event(
+                            "Found screen by geometry", {"geometry": current_geometry}
+                        )
                         return screen
 
             # 4. 回退到主屏幕
             primary_screen = QGuiApplication.primaryScreen()
-            app_logger.log_audio_event("Falling back to primary screen", {
-                "name": primary_screen.name() if primary_screen else "unknown"
-            })
+            app_logger.log_audio_event(
+                "Falling back to primary screen",
+                {"name": primary_screen.name() if primary_screen else "unknown"},
+            )
             return primary_screen
 
         except Exception as e:
             app_logger.log_error(e, "find_best_screen")
             return QGuiApplication.primaryScreen()
 
-    def ensure_position_in_bounds(self, x: int, y: int, screen: QScreen) -> Tuple[int, int]:
+    def ensure_position_in_bounds(
+        self, x: int, y: int, screen: QScreen
+    ) -> Tuple[int, int]:
         """确保位置在屏幕边界内
 
         Args:
@@ -172,21 +177,28 @@ class PositionManager:
 
             # 调整X坐标
             min_x = screen_geometry.x() + margin
-            max_x = screen_geometry.x() + screen_geometry.width() - window_width - margin
+            max_x = (
+                screen_geometry.x() + screen_geometry.width() - window_width - margin
+            )
             safe_x = max(min_x, min(x, max_x))
 
             # 调整Y坐标
             min_y = screen_geometry.y() + margin
-            max_y = screen_geometry.y() + screen_geometry.height() - window_height - margin
+            max_y = (
+                screen_geometry.y() + screen_geometry.height() - window_height - margin
+            )
             safe_y = max(min_y, min(y, max_y))
 
             # 如果位置被调整了，记录日志
             if safe_x != x or safe_y != y:
-                app_logger.log_audio_event("Position adjusted to stay in bounds", {
-                    "original": f"{x},{y}",
-                    "adjusted": f"{safe_x},{safe_y}",
-                    "screen": screen.name()
-                })
+                app_logger.log_audio_event(
+                    "Position adjusted to stay in bounds",
+                    {
+                        "original": f"{x},{y}",
+                        "adjusted": f"{safe_x},{safe_y}",
+                        "screen": screen.name(),
+                    },
+                )
 
             return safe_x, safe_y
 
@@ -217,29 +229,41 @@ class PositionManager:
                 app_logger.log_error(e, "save_position_mode")
 
             try:
-                self.config_service.set_setting("ui.overlay_position.custom.x", current_pos.x())
-                self.config_service.set_setting("ui.overlay_position.custom.y", current_pos.y())
+                self.config_service.set_setting(
+                    "ui.overlay_position.custom.x", current_pos.x()
+                )
+                self.config_service.set_setting(
+                    "ui.overlay_position.custom.y", current_pos.y()
+                )
                 position_saved = True
             except Exception as e:
                 app_logger.log_error(e, "save_position_coordinates")
 
             try:
-                self.config_service.set_setting("ui.overlay_position.last_screen", current_screen_info)
+                self.config_service.set_setting(
+                    "ui.overlay_position.last_screen", current_screen_info
+                )
             except Exception as e:
                 app_logger.log_error(e, "save_position_screen")
 
             # 即使部分保存失败，也要记住位置
             if position_saved:
                 self.last_saved_position = current_pos
-                app_logger.log_audio_event("Overlay position saved", {
-                    "position": f"{current_pos.x()},{current_pos.y()}",
-                    "screen": current_screen_info.get("name", "unknown")
-                })
+                app_logger.log_audio_event(
+                    "Overlay position saved",
+                    {
+                        "position": f"{current_pos.x()},{current_pos.y()}",
+                        "screen": current_screen_info.get("name", "unknown"),
+                    },
+                )
             else:
-                app_logger.log_audio_event("Overlay position save failed", {
-                    "position": f"{current_pos.x()},{current_pos.y()}",
-                    "fallback_memory": "position saved in memory only"
-                })
+                app_logger.log_audio_event(
+                    "Overlay position save failed",
+                    {
+                        "position": f"{current_pos.x()},{current_pos.y()}",
+                        "fallback_memory": "position saved in memory only",
+                    },
+                )
 
         except Exception as e:
             app_logger.log_error(e, "save_position_critical")
@@ -253,22 +277,34 @@ class PositionManager:
             # 验证ui.overlay_position存在且为字典
             overlay_pos = self.config_service.get_setting("ui.overlay_position", None)
             if not isinstance(overlay_pos, dict):
-                app_logger.log_audio_event("Repairing overlay config structure", {
-                    "current_type": type(overlay_pos).__name__ if overlay_pos else "None",
-                    "expected": "dict"
-                })
+                app_logger.log_audio_event(
+                    "Repairing overlay config structure",
+                    {
+                        "current_type": type(overlay_pos).__name__
+                        if overlay_pos
+                        else "None",
+                        "expected": "dict",
+                    },
+                )
                 # 重置为默认结构
-                self.config_service.set_setting("ui.overlay_position", {
-                    "mode": "preset",
-                    "preset": "center",
-                    "custom": {"x": 0, "y": 0},
-                    "auto_save": True
-                })
+                self.config_service.set_setting(
+                    "ui.overlay_position",
+                    {
+                        "mode": "preset",
+                        "preset": "center",
+                        "custom": {"x": 0, "y": 0},
+                        "auto_save": True,
+                    },
+                )
 
             # 验证custom子结构
-            custom_pos = self.config_service.get_setting("ui.overlay_position.custom", None)
+            custom_pos = self.config_service.get_setting(
+                "ui.overlay_position.custom", None
+            )
             if not isinstance(custom_pos, dict):
-                self.config_service.set_setting("ui.overlay_position.custom", {"x": 0, "y": 0})
+                self.config_service.set_setting(
+                    "ui.overlay_position.custom", {"x": 0, "y": 0}
+                )
 
             app_logger.log_audio_event("Overlay config structure verified", {})
 
@@ -282,40 +318,56 @@ class PositionManager:
 
         try:
             # 获取配置中的位置模式
-            position_mode = self.config_service.get_setting("ui.overlay_position.mode", "preset")
+            position_mode = self.config_service.get_setting(
+                "ui.overlay_position.mode", "preset"
+            )
 
             if position_mode == "custom":
                 # 自定义位置模式
-                saved_x = self.config_service.get_setting("ui.overlay_position.custom.x", 0)
-                saved_y = self.config_service.get_setting("ui.overlay_position.custom.y", 0)
-                last_screen_info = self.config_service.get_setting("ui.overlay_position.last_screen", {})
+                saved_x = self.config_service.get_setting(
+                    "ui.overlay_position.custom.x", 0
+                )
+                saved_y = self.config_service.get_setting(
+                    "ui.overlay_position.custom.y", 0
+                )
+                last_screen_info = self.config_service.get_setting(
+                    "ui.overlay_position.last_screen", {}
+                )
 
                 if last_screen_info:
                     # 尝试找到最佳匹配的屏幕
                     target_screen = self.find_best_screen(last_screen_info)
                     if target_screen:
                         # 确保位置在屏幕边界内
-                        safe_x, safe_y = self.ensure_position_in_bounds(saved_x, saved_y, target_screen)
+                        safe_x, safe_y = self.ensure_position_in_bounds(
+                            saved_x, saved_y, target_screen
+                        )
                         self.widget.move(safe_x, safe_y)
 
-                        app_logger.log_audio_event("Overlay position restored", {
-                            "position": f"{safe_x},{safe_y}",
-                            "screen": target_screen.name()
-                        })
+                        app_logger.log_audio_event(
+                            "Overlay position restored",
+                            {
+                                "position": f"{safe_x},{safe_y}",
+                                "screen": target_screen.name(),
+                            },
+                        )
                         return
 
                 # 如果屏幕信息无效，直接使用保存的坐标
                 self.widget.move(saved_x, saved_y)
-                app_logger.log_audio_event("Overlay position restored (no screen validation)", {
-                    "position": f"{saved_x},{saved_y}"
-                })
+                app_logger.log_audio_event(
+                    "Overlay position restored (no screen validation)",
+                    {"position": f"{saved_x},{saved_y}"},
+                )
             else:
                 # 预设位置模式
-                preset_position = self.config_service.get_setting("ui.overlay_position.preset", "center")
+                preset_position = self.config_service.get_setting(
+                    "ui.overlay_position.preset", "center"
+                )
                 self.set_preset_position(preset_position)
-                app_logger.log_audio_event("Overlay position restored (preset)", {
-                    "preset": preset_position
-                })
+                app_logger.log_audio_event(
+                    "Overlay position restored (preset)", {"preset": preset_position}
+                )
 
         except Exception as e:
             app_logger.log_error(e, "restore_position")
@@ -342,7 +394,7 @@ class PositionManager:
         elif position == "bottom_right":
             self.widget.move(
                 screen_geometry.width() - self.widget.width() - 50,
-                screen_geometry.height() - self.widget.height() - 50
+                screen_geometry.height() - self.widget.height() - 50,
             )
 
         app_logger.log_audio_event("Preset position set", {"position": position})
@@ -356,4 +408,6 @@ class PositionManager:
         y = (screen_geometry.height() - self.widget.height()) // 2
 
         self.widget.move(x, y)
-        app_logger.log_audio_event("Widget centered on screen", {"position": f"{x},{y}"})
+        app_logger.log_audio_event(
+            "Widget centered on screen", {"position": f"{x},{y}"}
+        )

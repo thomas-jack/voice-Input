@@ -5,10 +5,10 @@
 """
 
 
-
 # ==================== 应用程序信息 ====================
 class AppInfo:
     """应用程序基本信息"""
+
     NAME = "Voice Input Software"
     VERSION = "1.0.0"
     DESCRIPTION = "AI-powered voice input software with speech recognition"
@@ -19,6 +19,7 @@ class AppInfo:
 # ==================== 文件路径 ====================
 class Paths:
     """文件路径常量"""
+
     # 配置文件
     CONFIG_DIR_NAME = "SonicInput"
     CONFIG_FILE_NAME = "config.json"
@@ -114,7 +115,9 @@ class ConfigKeys:
     ADVANCED_AUDIO_NOISE_REDUCTION = "advanced.audio_processing.noise_reduction"
     ADVANCED_PERFORMANCE_PRELOAD_MODEL = "advanced.performance.preload_model"
     ADVANCED_PERFORMANCE_CACHE_AUDIO = "advanced.performance.cache_audio"
-    ADVANCED_PERFORMANCE_PARALLEL_PROCESSING = "advanced.performance.parallel_processing"
+    ADVANCED_PERFORMANCE_PARALLEL_PROCESSING = (
+        "advanced.performance.parallel_processing"
+    )
 
 
 # ==================== 默认值 ====================
@@ -208,7 +211,7 @@ class UI:
         "center_right": (-50, 0),
         "bottom_left": (50, -50),  # 负数表示从底部计算
         "bottom_center": (0, -50),
-        "bottom_right": (-50, -50)
+        "bottom_right": (-50, -50),
     }
 
     # 动画时长（毫秒）
@@ -225,7 +228,7 @@ class UI:
         "error": "#DC3545",
         "info": "#17A2B8",
         "light": "#F8F9FA",
-        "dark": "#343A40"
+        "dark": "#343A40",
     }
 
     # 状态颜色
@@ -234,7 +237,7 @@ class UI:
         "recording": "#FF4444",
         "processing": "#FFC107",
         "completed": "#28A745",
-        "error": "#DC3545"
+        "error": "#DC3545",
     }
 
 
@@ -271,8 +274,9 @@ class Whisper:
         "base",
         "small",
         "medium",
-        "large-v3", "large-v3-turbo",
-        "turbo"
+        "large-v3",
+        "large-v3-turbo",
+        "turbo",
     ]
 
     # 语言代码
@@ -288,7 +292,7 @@ class Whisper:
         "it": "Italian",
         "pt": "Portuguese",
         "ru": "Russian",
-        "ar": "Arabic"
+        "ar": "Arabic",
     }
 
     # 计算类型
@@ -313,7 +317,7 @@ class InputMethods:
     METHOD_DESCRIPTIONS = {
         CLIPBOARD: "Clipboard-based input (most compatible)",
         SENDINPUT: "Direct input simulation (faster)",
-        SMART: "Smart method selection (recommended)"
+        SMART: "Smart method selection (recommended)",
     }
 
 
@@ -480,16 +484,16 @@ class Patterns:
     """正则表达式模式常量"""
 
     # 热键格式验证
-    HOTKEY_PATTERN = r'^(ctrl\+)?(shift\+)?(alt\+)?\w+$'
+    HOTKEY_PATTERN = r"^(ctrl\+)?(shift\+)?(alt\+)?\w+$"
 
     # API密钥格式
-    OPENROUTER_API_KEY_PATTERN = r'^sk-[a-zA-Z0-9]{32,}$'
+    OPENROUTER_API_KEY_PATTERN = r"^sk-[a-zA-Z0-9]{32,}$"
 
     # 文件名验证
-    SAFE_FILENAME_PATTERN = r'^[a-zA-Z0-9_\-\.]+$'
+    SAFE_FILENAME_PATTERN = r"^[a-zA-Z0-9_\-\.]+$"
 
     # 语言代码验证
-    LANGUAGE_CODE_PATTERN = r'^[a-z]{2}(-[A-Z]{2})?$'
+    LANGUAGE_CODE_PATTERN = r"^[a-z]{2}(-[A-Z]{2})?$"
 
 
 # ==================== 版本相关常量 ====================

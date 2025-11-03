@@ -13,7 +13,9 @@ class ConfigMerger:
     """Utility for merging configuration dictionaries with consistent patterns"""
 
     @staticmethod
-    def merge_recursive(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+    def merge_recursive(
+        base: Dict[str, Any], override: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Recursively merge two configuration dictionaries
 
         Args:
@@ -26,7 +28,11 @@ class ConfigMerger:
         result = base.copy()
 
         for key, value in override.items():
-            if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            if (
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(value, dict)
+            ):
                 result[key] = ConfigMerger.merge_recursive(result[key], value)
             else:
                 result[key] = value
@@ -34,7 +40,9 @@ class ConfigMerger:
         return result
 
     @staticmethod
-    def ensure_structure(config: Dict[str, Any], required_structure: Dict[str, Any]) -> Dict[str, Any]:
+    def ensure_structure(
+        config: Dict[str, Any], required_structure: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Ensure configuration has required structure, adding missing sections
 
         Args:
@@ -91,8 +99,11 @@ class ConfigPathHelper:
         """
         try:
             if config_path.exists():
-                backup_path = config_path.with_suffix(config_path.suffix + backup_suffix)
+                backup_path = config_path.with_suffix(
+                    config_path.suffix + backup_suffix
+                )
                 import shutil
+
                 shutil.copy2(config_path, backup_path)
                 return True
             return False
@@ -100,7 +111,9 @@ class ConfigPathHelper:
             return False
 
     @staticmethod
-    def load_json_config(config_path: Path) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
+    def load_json_config(
+        config_path: Path,
+    ) -> tuple[Optional[Dict[str, Any]], Optional[str]]:
         """Load JSON configuration from file
 
         Args:
@@ -113,7 +126,7 @@ class ConfigPathHelper:
             if not config_path.exists():
                 return None, "Configuration file does not exist"
 
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
 
             if not isinstance(config, dict):
@@ -147,7 +160,7 @@ class ConfigPathHelper:
                 ConfigPathHelper.backup_config(config_path)
 
             # Save configuration
-            with open(config_path, 'w', encoding='utf-8') as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
 
             return None
@@ -168,7 +181,7 @@ def get_nested_value(config: Dict[str, Any], key_path: str, default: Any = None)
         Configuration value or default
     """
     try:
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         current = config
 
         for key in keys:
@@ -194,7 +207,7 @@ def set_nested_value(config: Dict[str, Any], key_path: str, value: Any) -> bool:
         True if value was set successfully
     """
     try:
-        keys = key_path.split('.')
+        keys = key_path.split(".")
         current = config
 
         # Navigate to parent of final key, creating dicts as needed

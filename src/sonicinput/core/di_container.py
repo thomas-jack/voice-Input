@@ -39,7 +39,7 @@ from .di_container_enhanced import (
     ServiceLifetime,
     ServiceDescriptor,
     ServiceScope,
-    ServiceRegistry
+    ServiceRegistry,
 )
 
 # 主要API - 直接使用增强版实现
@@ -49,16 +49,14 @@ DIContainer = EnhancedDIContainer
 from .di_container_enhanced import create_container, create_enhanced_container
 
 __all__ = [
-    'DIContainer',
-    'EnhancedDIContainer',
-
+    "DIContainer",
+    "EnhancedDIContainer",
     # 核心类型
-    'ServiceLifetime',
-    'ServiceDescriptor',
-    'ServiceScope',
-    'ServiceRegistry',
-
+    "ServiceLifetime",
+    "ServiceDescriptor",
+    "ServiceScope",
+    "ServiceRegistry",
     # 工厂函数
-    'create_container',
-    'create_enhanced_container'
+    "create_container",
+    "create_enhanced_container",
 ]

@@ -1,7 +1,19 @@
 """Whisper设置标签页"""
 
-from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout,
-                            QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox, QPushButton, QHBoxLayout, QLabel, QProgressBar, QLineEdit)
+from PySide6.QtWidgets import (
+    QVBoxLayout,
+    QGroupBox,
+    QFormLayout,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
+    QSpinBox,
+    QPushButton,
+    QHBoxLayout,
+    QLabel,
+    QProgressBar,
+    QLineEdit,
+)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -27,7 +39,9 @@ class WhisperTab(BaseSettingsTab):
 
         self.transcription_provider_combo = QComboBox()
         self.transcription_provider_combo.addItems(["local", "groq", "siliconflow"])
-        self.transcription_provider_combo.currentTextChanged.connect(self._on_provider_changed)
+        self.transcription_provider_combo.currentTextChanged.connect(
+            self._on_provider_changed
+        )
         provider_layout.addRow("Provider:", self.transcription_provider_combo)
 
         layout.addWidget(provider_group)
@@ -38,18 +52,16 @@ class WhisperTab(BaseSettingsTab):
 
         # 模型选择
         self.whisper_model_combo = QComboBox()
-        self.whisper_model_combo.addItems([
-            "tiny", "base", "small", "medium",
-            "large-v3", "large-v3-turbo",
-            "turbo"
-        ])
+        self.whisper_model_combo.addItems(
+            ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo", "turbo"]
+        )
         model_layout.addRow("Model:", self.whisper_model_combo)
 
         # 语言设置
         self.whisper_language_combo = QComboBox()
-        self.whisper_language_combo.addItems([
-            "auto", "en", "zh", "ja", "ko", "es", "fr", "de", "it", "pt", "ru"
-        ])
+        self.whisper_language_combo.addItems(
+            ["auto", "en", "zh", "ja", "ko", "es", "fr", "de", "it", "pt", "ru"]
+        )
         model_layout.addRow("Language:", self.whisper_language_combo)
 
         # GPU使用
@@ -121,10 +133,7 @@ class WhisperTab(BaseSettingsTab):
         # 模型选择（支持自定义输入）
         self.groq_model_combo = QComboBox()
         self.groq_model_combo.setEditable(True)  # 允许用户自定义输入
-        self.groq_model_combo.addItems([
-            "whisper-large-v3-turbo",
-            "whisper-large-v3"
-        ])
+        self.groq_model_combo.addItems(["whisper-large-v3-turbo", "whisper-large-v3"])
         groq_layout.addRow("Model:", self.groq_model_combo)
 
         # 超时设置
@@ -151,21 +160,24 @@ class WhisperTab(BaseSettingsTab):
         self.siliconflow_api_key_edit = QLineEdit()
         self.siliconflow_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.siliconflow_api_key_edit.setPlaceholderText("Enter SiliconFlow API key")
-        self.siliconflow_api_key_edit.textChanged.connect(self._on_siliconflow_api_key_changed)
+        self.siliconflow_api_key_edit.textChanged.connect(
+            self._on_siliconflow_api_key_changed
+        )
         siliconflow_layout.addRow("API Key:", self.siliconflow_api_key_edit)
 
         # Base URL
         self.siliconflow_base_url_edit = QLineEdit()
-        self.siliconflow_base_url_edit.setPlaceholderText("Leave empty to restore default")
+        self.siliconflow_base_url_edit.setPlaceholderText(
+            "Leave empty to restore default"
+        )
         siliconflow_layout.addRow("Base URL:", self.siliconflow_base_url_edit)
 
         # 模型选择（支持自定义输入）
         self.siliconflow_model_combo = QComboBox()
         self.siliconflow_model_combo.setEditable(True)  # 允许用户自定义输入
-        self.siliconflow_model_combo.addItems([
-            "FunAudioLLM/SenseVoiceSmall",
-            "TeleAI/TeleSpeechASR"
-        ])
+        self.siliconflow_model_combo.addItems(
+            ["FunAudioLLM/SenseVoiceSmall", "TeleAI/TeleSpeechASR"]
+        )
         self.siliconflow_model_combo.setCurrentText("FunAudioLLM/SenseVoiceSmall")
         siliconflow_layout.addRow("Model:", self.siliconflow_model_combo)
 
@@ -203,25 +215,25 @@ class WhisperTab(BaseSettingsTab):
 
         # 保存控件引用
         self.controls = {
-            'transcription_provider': self.transcription_provider_combo,
-            'whisper_model': self.whisper_model_combo,
-            'whisper_language': self.whisper_language_combo,
-            'use_gpu': self.use_gpu_checkbox,
-            'auto_load_model': self.auto_load_model_checkbox,
-            'temperature': self.whisper_temperature_spinbox,
-            'groq_api_key': self.groq_api_key_edit,
-            'groq_base_url': self.groq_base_url_edit,
-            'groq_model': self.groq_model_combo,
-            'groq_timeout': self.groq_timeout_spinbox,
-            'groq_max_retries': self.groq_max_retries_spinbox,
-            'siliconflow_api_key': self.siliconflow_api_key_edit,
-            'siliconflow_base_url': self.siliconflow_base_url_edit,
-            'siliconflow_model': self.siliconflow_model_combo,
-            'siliconflow_timeout': self.siliconflow_timeout_spinbox,
-            'siliconflow_max_retries': self.siliconflow_max_retries_spinbox,
-            'model_status': self.model_status_label,
-            'gpu_status': self.gpu_status_label,
-            'gpu_memory': self.gpu_memory_label,
+            "transcription_provider": self.transcription_provider_combo,
+            "whisper_model": self.whisper_model_combo,
+            "whisper_language": self.whisper_language_combo,
+            "use_gpu": self.use_gpu_checkbox,
+            "auto_load_model": self.auto_load_model_checkbox,
+            "temperature": self.whisper_temperature_spinbox,
+            "groq_api_key": self.groq_api_key_edit,
+            "groq_base_url": self.groq_base_url_edit,
+            "groq_model": self.groq_model_combo,
+            "groq_timeout": self.groq_timeout_spinbox,
+            "groq_max_retries": self.groq_max_retries_spinbox,
+            "siliconflow_api_key": self.siliconflow_api_key_edit,
+            "siliconflow_base_url": self.siliconflow_base_url_edit,
+            "siliconflow_model": self.siliconflow_model_combo,
+            "siliconflow_timeout": self.siliconflow_timeout_spinbox,
+            "siliconflow_max_retries": self.siliconflow_max_retries_spinbox,
+            "model_status": self.model_status_label,
+            "gpu_status": self.gpu_status_label,
+            "gpu_memory": self.gpu_memory_label,
         }
 
         # 暴露控件到parent_window
@@ -229,7 +241,9 @@ class WhisperTab(BaseSettingsTab):
         self.parent_window.whisper_language_combo = self.whisper_language_combo
         self.parent_window.use_gpu_checkbox = self.use_gpu_checkbox
         self.parent_window.auto_load_model_checkbox = self.auto_load_model_checkbox
-        self.parent_window.whisper_temperature_spinbox = self.whisper_temperature_spinbox
+        self.parent_window.whisper_temperature_spinbox = (
+            self.whisper_temperature_spinbox
+        )
         self.parent_window.model_status_label = self.model_status_label
         self.parent_window.gpu_status_label = self.gpu_status_label
         self.parent_window.gpu_memory_label = self.gpu_memory_label
@@ -268,36 +282,26 @@ class WhisperTab(BaseSettingsTab):
 
         # Groq settings
         groq_config = transcription_config.get("groq", {})
-        self.groq_api_key_edit.setText(
-            groq_config.get("api_key", "")
-        )
+        self.groq_api_key_edit.setText(groq_config.get("api_key", ""))
         self.groq_base_url_edit.setText(
             groq_config.get("base_url", "https://api.groq.com/openai/v1")
         )
         self.groq_model_combo.setCurrentText(
             groq_config.get("model", "whisper-large-v3-turbo")
         )
-        self.groq_timeout_spinbox.setValue(
-            groq_config.get("timeout", 30)
-        )
-        self.groq_max_retries_spinbox.setValue(
-            groq_config.get("max_retries", 3)
-        )
+        self.groq_timeout_spinbox.setValue(groq_config.get("timeout", 30))
+        self.groq_max_retries_spinbox.setValue(groq_config.get("max_retries", 3))
 
         # SiliconFlow settings
         siliconflow_config = transcription_config.get("siliconflow", {})
-        self.siliconflow_api_key_edit.setText(
-            siliconflow_config.get("api_key", "")
-        )
+        self.siliconflow_api_key_edit.setText(siliconflow_config.get("api_key", ""))
         self.siliconflow_base_url_edit.setText(
             siliconflow_config.get("base_url", "https://api.siliconflow.cn/v1")
         )
         self.siliconflow_model_combo.setCurrentText(
             siliconflow_config.get("model", "FunAudioLLM/SenseVoiceSmall")
         )
-        self.siliconflow_timeout_spinbox.setValue(
-            siliconflow_config.get("timeout", 30)
-        )
+        self.siliconflow_timeout_spinbox.setValue(siliconflow_config.get("timeout", 30))
         self.siliconflow_max_retries_spinbox.setValue(
             siliconflow_config.get("max_retries", 3)
         )
@@ -323,18 +327,20 @@ class WhisperTab(BaseSettingsTab):
                 },
                 "groq": {
                     "api_key": self.groq_api_key_edit.text(),
-                    "base_url": self.groq_base_url_edit.text().strip() or "https://api.groq.com/openai/v1",
+                    "base_url": self.groq_base_url_edit.text().strip()
+                    or "https://api.groq.com/openai/v1",
                     "model": self.groq_model_combo.currentText(),
                     "timeout": self.groq_timeout_spinbox.value(),
                     "max_retries": self.groq_max_retries_spinbox.value(),
                 },
                 "siliconflow": {
                     "api_key": self.siliconflow_api_key_edit.text(),
-                    "base_url": self.siliconflow_base_url_edit.text().strip() or "https://api.siliconflow.cn/v1",
+                    "base_url": self.siliconflow_base_url_edit.text().strip()
+                    or "https://api.siliconflow.cn/v1",
                     "model": self.siliconflow_model_combo.currentText(),
                     "timeout": self.siliconflow_timeout_spinbox.value(),
                     "max_retries": self.siliconflow_max_retries_spinbox.value(),
-                }
+                },
             },
             # Keep old whisper config for backward compatibility
             "whisper": {
@@ -343,7 +349,7 @@ class WhisperTab(BaseSettingsTab):
                 "use_gpu": self.use_gpu_checkbox.isChecked(),
                 "auto_load": self.auto_load_model_checkbox.isChecked(),
                 "temperature": self.whisper_temperature_spinbox.value(),
-            }
+            },
         }
 
         return config
@@ -351,12 +357,12 @@ class WhisperTab(BaseSettingsTab):
     def _load_model(self) -> None:
         """加载模型 - 发送信号到父窗口"""
         model_name = self.whisper_model_combo.currentText()
-        if hasattr(self.parent_window, 'model_load_requested'):
+        if hasattr(self.parent_window, "model_load_requested"):
             self.parent_window.model_load_requested.emit(model_name)
 
     def _unload_model(self) -> None:
         """卸载模型 - 发送信号到父窗口"""
-        if hasattr(self.parent_window, 'unload_model'):
+        if hasattr(self.parent_window, "unload_model"):
             self.parent_window.unload_model()
 
     def _test_model(self) -> None:
@@ -365,7 +371,7 @@ class WhisperTab(BaseSettingsTab):
 
         if provider == "local":
             # Local 模式：测试本地模型
-            if hasattr(self.parent_window, 'model_test_requested'):
+            if hasattr(self.parent_window, "model_test_requested"):
                 self.parent_window.model_test_requested.emit()
         elif provider == "groq":
             # Groq 模式：测试 API 连接
@@ -384,7 +390,7 @@ class WhisperTab(BaseSettingsTab):
             QMessageBox.warning(
                 self.parent_window,
                 "API Key Missing",
-                "Please enter your Groq API key first."
+                "Please enter your Groq API key first.",
             )
             return
 
@@ -406,14 +412,14 @@ class WhisperTab(BaseSettingsTab):
                 QMessageBox.information(
                     self.parent_window,
                     "API Test Successful",
-                    f"Successfully connected to Groq API!\n\nModel: {model}\n\nYou can now use cloud transcription."
+                    f"Successfully connected to Groq API!\n\nModel: {model}\n\nYou can now use cloud transcription.",
                 )
             else:
                 self.model_status_label.setText("API connection failed")
                 QMessageBox.critical(
                     self.parent_window,
                     "API Test Failed",
-                    "Failed to connect to Groq API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- Groq service status"
+                    "Failed to connect to Groq API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- Groq service status",
                 )
 
         except Exception as e:
@@ -421,7 +427,7 @@ class WhisperTab(BaseSettingsTab):
             QMessageBox.critical(
                 self.parent_window,
                 "API Test Error",
-                f"Error testing Groq API:\n\n{str(e)}\n\nPlease check your API key and try again."
+                f"Error testing Groq API:\n\n{str(e)}\n\nPlease check your API key and try again.",
             )
 
     def _test_siliconflow_api(self) -> None:
@@ -434,7 +440,7 @@ class WhisperTab(BaseSettingsTab):
             QMessageBox.warning(
                 self.parent_window,
                 "API Key Missing",
-                "Please enter your SiliconFlow API key first."
+                "Please enter your SiliconFlow API key first.",
             )
             return
 
@@ -456,14 +462,14 @@ class WhisperTab(BaseSettingsTab):
                 QMessageBox.information(
                     self.parent_window,
                     "API Test Successful",
-                    f"Successfully connected to SiliconFlow API!\n\nModel: {model}\n\nYou can now use cloud transcription."
+                    f"Successfully connected to SiliconFlow API!\n\nModel: {model}\n\nYou can now use cloud transcription.",
                 )
             else:
                 self.model_status_label.setText("API connection failed")
                 QMessageBox.critical(
                     self.parent_window,
                     "API Test Failed",
-                    "Failed to connect to SiliconFlow API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- SiliconFlow service status"
+                    "Failed to connect to SiliconFlow API.\n\nPlease check:\n- API key is valid\n- Internet connection\n- SiliconFlow service status",
                 )
 
         except Exception as e:
@@ -471,7 +477,7 @@ class WhisperTab(BaseSettingsTab):
             QMessageBox.critical(
                 self.parent_window,
                 "API Test Error",
-                f"Error testing SiliconFlow API:\n\n{str(e)}\n\nPlease check your API key and try again."
+                f"Error testing SiliconFlow API:\n\n{str(e)}\n\nPlease check your API key and try again.",
             )
 
     def update_model_status(self, status: str) -> None:
@@ -541,22 +547,33 @@ class WhisperTab(BaseSettingsTab):
         if is_local:
             # Local 模式：显示模型管理
             self.management_group.setTitle("Model Management")
-            self.model_status_label.setText("Model not loaded" if not hasattr(self, '_model_loaded') else
-                                           ("Model loaded" if self._model_loaded else "Model not loaded"))
+            self.model_status_label.setText(
+                "Model not loaded"
+                if not hasattr(self, "_model_loaded")
+                else ("Model loaded" if self._model_loaded else "Model not loaded")
+            )
             self.load_model_button.setVisible(True)
             self.unload_model_button.setVisible(True)
             self.test_model_button.setText("Test Model")
         elif is_groq:
             # Groq 模式：显示 API 测试
             self.management_group.setTitle("API Connection Test")
-            self.model_status_label.setText("API key configured" if self.groq_api_key_edit.text().strip() else "API key not configured")
+            self.model_status_label.setText(
+                "API key configured"
+                if self.groq_api_key_edit.text().strip()
+                else "API key not configured"
+            )
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
             self.test_model_button.setText("Test API Connection")
         elif is_siliconflow:
             # SiliconFlow 模式：显示 API 测试
             self.management_group.setTitle("API Connection Test")
-            self.model_status_label.setText("API key configured" if self.siliconflow_api_key_edit.text().strip() else "API key not configured")
+            self.model_status_label.setText(
+                "API key configured"
+                if self.siliconflow_api_key_edit.text().strip()
+                else "API key not configured"
+            )
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
             self.test_model_button.setText("Test API Connection")

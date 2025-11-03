@@ -18,6 +18,7 @@ def _ensure_groq_imported():
     if groq is None:
         try:
             from groq import Groq
+
             groq = Groq
             app_logger.log_model_loading_step("Groq module imported successfully", {})
         except ImportError as e:
@@ -31,12 +32,14 @@ class GroqSpeechService(ISpeechService):
     """Groq Cloud Whisper API implementation"""
 
     # Available Groq Whisper models
-    AVAILABLE_MODELS = [
-        "whisper-large-v3-turbo",
-        "whisper-large-v3"
-    ]
+    AVAILABLE_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"]
 
-    def __init__(self, api_key: str, model: str = "whisper-large-v3-turbo", base_url: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "whisper-large-v3-turbo",
+        base_url: Optional[str] = None,
+    ):
         """Initialize Groq Speech Service
 
         Args:
@@ -53,8 +56,14 @@ class GroqSpeechService(ISpeechService):
         self._client = None
         self._model_loaded = False
 
-    def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None, temperature: float = 0.0,
-                  max_retries: int = 3, retry_delay: float = 1.0) -> Dict[str, Any]:
+    def transcribe(
+        self,
+        audio_data: np.ndarray,
+        language: Optional[str] = None,
+        temperature: float = 0.0,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+    ) -> Dict[str, Any]:
         """Transcribe audio data using Groq Whisper API with automatic retry
 
         Args:
@@ -80,7 +89,7 @@ class GroqSpeechService(ISpeechService):
                     "processing_time": 0.0,
                     "rtf": 0.0,
                     "error": "Failed to initialize Groq client. Check API key and network connection.",
-                    "provider": "groq"
+                    "provider": "groq",
                 }
 
         start_time = time.time()
@@ -93,12 +102,15 @@ class GroqSpeechService(ISpeechService):
                 audio_bytes = self._numpy_to_wav(audio_data)
 
                 # Create transcription request
-                app_logger.log_audio_event("Sending audio to Groq API", {
-                    "model": self.model,
-                    "language": language or "auto",
-                    "audio_size_bytes": len(audio_bytes),
-                    "retry_count": retry_count
-                })
+                app_logger.log_audio_event(
+                    "Sending audio to Groq API",
+                    {
+                        "model": self.model,
+                        "language": language or "auto",
+                        "audio_size_bytes": len(audio_bytes),
+                        "retry_count": retry_count,
+                    },
+                )
 
                 # Call Groq API
                 transcription = self._client.audio.transcriptions.create(
@@ -106,7 +118,7 @@ class GroqSpeechService(ISpeechService):
                     model=self.model,
                     language=language if language and language != "auto" else None,
                     response_format="verbose_json",
-                    temperature=temperature
+                    temperature=temperature,
                 )
 
                 elapsed_time = time.time() - start_time
@@ -116,23 +128,28 @@ class GroqSpeechService(ISpeechService):
                 # Convert Groq response to our standard format
                 result = {
                     "text": transcription.text,
-                    "language": getattr(transcription, "language", language or "unknown"),
+                    "language": getattr(
+                        transcription, "language", language or "unknown"
+                    ),
                     "segments": self._convert_segments(transcription),
                     "duration": audio_duration,
                     "processing_time": elapsed_time,
                     "rtf": rtf,
                     "provider": "groq",
-                    "retry_count": retry_count
+                    "retry_count": retry_count,
                 }
 
-                app_logger.log_audio_event("Groq transcription completed", {
-                    "text_length": len(result["text"]),
-                    "duration": audio_duration,
-                    "processing_time": elapsed_time,
-                    "rtf": rtf,
-                    "model": self.model,
-                    "retry_count": retry_count
-                })
+                app_logger.log_audio_event(
+                    "Groq transcription completed",
+                    {
+                        "text_length": len(result["text"]),
+                        "duration": audio_duration,
+                        "processing_time": elapsed_time,
+                        "rtf": rtf,
+                        "model": self.model,
+                        "retry_count": retry_count,
+                    },
+                )
 
                 return result
 
@@ -143,13 +160,18 @@ class GroqSpeechService(ISpeechService):
                 # Check if we should retry
                 if retry_count < max_retries:
                     retry_count += 1
-                    wait_time = retry_delay * (2 ** (retry_count - 1))  # Exponential backoff
-                    app_logger.log_audio_event("Retrying Groq transcription", {
-                        "retry_count": retry_count,
-                        "max_retries": max_retries,
-                        "delay": wait_time,
-                        "error": last_error
-                    })
+                    wait_time = retry_delay * (
+                        2 ** (retry_count - 1)
+                    )  # Exponential backoff
+                    app_logger.log_audio_event(
+                        "Retrying Groq transcription",
+                        {
+                            "retry_count": retry_count,
+                            "max_retries": max_retries,
+                            "delay": wait_time,
+                            "error": last_error,
+                        },
+                    )
                     time.sleep(wait_time)
                     continue
                 else:
@@ -171,7 +193,7 @@ class GroqSpeechService(ISpeechService):
             "error_code": "MAX_RETRIES_EXCEEDED",
             "provider": "groq",
             "retry_count": retry_count,
-            "success": False
+            "success": False,
         }
 
     def _numpy_to_wav(self, audio_data: np.ndarray, sample_rate: int = 16000) -> bytes:
@@ -194,7 +216,7 @@ class GroqSpeechService(ISpeechService):
 
         # Create WAV file in memory
         wav_buffer = io.BytesIO()
-        with wave.open(wav_buffer, 'wb') as wav_file:
+        with wave.open(wav_buffer, "wb") as wav_file:
             wav_file.setnchannels(1)  # Mono
             wav_file.setsampwidth(2)  # 16-bit
             wav_file.setframerate(sample_rate)
@@ -212,29 +234,33 @@ class GroqSpeechService(ISpeechService):
         Returns:
             List of segment dictionaries
         """
-        if not hasattr(transcription, 'segments') or not transcription.segments:
+        if not hasattr(transcription, "segments") or not transcription.segments:
             return []
 
         segments = []
         for seg in transcription.segments:
             # Handle both dict and object attribute access
             if isinstance(seg, dict):
-                segments.append({
-                    "start": seg.get("start", 0.0),
-                    "end": seg.get("end", 0.0),
-                    "text": seg.get("text", ""),
-                    "avg_logprob": seg.get("avg_logprob", 0.0),
-                    "no_speech_prob": seg.get("no_speech_prob", 0.0)
-                })
+                segments.append(
+                    {
+                        "start": seg.get("start", 0.0),
+                        "end": seg.get("end", 0.0),
+                        "text": seg.get("text", ""),
+                        "avg_logprob": seg.get("avg_logprob", 0.0),
+                        "no_speech_prob": seg.get("no_speech_prob", 0.0),
+                    }
+                )
             else:
                 # Object attribute access
-                segments.append({
-                    "start": getattr(seg, "start", 0.0),
-                    "end": getattr(seg, "end", 0.0),
-                    "text": getattr(seg, "text", ""),
-                    "avg_logprob": getattr(seg, "avg_logprob", 0.0),
-                    "no_speech_prob": getattr(seg, "no_speech_prob", 0.0)
-                })
+                segments.append(
+                    {
+                        "start": getattr(seg, "start", 0.0),
+                        "end": getattr(seg, "end", 0.0),
+                        "text": getattr(seg, "text", ""),
+                        "avg_logprob": getattr(seg, "avg_logprob", 0.0),
+                        "no_speech_prob": getattr(seg, "no_speech_prob", 0.0),
+                    }
+                )
 
         return segments
 
@@ -246,9 +272,9 @@ class GroqSpeechService(ISpeechService):
         """
         # Check API key
         if not self.api_key or self.api_key.strip() == "":
-            app_logger.log_audio_event("Groq API key not configured", {
-                "error": "API key is empty or missing"
-            })
+            app_logger.log_audio_event(
+                "Groq API key not configured", {"error": "API key is empty or missing"}
+            )
             return False
 
         try:
@@ -260,11 +286,14 @@ class GroqSpeechService(ISpeechService):
             else:
                 self._client = Groq(api_key=self.api_key)
 
-            app_logger.log_model_loading_step("Groq client initialized on-demand", {
-                "model": self.model,
-                "api_key_present": True,
-                "base_url": self.base_url or "default"
-            })
+            app_logger.log_model_loading_step(
+                "Groq client initialized on-demand",
+                {
+                    "model": self.model,
+                    "api_key_present": True,
+                    "base_url": self.base_url or "default",
+                },
+            )
 
             return True
 
@@ -283,10 +312,10 @@ class GroqSpeechService(ISpeechService):
         """
         if model_name:
             if model_name not in self.AVAILABLE_MODELS:
-                app_logger.log_audio_event("Invalid Groq model requested", {
-                    "requested": model_name,
-                    "available": self.AVAILABLE_MODELS
-                })
+                app_logger.log_audio_event(
+                    "Invalid Groq model requested",
+                    {"requested": model_name, "available": self.AVAILABLE_MODELS},
+                )
                 return False
             self.model = model_name
             self.model_name = model_name  # Keep in sync

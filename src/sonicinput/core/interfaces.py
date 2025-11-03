@@ -7,22 +7,22 @@ import numpy as np
 
 class IAudioService(ABC):
     """音频服务接口"""
-    
+
     @abstractmethod
     def start_recording(self, device_id: Optional[int] = None) -> None:
         """开始录音"""
         pass
-    
+
     @abstractmethod
     def stop_recording(self) -> np.ndarray:
         """停止录音并返回音频数据"""
         pass
-    
+
     @abstractmethod
     def set_callback(self, callback: Callable[[np.ndarray], None]) -> None:
         """设置音频数据回调"""
         pass
-    
+
     @property
     @abstractmethod
     def is_recording(self) -> bool:
@@ -32,22 +32,24 @@ class IAudioService(ABC):
 
 class ISpeechService(ABC):
     """语音识别服务接口"""
-    
+
     @abstractmethod
-    def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None) -> Dict[str, Any]:
+    def transcribe(
+        self, audio_data: np.ndarray, language: Optional[str] = None
+    ) -> Dict[str, Any]:
         """转录音频数据"""
         pass
-    
+
     @abstractmethod
     def load_model(self) -> None:
         """加载模型"""
         pass
-    
+
     @abstractmethod
     def unload_model(self) -> None:
         """卸载模型"""
         pass
-    
+
     @property
     @abstractmethod
     def is_model_loaded(self) -> bool:
@@ -145,17 +147,17 @@ class IHotkeyService(ABC):
 
 class IConfigService(ABC):
     """配置服务接口"""
-    
+
     @abstractmethod
     def get_setting(self, key: str, default: Any = None) -> Any:
         """获取配置项"""
         pass
-    
+
     @abstractmethod
     def set_setting(self, key: str, value: Any) -> None:
         """设置配置项"""
         pass
-    
+
     @abstractmethod
     def save_config(self) -> None:
         """保存配置"""
@@ -164,17 +166,17 @@ class IConfigService(ABC):
 
 class IEventService(ABC):
     """事件服务接口"""
-    
+
     @abstractmethod
     def emit(self, event: str, data: Any = None) -> None:
         """发出事件"""
         pass
-    
+
     @abstractmethod
     def on(self, event: str, callback: Callable) -> None:
         """监听事件"""
         pass
-    
+
     @abstractmethod
     def off(self, event: str, callback: Callable) -> None:
         """取消监听"""

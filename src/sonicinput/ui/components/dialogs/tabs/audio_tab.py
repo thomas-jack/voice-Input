@@ -1,7 +1,14 @@
 """Audio settings tab"""
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
-                            QComboBox, QCheckBox, QSpinBox, QSlider)
+from PySide6.QtWidgets import (
+    QWidget,
+    QFormLayout,
+    QGroupBox,
+    QComboBox,
+    QCheckBox,
+    QSpinBox,
+    QSlider,
+)
 from PySide6.QtCore import Qt
 from typing import Callable, Any
 
@@ -12,7 +19,9 @@ from .....utils.constants import ConfigKeys
 class AudioTab(BaseSettingsTab):
     """Audio settings tab"""
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         super().__init__(on_setting_changed, parent)
         self._setup_ui()
 
@@ -36,7 +45,9 @@ class AudioTab(BaseSettingsTab):
         sample_rate_combo = QComboBox()
         sample_rate_combo.addItems(["16000", "22050", "44100", "48000"])
         sample_rate_combo.currentTextChanged.connect(
-            lambda text: self._on_setting_changed(ConfigKeys.AUDIO_SAMPLE_RATE, int(text))
+            lambda text: self._on_setting_changed(
+                ConfigKeys.AUDIO_SAMPLE_RATE, int(text)
+            )
         )
         self._controls[ConfigKeys.AUDIO_SAMPLE_RATE] = sample_rate_combo
         device_layout.addRow("Sample Rate:", sample_rate_combo)
@@ -59,7 +70,9 @@ class AudioTab(BaseSettingsTab):
         # Noise reduction
         noise_reduction_cb = QCheckBox("Enable noise reduction")
         noise_reduction_cb.stateChanged.connect(
-            lambda state: self._on_setting_changed(ConfigKeys.NOISE_REDUCTION_ENABLED, state == Qt.CheckState.Checked)
+            lambda state: self._on_setting_changed(
+                ConfigKeys.NOISE_REDUCTION_ENABLED, state == Qt.CheckState.Checked
+            )
         )
         self._controls[ConfigKeys.NOISE_REDUCTION_ENABLED] = noise_reduction_cb
         processing_layout.addRow("Noise Reduction:", noise_reduction_cb)
@@ -68,7 +81,9 @@ class AudioTab(BaseSettingsTab):
         volume_threshold_slider = QSlider(Qt.Orientation.Horizontal)
         volume_threshold_slider.setRange(0, 100)
         volume_threshold_slider.valueChanged.connect(
-            lambda value: self._on_setting_changed(ConfigKeys.VOLUME_THRESHOLD, value / 100.0)
+            lambda value: self._on_setting_changed(
+                ConfigKeys.VOLUME_THRESHOLD, value / 100.0
+            )
         )
         self._controls[ConfigKeys.VOLUME_THRESHOLD] = volume_threshold_slider
         processing_layout.addRow("Volume Threshold:", volume_threshold_slider)

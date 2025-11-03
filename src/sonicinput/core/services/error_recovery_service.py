@@ -10,6 +10,7 @@ from ...utils import app_logger
 
 class ErrorSeverity(Enum):
     """错误严重程度"""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -18,6 +19,7 @@ class ErrorSeverity(Enum):
 
 class ErrorCategory(Enum):
     """错误类别"""
+
     MODEL_ERROR = "model_error"
     AUDIO_ERROR = "audio_error"
     NETWORK_ERROR = "network_error"
@@ -29,6 +31,7 @@ class ErrorCategory(Enum):
 @dataclass
 class RecoveryAction:
     """恢复动作"""
+
     action_id: str
     description: str
     severity: ErrorSeverity
@@ -41,6 +44,7 @@ class RecoveryAction:
 @dataclass
 class ErrorInfo:
     """错误信息"""
+
     error_id: str
     exception: Exception
     category: ErrorCategory
@@ -78,7 +82,7 @@ class ErrorRecoveryService:
             "auto_recoveries": 0,
             "manual_recoveries": 0,
             "by_category": {},
-            "by_severity": {}
+            "by_severity": {},
         }
 
         # 注册默认恢复动作
@@ -90,48 +94,58 @@ class ErrorRecoveryService:
         """注册默认的恢复动作"""
 
         # 模型错误恢复
-        self.register_recovery_action(RecoveryAction(
-            action_id="reload_model",
-            description="重新加载模型",
-            severity=ErrorSeverity.MEDIUM,
-            action_func=self._reload_model_action,
-            auto_recovery=True,
-            max_attempts=2
-        ))
+        self.register_recovery_action(
+            RecoveryAction(
+                action_id="reload_model",
+                description="重新加载模型",
+                severity=ErrorSeverity.MEDIUM,
+                action_func=self._reload_model_action,
+                auto_recovery=True,
+                max_attempts=2,
+            )
+        )
 
-        self.register_recovery_action(RecoveryAction(
-            action_id="switch_to_cpu",
-            description="切换到CPU模式",
-            severity=ErrorSeverity.HIGH,
-            action_func=self._switch_to_cpu_action,
-            auto_recovery=True
-        ))
+        self.register_recovery_action(
+            RecoveryAction(
+                action_id="switch_to_cpu",
+                description="切换到CPU模式",
+                severity=ErrorSeverity.HIGH,
+                action_func=self._switch_to_cpu_action,
+                auto_recovery=True,
+            )
+        )
 
         # 音频设备错误恢复
-        self.register_recovery_action(RecoveryAction(
-            action_id="reset_audio_device",
-            description="重置音频设备",
-            severity=ErrorSeverity.MEDIUM,
-            action_func=self._reset_audio_device_action,
-            auto_recovery=True
-        ))
+        self.register_recovery_action(
+            RecoveryAction(
+                action_id="reset_audio_device",
+                description="重置音频设备",
+                severity=ErrorSeverity.MEDIUM,
+                action_func=self._reset_audio_device_action,
+                auto_recovery=True,
+            )
+        )
 
-        self.register_recovery_action(RecoveryAction(
-            action_id="fallback_audio_device",
-            description="使用备用音频设备",
-            severity=ErrorSeverity.LOW,
-            action_func=self._fallback_audio_device_action,
-            auto_recovery=True
-        ))
+        self.register_recovery_action(
+            RecoveryAction(
+                action_id="fallback_audio_device",
+                description="使用备用音频设备",
+                severity=ErrorSeverity.LOW,
+                action_func=self._fallback_audio_device_action,
+                auto_recovery=True,
+            )
+        )
 
         # 系统错误恢复
-        self.register_recovery_action(RecoveryAction(
-            action_id="clear_cache",
-            description="清理缓存",
-            severity=ErrorSeverity.LOW,
-            action_func=self._clear_cache_action,
-            auto_recovery=True
-        ))
+        self.register_recovery_action(
+            RecoveryAction(
+                action_id="clear_cache",
+                description="清理缓存",
+                severity=ErrorSeverity.LOW,
+                action_func=self._clear_cache_action,
+                auto_recovery=True,
+            )
+        )
 
     def register_recovery_action(self, action: RecoveryAction) -> None:
         """注册恢复动作
@@ -140,16 +154,17 @@ class ErrorRecoveryService:
             action: 恢复动作对象
         """
         self._recovery_actions[action.action_id] = action
-        app_logger.log_audio_event("Recovery action registered", {
-            "action_id": action.action_id,
-            "description": action.description,
-            "auto_recovery": action.auto_recovery
-        })
+        app_logger.log_audio_event(
+            "Recovery action registered",
+            {
+                "action_id": action.action_id,
+                "description": action.description,
+                "auto_recovery": action.auto_recovery,
+            },
+        )
 
     def handle_error(
-        self,
-        exception: Exception,
-        context: Optional[Dict[str, Any]] = None
+        self, exception: Exception, context: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """处理错误
 
@@ -182,18 +197,19 @@ class ErrorRecoveryService:
             "message": str(exception),
             "recovery_suggestions": recovery_suggestions,
             "auto_recovery": auto_recovery_result,
-            "timestamp": error_info.timestamp
+            "timestamp": error_info.timestamp,
         }
 
         # 发送错误事件
-        self._emit_error_event("error_occurred", {
-            "error_info": error_info,
-            "result": result
-        })
+        self._emit_error_event(
+            "error_occurred", {"error_info": error_info, "result": result}
+        )
 
         return result
 
-    def _analyze_error(self, exception: Exception, context: Optional[Dict[str, Any]]) -> ErrorInfo:
+    def _analyze_error(
+        self, exception: Exception, context: Optional[Dict[str, Any]]
+    ) -> ErrorInfo:
         """分析错误
 
         Args:
@@ -217,7 +233,7 @@ class ErrorRecoveryService:
             category=category,
             severity=severity,
             timestamp=time.time(),
-            context=context or {}
+            context=context or {},
         )
 
     def _categorize_error(self, error_str: str, exception_type: str) -> ErrorCategory:
@@ -231,28 +247,45 @@ class ErrorRecoveryService:
             错误类别
         """
         # 模型相关错误
-        if any(keyword in error_str for keyword in ["model", "whisper", "cuda", "gpu", "checkpoint"]):
+        if any(
+            keyword in error_str
+            for keyword in ["model", "whisper", "cuda", "gpu", "checkpoint"]
+        ):
             return ErrorCategory.MODEL_ERROR
 
         # 音频相关错误
-        elif any(keyword in error_str for keyword in ["audio", "device", "pyaudio", "alsa", "microphone"]):
+        elif any(
+            keyword in error_str
+            for keyword in ["audio", "device", "pyaudio", "alsa", "microphone"]
+        ):
             return ErrorCategory.AUDIO_ERROR
 
         # 网络相关错误
-        elif any(keyword in error_str for keyword in ["network", "connection", "timeout", "http", "api"]):
+        elif any(
+            keyword in error_str
+            for keyword in ["network", "connection", "timeout", "http", "api"]
+        ):
             return ErrorCategory.NETWORK_ERROR
 
         # 配置相关错误
-        elif any(keyword in error_str for keyword in ["config", "setting", "parameter", "invalid"]):
+        elif any(
+            keyword in error_str
+            for keyword in ["config", "setting", "parameter", "invalid"]
+        ):
             return ErrorCategory.CONFIG_ERROR
 
         # 系统相关错误
-        elif any(keyword in error_str for keyword in ["system", "memory", "disk", "permission"]):
+        elif any(
+            keyword in error_str
+            for keyword in ["system", "memory", "disk", "permission"]
+        ):
             return ErrorCategory.SYSTEM_ERROR
 
         return ErrorCategory.UNKNOWN_ERROR
 
-    def _assess_severity(self, error_str: str, category: ErrorCategory) -> ErrorSeverity:
+    def _assess_severity(
+        self, error_str: str, category: ErrorCategory
+    ) -> ErrorSeverity:
         """评估错误严重程度
 
         Args:
@@ -284,7 +317,7 @@ class ErrorRecoveryService:
             ErrorCategory.NETWORK_ERROR: ErrorSeverity.MEDIUM,
             ErrorCategory.SYSTEM_ERROR: ErrorSeverity.HIGH,
             ErrorCategory.CONFIG_ERROR: ErrorSeverity.LOW,
-            ErrorCategory.UNKNOWN_ERROR: ErrorSeverity.MEDIUM
+            ErrorCategory.UNKNOWN_ERROR: ErrorSeverity.MEDIUM,
         }
 
         return default_severity.get(category, ErrorSeverity.MEDIUM)
@@ -316,7 +349,9 @@ class ErrorRecoveryService:
         if len(self._error_history) > 1000:
             self._error_history = self._error_history[-500:]
 
-        app_logger.log_error(error_info.exception, f"recorded_error_{error_info.category.value}")
+        app_logger.log_error(
+            error_info.exception, f"recorded_error_{error_info.category.value}"
+        )
 
     def _get_recovery_suggestions(self, error_info: ErrorInfo) -> List[str]:
         """获取恢复建议
@@ -331,36 +366,34 @@ class ErrorRecoveryService:
 
         # 基于错误类别的通用建议
         if error_info.category == ErrorCategory.MODEL_ERROR:
-            suggestions.extend([
-                "检查模型文件是否存在",
-                "尝试重新加载模型",
-                "检查GPU驱动和CUDA版本",
-                "尝试切换到CPU模式"
-            ])
+            suggestions.extend(
+                [
+                    "检查模型文件是否存在",
+                    "尝试重新加载模型",
+                    "检查GPU驱动和CUDA版本",
+                    "尝试切换到CPU模式",
+                ]
+            )
 
         elif error_info.category == ErrorCategory.AUDIO_ERROR:
-            suggestions.extend([
-                "检查音频设备连接",
-                "尝试重新初始化音频设备",
-                "检查音频权限设置",
-                "尝试使用默认音频设备"
-            ])
+            suggestions.extend(
+                [
+                    "检查音频设备连接",
+                    "尝试重新初始化音频设备",
+                    "检查音频权限设置",
+                    "尝试使用默认音频设备",
+                ]
+            )
 
         elif error_info.category == ErrorCategory.NETWORK_ERROR:
-            suggestions.extend([
-                "检查网络连接",
-                "验证API密钥和配置",
-                "稍后重试",
-                "检查防火墙设置"
-            ])
+            suggestions.extend(
+                ["检查网络连接", "验证API密钥和配置", "稍后重试", "检查防火墙设置"]
+            )
 
         elif error_info.category == ErrorCategory.SYSTEM_ERROR:
-            suggestions.extend([
-                "检查系统资源使用情况",
-                "重启应用程序",
-                "检查文件权限",
-                "清理临时文件"
-            ])
+            suggestions.extend(
+                ["检查系统资源使用情况", "重启应用程序", "检查文件权限", "清理临时文件"]
+            )
 
         # 基于错误消息的特定建议
         error_str = str(error_info.exception).lower()
@@ -414,12 +447,14 @@ class ErrorRecoveryService:
                     "action_id": action.action_id,
                     "description": action.description,
                     "success": True,
-                    "attempt": error_info.recovery_attempts + 1
+                    "attempt": error_info.recovery_attempts + 1,
                 }
 
         return None
 
-    def _get_recovery_actions_for_error(self, error_info: ErrorInfo) -> List[RecoveryAction]:
+    def _get_recovery_actions_for_error(
+        self, error_info: ErrorInfo
+    ) -> List[RecoveryAction]:
         """根据错误获取恢复动作
 
         Args:
@@ -431,7 +466,10 @@ class ErrorRecoveryService:
         actions = []
 
         if error_info.category == ErrorCategory.MODEL_ERROR:
-            if "gpu" in str(error_info.exception).lower() or "cuda" in str(error_info.exception).lower():
+            if (
+                "gpu" in str(error_info.exception).lower()
+                or "cuda" in str(error_info.exception).lower()
+            ):
                 actions.append(self._recovery_actions["switch_to_cpu"])
             actions.append(self._recovery_actions["reload_model"])
 
@@ -461,7 +499,9 @@ class ErrorRecoveryService:
         last_time = self._last_recovery_time.get(action_id, 0)
         return (time.time() - last_time) >= action.cooldown_period
 
-    def _execute_recovery_action(self, action: RecoveryAction, error_info: ErrorInfo) -> bool:
+    def _execute_recovery_action(
+        self, action: RecoveryAction, error_info: ErrorInfo
+    ) -> bool:
         """执行恢复动作
 
         Args:
@@ -472,11 +512,14 @@ class ErrorRecoveryService:
             True如果恢复成功
         """
         try:
-            app_logger.log_audio_event("Attempting auto recovery", {
-                "action_id": action.action_id,
-                "error_id": error_info.error_id,
-                "attempt": error_info.recovery_attempts + 1
-            })
+            app_logger.log_audio_event(
+                "Attempting auto recovery",
+                {
+                    "action_id": action.action_id,
+                    "error_id": error_info.error_id,
+                    "attempt": error_info.recovery_attempts + 1,
+                },
+            )
 
             # 更新冷却时间
             self._last_recovery_time[action.action_id] = time.time()
@@ -488,16 +531,16 @@ class ErrorRecoveryService:
             error_info.recovery_attempts += 1
 
             if success:
-                app_logger.log_audio_event("Auto recovery successful", {
-                    "action_id": action.action_id,
-                    "error_id": error_info.error_id
-                })
+                app_logger.log_audio_event(
+                    "Auto recovery successful",
+                    {"action_id": action.action_id, "error_id": error_info.error_id},
+                )
 
                 # 发送恢复成功事件
-                self._emit_error_event("error_auto_resolved", {
-                    "error_id": error_info.error_id,
-                    "action_id": action.action_id
-                })
+                self._emit_error_event(
+                    "error_auto_resolved",
+                    {"error_id": error_info.error_id, "action_id": action.action_id},
+                )
 
             return success
 
@@ -553,11 +596,15 @@ class ErrorRecoveryService:
             错误统计字典
         """
         stats = self._error_stats.copy()
-        stats.update({
-            "recent_errors": len([e for e in self._error_history if time.time() - e.timestamp < 3600]),
-            "total_errors_in_history": len(self._error_history),
-            "recovery_actions_count": len(self._recovery_actions)
-        })
+        stats.update(
+            {
+                "recent_errors": len(
+                    [e for e in self._error_history if time.time() - e.timestamp < 3600]
+                ),
+                "total_errors_in_history": len(self._error_history),
+                "recovery_actions_count": len(self._recovery_actions),
+            }
+        )
         return stats
 
     def get_recent_errors(self, limit: int = 10) -> List[Dict[str, Any]]:
@@ -569,7 +616,9 @@ class ErrorRecoveryService:
         Returns:
             最近错误列表
         """
-        recent_errors = sorted(self._error_history, key=lambda e: e.timestamp, reverse=True)[:limit]
+        recent_errors = sorted(
+            self._error_history, key=lambda e: e.timestamp, reverse=True
+        )[:limit]
 
         return [
             {
@@ -579,7 +628,7 @@ class ErrorRecoveryService:
                 "message": str(e.exception),
                 "timestamp": e.timestamp,
                 "recovery_attempts": e.recovery_attempts,
-                "resolved": e.resolved
+                "resolved": e.resolved,
             }
             for e in recent_errors
         ]

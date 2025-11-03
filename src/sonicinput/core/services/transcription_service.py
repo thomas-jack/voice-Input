@@ -54,6 +54,7 @@ from typing import Optional, Callable
 
 class TranscriptionTaskType(Enum):
     """转录任务类型"""
+
     TRANSCRIBE = "transcribe"
     LOAD_MODEL = "load_model"
     UNLOAD_MODEL = "unload_model"
@@ -64,6 +65,7 @@ class TranscriptionTaskType(Enum):
 @dataclass
 class TranscriptionTask:
     """转录任务"""
+
     task_type: TranscriptionTaskType
     audio_data: Optional[np.ndarray] = None
     language: Optional[str] = None
@@ -77,6 +79,7 @@ class TranscriptionTask:
 @dataclass
 class TranscriptionResult:
     """转录结果"""
+
     success: bool
     text: str = ""
     language: Optional[str] = None
@@ -97,24 +100,22 @@ class TranscriptionResult:
 TranscriptionService = RefactoredTranscriptionService
 
 __all__ = [
-    'TranscriptionService',
-    'RefactoredTranscriptionService',
-
+    "TranscriptionService",
+    "RefactoredTranscriptionService",
     # 组件类
-    'TranscriptionCore',
-    'ModelManager',
-    'StreamingCoordinator',
-    'TaskQueueManager',
-    'ErrorRecoveryService',
-
+    "TranscriptionCore",
+    "ModelManager",
+    "StreamingCoordinator",
+    "TaskQueueManager",
+    "ErrorRecoveryService",
     # 数据类型
-    'TranscriptionTask',
-    'TranscriptionResult',
-    'TranscriptionTaskType',
-    'ModelState',
-    'TaskPriority',
-    'TaskStatus',
-    'StreamingChunk',
-    'ErrorSeverity',
-    'ErrorCategory'
+    "TranscriptionTask",
+    "TranscriptionResult",
+    "TranscriptionTaskType",
+    "ModelState",
+    "TaskPriority",
+    "TaskStatus",
+    "StreamingChunk",
+    "ErrorSeverity",
+    "ErrorCategory",
 ]

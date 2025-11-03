@@ -1,7 +1,16 @@
 """Logging settings tab"""
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox, QVBoxLayout,
-                            QComboBox, QCheckBox, QSpinBox, QPushButton, QMessageBox)
+from PySide6.QtWidgets import (
+    QWidget,
+    QFormLayout,
+    QGroupBox,
+    QVBoxLayout,
+    QComboBox,
+    QCheckBox,
+    QSpinBox,
+    QPushButton,
+    QMessageBox,
+)
 from PySide6.QtCore import Qt
 from typing import Callable, Any, Dict
 
@@ -11,7 +20,9 @@ from .base_tab import BaseSettingsTab
 class LoggingTab(BaseSettingsTab):
     """Logging settings tab"""
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         super().__init__(on_setting_changed, parent)
         self._category_checkboxes: Dict[str, QCheckBox] = {}
         self._setup_ui()
@@ -36,7 +47,9 @@ class LoggingTab(BaseSettingsTab):
         # Console output
         console_output_cb = QCheckBox("Enable console output")
         console_output_cb.stateChanged.connect(
-            lambda state: self._on_setting_changed("logging.console_output", state == Qt.CheckState.Checked)
+            lambda state: self._on_setting_changed(
+                "logging.console_output", state == Qt.CheckState.Checked
+            )
         )
         self._controls["logging.console_output"] = console_output_cb
         level_layout.addRow("Console Output:", console_output_cb)
@@ -48,12 +61,24 @@ class LoggingTab(BaseSettingsTab):
         category_layout = QVBoxLayout(category_group)
 
         # Create checkboxes for each category
-        categories = ["audio", "api", "ui", "model", "hotkey", "gpu", "startup", "error", "performance"]
+        categories = [
+            "audio",
+            "api",
+            "ui",
+            "model",
+            "hotkey",
+            "gpu",
+            "startup",
+            "error",
+            "performance",
+        ]
 
         for category in categories:
             cb = QCheckBox(category.upper())
             cb.setChecked(True)  # Default all enabled
-            cb.stateChanged.connect(lambda state, cat=category: self._on_category_changed())
+            cb.stateChanged.connect(
+                lambda state, cat=category: self._on_category_changed()
+            )
             self._category_checkboxes[category] = cb
             category_layout.addWidget(cb)
 
@@ -93,22 +118,25 @@ class LoggingTab(BaseSettingsTab):
     def _on_category_changed(self) -> None:
         """Handle category checkbox change"""
         enabled_categories = [
-            cat for cat, cb in self._category_checkboxes.items()
-            if cb.isChecked()
+            cat for cat, cb in self._category_checkboxes.items() if cb.isChecked()
         ]
         self._on_setting_changed("logging.enabled_categories", enabled_categories)
 
     def _on_open_logs_folder(self) -> None:
         """Open the logs folder in file explorer"""
         import os
-        log_dir = os.path.join(os.getenv('APPDATA', '.'), 'SonicInput', 'logs')
+
+        log_dir = os.path.join(os.getenv("APPDATA", "."), "SonicInput", "logs")
         try:
             if os.path.exists(log_dir):
                 # Use os.startfile() for Windows - safer than subprocess with shell
                 os.startfile(log_dir)
             else:
-                QMessageBox.warning(self, "Logs Folder Not Found",
-                                  f"Logs folder does not exist: {log_dir}")
+                QMessageBox.warning(
+                    self,
+                    "Logs Folder Not Found",
+                    f"Logs folder does not exist: {log_dir}",
+                )
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to open logs folder: {e}")
 

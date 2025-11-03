@@ -28,7 +28,9 @@ class TimerManager:
 
         app_logger.log_audio_event("TimerManager initialized", {})
 
-    def safe_connect(self, timer: QTimer, callback: Callable, description: str = "") -> None:
+    def safe_connect(
+        self, timer: QTimer, callback: Callable, description: str = ""
+    ) -> None:
         """安全地连接定时器到回调函数
 
         Args:
@@ -49,14 +51,17 @@ class TimerManager:
             timer.timeout.connect(callback)
 
             if description:
-                app_logger.log_audio_event(f"Timer connected: {description}", {
-                    "timer_active": timer.isActive()
-                })
+                app_logger.log_audio_event(
+                    f"Timer connected: {description}",
+                    {"timer_active": timer.isActive()},
+                )
 
         except Exception as e:
             app_logger.log_error(e, f"safe_timer_connect_{description}")
 
-    def safe_start(self, timer: QTimer, interval: int, callback: Callable, description: str = "") -> None:
+    def safe_start(
+        self, timer: QTimer, interval: int, callback: Callable, description: str = ""
+    ) -> None:
         """安全地启动定时器
 
         Args:
@@ -77,15 +82,17 @@ class TimerManager:
             timer.start(interval)
 
             if description:
-                app_logger.log_audio_event(f"Timer started: {description}", {
-                    "interval": interval,
-                    "timer_active": timer.isActive()
-                })
+                app_logger.log_audio_event(
+                    f"Timer started: {description}",
+                    {"interval": interval, "timer_active": timer.isActive()},
+                )
 
         except Exception as e:
             app_logger.log_error(e, f"safe_timer_start_{description}")
 
-    def safe_stop(self, timer: QTimer, callback: Callable, description: str = "") -> None:
+    def safe_stop(
+        self, timer: QTimer, callback: Callable, description: str = ""
+    ) -> None:
         """安全地停止定时器
 
         Args:
@@ -106,9 +113,10 @@ class TimerManager:
                         pass  # 如果没有连接则忽略
 
                 if description:
-                    app_logger.log_audio_event(f"Timer stopped: {description}", {
-                        "timer_active": timer.isActive()
-                    })
+                    app_logger.log_audio_event(
+                        f"Timer stopped: {description}",
+                        {"timer_active": timer.isActive()},
+                    )
 
         except Exception as e:
             app_logger.log_error(e, f"safe_timer_stop_{description}")

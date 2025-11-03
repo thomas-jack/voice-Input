@@ -10,11 +10,11 @@ from .lifecycle_manager import LifecycleManager
 from .transcription_service import TranscriptionService, TranscriptionResult
 
 __all__ = [
-    'EventBus',
-    'Events',
-    'ConfigService',
-    'StateManager',
-    'LifecycleManager',
-    'TranscriptionService',
-    'TranscriptionResult',
+    "EventBus",
+    "Events",
+    "ConfigService",
+    "StateManager",
+    "LifecycleManager",
+    "TranscriptionService",
+    "TranscriptionResult",
 ]

@@ -1,7 +1,15 @@
 """快捷键设置标签页"""
 
-from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QHBoxLayout,
-                            QPushButton, QLineEdit, QListWidget, QLabel, QMessageBox)
+from PySide6.QtWidgets import (
+    QVBoxLayout,
+    QGroupBox,
+    QHBoxLayout,
+    QPushButton,
+    QLineEdit,
+    QListWidget,
+    QLabel,
+    QMessageBox,
+)
 from PySide6.QtCore import QTimer
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
@@ -83,7 +91,7 @@ class HotkeyTab(BaseSettingsTab):
             "win+shift+v",
             "f12",
             "ctrl+f12",
-            "shift+f12"
+            "shift+f12",
         ]
 
         for key in suggested_keys:
@@ -98,9 +106,9 @@ class HotkeyTab(BaseSettingsTab):
 
         # 保存控件引用
         self.controls = {
-            'hotkeys_list': self.hotkeys_list,
-            'hotkey_input': self.hotkey_input,
-            'hotkey_status_label': self.hotkey_status_label,
+            "hotkeys_list": self.hotkeys_list,
+            "hotkey_input": self.hotkey_input,
+            "hotkey_status_label": self.hotkey_status_label,
         }
 
         # 暴露控件到parent_window
@@ -135,11 +143,15 @@ class HotkeyTab(BaseSettingsTab):
         hotkeys_list = []
         for i in range(self.hotkeys_list.count()):
             hotkey_text = self.hotkeys_list.item(i).text().strip()
-            if hotkey_text and not hotkey_text.startswith("(New hotkey"):  # 跳过未编辑的新项
+            if hotkey_text and not hotkey_text.startswith(
+                "(New hotkey"
+            ):  # 跳过未编辑的新项
                 hotkeys_list.append(hotkey_text)
 
         config = {
-            "hotkeys": hotkeys_list if hotkeys_list else ["ctrl+shift+v"]  # 至少保留一个默认值
+            "hotkeys": hotkeys_list
+            if hotkeys_list
+            else ["ctrl+shift+v"]  # 至少保留一个默认值
         }
 
         return config
@@ -159,28 +171,44 @@ class HotkeyTab(BaseSettingsTab):
         hotkey_text = self.hotkey_input.text().strip()
         if hotkey_text:
             # 检查是否已存在
-            existing_items = [self.hotkeys_list.item(i).text() for i in range(self.hotkeys_list.count())]
+            existing_items = [
+                self.hotkeys_list.item(i).text()
+                for i in range(self.hotkeys_list.count())
+            ]
             if hotkey_text not in existing_items:
                 self.hotkeys_list.addItem(hotkey_text)
                 self.hotkey_input.clear()
             else:
-                QMessageBox.warning(self.parent_window, "Duplicate Hotkey",
-                                  f"Hotkey '{hotkey_text}' already exists in the list.")
+                QMessageBox.warning(
+                    self.parent_window,
+                    "Duplicate Hotkey",
+                    f"Hotkey '{hotkey_text}' already exists in the list.",
+                )
 
     def _edit_hotkey_item(self, item) -> None:
         """双击编辑快捷键列表项"""
         current_text = item.text()
         from PySide6.QtWidgets import QInputDialog
+
         new_text, ok = QInputDialog.getText(
-            self.parent_window, "Edit Hotkey", "Enter hotkey combination:",
-            QLineEdit.EchoMode.Normal, current_text
+            self.parent_window,
+            "Edit Hotkey",
+            "Enter hotkey combination:",
+            QLineEdit.EchoMode.Normal,
+            current_text,
         )
         if ok and new_text.strip():
             # 检查是否与其他项重复
-            existing_items = [self.hotkeys_list.item(i).text() for i in range(self.hotkeys_list.count())]
+            existing_items = [
+                self.hotkeys_list.item(i).text()
+                for i in range(self.hotkeys_list.count())
+            ]
             if new_text.strip() != current_text and new_text.strip() in existing_items:
-                QMessageBox.warning(self.parent_window, "Duplicate Hotkey",
-                                  f"Hotkey '{new_text.strip()}' already exists.")
+                QMessageBox.warning(
+                    self.parent_window,
+                    "Duplicate Hotkey",
+                    f"Hotkey '{new_text.strip()}' already exists.",
+                )
             else:
                 item.setText(new_text.strip())
 
@@ -200,7 +228,9 @@ class HotkeyTab(BaseSettingsTab):
 
             # 清空输入框
             self.hotkey_input.clear()
-            self._update_hotkey_status("Press your desired hotkey combination...", False)
+            self._update_hotkey_status(
+                "Press your desired hotkey combination...", False
+            )
 
             # 记录按下的键
             pressed_keys = set()
@@ -216,33 +246,33 @@ class HotkeyTab(BaseSettingsTab):
                 for key in keys:
                     # 修饰键
                     if key in [Key.ctrl, Key.ctrl_l, Key.ctrl_r]:
-                        if 'ctrl' not in modifiers:
-                            modifiers.append('ctrl')
+                        if "ctrl" not in modifiers:
+                            modifiers.append("ctrl")
                     elif key in [Key.alt, Key.alt_l, Key.alt_r]:
-                        if 'alt' not in modifiers:
-                            modifiers.append('alt')
+                        if "alt" not in modifiers:
+                            modifiers.append("alt")
                     elif key in [Key.shift, Key.shift_l, Key.shift_r]:
-                        if 'shift' not in modifiers:
-                            modifiers.append('shift')
+                        if "shift" not in modifiers:
+                            modifiers.append("shift")
                     elif key in [Key.cmd, Key.cmd_l, Key.cmd_r]:
-                        if 'cmd' not in modifiers:
-                            modifiers.append('cmd')
+                        if "cmd" not in modifiers:
+                            modifiers.append("cmd")
                     # 普通字符键
-                    elif hasattr(key, 'char') and key.char:
+                    elif hasattr(key, "char") and key.char:
                         normal_keys.append(key.char)
                     # 特殊键名
-                    elif hasattr(key, 'name'):
+                    elif hasattr(key, "name"):
                         normal_keys.append(key.name)
 
                 # 排序修饰键
-                modifier_order = {'ctrl': 0, 'alt': 1, 'shift': 2, 'cmd': 3}
+                modifier_order = {"ctrl": 0, "alt": 1, "shift": 2, "cmd": 3}
                 modifiers.sort(key=lambda x: modifier_order.get(x, 99))
 
                 # 构建快捷键字符串
                 parts.extend(modifiers)
                 parts.extend(normal_keys)
 
-                return '+'.join(parts) if parts else None
+                return "+".join(parts) if parts else None
 
             def on_press(key):
                 nonlocal captured_hotkey, listener
@@ -250,10 +280,21 @@ class HotkeyTab(BaseSettingsTab):
 
                 # 检测有效组合（至少有修饰键或单个特殊键）
                 has_modifier = any(
-                    k in [Key.ctrl, Key.ctrl_l, Key.ctrl_r,
-                          Key.alt, Key.alt_l, Key.alt_r,
-                          Key.shift, Key.shift_l, Key.shift_r,
-                          Key.cmd, Key.cmd_l, Key.cmd_r]
+                    k
+                    in [
+                        Key.ctrl,
+                        Key.ctrl_l,
+                        Key.ctrl_r,
+                        Key.alt,
+                        Key.alt_l,
+                        Key.alt_r,
+                        Key.shift,
+                        Key.shift_l,
+                        Key.shift_r,
+                        Key.cmd,
+                        Key.cmd_l,
+                        Key.cmd_r,
+                    ]
                     for k in pressed_keys
                 )
 
@@ -279,8 +320,7 @@ class HotkeyTab(BaseSettingsTab):
 
             # 创建listener
             listener = pynput_keyboard.Listener(
-                on_press=on_press,
-                on_release=on_release
+                on_press=on_press, on_release=on_release
             )
             listener.start()
 
@@ -290,7 +330,9 @@ class HotkeyTab(BaseSettingsTab):
                 if captured_hotkey is None:
                     if listener:
                         listener.stop()
-                    self._update_hotkey_status("Capture timed out. Please try again.", True)
+                    self._update_hotkey_status(
+                        "Capture timed out. Please try again.", True
+                    )
                     self._restore_capture_button()
 
             timeout_timer = QTimer()
@@ -312,7 +354,10 @@ class HotkeyTab(BaseSettingsTab):
                     self.hotkey_input.setText(captured_hotkey)
 
                     # 检查是否已存在
-                    existing_items = [self.hotkeys_list.item(i).text() for i in range(self.hotkeys_list.count())]
+                    existing_items = [
+                        self.hotkeys_list.item(i).text()
+                        for i in range(self.hotkeys_list.count())
+                    ]
                     if captured_hotkey not in existing_items:
                         self.hotkeys_list.addItem(captured_hotkey)
 

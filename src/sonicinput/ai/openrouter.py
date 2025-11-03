@@ -35,7 +35,7 @@ class OpenRouterClient(BaseAIClient):
         """返回 OpenRouter 特定的请求头"""
         return {
             "HTTP-Referer": "https://github.com/user/voice-input-software",
-            "X-Title": "Voice Input Software"
+            "X-Title": "Voice Input Software",
         }
 
     # ========== OpenRouter 独特功能 ==========
@@ -48,8 +48,7 @@ class OpenRouterClient(BaseAIClient):
         """
         try:
             response = self.session.get(
-                f"{self.get_base_url()}/models",
-                timeout=self.timeout
+                f"{self.get_base_url()}/models", timeout=self.timeout
             )
 
             if response.status_code == 200:
@@ -61,27 +60,39 @@ class OpenRouterClient(BaseAIClient):
                 for model in models:
                     model_id = model.get("id", "")
                     # 选择常用的高质量模型
-                    if any(provider in model_id.lower() for provider in [
-                        "anthropic", "openai", "google", "meta-llama", "mistralai"
-                    ]):
-                        suitable_models.append({
-                            "id": model_id,
-                            "name": model.get("name", model_id),
-                            "description": model.get("description", ""),
-                            "pricing": model.get("pricing", {}),
-                            "context_length": model.get("context_length", 0)
-                        })
+                    if any(
+                        provider in model_id.lower()
+                        for provider in [
+                            "anthropic",
+                            "openai",
+                            "google",
+                            "meta-llama",
+                            "mistralai",
+                        ]
+                    ):
+                        suitable_models.append(
+                            {
+                                "id": model_id,
+                                "name": model.get("name", model_id),
+                                "description": model.get("description", ""),
+                                "pricing": model.get("pricing", {}),
+                                "context_length": model.get("context_length", 0),
+                            }
+                        )
 
                 from ..utils import app_logger
+
                 app_logger.log_api_call("OpenRouter", 0, True)
                 return suitable_models
             else:
                 from ..utils import app_logger
+
                 app_logger.log_api_call("OpenRouter", 0, False, response.text)
                 return []
 
         except Exception as e:
             from ..utils import app_logger
+
             app_logger.log_error(e, "get_available_models")
             return []
 
@@ -93,8 +104,7 @@ class OpenRouterClient(BaseAIClient):
         """
         try:
             response = self.session.get(
-                f"{self.get_base_url()}/auth/key",
-                timeout=self.timeout
+                f"{self.get_base_url()}/auth/key", timeout=self.timeout
             )
 
             if response.status_code == 200:
@@ -104,6 +114,7 @@ class OpenRouterClient(BaseAIClient):
 
         except Exception as e:
             from ..utils import app_logger
+
             app_logger.log_error(e, "get_usage_stats")
             return {}
 
@@ -128,18 +139,20 @@ class OpenRouterClient(BaseAIClient):
             "openai/gpt-4o-mini": {"input": 0.15, "output": 0.6},
             "openai/gpt-3.5-turbo": {"input": 0.5, "output": 1.5},
             "google/gemini-pro": {"input": 0.5, "output": 1.5},
-            "mistralai/mistral-7b-instruct": {"input": 0.25, "output": 0.25}
+            "mistralai/mistral-7b-instruct": {"input": 0.25, "output": 0.25},
         }
 
         pricing = model_pricing.get(model, {"input": 1.0, "output": 2.0})
 
         input_cost = (estimated_tokens / 1000000) * pricing["input"]
-        output_cost = (estimated_tokens / 1000000) * pricing["output"]  # 假设输出长度相似
+        output_cost = (estimated_tokens / 1000000) * pricing[
+            "output"
+        ]  # 假设输出长度相似
 
         return {
             "estimated_input_tokens": estimated_tokens,
             "estimated_output_tokens": estimated_tokens,
             "input_cost_usd": input_cost,
             "output_cost_usd": output_cost,
-            "total_cost_usd": input_cost + output_cost
+            "total_cost_usd": input_cost + output_cost,
         }

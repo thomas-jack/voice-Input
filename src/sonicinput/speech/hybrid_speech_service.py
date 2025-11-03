@@ -23,11 +23,13 @@ class HybridSpeechService(ISpeechService):
     性能需求和用户偏好自动选择最佳提供者。
     """
 
-    def __init__(self,
-                 local_service: ISpeechService,
-                 cloud_service: ISpeechService,
-                 config_service: IConfigService,
-                 event_service: IEventService):
+    def __init__(
+        self,
+        local_service: ISpeechService,
+        cloud_service: ISpeechService,
+        config_service: IConfigService,
+        event_service: IEventService,
+    ):
         """初始化混合语音服务
 
         Args:
@@ -52,15 +54,15 @@ class HybridSpeechService(ISpeechService):
                 "total_time": 0.0,
                 "success_count": 0,
                 "error_count": 0,
-                "avg_time": 0.0
+                "avg_time": 0.0,
             },
             "cloud": {
                 "count": 0,
                 "total_time": 0.0,
                 "success_count": 0,
                 "error_count": 0,
-                "avg_time": 0.0
-            }
+                "avg_time": 0.0,
+            },
         }
 
         # 网络状态
@@ -77,16 +79,21 @@ class HybridSpeechService(ISpeechService):
         # 初始化服务选择
         self._initialize_service()
 
-        app_logger.log_audio_event("Hybrid speech service initialized", {
-            "local_available": local_service is not None,
-            "cloud_available": cloud_service is not None,
-            "initial_service": self._service_type
-        })
+        app_logger.log_audio_event(
+            "Hybrid speech service initialized",
+            {
+                "local_available": local_service is not None,
+                "cloud_available": cloud_service is not None,
+                "initial_service": self._service_type,
+            },
+        )
 
     def _update_config(self) -> None:
         """更新配置参数"""
         with self._lock:
-            self.provider = self.config_service.get_setting("transcription.provider", "local")
+            self.provider = self.config_service.get_setting(
+                "transcription.provider", "local"
+            )
             self.use_cloud_fallback = self.config_service.get_setting(
                 "transcription.siliconflow.use_local_fallback", True
             )
@@ -132,6 +139,7 @@ class HybridSpeechService(ISpeechService):
         try:
             # 简单的网络连通性检查
             import socket
+
             socket.create_connection(("api.siliconflow.cn", 443), timeout=3)
             self._network_available = True
         except Exception:
@@ -161,7 +169,9 @@ class HybridSpeechService(ISpeechService):
 
         return True
 
-    def _update_performance_stats(self, service_type: str, success: bool, duration: float) -> None:
+    def _update_performance_stats(
+        self, service_type: str, success: bool, duration: float
+    ) -> None:
         """更新性能统计"""
         with self._lock:
             stats = self._performance_stats[service_type]
@@ -174,13 +184,16 @@ class HybridSpeechService(ISpeechService):
             else:
                 stats["error_count"] += 1
 
-        app_logger.log_audio_event("Performance stats updated", {
-            "service_type": service_type,
-            "success": success,
-            "duration": duration,
-            "new_avg_time": stats["avg_time"],
-            "success_rate": stats["success_count"] / stats["count"]
-        })
+        app_logger.log_audio_event(
+            "Performance stats updated",
+            {
+                "service_type": service_type,
+                "success": success,
+                "duration": duration,
+                "new_avg_time": stats["avg_time"],
+                "success_rate": stats["success_count"] / stats["count"],
+            },
+        )
 
     def _smart_service_selection(self) -> str:
         """智能服务选择"""
@@ -232,7 +245,11 @@ class HybridSpeechService(ISpeechService):
             service = None
             service_type = None
 
-            if preferred_service == "cloud" and self.cloud_service and self._should_use_cloud():
+            if (
+                preferred_service == "cloud"
+                and self.cloud_service
+                and self._should_use_cloud()
+            ):
                 service = self.cloud_service
                 service_type = "cloud"
             elif preferred_service == "local" and self.local_service:
@@ -252,17 +269,20 @@ class HybridSpeechService(ISpeechService):
                     "text": "",
                     "error": "No transcription service available",
                     "provider": "hybrid",
-                    "service_used": None
+                    "service_used": None,
                 }
 
             # 记录服务切换
             if self._service_type != service_type:
-                app_logger.log_audio_event("Service switched", {
-                    "from_service": self._service_type,
-                    "to_service": service_type,
-                    "reason": "smart_selection",
-                    "network_available": self._is_network_available()
-                })
+                app_logger.log_audio_event(
+                    "Service switched",
+                    {
+                        "from_service": self._service_type,
+                        "to_service": service_type,
+                        "reason": "smart_selection",
+                        "network_available": self._is_network_available(),
+                    },
+                )
                 self._active_service = service
                 self._service_type = service_type
 
@@ -290,10 +310,10 @@ class HybridSpeechService(ISpeechService):
             if self.retry_on_error and service_type == "cloud":
                 # 云端服务失败，尝试本地服务
                 if self.local_service and self.use_cloud_fallback:
-                    app_logger.log_audio_event("Cloud service failed, falling back to local", {
-                        "error": str(e),
-                        "fallback_enabled": self.use_cloud_fallback
-                    })
+                    app_logger.log_audio_event(
+                        "Cloud service failed, falling back to local",
+                        {"error": str(e), "fallback_enabled": self.use_cloud_fallback},
+                    )
 
                     try:
                         result = self.local_service.transcribe(audio_data, language)
@@ -314,7 +334,7 @@ class HybridSpeechService(ISpeechService):
                 "error": str(e),
                 "provider": "hybrid",
                 "service_used": service_type,
-                "network_available": self._is_network_available()
+                "network_available": self._is_network_available(),
             }
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
@@ -337,9 +357,13 @@ class HybridSpeechService(ISpeechService):
         models = []
         with self._lock:
             if self.local_service:
-                models.extend([f"local:{m}" for m in self.local_service.get_available_models()])
+                models.extend(
+                    [f"local:{m}" for m in self.local_service.get_available_models()]
+                )
             if self.cloud_service:
-                models.extend([f"cloud:{m}" for m in self.cloud_service.get_available_models()])
+                models.extend(
+                    [f"cloud:{m}" for m in self.cloud_service.get_available_models()]
+                )
         return models
 
     @property
@@ -362,8 +386,8 @@ class HybridSpeechService(ISpeechService):
                     "use_cloud_fallback": self.use_cloud_fallback,
                     "retry_on_error": self.retry_on_error,
                     "max_retries": self.max_retries,
-                    "cloud_timeout": self.cloud_timeout
-                }
+                    "cloud_timeout": self.cloud_timeout,
+                },
             }
 
     def set_provider(self, provider: str) -> None:
@@ -375,10 +399,9 @@ class HybridSpeechService(ISpeechService):
             # 更新配置
             self.config_service.set_setting("transcription.provider", provider)
 
-            app_logger.log_audio_event("Provider changed", {
-                "from": old_provider,
-                "to": provider
-            })
+            app_logger.log_audio_event(
+                "Provider changed", {"from": old_provider, "to": provider}
+            )
 
             # 重新初始化服务选择
             self._initialize_service()
@@ -393,10 +416,10 @@ class HybridSpeechService(ISpeechService):
                 self._active_service = self.cloud_service
                 self._service_type = "cloud"
 
-            app_logger.log_audio_event("Service forced", {
-                "service_type": service_type,
-                "active_service": self._service_type
-            })
+            app_logger.log_audio_event(
+                "Service forced",
+                {"service_type": service_type, "active_service": self._service_type},
+            )
 
     def __del__(self):
         """析构函数"""
