@@ -13,6 +13,10 @@
 
 import pytest
 from unittest.mock import Mock, MagicMock
+
+# 标记为GUI测试，在CI中跳过
+pytestmark = pytest.mark.gui
+
 from sonicinput.core.voice_input_app import VoiceInputApp
 from sonicinput.core.di_container import create_container
 

@@ -17,6 +17,9 @@ import pytest
 import inspect
 from typing import Any, Dict, List
 
+# 标记为GUI测试，在CI中跳过
+pytestmark = pytest.mark.gui
+
 # 导入被测试的模块
 from sonicinput.core.services.dynamic_event_system import DynamicEventSystem
 from sonicinput.core.services.event_bus import Events
