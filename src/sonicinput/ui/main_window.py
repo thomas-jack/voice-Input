@@ -1,4 +1,4 @@
-"""主窗口组件 - 最小化GUI实现"""
+"""主窗口组件 - 最小化GUI实现（使用依赖注入）"""
 
 from PySide6.QtWidgets import (
     QMainWindow,
@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from typing import Optional, Dict, Any
-from ..core.voice_input_app import VoiceInputApp
+from ..core.interfaces import IUIMainService, IUISettingsService, IUIModelService
 from ..core.services.event_bus import Events
 from ..utils import app_logger
 
@@ -130,17 +130,19 @@ class ModelTestThread(QThread):
 
 
 class MainWindow(QMainWindow):
-    """最小化主窗口 - 仅提供基本GUI功能"""
+    """最小化主窗口 - 使用依赖注入的UI服务"""
 
     # 信号定义
     window_closing = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.voice_app: Optional[VoiceInputApp] = None
+        self.ui_main_service: Optional[IUIMainService] = None
+        self.ui_settings_service: Optional[IUISettingsService] = None
+        self.ui_model_service: Optional[IUIModelService] = None
         self.setup_window()
         self.setup_ui()
-        app_logger.log_audio_event("MainWindow initialized", {})
+        app_logger.log_audio_event("MainWindow initialized with DI", {})
 
     def setup_window(self) -> None:
         """配置窗口基本属性"""
@@ -184,18 +186,31 @@ class MainWindow(QMainWindow):
         self.minimize_button.clicked.connect(self.hide)
         layout.addWidget(self.minimize_button)
 
-    def set_controller(self, voice_app: VoiceInputApp) -> None:
-        """设置应用控制器"""
-        self.voice_app = voice_app
-        self._connect_controller_events()
+    def set_ui_services(
+        self,
+        ui_main_service: IUIMainService,
+        ui_settings_service: IUISettingsService,
+        ui_model_service: IUIModelService
+    ) -> None:
+        """设置UI服务（依赖注入）
 
-    def _connect_controller_events(self) -> None:
-        """连接控制器事件"""
-        if not self.voice_app:
+        Args:
+            ui_main_service: 主窗口UI服务
+            ui_settings_service: 设置窗口UI服务
+            ui_model_service: 模型管理UI服务
+        """
+        self.ui_main_service = ui_main_service
+        self.ui_settings_service = ui_settings_service
+        self.ui_model_service = ui_model_service
+        self._connect_service_events()
+
+    def _connect_service_events(self) -> None:
+        """连接UI服务事件"""
+        if not self.ui_main_service:
             return
 
         # 录音状态事件
-        events = self.voice_app.events
+        events = self.ui_main_service.get_event_service()
         events.on(Events.RECORDING_STARTED, self._on_recording_started)
         events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
 
@@ -211,13 +226,13 @@ class MainWindow(QMainWindow):
 
     def toggle_recording(self) -> None:
         """切换录音状态"""
-        if not self.voice_app:
+        if not self.ui_main_service:
             return
 
-        if self.voice_app.is_recording:
-            self.voice_app.stop_recording()
+        if self.ui_main_service.is_recording():
+            self.ui_main_service.stop_recording()
         else:
-            self.voice_app.start_recording()
+            self.ui_main_service.start_recording()
 
     def show_settings(self) -> None:
         """显示设置窗口"""
@@ -226,7 +241,7 @@ class MainWindow(QMainWindow):
 
             if not hasattr(self, "_settings_window") or not self._settings_window:
                 self._settings_window = SettingsWindow(
-                    self.voice_app.config, self.voice_app
+                    self.ui_settings_service, self.ui_model_service
                 )
 
                 # 连接模型管理信号
@@ -250,7 +265,7 @@ class MainWindow(QMainWindow):
     def _on_model_load_requested(self, model_name: str) -> None:
         """处理模型加载请求（使用简化的进度对话框）"""
         try:
-            if self.voice_app and hasattr(self.voice_app, "whisper_engine"):
+            if self.ui_model_service:
                 app_logger.log_audio_event(
                     "Model load requested via GUI", {"model": model_name}
                 )
@@ -278,7 +293,7 @@ class MainWindow(QMainWindow):
 
                 try:
                     # 执行模型加载
-                    self.voice_app.whisper_engine.load_model(model_name)
+                    self.ui_model_service.load_model(model_name)
                     progress.close()
 
                     app_logger.log_audio_event(
@@ -316,9 +331,9 @@ class MainWindow(QMainWindow):
     def _on_model_unload_requested(self) -> None:
         """处理模型卸载请求"""
         try:
-            if self.voice_app and hasattr(self.voice_app, "whisper_engine"):
+            if self.ui_model_service:
                 app_logger.log_audio_event("Model unload requested", {})
-                self.voice_app.whisper_engine.unload_model()
+                self.ui_model_service.unload_model()
                 app_logger.log_audio_event("Model unloaded successfully", {})
                 # Refresh model status in settings window
                 if hasattr(self, "_settings_window") and self._settings_window:
@@ -329,8 +344,8 @@ class MainWindow(QMainWindow):
     def _on_model_test_requested(self) -> None:
         """处理模型测试请求"""
         try:
-            if self.voice_app and hasattr(self.voice_app, "whisper_engine"):
-                whisper_engine = self.voice_app.whisper_engine
+            if self.ui_model_service:
+                whisper_engine = self.ui_model_service.get_whisper_engine()
 
                 if not whisper_engine.is_model_loaded:
                     QMessageBox.warning(

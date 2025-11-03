@@ -11,6 +11,8 @@ import time
 import re
 from ..utils import app_logger
 from ..core.interfaces import IAIService
+from .http_client_manager import HTTPClientManager
+from .performance_monitor import AIPerformanceMonitor
 
 
 class BaseAIClient(IAIService):
@@ -197,19 +199,18 @@ class BaseAIClient(IAIService):
         self._secure_storage = None
         self._init_secure_storage()
 
-        self.session = requests.Session()
+        # 使用新的HTTP客户端管理器
+        self._http_client = HTTPClientManager(timeout)
+        self.session = self._http_client.get_session()
 
-        # 配置连接池
-        self._setup_connection_pool()
+        # 使用新的性能监控器
+        self._performance_monitor = AIPerformanceMonitor()
 
         # 请求配置
         self.timeout = timeout
         self.max_retries = max_retries
         self.retry_delay = 1.0  # 初始重试延迟（指数退避）
         self.filter_thinking = filter_thinking
-
-        # 性能统计
-        self._last_tps = 0.0  # 最近一次调用的 Tokens Per Second
 
         # 设置请求头
         self._update_headers()
@@ -226,36 +227,7 @@ class BaseAIClient(IAIService):
             },
         )
 
-    def _setup_connection_pool(self) -> None:
-        """配置连接池"""
-        try:
-            from requests.adapters import HTTPAdapter
-            from urllib3.util.retry import Retry
-
-            # 配置重试策略
-            retry_strategy = Retry(
-                total=0,  # 我们在应用层处理重试
-                backoff_factor=0,
-                status_forcelist=[429, 502, 503, 504],
-            )
-
-            # 创建适配器
-            adapter = HTTPAdapter(
-                pool_connections=10,  # 连接池数量
-                pool_maxsize=20,  # 每个连接池的最大连接数
-                max_retries=retry_strategy,
-            )
-
-            # 应用到session
-            self.session.mount("http://", adapter)
-            self.session.mount("https://", adapter)
-
-            app_logger.log_audio_event("Connection pool configured successfully", {})
-
-        except Exception as e:
-            app_logger.log_error(e, "setup_connection_pool")
-            # 继续使用默认配置
-
+    
     def _init_secure_storage(self) -> None:
         """初始化安全存储"""
         try:
@@ -414,39 +386,8 @@ class BaseAIClient(IAIService):
         Returns:
             包含 token 统计的字典
         """
-        usage = result.get("usage", {})
-        prompt_tokens = usage.get("prompt_tokens", 0)
-        completion_tokens = usage.get("completion_tokens", 0)
-        total_tokens = usage.get("total_tokens", 0)
-
-        # 改进的TPS计算 - 包含prompt和completion处理时间
-        if response_time > 0:
-            # 计算综合TPS（包含prompt + completion）
-            total_tokens_processed = prompt_tokens + completion_tokens
-            if total_tokens_processed > 0:
-                self._last_tps = total_tokens_processed / response_time
-            else:
-                self._last_tps = 0.0
-
-            # 分别计算prompt和completion的TPS
-            prompt_tps = prompt_tokens / response_time if prompt_tokens > 0 else 0.0
-            completion_tps = (
-                completion_tokens / response_time if completion_tokens > 0 else 0.0
-            )
-        else:
-            self._last_tps = 0.0
-            prompt_tps = 0.0
-            completion_tps = 0.0
-
-        return {
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "total_tokens": total_tokens,
-            "tps": self._last_tps,
-            "prompt_tps": prompt_tps,
-            "completion_tps": completion_tps,
-            "response_time": response_time,
-        }
+        # 使用性能监控器处理token统计
+        return self._performance_monitor.extract_token_stats(result, response_time)
 
     def _handle_rate_limit(self, attempt: int, response_time: float) -> bool:
         """处理速率限制 - 智能重试机制

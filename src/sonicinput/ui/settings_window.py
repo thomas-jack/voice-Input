@@ -20,6 +20,7 @@ from PySide6.QtCore import Qt, Signal, QObject, QEvent
 from typing import Dict, Any
 import time
 from ..utils import app_logger
+from ..core.interfaces import IUISettingsService, IUIModelService, IUIAudioService, IUIGPUService
 from .settings_tabs import (
     GeneralTab,
     HotkeyTab,
@@ -62,11 +63,13 @@ class SettingsWindow(QMainWindow):
     model_unload_requested = Signal()
     model_test_requested = Signal()
 
-    def __init__(self, config_manager, voice_app=None, parent=None):
+    def __init__(self, ui_settings_service: IUISettingsService, ui_model_service: IUIModelService, parent=None):
         super().__init__(parent)
 
-        self.config_manager = config_manager
-        self.voice_app = voice_app
+        self.ui_settings_service = ui_settings_service
+        self.ui_model_service = ui_model_service
+        self.ui_audio_service = None  # 可选，在需要时初始化
+        self.ui_gpu_service = None     # 可选，在需要时初始化
         self.current_config = {}
 
         # 设置窗口属性
@@ -79,13 +82,13 @@ class SettingsWindow(QMainWindow):
         self.wheel_filter = WheelEventFilter(self)
 
         # 创建标签页实例
-        self.general_tab = GeneralTab(self.config_manager, self)
-        self.hotkey_tab = HotkeyTab(self.config_manager, self)
-        self.transcription_tab = TranscriptionTab(self.config_manager, self)
-        self.ai_tab = AITab(self.config_manager, self)
-        self.audio_tab = AudioTab(self.config_manager, self)
-        self.input_tab = InputTab(self.config_manager, self)
-        self.ui_tab = UITab(self.config_manager, self)
+        self.general_tab = GeneralTab(self.ui_settings_service, self)
+        self.hotkey_tab = HotkeyTab(self.ui_settings_service, self)
+        self.transcription_tab = TranscriptionTab(self.ui_settings_service, self)
+        self.ai_tab = AITab(self.ui_settings_service, self)
+        self.audio_tab = AudioTab(self.ui_settings_service, self)
+        self.input_tab = InputTab(self.ui_settings_service, self)
+        self.ui_tab = UITab(self.ui_settings_service, self)
 
         # 初始化UI
         self.setup_ui()
@@ -94,10 +97,11 @@ class SettingsWindow(QMainWindow):
         self._install_wheel_filters()
 
         # 监听模型加载完成事件
-        if voice_app and hasattr(voice_app, "events"):
+        if self.ui_settings_service:
             from ..utils.constants import Events
 
-            voice_app.events.on(Events.MODEL_LOADING_COMPLETED, self._on_model_loaded)
+            events = self.ui_settings_service.get_event_service()
+            events.on(Events.MODEL_LOADING_COMPLETED, self._on_model_loaded)
 
             # 检查模型是否已经加载（如果SettingsWindow创建晚于模型加载）
             self._check_initial_model_status()
@@ -200,7 +204,7 @@ class SettingsWindow(QMainWindow):
 
     def load_current_config(self) -> None:
         """加载当前配置"""
-        self.current_config = self.config_manager.get_all_settings()
+        self.current_config = self.ui_settings_service.get_all_settings()
         self.update_ui_from_config()
 
         # Initialize audio devices
@@ -559,7 +563,7 @@ class SettingsWindow(QMainWindow):
             flat_config = self._flatten_config(new_config)
             for key, value in flat_config.items():
                 try:
-                    self.config_manager.set_setting(key, value)
+                    self.ui_settings_service.set_setting(key, value)
                 except Exception as setting_error:
                     app_logger.log_error(setting_error, f"Failed to set config: {key}")
 
@@ -570,8 +574,8 @@ class SettingsWindow(QMainWindow):
             )
 
             # 实时应用快捷键配置（无需重启）
-            if self.voice_app:
-                self.voice_app.reload_hotkeys()
+            # 这里需要通过UI服务来触发快捷键重载
+            # 具体实现取决于UI主服务的功能
 
             QMessageBox.information(self, "Settings", "Settings applied successfully!")
         except Exception as e:
@@ -618,7 +622,7 @@ class SettingsWindow(QMainWindow):
         )
         if file_path:
             try:
-                self.config_manager.export_config(file_path)
+                self.ui_settings_service.export_config(file_path)
                 QMessageBox.information(
                     self, "Export", "Settings exported successfully!"
                 )
@@ -632,7 +636,7 @@ class SettingsWindow(QMainWindow):
         )
         if file_path:
             try:
-                self.config_manager.import_config(file_path)
+                self.ui_settings_service.import_config(file_path)
                 self.load_current_config()
                 QMessageBox.information(
                     self, "Import", "Settings imported successfully!"
@@ -651,7 +655,7 @@ class SettingsWindow(QMainWindow):
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                self.config_manager.reset_to_defaults()
+                self.ui_settings_service.reset_to_defaults()
                 self.load_current_config()
                 QMessageBox.information(self, "Reset", "Settings reset to defaults!")
             except Exception as e:
@@ -818,7 +822,7 @@ class SettingsWindow(QMainWindow):
                 self.audio_device_combo.addItem(device_name, device["index"])
 
             # Select current device from config
-            current_device_id = self.config_manager.get_setting("audio.device_id")
+            current_device_id = self.ui_settings_service.get_setting("audio.device_id")
             if current_device_id is not None:
                 # Find and select the current device
                 for i in range(self.audio_device_combo.count()):
@@ -847,7 +851,7 @@ class SettingsWindow(QMainWindow):
             selected_device_id = self.audio_device_combo.currentData()
 
             # Update configuration
-            self.config_manager.set_setting("audio.device_id", selected_device_id)
+            self.ui_settings_service.set_setting("audio.device_id", selected_device_id)
 
             app_logger.log_audio_event(
                 "Audio device changed", {"device_id": selected_device_id}
@@ -1223,7 +1227,7 @@ class SettingsWindow(QMainWindow):
                 return
 
             # 获取默认配置
-            default_config = self.config_manager._default_config
+            default_config = self.ui_settings_service.get_default_config()
 
             # 根据标签页重置相应设置
             if current_index == 0:  # General

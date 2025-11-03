@@ -47,6 +47,11 @@ DIContainer = EnhancedDIContainer
 
 # 导出工厂函数
 from .di_container_enhanced import create_container, create_enhanced_container
+from .configurable_container_factory import (
+    ConfigurableContainerFactory,
+    create_configurable_container,
+    create_container_from_env
+)
 
 __all__ = [
     "DIContainer",
@@ -59,4 +64,7 @@ __all__ = [
     # 工厂函数
     "create_container",
     "create_enhanced_container",
+    "ConfigurableContainerFactory",
+    "create_configurable_container",
+    "create_container_from_env",
 ]

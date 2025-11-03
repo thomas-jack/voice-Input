@@ -20,6 +20,9 @@ from .interfaces.ai import IAIService
 from .interfaces.audio import IAudioService
 from .interfaces.config import IConfigService
 from .interfaces.event import IEventService
+from .interfaces.config_reload_service import IConfigReloadService
+from .interfaces.application_orchestrator import IApplicationOrchestrator
+from .interfaces.ui_event_bridge import IUIEventBridge
 from .interfaces.hotkey import IHotkeyService
 from .interfaces.input import IInputService
 from .interfaces.speech import ISpeechService
@@ -690,6 +693,9 @@ def create_container() -> "EnhancedDIContainer":
     from .services.state_manager import StateManager
     from .services.transcription_service import TranscriptionService
     from .services.dynamic_event_system import DynamicEventSystem
+    from .services.config_reload_service import ConfigReloadService
+    from .services.application_orchestrator import ApplicationOrchestrator
+    from .services.ui_event_bridge import UIEventBridge
     from ..audio import AudioRecorder
     from ..speech import WhisperEngine
     from ..ai import AIClientFactory
@@ -704,6 +710,23 @@ def create_container() -> "EnhancedDIContainer":
 
     # 状态管理器 - 单例（需要 EventService）
     container.register_singleton(IStateManager, StateManager)
+
+    # 配置重载服务 - 单例（需要多个服务依赖）
+    def create_config_reload_service(container):
+        config = container.get(IConfigService)
+        events = container.get(IEventService)
+        state = container.get(IStateManager)
+
+        # 创建服务实例（其他服务依赖稍后注入）
+        return ConfigReloadService(
+            config=config,
+            events=events,
+            state=state
+        )
+
+    container.register_factory(
+        IConfigReloadService, create_config_reload_service, ServiceLifetime.SINGLETON
+    )
 
     # 音频服务 - 瞬态
     def create_audio_service(container):
@@ -790,6 +813,33 @@ def create_container() -> "EnhancedDIContainer":
 
     container.register_factory(
         IHotkeyService, create_hotkey_service, ServiceLifetime.TRANSIENT
+    )
+
+    # 应用编排器 - 单例（依赖多个核心服务）
+    def create_application_orchestrator(container):
+        config = container.get(IConfigService)
+        events = container.get(IEventService)
+        state = container.get(IStateManager)
+        config_reload = container.get(IConfigReloadService)
+
+        return ApplicationOrchestrator(
+            config_service=config,
+            event_service=events,
+            state_manager=state,
+            config_reload_service=config_reload,
+        )
+
+    container.register_factory(
+        IApplicationOrchestrator, create_application_orchestrator, ServiceLifetime.SINGLETON
+    )
+
+    # UI事件桥接器 - 单例（依赖事件服务）
+    def create_ui_event_bridge(container):
+        events = container.get(IEventService)
+        return UIEventBridge(event_service=events)
+
+    container.register_factory(
+        IUIEventBridge, create_ui_event_bridge, ServiceLifetime.SINGLETON
     )
 
     return container
