@@ -50,7 +50,6 @@ def run_unit_tests(ci_config):
 
     cmd = [
         sys.executable, "-m", "pytest",
-        "unit/",
         "-v",
         "--tb=short",
         f"--timeout={ci_config['timeout']}",
@@ -77,10 +76,6 @@ def run_integration_tests(ci_config):
 
     cmd = [
         sys.executable, "-m", "pytest",
-        "integration/test_cloud_services_light.py::TestSpeechServiceFactory::test_local_service_creation",
-        "integration/test_cloud_services_light.py::TestSpeechServiceFactory::test_unsupported_provider",
-        "integration/test_cloud_services_light.py::TestGroqServiceMock::test_transcription_workflow",
-        "integration/test_cloud_services_light.py::TestConfigurationDrivenService::test_service_selection_logic",
         "-v",
         "--tb=short",
         f"--timeout={ci_config['timeout']}",
@@ -166,8 +161,6 @@ def run_quick_tests():
 
     cmd = [
         sys.executable, "-m", "pytest",
-        "unit/test_basic_simple.py",
-        "unit/test_core_services.py",
         "-v",
         "--tb=short",
         "--timeout=10",
