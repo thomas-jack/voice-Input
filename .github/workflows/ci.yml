@@ -1,0 +1,173 @@
+name: CI Tests
+
+# 触发条件：push到任何分支、pull request到main分支
+on:
+  push:
+    branches: [ main, develop, feature/*, fix/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+# 环境变量
+env:
+  PYTHON_VERSION: "3.10"
+  UV_CACHE_DIR: "/tmp/.uv-cache"
+
+jobs:
+  # 代码质量检查
+  lint:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Cache uv dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.UV_CACHE_DIR }}
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run ruff (linting)
+      run: |
+        uv run ruff check src/ --output-format=github
+
+    - name: Run ruff (formatting check)
+      run: |
+        uv run ruff format --check src/
+
+    - name: Run mypy (type checking)
+      run: |
+        uv run mypy src/ --ignore-missing-imports || true  # 允许失败，逐步修复
+
+  # CI测试套件
+  test:
+    name: CI Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Cache uv dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.UV_CACHE_DIR }}
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run CI test suite
+      run: |
+        cd tests/ci
+        uv run python run_ci_tests.py
+
+    - name: Upload test reports
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: ci-test-reports
+        path: tests/ci/reports/
+        retention-days: 7
+
+    - name: Publish test results
+      if: always()
+      uses: dorny/test-reporter@v1
+      with:
+        name: CI Test Results
+        path: tests/ci/reports/*.xml
+        reporter: java-junit
+
+  # 快速测试（只有单元测试）
+  quick-test:
+    name: Quick Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run quick CI tests
+      run: |
+        cd tests/ci
+        uv run python run_ci_tests.py --quick
+
+  # 安全扫描
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+        uv add --dev bandit
+
+    - name: Run Bandit security scan
+      run: |
+        uv run bandit -r src/ -f json -o bandit-report.json || true
+
+    - name: Upload security report
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: bandit-report.json
+        retention-days: 30

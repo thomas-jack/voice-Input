@@ -65,3 +65,8 @@ markers = [
     "gui: marks tests that require GUI/Qt environment (use '-m \"not gui\"' to skip)",
 ]
 addopts = "-v"
+
+[dependency-groups]
+dev = [
+    "nuitka>=2.8.4",
+]
