@@ -186,6 +186,33 @@ class MainWindow(QMainWindow):
         self.minimize_button.clicked.connect(self.hide)
         layout.addWidget(self.minimize_button)
 
+    def set_controller(self, voice_input_app) -> None:
+        """设置应用控制器（向后兼容方法）
+
+        Args:
+            voice_input_app: VoiceInputApp实例
+        """
+        # 创建UI服务适配器
+        from ..core.services.ui_service_adapter import (
+            UIMainServiceAdapter,
+            UISettingsServiceAdapter,
+            UIModelServiceAdapter
+        )
+
+        ui_main_service = UIMainServiceAdapter(voice_input_app)
+        ui_settings_service = UISettingsServiceAdapter(
+            voice_input_app.config,
+            voice_input_app.events
+        )
+        ui_model_service = UIModelServiceAdapter(voice_input_app)
+
+        # 设置UI服务
+        self.set_ui_services(
+            ui_main_service,
+            ui_settings_service,
+            ui_model_service
+        )
+
     def set_ui_services(
         self,
         ui_main_service: IUIMainService,
