@@ -86,6 +86,7 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --extra ci
+        uv pip install PySide6  # CI needs PySide6 for imports, even without GUI
 
     - name: Run CI test suite
       run: |
@@ -130,6 +131,7 @@ jobs:
     - name: Install dependencies
       run: |
         uv sync --extra ci
+        uv pip install PySide6  # CI needs PySide6 for imports
 
     - name: Run quick CI tests
       run: |
