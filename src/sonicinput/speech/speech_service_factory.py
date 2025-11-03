@@ -36,15 +36,17 @@ class SpeechServiceFactory:
         provider: str,
         api_key: str = "",
         model: str = "large-v3-turbo",
-        use_gpu: Optional[bool] = None
+        use_gpu: Optional[bool] = None,
+        base_url: Optional[str] = None
     ) -> ISpeechService:
         """Create speech service instance
 
         Args:
-            provider: Provider name ("local", "groq")
+            provider: Provider name ("local", "groq", "siliconflow")
             api_key: API key (for cloud providers)
             model: Model name
             use_gpu: Use GPU for local provider (None = auto-detect)
+            base_url: Custom base URL for cloud providers (optional)
 
         Returns:
             ISpeechService: Speech service instance
@@ -64,7 +66,13 @@ class SpeechServiceFactory:
                 from .groq_speech_service import GroqSpeechService
                 if not api_key:
                     raise ValueError("Groq provider requires API key")
-                return GroqSpeechService(api_key=api_key, model=model)
+                return GroqSpeechService(api_key=api_key, model=model, base_url=base_url)
+
+            elif provider_lower == "siliconflow":
+                from .siliconflow_engine import SiliconFlowEngine
+                if not api_key:
+                    raise ValueError("SiliconFlow provider requires API key")
+                return SiliconFlowEngine(api_key=api_key, model_name=model, base_url=base_url)
 
             else:
                 error_msg = f"Unsupported speech provider: {provider}"
@@ -109,6 +117,7 @@ class SpeechServiceFactory:
                 # Read Groq configuration
                 api_key = config.get_setting("transcription.groq.api_key", "")
                 model = config.get_setting("transcription.groq.model", "whisper-large-v3-turbo")
+                base_url = config.get_setting("transcription.groq.base_url", "https://api.groq.com/openai/v1")
 
                 if not api_key:
                     app_logger.log_audio_event("Groq provider selected but no API key configured", {})
@@ -123,11 +132,49 @@ class SpeechServiceFactory:
                         })
                         return None
 
-                return SpeechServiceFactory.create_service(
-                    provider="groq",
-                    api_key=api_key,
-                    model=model
-                )
+                # Only pass base_url if it's not the default (to use SDK's default)
+                if base_url == "https://api.groq.com/openai/v1":
+                    return SpeechServiceFactory.create_service(
+                        provider="groq",
+                        api_key=api_key,
+                        model=model,
+                        base_url=None
+                    )
+                else:
+                    return SpeechServiceFactory.create_service(
+                        provider="groq",
+                        api_key=api_key,
+                        model=model,
+                        base_url=base_url
+                    )
+
+            elif provider == "siliconflow":
+                # Read SiliconFlow configuration
+                api_key = config.get_setting("transcription.siliconflow.api_key", "")
+                model = config.get_setting("transcription.siliconflow.model", "FunAudioLLM/SenseVoiceSmall")
+                base_url = config.get_setting("transcription.siliconflow.base_url", "https://api.siliconflow.cn/v1")
+
+                if not api_key:
+                    app_logger.log_audio_event("SiliconFlow provider selected but no API key configured", {
+                        "suggestion": "Configure API key in settings"
+                    })
+                    return None
+
+                # Only pass base_url if it's not the default (to use engine's default)
+                if base_url == "https://api.siliconflow.cn/v1":
+                    return SpeechServiceFactory.create_service(
+                        provider="siliconflow",
+                        api_key=api_key,
+                        model=model,
+                        base_url=None
+                    )
+                else:
+                    return SpeechServiceFactory.create_service(
+                        provider="siliconflow",
+                        api_key=api_key,
+                        model=model,
+                        base_url=base_url
+                    )
 
             else:
                 app_logger.log_audio_event("Unknown provider", {

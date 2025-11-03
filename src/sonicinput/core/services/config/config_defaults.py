@@ -24,7 +24,17 @@ def get_default_config() -> Dict[str, Any]:
             },
             "groq": {
                 "api_key": "",
-                "model": "whisper-large-v3-turbo"
+                "model": "whisper-large-v3-turbo",
+                "base_url": "https://api.groq.com/openai/v1",
+                "timeout": 30,
+                "max_retries": 3
+            },
+            "siliconflow": {
+                "api_key": "",
+                "model": "FunAudioLLM/SenseVoiceSmall",
+                "base_url": "https://api.siliconflow.cn/v1",
+                "timeout": 30,
+                "max_retries": 3
             }
         },
         "whisper": {

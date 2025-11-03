@@ -36,28 +36,33 @@ class GroqSpeechService(ISpeechService):
         "whisper-large-v3"
     ]
 
-    def __init__(self, api_key: str, model: str = "whisper-large-v3-turbo"):
+    def __init__(self, api_key: str, model: str = "whisper-large-v3-turbo", base_url: Optional[str] = None):
         """Initialize Groq Speech Service
 
         Args:
             api_key: Groq API key
             model: Whisper model to use
+            base_url: Optional custom base URL for Groq API (e.g., for proxies or compatible services)
         """
         self.api_key = api_key
         self.model = model
         self.model_name = model  # Alias for compatibility with WhisperEngine
+        self.base_url = base_url  # None means use default Groq endpoint
         self.device = "cloud"  # For compatibility with WhisperEngine
         self.use_gpu = False  # Cloud service, not using local GPU
         self._client = None
         self._model_loaded = False
 
-    def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None, temperature: float = 0.0) -> Dict[str, Any]:
-        """Transcribe audio data using Groq Whisper API
+    def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None, temperature: float = 0.0,
+                  max_retries: int = 3, retry_delay: float = 1.0) -> Dict[str, Any]:
+        """Transcribe audio data using Groq Whisper API with automatic retry
 
         Args:
             audio_data: Audio data as numpy array (16kHz, mono)
             language: Language code (ISO-639-1), None for auto-detection
             temperature: Temperature for sampling (0.0-1.0), default 0.0 for deterministic output
+            max_retries: Maximum number of retries on failure
+            retry_delay: Initial retry delay in seconds (exponential backoff)
 
         Returns:
             Transcription result with text, segments, etc.
@@ -74,73 +79,100 @@ class GroqSpeechService(ISpeechService):
                     "duration": len(audio_data) / 16000.0,
                     "processing_time": 0.0,
                     "rtf": 0.0,
-                    "error": "Failed to initialize Groq client. Check API key and network connection."
+                    "error": "Failed to initialize Groq client. Check API key and network connection.",
+                    "provider": "groq"
                 }
 
         start_time = time.time()
+        last_error = None
+        retry_count = 0
 
-        try:
-            # Convert numpy array to WAV bytes
-            audio_bytes = self._numpy_to_wav(audio_data)
+        while retry_count <= max_retries:
+            try:
+                # Convert numpy array to WAV bytes
+                audio_bytes = self._numpy_to_wav(audio_data)
 
-            # Create transcription request
-            app_logger.log_audio_event("Sending audio to Groq API", {
-                "model": self.model,
-                "language": language or "auto",
-                "audio_size_bytes": len(audio_bytes)
-            })
+                # Create transcription request
+                app_logger.log_audio_event("Sending audio to Groq API", {
+                    "model": self.model,
+                    "language": language or "auto",
+                    "audio_size_bytes": len(audio_bytes),
+                    "retry_count": retry_count
+                })
 
-            # Call Groq API
-            transcription = self._client.audio.transcriptions.create(
-                file=("audio.wav", audio_bytes),
-                model=self.model,
-                language=language if language and language != "auto" else None,
-                response_format="verbose_json",
-                temperature=temperature
-            )
+                # Call Groq API
+                transcription = self._client.audio.transcriptions.create(
+                    file=("audio.wav", audio_bytes),
+                    model=self.model,
+                    language=language if language and language != "auto" else None,
+                    response_format="verbose_json",
+                    temperature=temperature
+                )
 
-            elapsed_time = time.time() - start_time
-            audio_duration = len(audio_data) / 16000.0  # Assuming 16kHz
-            rtf = elapsed_time / audio_duration if audio_duration > 0 else 0
+                elapsed_time = time.time() - start_time
+                audio_duration = len(audio_data) / 16000.0  # Assuming 16kHz
+                rtf = elapsed_time / audio_duration if audio_duration > 0 else 0
 
-            # Convert Groq response to our standard format
-            result = {
-                "text": transcription.text,
-                "language": getattr(transcription, "language", language or "unknown"),
-                "segments": self._convert_segments(transcription),
-                "duration": audio_duration,
-                "processing_time": elapsed_time,
-                "rtf": rtf
-            }
+                # Convert Groq response to our standard format
+                result = {
+                    "text": transcription.text,
+                    "language": getattr(transcription, "language", language or "unknown"),
+                    "segments": self._convert_segments(transcription),
+                    "duration": audio_duration,
+                    "processing_time": elapsed_time,
+                    "rtf": rtf,
+                    "provider": "groq",
+                    "retry_count": retry_count
+                }
 
-            app_logger.log_audio_event("Groq transcription completed", {
-                "text_length": len(result["text"]),
-                "duration": audio_duration,
-                "processing_time": elapsed_time,
-                "rtf": rtf,
-                "model": self.model
-            })
+                app_logger.log_audio_event("Groq transcription completed", {
+                    "text_length": len(result["text"]),
+                    "duration": audio_duration,
+                    "processing_time": elapsed_time,
+                    "rtf": rtf,
+                    "model": self.model,
+                    "retry_count": retry_count
+                })
 
-            return result
+                return result
 
-        except Exception as e:
-            elapsed_time = time.time() - start_time
-            audio_duration = len(audio_data) / 16000.0
+            except Exception as e:
+                last_error = str(e)
+                app_logger.log_error(e, "GroqSpeechService.transcribe")
 
-            error_msg = str(e)
-            app_logger.log_error(e, "GroqSpeechService.transcribe")
+                # Check if we should retry
+                if retry_count < max_retries:
+                    retry_count += 1
+                    wait_time = retry_delay * (2 ** (retry_count - 1))  # Exponential backoff
+                    app_logger.log_audio_event("Retrying Groq transcription", {
+                        "retry_count": retry_count,
+                        "max_retries": max_retries,
+                        "delay": wait_time,
+                        "error": last_error
+                    })
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    # All retries exhausted
+                    break
 
-            # Return error result instead of raising exception
-            return {
-                "text": "",
-                "language": language or "unknown",
-                "segments": [],
-                "duration": audio_duration,
-                "processing_time": elapsed_time,
-                "rtf": 0.0,
-                "error": error_msg,
-                "success": False
-            }
+        # All retries failed
+        elapsed_time = time.time() - start_time
+        audio_duration = len(audio_data) / 16000.0
+
+        return {
+            "text": "",
+            "language": language or "unknown",
+            "segments": [],
+            "duration": audio_duration,
+            "processing_time": elapsed_time,
+            "rtf": 0.0,
+            "error": last_error or "Unknown error",
+            "error_code": "MAX_RETRIES_EXCEEDED",
+            "provider": "groq",
+            "retry_count": retry_count,
+            "success": False
+        }
 
     def _numpy_to_wav(self, audio_data: np.ndarray, sample_rate: int = 16000) -> bytes:
         """Convert numpy array to WAV bytes
@@ -221,11 +253,17 @@ class GroqSpeechService(ISpeechService):
 
         try:
             Groq = _ensure_groq_imported()
-            self._client = Groq(api_key=self.api_key)
+
+            # Initialize client with optional base_url
+            if self.base_url:
+                self._client = Groq(api_key=self.api_key, base_url=self.base_url)
+            else:
+                self._client = Groq(api_key=self.api_key)
 
             app_logger.log_model_loading_step("Groq client initialized on-demand", {
                 "model": self.model,
-                "api_key_present": True
+                "api_key_present": True,
+                "base_url": self.base_url or "default"
             })
 
             return True

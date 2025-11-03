@@ -1,7 +1,30 @@
 {
-  "hotkey": {
-    "implementation": "legacy",
-    "keys": ["f12", "alt+h"]
+  "hotkeys": ["f12", "alt+h"],
+  "transcription": {
+    "provider": "local",
+    "local": {
+      "model": "large-v3-turbo",
+      "language": "auto",
+      "use_gpu": true,
+      "auto_load": true,
+      "temperature": 0.0,
+      "device": "auto",
+      "compute_type": "auto"
+    },
+    "groq": {
+      "api_key": "YOUR_GROQ_API_KEY_HERE",
+      "model": "whisper-large-v3-turbo",
+      "base_url": "https://api.groq.com/openai/v1",
+      "timeout": 30,
+      "max_retries": 3
+    },
+    "siliconflow": {
+      "api_key": "YOUR_SILICONFLOW_API_KEY_HERE",
+      "model": "FunAudioLLM/SenseVoiceSmall",
+      "base_url": "https://api.siliconflow.cn/v1",
+      "timeout": 30,
+      "max_retries": 3
+    }
   },
   "whisper": {
     "model": "large-v3-turbo",
