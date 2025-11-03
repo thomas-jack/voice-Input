@@ -42,7 +42,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --dev
+        uv sync --extra ci
 
     - name: Run ruff (linting)
       run: |
@@ -85,7 +85,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --dev
+        uv sync --extra ci
 
     - name: Run CI test suite
       run: |
@@ -94,7 +94,7 @@ jobs:
 
     - name: Upload test reports
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ci-test-reports
         path: tests/ci/reports/
@@ -129,7 +129,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --dev
+        uv sync --extra ci
 
     - name: Run quick CI tests
       run: |
@@ -157,7 +157,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        uv sync --dev
+        uv sync --extra ci
         uv add --dev bandit
 
     - name: Run Bandit security scan
@@ -166,7 +166,7 @@ jobs:
 
     - name: Upload security report
       if: always()
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-report
         path: bandit-report.json

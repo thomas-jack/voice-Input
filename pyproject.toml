@@ -10,25 +10,29 @@ requires-python = ">=3.10"
 
 # 核心依赖 - 所有模式都需要
 dependencies = [
-    "PyAudio>=0.2.11",
-    "PySide6>=6.6.0",
     "requests>=2.31.0",
-    "pywin32>=306",
-    "pyperclip>=1.8.4",
-    "pynput>=1.7.6",
-    "sounddevice>=0.4.6",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
     "pydantic>=2.0.0",
     "loguru>=0.7.0",
     "psutil>=5.9.0",
-    "qt-material>=2.17",
     "cryptography>=46.0.3",
     # 云转录支持
     "groq>=0.9.0",
 ]
 
 [project.optional-dependencies]
+# Windows GUI依赖
+windows = [
+    "PyAudio>=0.2.11",
+    "PySide6>=6.6.0",
+    "pywin32>=306",
+    "pyperclip>=1.8.4",
+    "pynput>=1.7.6",
+    "sounddevice>=0.4.6",
+    "qt-material>=2.17",
+]
+
 # 本地转录支持（包含所有GPU依赖）
 local = [
     "faster-whisper>=1.0.0",
@@ -50,9 +54,14 @@ dev = [
     "bandit>=1.8.6",
 ]
 
-# 完整安装（本地+开发）
+# 完整安装（Windows+本地+开发）
 full = [
-    "sonicinput[local,dev]"
+    "sonicinput[windows,local,dev]"
+]
+
+# CI测试依赖（跨平台）
+ci = [
+    "sonicinput[dev]"
 ]
 
 [project.scripts]
