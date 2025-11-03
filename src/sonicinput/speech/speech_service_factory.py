@@ -26,8 +26,9 @@ class SpeechServiceFactory:
             bool: True if faster-whisper is installed, False otherwise
         """
         try:
-            import faster_whisper
-            return True
+            import importlib.util
+            spec = importlib.util.find_spec("faster_whisper")
+            return spec is not None
         except ImportError:
             return False
 

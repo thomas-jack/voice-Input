@@ -1,0 +1,27 @@
+[lint]
+# 忽略一些在CI中不那么关键的错误
+ignore = [
+    "E722",  # bare except (在清理代码中很常见)
+    "F841",  # unused variable (调试和未来功能预留)
+    "F811",  # redefinition (测试函数重复)
+    "E402",  # module level import not at top of file (延迟导入)
+    "F821",  # undefined name (Windows特定代码)
+    "F402",  # import shadowed by loop variable (暂时忽略)
+    "E721",  # type comparison (暂时忽略)
+]
+
+[lint.per-file-ignores]
+# 测试文件可以有更宽松的规则
+"tests/*" = [
+    "F841",  # 测试中的未使用变量
+    "F401",  # 测试中的未使用导入
+]
+
+# Windows特定的文件在Linux CI中可以有一些错误
+"*/sendinput.py" = [
+    "F821",  # win32api在Linux中未定义
+]
+
+"*/clipboard_input.py" = [
+    "F811",  # 重复的测试函数定义
+]

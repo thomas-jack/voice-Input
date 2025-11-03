@@ -1433,6 +1433,32 @@ wheels = [
 ]
 
 [[package]]
+name = "pytest-html"
+version = "4.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "pytest" },
+    { name = "pytest-metadata" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/ab/4862dcb5a8a514bd87747e06b8d55483c0c9e987e1b66972336946e49b49/pytest_html-4.1.1.tar.gz", hash = "sha256:70a01e8ae5800f4a074b56a4cb1025c8f4f9b038bba5fe31e3c98eb996686f07", size = 150773, upload-time = "2023-11-07T15:44:28.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c8/c7/c160021cbecd956cc1a6f79e5fe155f7868b2e5b848f1320dad0b3e3122f/pytest_html-4.1.1-py3-none-any.whl", hash = "sha256:c8152cea03bd4e9bee6d525573b67bbc6622967b72b9628dda0ea3e2a0b5dd71", size = 23491, upload-time = "2023-11-07T15:44:27.149Z" },
+]
+
+[[package]]
+name = "pytest-metadata"
+version = "3.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a6/85/8c969f8bec4e559f8f2b958a15229a35495f5b4ce499f6b865eac54b878d/pytest_metadata-3.1.1.tar.gz", hash = "sha256:d2a29b0355fbc03f168aa96d41ff88b1a3b44a3b02acbe491801c98a048017c8", size = 9952, upload-time = "2024-02-12T19:38:44.887Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/3e/43/7e7b2ec865caa92f67b8f0e9231a798d102724ca4c0e1f414316be1c1ef2/pytest_metadata-3.1.1-py3-none-any.whl", hash = "sha256:c8e0844db684ee1c798cfa38908d20d67d0463ecb6137c72e91f418558dd5f4b", size = 11428, upload-time = "2024-02-12T19:38:42.531Z" },
+]
+
+[[package]]
 name = "pytest-mock"
 version = "3.15.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1795,26 +1821,32 @@ dependencies = [
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "psutil" },
-    { name = "pyaudio" },
     { name = "pydantic" },
-    { name = "pynput" },
-    { name = "pyperclip" },
-    { name = "pyside6" },
-    { name = "pywin32" },
-    { name = "qt-material" },
     { name = "requests" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.16.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
-    { name = "sounddevice" },
 ]
 
 [package.optional-dependencies]
+ci = [
+    { name = "bandit" },
+    { name = "black" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-html" },
+    { name = "pytest-mock" },
+    { name = "pytest-timeout" },
+    { name = "ruff" },
+    { name = "vulture" },
+]
 dev = [
     { name = "bandit" },
     { name = "black" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-html" },
     { name = "pytest-mock" },
     { name = "pytest-timeout" },
     { name = "ruff" },
@@ -1828,11 +1860,19 @@ full = [
     { name = "mypy" },
     { name = "nvidia-cublas-cu12" },
     { name = "nvidia-cudnn-cu12" },
+    { name = "pyaudio" },
+    { name = "pynput" },
+    { name = "pyperclip" },
+    { name = "pyside6" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pytest-html" },
     { name = "pytest-mock" },
     { name = "pytest-timeout" },
+    { name = "pywin32" },
+    { name = "qt-material" },
     { name = "ruff" },
+    { name = "sounddevice" },
     { name = "vulture" },
 ]
 local = [
@@ -1840,6 +1880,15 @@ local = [
     { name = "faster-whisper" },
     { name = "nvidia-cublas-cu12" },
     { name = "nvidia-cudnn-cu12" },
+]
+windows = [
+    { name = "pyaudio" },
+    { name = "pynput" },
+    { name = "pyperclip" },
+    { name = "pyside6" },
+    { name = "pywin32" },
+    { name = "qt-material" },
+    { name = "sounddevice" },
 ]
 
 [package.dev-dependencies]
@@ -1861,25 +1910,27 @@ requires-dist = [
     { name = "nvidia-cublas-cu12", marker = "extra == 'local'", specifier = ">=12.0.0" },
     { name = "nvidia-cudnn-cu12", marker = "extra == 'local'", specifier = ">=9.0.0,<10.0.0" },
     { name = "psutil", specifier = ">=5.9.0" },
-    { name = "pyaudio", specifier = ">=0.2.11" },
+    { name = "pyaudio", marker = "extra == 'windows'", specifier = ">=0.2.11" },
     { name = "pydantic", specifier = ">=2.0.0" },
-    { name = "pynput", specifier = ">=1.7.6" },
-    { name = "pyperclip", specifier = ">=1.8.4" },
-    { name = "pyside6", specifier = ">=6.6.0" },
+    { name = "pynput", marker = "extra == 'windows'", specifier = ">=1.7.6" },
+    { name = "pyperclip", marker = "extra == 'windows'", specifier = ">=1.8.4" },
+    { name = "pyside6", marker = "extra == 'windows'", specifier = ">=6.6.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.21.0" },
+    { name = "pytest-html", marker = "extra == 'dev'", specifier = ">=4.1.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.12.0" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.4.0" },
-    { name = "pywin32", specifier = ">=306" },
-    { name = "qt-material", specifier = ">=2.17" },
+    { name = "pywin32", marker = "extra == 'windows'", specifier = ">=306" },
+    { name = "qt-material", marker = "extra == 'windows'", specifier = ">=2.17" },
     { name = "requests", specifier = ">=2.31.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "scipy", specifier = ">=1.10.0" },
-    { name = "sonicinput", extras = ["local", "dev"], marker = "extra == 'full'" },
-    { name = "sounddevice", specifier = ">=0.4.6" },
+    { name = "sonicinput", extras = ["dev"], marker = "extra == 'ci'" },
+    { name = "sonicinput", extras = ["windows", "local", "dev"], marker = "extra == 'full'" },
+    { name = "sounddevice", marker = "extra == 'windows'", specifier = ">=0.4.6" },
     { name = "vulture", marker = "extra == 'dev'", specifier = ">=2.14" },
 ]
-provides-extras = ["local", "dev", "full"]
+provides-extras = ["windows", "local", "dev", "full", "ci"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "nuitka", specifier = ">=2.8.4" }]
