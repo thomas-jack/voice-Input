@@ -148,6 +148,12 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(integration_marker)
 
         if is_ci_environment():
+            # 在CI中跳过有PySide6依赖的测试文件
+            if "test_event_listener_regression.py" in str(item.fspath):
+                item.add_marker(skip_gui)
+            if "test_refactoring_completeness.py" in str(item.fspath):
+                item.add_marker(skip_gui)
+
             # 跳过GPU测试
             if "gpu" in item.keywords:
                 item.add_marker(skip_gpu)
