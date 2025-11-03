@@ -163,13 +163,27 @@ jobs:
         $exeName = "SonicInput-v$version-win64.exe"
         $tag = "${{ github.ref_name }}"
         $size = (Get-Item "dist/$exeName").Length / 1MB
-        echo "## Release Info" > release-info.md
-        echo "- Version: $version" >> release-info.md
-        echo "- Tag: $tag" >> release-info.md
-        echo "- Build Mode: ${{ matrix.mode }}" >> release-info.md
-        echo "- Executable: $exeName" >> release-info.md
-        echo "- Executable Size: $([math]::Round($size, 2)) MB" >> release-info.md
-        echo "- Python: ${{ env.PYTHON_VERSION }}" >> release-info.md
+        echo "## 🎉 SonicInput $version" > release-info.md
+        echo "" >> release-info.md
+        echo "### ✨ 新增功能" >> release-info.md
+        echo "- 🚀 **硅基流动(SiliconFlow)集成**: 新增国内领先的AI云转录服务支持" >> release-info.md
+        echo "- 🎯 **智能服务选择**: 自动选择最优转录服务，确保高精度和低延迟" >> release-info.md
+        echo "- 🔧 **专业可执行文件**: 采用新的命名格式 SonicInput-v$version-win64.exe" >> release-info.md
+        echo "- 🛠️ **完整CI/CD流程**: 自动化测试、构建和发布流程" >> release-info.md
+        echo "" >> release-info.md
+        echo "### 📦 构建信息" >> release-info.md
+        echo "- **版本**: $version" >> release-info.md
+        echo "- **标签**: $tag" >> release-info.md
+        echo "- **构建模式**: ${{ matrix.mode }}" >> release-info.md
+        echo "- **可执行文件**: $exeName" >> release-info.md
+        echo "- **文件大小**: $([math]::Round($size, 2)) MB" >> release-info.md
+        echo "- **Python版本**: ${{ env.PYTHON_VERSION }}" >> release-info.md
+        echo "" >> release-info.md
+        echo "### 🌟 硅基流动服务特点" >> release-info.md
+        echo "- 🇨🇳 **国内优化**: 专为中文用户优化的AI转录服务" >> release-info.md
+        echo "- ⚡ **超低延迟**: 毫秒级响应，实时语音转文字" >> release-info.md
+        echo "- 🎯 **高精度**: 业界领先的语音识别准确率" >> release-info.md
+        echo "- 🔒 **数据安全**: 企业级数据加密和隐私保护" >> release-info.md
 
     - name: Upload release info
       if: startsWith(github.ref, 'refs/tags/')
