@@ -129,8 +129,6 @@ def is_ci_environment():
 # 自动跳过不适合CI的测试
 def pytest_collection_modifyitems(config, items):
     """根据环境自动修改测试收集"""
-    if not is_ci_environment():
-        return
 
     # 在CI环境中，自动跳过一些标记的测试
     skip_ci = pytest.mark.skip(reason="Test not suitable for CI environment")
@@ -138,15 +136,26 @@ def pytest_collection_modifyitems(config, items):
     skip_gui = pytest.mark.skip(reason="GUI test skipped in CI")
     skip_slow = pytest.mark.skip(reason="Slow test skipped in CI")
 
+    # 自动标记定义
+    unit_marker = pytest.mark.unit
+    integration_marker = pytest.mark.integration
+
     for item in items:
-        # 跳过GPU测试
-        if "gpu" in item.keywords:
-            item.add_marker(skip_gpu)
+        # 根据文件路径自动添加标记
+        if "unit/" in str(item.fspath):
+            item.add_marker(unit_marker)
+        elif "integration/" in str(item.fspath):
+            item.add_marker(integration_marker)
 
-        # 跳过GUI测试
-        if "gui" in item.keywords:
-            item.add_marker(skip_gui)
+        if is_ci_environment():
+            # 跳过GPU测试
+            if "gpu" in item.keywords:
+                item.add_marker(skip_gpu)
 
-        # 跳过慢速测试
-        if "slow" in item.keywords:
-            item.add_marker(skip_slow)
+            # 跳过GUI测试
+            if "gui" in item.keywords:
+                item.add_marker(skip_gui)
+
+            # 跳过慢速测试
+            if "slow" in item.keywords:
+                item.add_marker(skip_slow)
