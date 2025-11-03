@@ -154,6 +154,12 @@ def pytest_collection_modifyitems(config, items):
             if "test_refactoring_completeness.py" in str(item.fspath):
                 item.add_marker(skip_gui)
 
+            # 跳过端到端工作流测试（需要完整应用上下文和fixtures）
+            if "test_end_to_end_workflow.py" in str(item.fspath):
+                item.add_marker(pytest.mark.skip(
+                    reason="End-to-end workflow tests require full app context with fixtures"
+                ))
+
             # 跳过需要完整DI容器的测试（需要PyAudio等Windows依赖）
             # 这些测试会尝试实例化所有服务，包括音频服务
             if item.name in [

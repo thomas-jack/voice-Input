@@ -10,6 +10,15 @@ requires-python = ">=3.10"
 
 # 核心依赖 - 所有模式都需要
 dependencies = [
+    # Windows GUI 依赖
+    "PyAudio>=0.2.11",
+    "PySide6>=6.6.0",
+    "pywin32>=306",
+    "pyperclip>=1.8.4",
+    "pynput>=1.7.6",
+    "sounddevice>=0.4.6",
+    "qt-material>=2.17",
+    # 通用依赖
     "requests>=2.31.0",
     "numpy>=1.24.0",
     "scipy>=1.10.0",
@@ -22,16 +31,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Windows GUI依赖
-windows = [
-    "PyAudio>=0.2.11",
-    "PySide6>=6.6.0",
-    "pywin32>=306",
-    "pyperclip>=1.8.4",
-    "pynput>=1.7.6",
-    "sounddevice>=0.4.6",
-    "qt-material>=2.17",
-]
+# Windows GUI依赖（已包含在核心依赖中，保留此extras为向后兼容）
+windows = []
 
 # 本地转录支持（包含所有GPU依赖）
 local = [
