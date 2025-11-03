@@ -91,6 +91,9 @@ def run_integration_tests(ci_config):
             "--junit-xml=reports/integration-tests.xml",
             "--html=reports/integration-tests.html",
             "--self-contained-html",
+            # 跳过需要 PySide6 图形环境的测试文件
+            "--ignore=integration/test_cloud_transcription_services.py",
+            "--ignore=integration/test_end_to_end_workflow.py",
         ])
 
     result = subprocess.run(cmd, cwd=Path(__file__).parent)
