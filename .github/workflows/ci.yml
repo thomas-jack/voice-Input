@@ -65,6 +65,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Install Qt dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -117,6 +122,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Install Qt dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libegl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
 
     - name: Set up Python
       uses: actions/setup-python@v4
