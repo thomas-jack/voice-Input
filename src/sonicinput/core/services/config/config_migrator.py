@@ -22,12 +22,12 @@ class ConfigMigrator:
     def migrate_from_old_app_name(self) -> None:
         """从旧应用名称 'VoiceInputSoftware' 迁移配置到 'SonicInput'"""
         # 只在使用默认路径时才迁移
-        if str(self.config_path).find('SonicInput') == -1:
+        if str(self.config_path).find("SonicInput") == -1:
             return
 
         try:
-            old_config_dir = Path(os.getenv('APPDATA', '.')) / 'VoiceInputSoftware'
-            old_config_path = old_config_dir / 'config.json'
+            old_config_dir = Path(os.getenv("APPDATA", ".")) / "VoiceInputSoftware"
+            old_config_path = old_config_dir / "config.json"
 
             # 如果新配置已存在，跳过迁移
             if self.config_path.exists():
@@ -46,25 +46,37 @@ class ConfigMigrator:
             app_logger.info("  Config file copied successfully")
 
             # 复制日志目录（如果存在）
-            old_logs_dir = old_config_dir / 'logs'
-            new_logs_dir = self.config_path.parent / 'logs'
+            old_logs_dir = old_config_dir / "logs"
+            new_logs_dir = self.config_path.parent / "logs"
 
             if old_logs_dir.exists() and old_logs_dir.is_dir():
                 if new_logs_dir.exists():
-                    app_logger.info("  New logs directory already exists, skipping logs migration")
+                    app_logger.info(
+                        "  New logs directory already exists, skipping logs migration"
+                    )
                 else:
                     shutil.copytree(old_logs_dir, new_logs_dir)
                     app_logger.info("  Logs directory copied successfully")
 
-            app_logger.info("Config migration from VoiceInputSoftware to SonicInput completed successfully!")
-            app_logger.info(f"Note: Old config directory still exists at {old_config_dir}")
-            app_logger.info("      You can manually delete it if migration was successful.")
+            app_logger.info(
+                "Config migration from VoiceInputSoftware to SonicInput completed successfully!"
+            )
+            app_logger.info(
+                f"Note: Old config directory still exists at {old_config_dir}"
+            )
+            app_logger.info(
+                "      You can manually delete it if migration was successful."
+            )
 
         except Exception as e:
             app_logger.log_error(e, "config_migration_from_old_app_name")
-            app_logger.warning("Failed to migrate config from VoiceInputSoftware. Using default config.")
+            app_logger.warning(
+                "Failed to migrate config from VoiceInputSoftware. Using default config."
+            )
 
-    def migrate_config_structure(self, config: Dict[str, Any]) -> tuple[Dict[str, Any], bool]:
+    def migrate_config_structure(
+        self, config: Dict[str, Any]
+    ) -> tuple[Dict[str, Any], bool]:
         """迁移配置结构，清理旧字段，统一为标准结构
 
         Args:
@@ -93,12 +105,18 @@ class ConfigMigrator:
                         # 迁移 model_id：优先级 model_id > simple_model_id > model
                         if "model_id" not in provider_config:
                             if "simple_model_id" in provider_config:
-                                provider_config["model_id"] = provider_config["simple_model_id"]
-                                app_logger.info(f"Migrating: {provider}.simple_model_id -> model_id")
+                                provider_config["model_id"] = provider_config[
+                                    "simple_model_id"
+                                ]
+                                app_logger.info(
+                                    f"Migrating: {provider}.simple_model_id -> model_id"
+                                )
                                 migrated = True
                             elif "model" in provider_config:
                                 provider_config["model_id"] = provider_config["model"]
-                                app_logger.info(f"Migrating: {provider}.model -> model_id")
+                                app_logger.info(
+                                    f"Migrating: {provider}.model -> model_id"
+                                )
                                 migrated = True
 
                         # 删除旧字段
@@ -129,7 +147,9 @@ class ConfigMigrator:
                 old_hotkey = config["hotkey"]
                 if isinstance(old_hotkey, str) and old_hotkey.strip():
                     config["hotkeys"] = [old_hotkey]
-                    app_logger.info(f"Migrating: hotkey '{old_hotkey}' -> hotkeys array")
+                    app_logger.info(
+                        f"Migrating: hotkey '{old_hotkey}' -> hotkeys array"
+                    )
                     migrated = True
                 del config["hotkey"]
                 migrated = True

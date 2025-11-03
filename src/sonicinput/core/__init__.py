@@ -24,29 +24,27 @@ from .hotkey_manager import HotkeyManager
 
 __all__ = [
     # 核心服务组件
-    'EventBus',
-    'Events',
-    'ConfigService',
-    'StateManager',
-    'LifecycleManager',
-
+    "EventBus",
+    "Events",
+    "ConfigService",
+    "StateManager",
+    "LifecycleManager",
     # 接口
-    'IAIService',
-    'IAudioService',
-    'IConfigService',
-    'IEventService',
-    'IHotkeyService',
-    'IInputService',
-    'ILifecycleManaged',
-    'ILifecycleManager',
-    'ISpeechService',
-    'IStateManager',
-    'IStorageService',
-    'ICacheService',
-    'IUIComponent',
-    'IOverlayComponent',
-    'ITrayComponent',
-
+    "IAIService",
+    "IAudioService",
+    "IConfigService",
+    "IEventService",
+    "IHotkeyService",
+    "IInputService",
+    "ILifecycleManaged",
+    "ILifecycleManager",
+    "ISpeechService",
+    "IStateManager",
+    "IStorageService",
+    "ICacheService",
+    "IUIComponent",
+    "IOverlayComponent",
+    "ITrayComponent",
     # 应用组件
-    'HotkeyManager'
+    "HotkeyManager",
 ]

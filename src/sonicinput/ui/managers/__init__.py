@@ -6,5 +6,5 @@
 from .ui_coordinator import UICoordinator
 
 __all__ = [
-    'UICoordinator',
+    "UICoordinator",
 ]

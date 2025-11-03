@@ -13,12 +13,12 @@ from .input_tab import InputTab
 from .ui_tab import UITab
 
 __all__ = [
-    'BaseSettingsTab',
-    'GeneralTab',
-    'HotkeyTab',
-    'WhisperTab',
-    'AITab',
-    'AudioTab',
-    'InputTab',
-    'UITab',
+    "BaseSettingsTab",
+    "GeneralTab",
+    "HotkeyTab",
+    "WhisperTab",
+    "AITab",
+    "AudioTab",
+    "InputTab",
+    "UITab",
 ]

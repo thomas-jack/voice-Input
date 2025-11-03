@@ -14,7 +14,7 @@ from .exceptions import VoiceInputError, ErrorSeverity, wrap_exception
 from .common_utils import EventCounter, ComponentTracker, log_with_context
 from ..utils import app_logger
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ErrorReportingConfig:
@@ -43,10 +43,13 @@ class ErrorReporter:
         self._error_handlers: Dict[str, List[Callable]] = {}
         self._recovery_handlers: Dict[str, List[Callable]] = {}
 
-    def report_error(self, error: Union[Exception, VoiceInputError],
-                    component: str = "unknown",
-                    context: Optional[Dict[str, Any]] = None,
-                    attempt_recovery: bool = True) -> bool:
+    def report_error(
+        self,
+        error: Union[Exception, VoiceInputError],
+        component: str = "unknown",
+        context: Optional[Dict[str, Any]] = None,
+        attempt_recovery: bool = True,
+    ) -> bool:
         """Report an error with optional recovery attempt
 
         Args:
@@ -65,7 +68,7 @@ class ErrorReporter:
         # Add component context
         if context:
             error.context.update(context)
-        error.context['reporting_component'] = component
+        error.context["reporting_component"] = component
 
         # Record error in history
         self._record_error(error, component)
@@ -80,20 +83,24 @@ class ErrorReporter:
         with self._lock:
             error_record = {
                 **error.to_dict(),
-                'component': component,
-                'stack_trace': traceback.format_exc() if error.original_exception else None
+                "component": component,
+                "stack_trace": traceback.format_exc()
+                if error.original_exception
+                else None,
             }
 
             self._error_history.append(error_record)
 
             # Manage history size
             if len(self._error_history) > self.config.max_error_history:
-                self._error_history = self._error_history[-self.config.max_error_history:]
+                self._error_history = self._error_history[
+                    -self.config.max_error_history :
+                ]
 
     def _log_error(self, error: VoiceInputError, component: str) -> None:
         """Log error using the application logger"""
         log_data = error.to_dict()
-        log_data['component'] = component
+        log_data["component"] = component
 
         if error.severity == ErrorSeverity.CRITICAL:
             app_logger.log_error(error, f"CRITICAL_{component}")
@@ -117,7 +124,9 @@ def get_error_reporter() -> ErrorReporter:
         return _global_error_reporter
 
 
-def setup_error_reporter(config: Optional[ErrorReportingConfig] = None) -> ErrorReporter:
+def setup_error_reporter(
+    config: Optional[ErrorReportingConfig] = None,
+) -> ErrorReporter:
     """Setup the global error reporter with configuration"""
     global _global_error_reporter
     with _reporter_lock:
@@ -125,30 +134,39 @@ def setup_error_reporter(config: Optional[ErrorReportingConfig] = None) -> Error
         return _global_error_reporter
 
 
-def report_error(error: Union[Exception, VoiceInputError],
-                component: str = "unknown",
-                context: Optional[Dict[str, Any]] = None,
-                attempt_recovery: bool = True) -> bool:
+def report_error(
+    error: Union[Exception, VoiceInputError],
+    component: str = "unknown",
+    context: Optional[Dict[str, Any]] = None,
+    attempt_recovery: bool = True,
+) -> bool:
     """Report an error using the global error reporter"""
-    return get_error_reporter().report_error(error, component, context, attempt_recovery)
+    return get_error_reporter().report_error(
+        error, component, context, attempt_recovery
+    )
 
 
-def report_warning(message: str, component: str = "unknown",
-                  context: Optional[Dict[str, Any]] = None) -> None:
+def report_warning(
+    message: str, component: str = "unknown", context: Optional[Dict[str, Any]] = None
+) -> None:
     """Report a warning using the global error reporter"""
     warning_data = {
-        'message': message,
-        'component': component,
-        'context': context or {},
-        'timestamp': datetime.now().isoformat(),
-        'type': 'warning'
+        "message": message,
+        "component": component,
+        "context": context or {},
+        "timestamp": datetime.now().isoformat(),
+        "type": "warning",
     }
     log_with_context(f"Warning: {message}", warning_data, component)
 
 
 @contextmanager
-def error_context(component: str, context: Optional[Dict[str, Any]] = None,
-                 suppress_exceptions: bool = False, return_on_error: Any = None):
+def error_context(
+    component: str,
+    context: Optional[Dict[str, Any]] = None,
+    suppress_exceptions: bool = False,
+    return_on_error: Any = None,
+):
     """Context manager for automatic error reporting
 
     Args:
@@ -176,9 +194,14 @@ def error_context(component: str, context: Optional[Dict[str, Any]] = None,
             raise
 
 
-def safe_call(func: Callable[..., T], *args, component: str = "unknown",
-              context: Optional[Dict[str, Any]] = None,
-              default_return: T = None, **kwargs) -> T:
+def safe_call(
+    func: Callable[..., T],
+    *args,
+    component: str = "unknown",
+    context: Optional[Dict[str, Any]] = None,
+    default_return: T = None,
+    **kwargs,
+) -> T:
     """Safely call a function with automatic error reporting
 
     Args:

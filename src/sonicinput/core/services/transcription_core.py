@@ -26,7 +26,7 @@ class TranscriptionCore:
         self,
         audio_data: np.ndarray,
         language: Optional[str] = None,
-        temperature: float = 0.0
+        temperature: float = 0.0,
     ) -> Dict[str, Any]:
         """执行音频转录
 
@@ -46,9 +46,7 @@ class TranscriptionCore:
         try:
             # 执行转录
             result = self.whisper_engine.transcribe(
-                audio_data,
-                language=language,
-                temperature=temperature
+                audio_data, language=language, temperature=temperature
             )
 
             processing_time = time.time() - start_time
@@ -58,12 +56,15 @@ class TranscriptionCore:
                 result, processing_time
             )
 
-            app_logger.log_audio_event("Audio transcribed successfully", {
-                "duration": len(audio_data) / 16000,  # 假设16kHz采样率
-                "processing_time": processing_time,
-                "language": result.get("language"),
-                "text_length": len(result.get("text", ""))
-            })
+            app_logger.log_audio_event(
+                "Audio transcribed successfully",
+                {
+                    "duration": len(audio_data) / 16000,  # 假设16kHz采样率
+                    "processing_time": processing_time,
+                    "language": result.get("language"),
+                    "text_length": len(result.get("text", "")),
+                },
+            )
 
             return formatted_result
 
@@ -76,15 +77,13 @@ class TranscriptionCore:
                 "text": "",
                 "error": str(e),
                 "processing_time": time.time() - start_time,
-                "recovery_suggestions": self._get_recovery_suggestions(e)
+                "recovery_suggestions": self._get_recovery_suggestions(e),
             }
 
             return error_result
 
     def _format_transcription_result(
-        self,
-        whisper_result: Dict[str, Any],
-        processing_time: float
+        self, whisper_result: Dict[str, Any], processing_time: float
     ) -> Dict[str, Any]:
         """格式化转录结果
 
@@ -106,8 +105,8 @@ class TranscriptionCore:
             "processing_time": processing_time,
             "model_info": {
                 "model_name": self.whisper_engine.model_name,
-                "device": self.whisper_engine.device
-            }
+                "device": self.whisper_engine.device,
+            },
         }
 
     def _calculate_confidence(self, segments: list) -> float:
@@ -177,8 +176,7 @@ class TranscriptionCore:
         Returns:
             True如果模型已加载且可用
         """
-        return (self.whisper_engine is not None and
-                self.whisper_engine.is_model_loaded)
+        return self.whisper_engine is not None and self.whisper_engine.is_model_loaded
 
     def get_model_info(self) -> Dict[str, Any]:
         """获取当前模型信息
@@ -193,5 +191,5 @@ class TranscriptionCore:
             "model_name": self.whisper_engine.model_name,
             "device": self.whisper_engine.device,
             "is_loaded": self.whisper_engine.is_model_loaded,
-            "use_gpu": getattr(self.whisper_engine, 'use_gpu', False)
+            "use_gpu": getattr(self.whisper_engine, "use_gpu", False),
         }

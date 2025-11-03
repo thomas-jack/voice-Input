@@ -33,7 +33,15 @@ class ConfigValidator:
 
             # 验证Whisper配置
             whisper_model = self._get_nested(config, "whisper.model", "")
-            valid_models = ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo", "turbo"]
+            valid_models = [
+                "tiny",
+                "base",
+                "small",
+                "medium",
+                "large-v3",
+                "large-v3-turbo",
+                "turbo",
+            ]
             if whisper_model not in valid_models:
                 warnings.append(f"Unknown Whisper model: {whisper_model}")
 
@@ -43,7 +51,9 @@ class ConfigValidator:
                 api_key_path = f"ai.{provider}.api_key"
                 api_key = self._get_nested(config, api_key_path, "")
                 if not api_key:
-                    warnings.append(f"AI is enabled (provider: {provider}) but API key is not set")
+                    warnings.append(
+                        f"AI is enabled (provider: {provider}) but API key is not set"
+                    )
 
             # 验证音频配置
             sample_rate = self._get_nested(config, "audio.sample_rate", 16000)
@@ -62,10 +72,12 @@ class ConfigValidator:
             "valid": len(issues) == 0,
             "issues": issues,
             "warnings": warnings,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
-    def validate_and_repair_structure(self, config: Dict[str, Any]) -> tuple[Dict[str, Any], bool]:
+    def validate_and_repair_structure(
+        self, config: Dict[str, Any]
+    ) -> tuple[Dict[str, Any], bool]:
         """验证和修复整个配置结构完整性
 
         Args:
@@ -83,19 +95,22 @@ class ConfigValidator:
                 repaired = True
 
             # 确保ui.overlay_position存在且为字典
-            if ("overlay_position" not in config["ui"] or
-                not isinstance(config["ui"]["overlay_position"], dict)):
+            if "overlay_position" not in config["ui"] or not isinstance(
+                config["ui"]["overlay_position"], dict
+            ):
                 config["ui"]["overlay_position"] = {
                     "mode": "preset",
                     "preset": "center",
                     "custom": {"x": 0, "y": 0},
-                    "auto_save": True
+                    "auto_save": True,
                 }
                 repaired = True
 
             # 确保ui.overlay_position.custom存在且为字典
             overlay_pos = config["ui"]["overlay_position"]
-            if ("custom" not in overlay_pos or not isinstance(overlay_pos["custom"], dict)):
+            if "custom" not in overlay_pos or not isinstance(
+                overlay_pos["custom"], dict
+            ):
                 overlay_pos["custom"] = {"x": 0, "y": 0}
                 repaired = True
 
@@ -105,18 +120,15 @@ class ConfigValidator:
                     "sample_rate": 16000,
                     "channels": 1,
                     "device_id": None,
-                    "chunk_size": 1024
+                    "chunk_size": 1024,
                 },
                 "whisper": {
                     "model": "large-v3-turbo",
                     "language": "auto",
                     "device": "auto",
-                    "compute_type": "auto"
+                    "compute_type": "auto",
                 },
-                "ui": {
-                    "show_overlay": True,
-                    "start_minimized": True
-                }
+                "ui": {"show_overlay": True, "start_minimized": True},
             }
 
             for section, defaults in required_structures.items():
@@ -151,7 +163,7 @@ class ConfigValidator:
             配置项的值
         """
         try:
-            keys = key.split('.')
+            keys = key.split(".")
             value = config
 
             for k in keys:

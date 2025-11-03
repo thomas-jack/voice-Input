@@ -1,6 +1,16 @@
 """主窗口组件 - 最小化GUI实现"""
 
-from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QPushButton, QLabel, QSystemTrayIcon, QProgressDialog, QMessageBox, QApplication)
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QWidget,
+    QVBoxLayout,
+    QPushButton,
+    QLabel,
+    QSystemTrayIcon,
+    QProgressDialog,
+    QMessageBox,
+    QApplication,
+)
 from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from typing import Optional, Dict, Any
 from ..core.voice_input_app import VoiceInputApp
@@ -32,17 +42,16 @@ class ModelTestThread(QThread):
             # Generate very low amplitude white noise
             test_audio = np.random.normal(0, 0.001, audio_length).astype(np.float32)
 
-            app_logger.log_audio_event("Model test requested", {
-                "audio_type": "low_noise",
-                "duration": duration,
-                "amplitude": "0.001"
-            })
+            app_logger.log_audio_event(
+                "Model test requested",
+                {"audio_type": "low_noise", "duration": duration, "amplitude": "0.001"},
+            )
 
             self.progress_update.emit("Running transcription test...")
             result = self.whisper_engine.transcribe(test_audio)
 
             # Check for hallucination patterns
-            text_output = result.get('text', '').strip()
+            text_output = result.get("text", "").strip()
             is_hallucination = self._is_likely_hallucination(text_output)
 
             # For test purposes, hallucination on noise is actually expected behavior
@@ -51,16 +60,19 @@ class ModelTestThread(QThread):
             result_info = {
                 "text": text_output,
                 "is_hallucination": is_hallucination,
-                "confidence": result.get('confidence', 0),
-                "language": result.get('language', 'unknown')
+                "confidence": result.get("confidence", 0),
+                "language": result.get("language", "unknown"),
             }
 
-            app_logger.log_audio_event("Model test completed", {
-                "result": text_output,
-                "is_hallucination": is_hallucination,
-                "test_success": test_success,
-                "confidence": result.get('confidence', 0)
-            })
+            app_logger.log_audio_event(
+                "Model test completed",
+                {
+                    "result": text_output,
+                    "is_hallucination": is_hallucination,
+                    "test_success": test_success,
+                    "confidence": result.get("confidence", 0),
+                },
+            )
 
             self.test_complete.emit(test_success, result_info, "")
 
@@ -79,14 +91,39 @@ class ModelTestThread(QThread):
 
         # Common Whisper hallucination patterns
         common_hallucinations = [
-            "thank you", "thanks", "thank you.", "thanks.",
-            "bye", "bye.", "goodbye", "goodbye.",
-            "you", "you.", "okay", "okay.", "ok", "ok.",
-            "yes", "yes.", "no", "no.", "yeah", "yeah.",
-            "um", "uh", "hmm", "mm",
-            "hello", "hi", "hey",
-            "music", "applause", "laughter",
-            "silence", "quiet", "pause"
+            "thank you",
+            "thanks",
+            "thank you.",
+            "thanks.",
+            "bye",
+            "bye.",
+            "goodbye",
+            "goodbye.",
+            "you",
+            "you.",
+            "okay",
+            "okay.",
+            "ok",
+            "ok.",
+            "yes",
+            "yes.",
+            "no",
+            "no.",
+            "yeah",
+            "yeah.",
+            "um",
+            "uh",
+            "hmm",
+            "mm",
+            "hello",
+            "hi",
+            "hey",
+            "music",
+            "applause",
+            "laughter",
+            "silence",
+            "quiet",
+            "pause",
         ]
 
         return text_lower in common_hallucinations
@@ -187,13 +224,21 @@ class MainWindow(QMainWindow):
         try:
             from .settings_window import SettingsWindow
 
-            if not hasattr(self, '_settings_window') or not self._settings_window:
-                self._settings_window = SettingsWindow(self.voice_app.config, self.voice_app)
+            if not hasattr(self, "_settings_window") or not self._settings_window:
+                self._settings_window = SettingsWindow(
+                    self.voice_app.config, self.voice_app
+                )
 
                 # 连接模型管理信号
-                self._settings_window.model_load_requested.connect(self._on_model_load_requested)
-                self._settings_window.model_unload_requested.connect(self._on_model_unload_requested)
-                self._settings_window.model_test_requested.connect(self._on_model_test_requested)
+                self._settings_window.model_load_requested.connect(
+                    self._on_model_load_requested
+                )
+                self._settings_window.model_unload_requested.connect(
+                    self._on_model_unload_requested
+                )
+                self._settings_window.model_test_requested.connect(
+                    self._on_model_test_requested
+                )
 
             self._settings_window.show()
             self._settings_window.raise_()
@@ -205,17 +250,22 @@ class MainWindow(QMainWindow):
     def _on_model_load_requested(self, model_name: str) -> None:
         """处理模型加载请求（使用简化的进度对话框）"""
         try:
-            if self.voice_app and hasattr(self.voice_app, 'whisper_engine'):
-                app_logger.log_audio_event("Model load requested via GUI", {"model": model_name})
+            if self.voice_app and hasattr(self.voice_app, "whisper_engine"):
+                app_logger.log_audio_event(
+                    "Model load requested via GUI", {"model": model_name}
+                )
 
-                parent_widget = self._settings_window if hasattr(self, '_settings_window') else None
+                parent_widget = (
+                    self._settings_window if hasattr(self, "_settings_window") else None
+                )
 
                 # 创建简单的进度对话框
                 progress = QProgressDialog(
                     f"Loading model: {model_name}...\nThis may take a few seconds.",
                     None,  # No cancel button
-                    0, 0,  # Indeterminate progress
-                    parent_widget
+                    0,
+                    0,  # Indeterminate progress
+                    parent_widget,
                 )
                 progress.setWindowTitle("Loading Model")
                 progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -231,14 +281,15 @@ class MainWindow(QMainWindow):
                     self.voice_app.whisper_engine.load_model(model_name)
                     progress.close()
 
-                    app_logger.log_audio_event("Model load completed successfully via GUI", {
-                        "model_name": model_name
-                    })
+                    app_logger.log_audio_event(
+                        "Model load completed successfully via GUI",
+                        {"model_name": model_name},
+                    )
 
                     QMessageBox.information(
                         parent_widget,
                         "Model Loaded",
-                        f"Model '{model_name}' loaded successfully!"
+                        f"Model '{model_name}' loaded successfully!",
                     )
 
                 except Exception as load_error:
@@ -247,30 +298,30 @@ class MainWindow(QMainWindow):
                     QMessageBox.critical(
                         parent_widget,
                         "Model Load Failed",
-                        f"Failed to load model '{model_name}':\n{load_error}"
+                        f"Failed to load model '{model_name}':\n{load_error}",
                     )
 
                 # Always refresh status after load attempt
-                if hasattr(self, '_settings_window') and self._settings_window:
+                if hasattr(self, "_settings_window") and self._settings_window:
                     QTimer.singleShot(100, self._settings_window.refresh_model_status)
 
         except Exception as e:
             app_logger.log_error(e, "model_load_request_gui")
             QMessageBox.critical(
-                self._settings_window if hasattr(self, '_settings_window') else None,
+                self._settings_window if hasattr(self, "_settings_window") else None,
                 "Error",
-                f"Error processing model load request:\n{e}"
+                f"Error processing model load request:\n{e}",
             )
 
     def _on_model_unload_requested(self) -> None:
         """处理模型卸载请求"""
         try:
-            if self.voice_app and hasattr(self.voice_app, 'whisper_engine'):
+            if self.voice_app and hasattr(self.voice_app, "whisper_engine"):
                 app_logger.log_audio_event("Model unload requested", {})
                 self.voice_app.whisper_engine.unload_model()
                 app_logger.log_audio_event("Model unloaded successfully", {})
                 # Refresh model status in settings window
-                if hasattr(self, '_settings_window') and self._settings_window:
+                if hasattr(self, "_settings_window") and self._settings_window:
                     self._settings_window.refresh_model_status()
         except Exception as e:
             app_logger.log_error(e, "_on_model_unload_requested")
@@ -278,24 +329,25 @@ class MainWindow(QMainWindow):
     def _on_model_test_requested(self) -> None:
         """处理模型测试请求"""
         try:
-            if self.voice_app and hasattr(self.voice_app, 'whisper_engine'):
+            if self.voice_app and hasattr(self.voice_app, "whisper_engine"):
                 whisper_engine = self.voice_app.whisper_engine
 
                 if not whisper_engine.is_model_loaded:
                     QMessageBox.warning(
-                        self._settings_window if hasattr(self, '_settings_window') else None,
+                        self._settings_window
+                        if hasattr(self, "_settings_window")
+                        else None,
                         "Model Not Loaded",
-                        "Please load a model first before testing."
+                        "Please load a model first before testing.",
                     )
                     return
 
-                parent_widget = self._settings_window if hasattr(self, '_settings_window') else None
+                parent_widget = (
+                    self._settings_window if hasattr(self, "_settings_window") else None
+                )
 
                 progress = QProgressDialog(
-                    "Testing model...",
-                    "Cancel",
-                    0, 0,
-                    parent_widget
+                    "Testing model...", "Cancel", 0, 0, parent_widget
                 )
                 progress.setWindowTitle("Model Test")
                 progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -311,15 +363,15 @@ class MainWindow(QMainWindow):
                     progress.close()
 
                     if success:
-                        text_output = result.get('text', 'No text detected')
-                        is_hallucination = result.get('is_hallucination', False)
-                        confidence = result.get('confidence', 0)
-                        detected_language = result.get('language', 'unknown')
+                        text_output = result.get("text", "No text detected")
+                        is_hallucination = result.get("is_hallucination", False)
+                        confidence = result.get("confidence", 0)
+                        detected_language = result.get("language", "unknown")
 
                         # Create informative message about the test result
                         if is_hallucination:
                             analysis_text = f"**Analysis**: Output '{text_output}' appears to be a Whisper hallucination from noise audio, which is normal behavior."
-                        elif not text_output or text_output == 'No text detected':
+                        elif not text_output or text_output == "No text detected":
                             analysis_text = "**Analysis**: No text detected from test audio, which is expected."
                         else:
                             analysis_text = "**Analysis**: Model produced text output from test audio."
@@ -334,7 +386,7 @@ class MainWindow(QMainWindow):
                             f"Test Output: '{text_output}'\n"
                             f"Confidence: {confidence:.2f}\n\n"
                             f"{analysis_text}\n\n"
-                            f"The model is working correctly and can process audio!"
+                            f"The model is working correctly and can process audio!",
                         )
                     else:
                         QMessageBox.critical(
@@ -342,7 +394,7 @@ class MainWindow(QMainWindow):
                             "Model Test Failed",
                             f"**Model Test Failed**\n\n"
                             f"Error: {error}\n\n"
-                            f"Please check the model status and try again."
+                            f"Please check the model status and try again.",
                         )
 
                 test_thread.progress_update.connect(on_progress_update)
@@ -355,11 +407,11 @@ class MainWindow(QMainWindow):
             error_details = f"{type(e).__name__}: {str(e)}"
             app_logger.log_error(e, "_on_model_test_requested")
             QMessageBox.critical(
-                self._settings_window if hasattr(self, '_settings_window') else None,
+                self._settings_window if hasattr(self, "_settings_window") else None,
                 "Model Test Failed",
                 f"**Model Test Failed**\n\n"
                 f"Error: {error_details}\n\n"
-                f"Please check the model status and try again."
+                f"Please check the model status and try again.",
             )
 
     def closeEvent(self, event):
@@ -369,10 +421,10 @@ class MainWindow(QMainWindow):
         self.hide()
 
         # 可选：显示托盘通知
-        if hasattr(self, 'system_tray') and self.system_tray:
+        if hasattr(self, "system_tray") and self.system_tray:
             self.system_tray.showMessage(
                 "Voice Input Software",
                 "Application minimized to tray",
                 QSystemTrayIcon.MessageIcon.Information,
-                2000
+                2000,
             )

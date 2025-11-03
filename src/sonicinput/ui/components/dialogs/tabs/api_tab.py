@@ -1,7 +1,14 @@
 """API settings tab"""
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
-                            QLineEdit, QComboBox, QPushButton, QCheckBox)
+from PySide6.QtWidgets import (
+    QWidget,
+    QFormLayout,
+    QGroupBox,
+    QLineEdit,
+    QComboBox,
+    QPushButton,
+    QCheckBox,
+)
 from PySide6.QtCore import Signal, Qt
 from typing import Callable, Any
 
@@ -15,7 +22,9 @@ class ApiTab(BaseSettingsTab):
     # Signal for test request
     test_requested = Signal(str)
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         super().__init__(on_setting_changed, parent)
         self._setup_ui()
 
@@ -38,12 +47,14 @@ class ApiTab(BaseSettingsTab):
 
         # Model
         api_model_combo = QComboBox()
-        api_model_combo.addItems([
-            "anthropic/claude-3-sonnet",
-            "anthropic/claude-3-haiku",
-            "openai/gpt-4-turbo",
-            "openai/gpt-3.5-turbo"
-        ])
+        api_model_combo.addItems(
+            [
+                "anthropic/claude-3-sonnet",
+                "anthropic/claude-3-haiku",
+                "openai/gpt-4-turbo",
+                "openai/gpt-3.5-turbo",
+            ]
+        )
         api_model_combo.currentTextChanged.connect(
             lambda text: self._on_setting_changed(ConfigKeys.OPENROUTER_MODEL, text)
         )
@@ -64,7 +75,9 @@ class ApiTab(BaseSettingsTab):
         # Enable optimization
         optimize_cb = QCheckBox("Enable text optimization")
         optimize_cb.stateChanged.connect(
-            lambda state: self._on_setting_changed(ConfigKeys.TEXT_OPTIMIZATION_ENABLED, state == Qt.CheckState.Checked)
+            lambda state: self._on_setting_changed(
+                ConfigKeys.TEXT_OPTIMIZATION_ENABLED, state == Qt.CheckState.Checked
+            )
         )
         self._controls[ConfigKeys.TEXT_OPTIMIZATION_ENABLED] = optimize_cb
         processing_layout.addRow("Optimization:", optimize_cb)

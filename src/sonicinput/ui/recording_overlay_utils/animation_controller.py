@@ -20,7 +20,7 @@ class AnimationController:
     - Animation state synchronization
     """
 
-    def __init__(self, widget: 'QWidget'):
+    def __init__(self, widget: "QWidget"):
         """Initialize animation controller
 
         Args:
@@ -56,7 +56,9 @@ class AnimationController:
         self.is_processing = True
         if not self.breathing_timer.isActive():
             self.breathing_timer.start(interval)
-            app_logger.log_audio_event("Breathing animation started", {"interval": interval})
+            app_logger.log_audio_event(
+                "Breathing animation started", {"interval": interval}
+            )
 
     def stop_breathing_animation(self) -> None:
         """停止呼吸动画"""
@@ -99,7 +101,9 @@ class AnimationController:
         # 计算呼吸效果的透明度
         breathing_intensity = (math.sin(self.breathing_phase) + 1) / 2  # 0 到 1
         # 确保透明度在有效范围内 (0-255)
-        alpha = max(0, min(255, int(30 + 50 * breathing_intensity)))  # 透明度在30-80之间
+        alpha = max(
+            0, min(255, int(30 + 50 * breathing_intensity))
+        )  # 透明度在30-80之间
 
         # 创建径向渐变效果 - 使用安全的颜色值
         width = rect.width()
@@ -108,10 +112,7 @@ class AnimationController:
 
         # 确保所有RGB和Alpha值都在有效范围 (0-255)
         center_color = QColor(
-            max(0, min(255, 76)),
-            max(0, min(255, 175)),
-            max(0, min(255, 80)),
-            alpha
+            max(0, min(255, 76)), max(0, min(255, 175)), max(0, min(255, 80)), alpha
         )
         gradient.setColorAt(0, center_color)  # 中心亮绿色
 
@@ -121,7 +122,7 @@ class AnimationController:
             max(0, min(255, 76)),
             max(0, min(255, 175)),
             max(0, min(255, 80)),
-            edge_alpha
+            edge_alpha,
         )
         gradient.setColorAt(0.7, edge_color)
         gradient.setColorAt(1, QColor(76, 175, 80, 0))  # 完全透明
@@ -144,19 +145,25 @@ class AnimationController:
             if should_animate and not current_animating:
                 # 需要开始动画但当前没有动画
                 self.start_breathing_animation()
-                app_logger.log_audio_event(f"Animation started: {context}", {
-                    "previous_state": current_animating,
-                    "new_state": should_animate,
-                    "is_processing": self.is_processing
-                })
+                app_logger.log_audio_event(
+                    f"Animation started: {context}",
+                    {
+                        "previous_state": current_animating,
+                        "new_state": should_animate,
+                        "is_processing": self.is_processing,
+                    },
+                )
             elif not should_animate and current_animating:
                 # 需要停止动画但当前有动画
                 self.stop_breathing_animation()
-                app_logger.log_audio_event(f"Animation stopped: {context}", {
-                    "previous_state": current_animating,
-                    "new_state": should_animate,
-                    "is_processing": self.is_processing
-                })
+                app_logger.log_audio_event(
+                    f"Animation stopped: {context}",
+                    {
+                        "previous_state": current_animating,
+                        "new_state": should_animate,
+                        "is_processing": self.is_processing,
+                    },
+                )
 
             # 延迟验证状态一致性，避免竞态条件
             def delayed_verification():
@@ -170,19 +177,23 @@ class AnimationController:
                             {
                                 "expected": should_animate,
                                 "actual": final_animating,
-                                "context": context
-                            }
+                                "context": context,
+                            },
                         )
 
                         # 修复状态不一致
                         if should_animate and not final_animating:
                             # 应该动画但没有动画 - 启动动画
                             self.start_breathing_animation()
-                            app_logger.log_audio_event(f"Fixed: started animation for {context}", {})
+                            app_logger.log_audio_event(
+                                f"Fixed: started animation for {context}", {}
+                            )
                         elif not should_animate and final_animating:
                             # 不应该动画但有动画 - 停止动画
                             self.stop_breathing_animation()
-                            app_logger.log_audio_event(f"Fixed: stopped animation for {context}", {})
+                            app_logger.log_audio_event(
+                                f"Fixed: stopped animation for {context}", {}
+                            )
                 except Exception as e:
                     app_logger.log_error(e, f"delayed_verification_{context}")
 

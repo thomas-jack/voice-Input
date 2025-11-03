@@ -11,7 +11,7 @@ from ..interfaces import (
     IAIService,
     IConfigService,
     IEventService,
-    IStateManager
+    IStateManager,
 )
 from ..services.event_bus import Events
 from ...utils import app_logger, OpenRouterAPIError
@@ -32,7 +32,7 @@ class AIProcessingController(IAIProcessingController):
         self,
         config_service: IConfigService,
         event_service: IEventService,
-        state_manager: IStateManager
+        state_manager: IStateManager,
     ):
         self._config = config_service
         self._events = event_service
@@ -42,7 +42,9 @@ class AIProcessingController(IAIProcessingController):
         self._last_ai_tps: float = 0.0
 
         # 监听转录完成事件
-        self._events.on(Events.TRANSCRIPTION_COMPLETED, self._on_transcription_completed)
+        self._events.on(
+            Events.TRANSCRIPTION_COMPLETED, self._on_transcription_completed
+        )
 
         app_logger.log_audio_event("AIProcessingController initialized", {})
 
@@ -62,22 +64,23 @@ class AIProcessingController(IAIProcessingController):
             data_copy = {k: v for k, v in data.items() if k != "text"}
 
             # 发送AI处理完成事件（携带优化后的文本）
-            self._events.emit("ai_processed_text", {
-                "text": optimized_text,
-                "original_text": text,
-                "ai_tps": self._last_ai_tps,
-                **data_copy  # 保留原始数据（audio_duration等）
-            })
+            self._events.emit(
+                "ai_processed_text",
+                {
+                    "text": optimized_text,
+                    "original_text": text,
+                    "ai_tps": self._last_ai_tps,
+                    **data_copy,  # 保留原始数据（audio_duration等）
+                },
+            )
         else:
             # 不使用AI，直接发送原文本
             # 创建data副本并移除会冲突的键
             data_copy = {k: v for k, v in data.items() if k != "text"}
 
-            self._events.emit("ai_processed_text", {
-                "text": text,
-                "original_text": text,
-                **data_copy
-            })
+            self._events.emit(
+                "ai_processed_text", {"text": text, "original_text": text, **data_copy}
+            )
 
     def process_with_ai(self, text: str) -> str:
         """使用AI优化文本
@@ -96,52 +99,56 @@ class AIProcessingController(IAIProcessingController):
             model_key = f"ai.{provider}.model_id"
             model = self._config.get_setting(model_key, "anthropic/claude-3-sonnet")
             prompt_template = self._config.get_setting(
-                "ai.prompt",
-                "Please improve and correct the following text: {text}"
+                "ai.prompt", "Please improve and correct the following text: {text}"
             )
 
             # 动态获取AI服务
             ai_service = self._get_current_ai_service()
             if not ai_service:
-                app_logger.log_audio_event("AI service not available, skipping optimization", {})
+                app_logger.log_audio_event(
+                    "AI service not available, skipping optimization", {}
+                )
                 return text
 
             # 执行AI优化
             refined_text = ai_service.refine_text(text, prompt_template, model)
 
             # 保存TPS到实例变量
-            self._last_ai_tps = getattr(ai_service, '_last_tps', 0.0)
+            self._last_ai_tps = getattr(ai_service, "_last_tps", 0.0)
 
             # 发送AI处理完成事件
-            self._events.emit(Events.AI_PROCESSING_COMPLETED, {
-                "original": text,
-                "refined": refined_text
-            })
+            self._events.emit(
+                Events.AI_PROCESSING_COMPLETED,
+                {"original": text, "refined": refined_text},
+            )
 
-            app_logger.log_audio_event("AI refine completed", {
-                "model": model,
-                "original_length": len(text),
-                "refined_length": len(refined_text)
-            })
+            app_logger.log_audio_event(
+                "AI refine completed",
+                {
+                    "model": model,
+                    "original_length": len(text),
+                    "refined_length": len(refined_text),
+                },
+            )
 
             return refined_text
 
         except requests.exceptions.Timeout as e:
             error_msg = "AI request timeout - API response too slow"
-            app_logger.log_audio_event(f"{error_msg} - AI optimization skipped, using original text", {
-                "error": str(e),
-                "provider": provider
-            })
+            app_logger.log_audio_event(
+                f"{error_msg} - AI optimization skipped, using original text",
+                {"error": str(e), "provider": provider},
+            )
             app_logger.log_error(e, "process_with_ai")
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text  # 回退到原文本
 
         except requests.exceptions.ConnectionError as e:
             error_msg = "Network connection failed - check internet connection"
-            app_logger.log_audio_event(f"{error_msg} - AI optimization skipped, using original text", {
-                "error": str(e),
-                "provider": provider
-            })
+            app_logger.log_audio_event(
+                f"{error_msg} - AI optimization skipped, using original text",
+                {"error": str(e), "provider": provider},
+            )
             app_logger.log_error(e, "process_with_ai")
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text
@@ -158,20 +165,20 @@ class AIProcessingController(IAIProcessingController):
                 error_msg = "AI API error"
 
             # 明确日志：AI 优化已跳过
-            app_logger.log_audio_event(f"{error_msg} - AI optimization skipped, using original text", {
-                "error": str(e),
-                "provider": provider
-            })
+            app_logger.log_audio_event(
+                f"{error_msg} - AI optimization skipped, using original text",
+                {"error": str(e), "provider": provider},
+            )
             app_logger.log_error(e, "process_with_ai")
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text
 
         except Exception as e:
             error_msg = f"Unknown AI processing error: {type(e).__name__}"
-            app_logger.log_audio_event(f"{error_msg} - AI optimization skipped, using original text", {
-                "error": str(e),
-                "provider": provider
-            })
+            app_logger.log_audio_event(
+                f"{error_msg} - AI optimization skipped, using original text",
+                {"error": str(e), "provider": provider},
+            )
             app_logger.log_error(e, "process_with_ai")
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text

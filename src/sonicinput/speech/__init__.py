@@ -5,9 +5,4 @@ from .gpu_manager import GPUManager
 from .groq_speech_service import GroqSpeechService
 from .speech_service_factory import SpeechServiceFactory
 
-__all__ = [
-    'WhisperEngine',
-    'GPUManager',
-    'GroqSpeechService',
-    'SpeechServiceFactory'
-]
+__all__ = ["WhisperEngine", "GPUManager", "GroqSpeechService", "SpeechServiceFactory"]

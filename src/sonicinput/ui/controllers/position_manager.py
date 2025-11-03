@@ -22,7 +22,11 @@ class PositionManager:
     支持多屏幕环境、DPI缩放和预设位置。
     """
 
-    def __init__(self, config_service: IConfigService, event_service: Optional[IEventService] = None):
+    def __init__(
+        self,
+        config_service: IConfigService,
+        event_service: Optional[IEventService] = None,
+    ):
         """初始化位置管理器
 
         Args:
@@ -88,7 +92,9 @@ class PositionManager:
             self._config_service.set_setting(ConfigKeys.UI_OVERLAY_POSITION_CUSTOM_Y, y)
 
             # 设置为自定义模式
-            self._config_service.set_setting(ConfigKeys.UI_OVERLAY_POSITION_MODE, "custom")
+            self._config_service.set_setting(
+                ConfigKeys.UI_OVERLAY_POSITION_MODE, "custom"
+            )
 
             # 保存屏幕信息
             self._save_screen_info()
@@ -97,17 +103,15 @@ class PositionManager:
 
             # 发送位置变更事件
             if self._event_service:
-                self._event_service.emit("overlay_position_changed", {
-                    "x": x,
-                    "y": y,
-                    "mode": "custom"
-                }, EventPriority.NORMAL)
+                self._event_service.emit(
+                    "overlay_position_changed",
+                    {"x": x, "y": y, "mode": "custom"},
+                    EventPriority.NORMAL,
+                )
 
-            app_logger.log_audio_event("Position saved", {
-                "x": x,
-                "y": y,
-                "mode": "custom"
-            })
+            app_logger.log_audio_event(
+                "Position saved", {"x": x, "y": y, "mode": "custom"}
+            )
 
             return True
 
@@ -130,12 +134,15 @@ class PositionManager:
             # 验证位置是否在有效屏幕范围内
             validated_position = self._validate_position(*position, widget)
 
-            app_logger.log_audio_event("Position restored", {
-                "original_x": position[0],
-                "original_y": position[1],
-                "validated_x": validated_position[0],
-                "validated_y": validated_position[1]
-            })
+            app_logger.log_audio_event(
+                "Position restored",
+                {
+                    "original_x": position[0],
+                    "original_y": position[1],
+                    "validated_x": validated_position[0],
+                    "validated_y": validated_position[1],
+                },
+            )
 
             return validated_position
 
@@ -143,7 +150,9 @@ class PositionManager:
             app_logger.log_error(e, "restore_position")
             return self._get_screen_center()
 
-    def set_preset_position(self, preset: str, widget: Optional[QWidget] = None) -> Tuple[int, int]:
+    def set_preset_position(
+        self, preset: str, widget: Optional[QWidget] = None
+    ) -> Tuple[int, int]:
         """设置预设位置
 
         Args:
@@ -155,26 +164,33 @@ class PositionManager:
         """
         try:
             # 保存预设位置到配置
-            self._config_service.set_setting(ConfigKeys.UI_OVERLAY_POSITION_MODE, "preset")
-            self._config_service.set_setting(ConfigKeys.UI_OVERLAY_POSITION_PRESET, preset)
+            self._config_service.set_setting(
+                ConfigKeys.UI_OVERLAY_POSITION_MODE, "preset"
+            )
+            self._config_service.set_setting(
+                ConfigKeys.UI_OVERLAY_POSITION_PRESET, preset
+            )
 
             # 计算预设位置
             position = self._calculate_preset_position(preset, widget)
 
             # 发送位置变更事件
             if self._event_service:
-                self._event_service.emit("overlay_position_changed", {
-                    "x": position[0],
-                    "y": position[1],
-                    "mode": "preset",
-                    "preset": preset
-                }, EventPriority.NORMAL)
+                self._event_service.emit(
+                    "overlay_position_changed",
+                    {
+                        "x": position[0],
+                        "y": position[1],
+                        "mode": "preset",
+                        "preset": preset,
+                    },
+                    EventPriority.NORMAL,
+                )
 
-            app_logger.log_audio_event("Preset position set", {
-                "preset": preset,
-                "x": position[0],
-                "y": position[1]
-            })
+            app_logger.log_audio_event(
+                "Preset position set",
+                {"preset": preset, "x": position[0], "y": position[1]},
+            )
 
             return position
 
@@ -197,7 +213,7 @@ class PositionManager:
             "center_right": "右侧居中",
             "bottom_left": "左下角",
             "bottom_center": "底部居中",
-            "bottom_right": "右下角"
+            "bottom_right": "右下角",
         }
 
     def get_current_screen(self) -> Optional[QScreen]:
@@ -248,7 +264,9 @@ class PositionManager:
         )
         return self._calculate_preset_position(preset, widget)
 
-    def _calculate_preset_position(self, preset: str, widget: Optional[QWidget] = None) -> Tuple[int, int]:
+    def _calculate_preset_position(
+        self, preset: str, widget: Optional[QWidget] = None
+    ) -> Tuple[int, int]:
         """计算预设位置的具体坐标
 
         Args:
@@ -320,7 +338,9 @@ class PositionManager:
             app_logger.log_error(e, "get_screen_center")
             return (100, 100)  # 默认位置
 
-    def _validate_position(self, x: int, y: int, widget: Optional[QWidget] = None) -> Tuple[int, int]:
+    def _validate_position(
+        self, x: int, y: int, widget: Optional[QWidget] = None
+    ) -> Tuple[int, int]:
         """验证位置是否在有效屏幕范围内
 
         Args:
@@ -382,7 +402,7 @@ class PositionManager:
             screen_info = {
                 "name": screen.name(),
                 "geometry": f"{screen.geometry().width()}x{screen.geometry().height()}",
-                "device_pixel_ratio": screen.devicePixelRatio()
+                "device_pixel_ratio": screen.devicePixelRatio(),
             }
 
             # 找到主屏幕的索引
@@ -425,8 +445,10 @@ class PositionManager:
             current_geometry = f"{current_screen.geometry().width()}x{current_screen.geometry().height()}"
             current_ratio = current_screen.devicePixelRatio()
 
-            return (saved_geometry != current_geometry or
-                   abs(saved_ratio - current_ratio) > 0.1)
+            return (
+                saved_geometry != current_geometry
+                or abs(saved_ratio - current_ratio) > 0.1
+            )
 
         except Exception as e:
             app_logger.log_error(e, "is_screen_environment_changed")

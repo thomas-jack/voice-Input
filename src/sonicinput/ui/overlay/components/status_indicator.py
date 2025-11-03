@@ -9,10 +9,10 @@ class StatusIndicator(QWidget):
     """真正的圆形红点状态指示器，带圆角矩形背景框（支持4种状态）"""
 
     # 状态常量
-    STATE_IDLE = 0          # 待机（暗红色）
-    STATE_RECORDING = 1     # 录音中（鲜红色）
-    STATE_PROCESSING = 2    # AI处理中（黄色）
-    STATE_COMPLETED = 3     # 完成（绿色）
+    STATE_IDLE = 0  # 待机（暗红色）
+    STATE_RECORDING = 1  # 录音中（鲜红色）
+    STATE_PROCESSING = 2  # AI处理中（黄色）
+    STATE_COMPLETED = 3  # 完成（绿色）
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -55,5 +55,6 @@ class StatusIndicator(QWidget):
         center_x = self.width() // 2
         center_y = self.height() // 2 - 3  # 向上偏移3px
         dot_radius = 6  # 圆点半径
-        painter.drawEllipse(center_x - dot_radius, center_y - dot_radius,
-                          dot_radius * 2, dot_radius * 2)
+        painter.drawEllipse(
+            center_x - dot_radius, center_y - dot_radius, dot_radius * 2, dot_radius * 2
+        )

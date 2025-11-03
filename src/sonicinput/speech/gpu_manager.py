@@ -32,17 +32,19 @@ class GPUManager:
         except Exception as e:
             app_logger.log_error(e, "device_initialization")
             self._cuda_available = False
-            app_logger.log_audio_event("Device initialization failed, using CPU", {"error": str(e)})
+            app_logger.log_audio_event(
+                "Device initialization failed, using CPU", {"error": str(e)}
+            )
 
     def _check_cuda_via_nvidia_smi(self) -> bool:
         """Check CUDA availability using nvidia-smi command"""
         try:
             result = subprocess.run(
-                ['nvidia-smi'],
+                ["nvidia-smi"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                encoding='utf-8'
+                encoding="utf-8",
             )
             return result.returncode == 0
         except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
@@ -52,32 +54,35 @@ class GPUManager:
         """Get GPU information using nvidia-smi"""
         try:
             result = subprocess.run(
-                ['nvidia-smi', '--query-gpu=index,name,memory.total,memory.used,memory.free',
-                 '--format=csv,noheader,nounits'],
+                [
+                    "nvidia-smi",
+                    "--query-gpu=index,name,memory.total,memory.used,memory.free",
+                    "--format=csv,noheader,nounits",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                encoding='utf-8'
+                encoding="utf-8",
             )
 
             if result.returncode != 0:
                 return None
 
             # Parse first GPU info
-            lines = result.stdout.strip().split('\n')
+            lines = result.stdout.strip().split("\n")
             if not lines:
                 return None
 
-            parts = [p.strip() for p in lines[0].split(',')]
+            parts = [p.strip() for p in lines[0].split(",")]
             if len(parts) < 5:
                 return None
 
             return {
-                'index': int(parts[0]),
-                'name': parts[1],
-                'memory_total_mb': float(parts[2]),
-                'memory_used_mb': float(parts[3]),
-                'memory_free_mb': float(parts[4])
+                "index": int(parts[0]),
+                "name": parts[1],
+                "memory_total_mb": float(parts[2]),
+                "memory_used_mb": float(parts[3]),
+                "memory_free_mb": float(parts[4]),
             }
 
         except Exception as e:
@@ -88,15 +93,15 @@ class GPUManager:
         """Get compute capability using nvidia-smi"""
         try:
             result = subprocess.run(
-                ['nvidia-smi', '--query-gpu=compute_cap', '--format=csv,noheader'],
+                ["nvidia-smi", "--query-gpu=compute_cap", "--format=csv,noheader"],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                encoding='utf-8'
+                encoding="utf-8",
             )
 
             if result.returncode == 0:
-                return result.stdout.strip().split('\n')[0].strip()
+                return result.stdout.strip().split("\n")[0].strip()
             return None
 
         except Exception:
@@ -109,7 +114,7 @@ class GPUManager:
             "device_count": 0,
             "current_device": None,
             "devices": [],
-            "error": None
+            "error": None,
         }
 
         try:
@@ -120,31 +125,34 @@ class GPUManager:
 
             # Get all GPU devices
             smi_result = subprocess.run(
-                ['nvidia-smi', '--query-gpu=index,name,memory.total,compute_cap',
-                 '--format=csv,noheader,nounits'],
+                [
+                    "nvidia-smi",
+                    "--query-gpu=index,name,memory.total,compute_cap",
+                    "--format=csv,noheader,nounits",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=5,
-                encoding='utf-8'
+                encoding="utf-8",
             )
 
             if smi_result.returncode != 0:
                 result["error"] = "Failed to query GPU devices"
                 return result
 
-            lines = smi_result.stdout.strip().split('\n')
+            lines = smi_result.stdout.strip().split("\n")
             result["available"] = len(lines) > 0
             result["device_count"] = len(lines)
             result["current_device"] = 0  # Default to first GPU
 
             for line in lines:
-                parts = [p.strip() for p in line.split(',')]
+                parts = [p.strip() for p in line.split(",")]
                 if len(parts) >= 4:
                     device_info = {
                         "id": int(parts[0]),
                         "name": parts[1],
                         "memory_gb": float(parts[2]) / 1024,
-                        "compute_capability": parts[3]
+                        "compute_capability": parts[3],
                     }
                     result["devices"].append(device_info)
 
@@ -176,16 +184,18 @@ class GPUManager:
             if not gpu_info:
                 return {}
 
-            total_gb = gpu_info['memory_total_mb'] / 1024
-            used_gb = gpu_info['memory_used_mb'] / 1024
-            free_gb = gpu_info['memory_free_mb'] / 1024
+            total_gb = gpu_info["memory_total_mb"] / 1024
+            used_gb = gpu_info["memory_used_mb"] / 1024
+            free_gb = gpu_info["memory_free_mb"] / 1024
 
             return {
                 "allocated_gb": used_gb,  # Used memory
-                "reserved_gb": used_gb,    # Same as allocated for compatibility
+                "reserved_gb": used_gb,  # Same as allocated for compatibility
                 "total_gb": total_gb,
                 "free_gb": free_gb,
-                "utilization_percent": (used_gb / total_gb) * 100 if total_gb > 0 else 0
+                "utilization_percent": (used_gb / total_gb) * 100
+                if total_gb > 0
+                else 0,
             }
 
         except Exception as e:
@@ -205,16 +215,21 @@ class GPUManager:
             if self.is_gpu_available():
                 try:
                     import torch
+
                     if torch.cuda.is_available():
                         # empty_cache() 只释放缓存中未使用的内存
                         # 不会影响正在使用的模型或破坏 CUDA context
                         torch.cuda.empty_cache()
 
                         memory_usage = self.get_memory_usage()
-                        app_logger.debug(f"GPU cache cleared gently, current usage: {memory_usage}")
+                        app_logger.debug(
+                            f"GPU cache cleared gently, current usage: {memory_usage}"
+                        )
 
                 except Exception as torch_error:
-                    app_logger.debug(f"torch.cuda.empty_cache() failed, continuing: {torch_error}")
+                    app_logger.debug(
+                        f"torch.cuda.empty_cache() failed, continuing: {torch_error}"
+                    )
 
         except Exception as e:
             app_logger.log_error(e, "clear_cache")
@@ -222,13 +237,18 @@ class GPUManager:
     def set_memory_fraction(self, fraction: float) -> None:
         """Set memory usage fraction (stored for reference, not enforced)"""
         if not 0.1 <= fraction <= 1.0:
-            raise GPUError(f"Memory fraction must be between 0.1 and 1.0, got {fraction}")
+            raise GPUError(
+                f"Memory fraction must be between 0.1 and 1.0, got {fraction}"
+            )
 
         self._memory_fraction = fraction
-        app_logger.log_audio_event("Memory fraction updated (reference only)", {
-            "fraction": fraction,
-            "note": "CTranslate2 handles memory management internally"
-        })
+        app_logger.log_audio_event(
+            "Memory fraction updated (reference only)",
+            {
+                "fraction": fraction,
+                "note": "CTranslate2 handles memory management internally",
+            },
+        )
 
     def check_memory_requirements(self, required_gb: float) -> bool:
         """Check if sufficient memory is available"""
@@ -245,7 +265,7 @@ class GPUManager:
         info = {
             "cuda_available": self.is_gpu_available(),
             "device_type": self.get_device(),
-            "memory_fraction": self._memory_fraction
+            "memory_fraction": self._memory_fraction,
         }
 
         if self.is_gpu_available():
@@ -253,11 +273,13 @@ class GPUManager:
             compute_cap = self._get_compute_capability()
 
             if gpu_info:
-                info.update({
-                    "device_name": gpu_info['name'],
-                    "compute_capability": compute_cap or "unknown",
-                    "total_memory_gb": gpu_info['memory_total_mb'] / 1024,
-                })
+                info.update(
+                    {
+                        "device_name": gpu_info["name"],
+                        "compute_capability": compute_cap or "unknown",
+                        "total_memory_gb": gpu_info["memory_total_mb"] / 1024,
+                    }
+                )
 
             # Add current memory usage
             info.update(self.get_memory_usage())
@@ -273,15 +295,15 @@ class GPUManager:
                 memory_info = self.get_memory_usage()
                 app_logger.log_gpu_info(True, memory_info)
 
-                app_logger.log_audio_event("GPU prepared for model loading", {
-                    "memory_info": memory_info
-                })
+                app_logger.log_audio_event(
+                    "GPU prepared for model loading", {"memory_info": memory_info}
+                )
 
             except Exception as e:
-                app_logger.log_audio_event("GPU preparation warning", {
-                    "error": str(e),
-                    "fallback": "proceeding without GPU preparation"
-                })
+                app_logger.log_audio_event(
+                    "GPU preparation warning",
+                    {"error": str(e), "fallback": "proceeding without GPU preparation"},
+                )
 
     def cleanup_after_inference(self) -> None:
         """Cleanup after inference"""
@@ -298,7 +320,7 @@ class GPUManager:
             "medium": 2.5,
             "large-v3": 4.2,
             "large-v3-turbo": 3.8,
-            "turbo": 3.5
+            "turbo": 3.5,
         }
 
         for key, memory in model_memory_map.items():

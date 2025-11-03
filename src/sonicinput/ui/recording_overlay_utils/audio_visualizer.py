@@ -22,9 +22,9 @@ class AudioVisualizer:
         self._last_audio_log_time = 0
         self._last_audio_log_time_direct = 0
 
-        app_logger.log_audio_event("Audio visualizer initialized", {
-            "bar_count": len(audio_level_bars)
-        })
+        app_logger.log_audio_event(
+            "Audio visualizer initialized", {"bar_count": len(audio_level_bars)}
+        )
 
     def update_from_audio_data(self, audio_data, is_recording: bool) -> None:
         """Update audio level display from raw audio data
@@ -38,8 +38,9 @@ class AudioVisualizer:
 
         try:
             import numpy as np
+
             # 计算音频级别 (RMS)
-            if hasattr(audio_data, '__len__') and len(audio_data) > 0:
+            if hasattr(audio_data, "__len__") and len(audio_data) > 0:
                 if isinstance(audio_data, np.ndarray):
                     level = float(np.sqrt(np.mean(audio_data**2)))
                 else:
@@ -81,7 +82,9 @@ class AudioVisualizer:
             # 记录原始音量级别
 
             # 标准化到 0-1 范围 - 大幅提高敏感度让正常说话音量也能显示
-            normalized_level = min(1.0, max(0.0, level * 20))  # 提高敏感度到20倍（从8倍）
+            normalized_level = min(
+                1.0, max(0.0, level * 20)
+            )  # 提高敏感度到20倍（从8倍）
             self.current_audio_level = normalized_level
 
             # 调试日志：每秒记录一次音量级别（已禁用，避免日志洪流）

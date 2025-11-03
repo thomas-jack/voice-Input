@@ -12,9 +12,4 @@ from .audio_visualizer import AudioVisualizer
 from .timer_manager import TimerManager
 from .ui_builder import OverlayUIBuilder
 
-__all__ = [
-    'AnimationController',
-    'AudioVisualizer',
-    'TimerManager',
-    'OverlayUIBuilder'
-]
+__all__ = ["AnimationController", "AudioVisualizer", "TimerManager", "OverlayUIBuilder"]

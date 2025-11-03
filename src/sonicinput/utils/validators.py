@@ -13,21 +13,25 @@ from .constants import Limits, Patterns, Whisper, Audio, ConfigKeys
 
 class ValidationError(Exception):
     """Base exception for validation errors"""
+
     pass
 
 
 class ConfigValidationError(ValidationError):
     """Exception raised for configuration validation errors"""
+
     pass
 
 
 class AudioValidationError(ValidationError):
     """Exception raised for audio-related validation errors"""
+
     pass
 
 
 class NetworkValidationError(ValidationError):
     """Exception raised for network-related validation errors"""
+
     pass
 
 
@@ -153,7 +157,9 @@ class ConfigValidator:
         return ValidationResult.success(sample_rate, "Valid sample rate")
 
     @staticmethod
-    def validate_api_key(api_key: str, provider: str = "openrouter") -> ValidationResult:
+    def validate_api_key(
+        api_key: str, provider: str = "openrouter"
+    ) -> ValidationResult:
         """Validate API key format
 
         Args:
@@ -199,8 +205,12 @@ class ConfigValidator:
         return ValidationResult.success(timeout, "Valid timeout value")
 
     @staticmethod
-    def validate_path(path: str, must_exist: bool = False, must_be_file: bool = False,
-                     must_be_dir: bool = False) -> ValidationResult:
+    def validate_path(
+        path: str,
+        must_exist: bool = False,
+        must_be_file: bool = False,
+        must_be_dir: bool = False,
+    ) -> ValidationResult:
         """Validate file/directory path
 
         Args:
@@ -236,8 +246,9 @@ class ConfigValidator:
             return ValidationResult.error(f"Invalid path format: {e}")
 
     @staticmethod
-    def validate_percentage(value: Union[int, float], allow_zero: bool = True,
-                          allow_hundred: bool = True) -> ValidationResult:
+    def validate_percentage(
+        value: Union[int, float], allow_zero: bool = True, allow_hundred: bool = True
+    ) -> ValidationResult:
         """Validate percentage value (0-100)
 
         Args:
@@ -255,7 +266,9 @@ class ConfigValidator:
         max_val = 100 if allow_hundred else 99.99
 
         if value < min_val or value > max_val:
-            return ValidationResult.error(f"Percentage must be between {min_val}% and {max_val}%")
+            return ValidationResult.error(
+                f"Percentage must be between {min_val}% and {max_val}%"
+            )
 
         return ValidationResult.success(value, "Valid percentage")
 
@@ -303,7 +316,9 @@ class AudioValidator:
                 return ValidationResult.error("Device ID cannot be negative")
             return ValidationResult.success(device_id, "Valid device ID")
 
-        return ValidationResult.error("Device ID must be an integer, 'default', or None")
+        return ValidationResult.error(
+            "Device ID must be an integer, 'default', or None"
+        )
 
     @staticmethod
     def validate_channels(channels: int) -> ValidationResult:
@@ -343,7 +358,9 @@ class AudioValidator:
 
         # Check if it's a power of 2
         if chunk_size & (chunk_size - 1) != 0:
-            return ValidationResult.error("Chunk size should be a power of 2 for optimal performance")
+            return ValidationResult.error(
+                "Chunk size should be a power of 2 for optimal performance"
+            )
 
         return ValidationResult.success(chunk_size, "Valid chunk size")
 
@@ -368,7 +385,9 @@ class UIValidator:
 
         if preset not in UI.POSITION_PRESETS:
             available = ", ".join(UI.POSITION_PRESETS.keys())
-            return ValidationResult.error(f"Invalid position preset. Available: {available}")
+            return ValidationResult.error(
+                f"Invalid position preset. Available: {available}"
+            )
 
         return ValidationResult.success(preset, "Valid position preset")
 
@@ -407,7 +426,9 @@ class UIValidator:
 
         valid_themes = ["light", "dark", "auto"]
         if theme not in valid_themes:
-            return ValidationResult.error(f"Invalid theme. Available: {', '.join(valid_themes)}")
+            return ValidationResult.error(
+                f"Invalid theme. Available: {', '.join(valid_themes)}"
+            )
 
         return ValidationResult.success(theme, "Valid theme")
 
@@ -433,12 +454,14 @@ class NetworkValidator:
 
         # Basic URL validation
         url_pattern = re.compile(
-            r'^https?://'  # http:// or https://
-            r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|'  # domain...
-            r'localhost|'  # localhost...
-            r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-            r'(?::\d+)?'  # optional port
-            r'(?:/?|[/?]\S+)$', re.IGNORECASE)
+            r"^https?://"  # http:// or https://
+            r"(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?|"  # domain...
+            r"localhost|"  # localhost...
+            r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"  # ...or ip
+            r"(?::\d+)?"  # optional port
+            r"(?:/?|[/?]\S+)$",
+            re.IGNORECASE,
+        )
 
         if not url_pattern.match(url):
             return ValidationResult.error("Invalid URL format")
@@ -473,7 +496,9 @@ class CompleteConfigValidator:
         self.ui_validator = UIValidator()
         self.network_validator = NetworkValidator()
 
-    def validate_configuration(self, config: Dict[str, Any]) -> Dict[str, ValidationResult]:
+    def validate_configuration(
+        self, config: Dict[str, Any]
+    ) -> Dict[str, ValidationResult]:
         """Validate complete configuration
 
         Args:
@@ -490,7 +515,9 @@ class CompleteConfigValidator:
             ConfigKeys.WHISPER_MODEL: self.config_validator.validate_whisper_model,
             ConfigKeys.SPEECH_LANGUAGE: self.config_validator.validate_language_code,
             ConfigKeys.AUDIO_SAMPLE_RATE: self.config_validator.validate_sample_rate,
-            ConfigKeys.OPENROUTER_API_KEY: lambda key: self.config_validator.validate_api_key(key, "openrouter"),
+            ConfigKeys.OPENROUTER_API_KEY: lambda key: self.config_validator.validate_api_key(
+                key, "openrouter"
+            ),
             ConfigKeys.AUDIO_INPUT_DEVICE: self.audio_validator.validate_audio_device_id,
             ConfigKeys.AUDIO_CHANNELS: self.audio_validator.validate_channels,
             ConfigKeys.OVERLAY_POSITION: self.ui_validator.validate_position_preset,
@@ -508,7 +535,9 @@ class CompleteConfigValidator:
 
         return results
 
-    def get_validation_summary(self, results: Dict[str, ValidationResult]) -> Dict[str, Any]:
+    def get_validation_summary(
+        self, results: Dict[str, ValidationResult]
+    ) -> Dict[str, Any]:
         """Get validation summary
 
         Args:
@@ -531,5 +560,5 @@ class CompleteConfigValidator:
             "valid_count": valid_count,
             "total_count": total_count,
             "errors": errors,
-            "error_count": len(errors)
+            "error_count": len(errors),
         }

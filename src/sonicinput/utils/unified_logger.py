@@ -35,12 +35,13 @@ def _safe_print(message: str, output_stream=sys.stdout) -> None:
     try:
         print(message, file=output_stream, flush=True)
     except UnicodeEncodeError:
-        safe_msg = message.encode('ascii', 'ignore').decode('ascii')
+        safe_msg = message.encode("ascii", "ignore").decode("ascii")
         print(f"[ENCODING_WARNING] {safe_msg}", file=output_stream, flush=True)
 
 
 class LogLevel(Enum):
     """日志级别"""
+
     DEBUG = 10
     INFO = 20
     WARNING = 30
@@ -50,6 +51,7 @@ class LogLevel(Enum):
 
 class LogCategory(Enum):
     """日志类别（用于过滤和路由）"""
+
     AUDIO = "audio"
     API = "api"
     UI = "ui"
@@ -64,6 +66,7 @@ class LogCategory(Enum):
 @dataclass
 class TraceContext:
     """性能追踪上下文"""
+
     trace_id: str
     operation: str
     component: str = ""
@@ -73,12 +76,14 @@ class TraceContext:
 
     def checkpoint(self, name: str, data: Dict[str, Any] = None) -> None:
         """添加检查点"""
-        self.checkpoints.append({
-            'name': name,
-            'timestamp': time.time(),
-            'elapsed': time.time() - self.start_time,
-            'data': data or {}
-        })
+        self.checkpoints.append(
+            {
+                "name": name,
+                "timestamp": time.time(),
+                "elapsed": time.time() - self.start_time,
+                "data": data or {},
+            }
+        )
 
     def duration(self) -> float:
         """获取总耗时"""
@@ -99,7 +104,7 @@ class UnifiedLogger:
         return cls._instance
 
     def __init__(self):
-        if hasattr(self, '_initialized'):
+        if hasattr(self, "_initialized"):
             return
 
         self._initialized = True
@@ -110,9 +115,9 @@ class UnifiedLogger:
         self._lock = threading.RLock()
 
         # 设置日志文件
-        log_dir = Path(os.getenv('APPDATA', '.')) / 'SonicInput' / 'logs'
+        log_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput" / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
-        self._log_file = log_dir / 'app.log'
+        self._log_file = log_dir / "app.log"
 
         # 追踪栈（每线程）
         self._trace_stack: Dict[int, List[TraceContext]] = {}
@@ -121,9 +126,9 @@ class UnifiedLogger:
     @staticmethod
     def _is_dev_mode() -> bool:
         """检查是否为开发模式"""
-        return ("--dev" in sys.argv or
-                os.getenv("VOICE_INPUT_DEV") or
-                "--gui" in sys.argv)
+        return (
+            "--dev" in sys.argv or os.getenv("VOICE_INPUT_DEV") or "--gui" in sys.argv
+        )
 
     def set_config_service(self, config_service) -> None:
         """设置配置服务并从配置中加载日志设置
@@ -145,10 +150,14 @@ class UnifiedLogger:
             self._min_level = self._string_to_log_level(level_str)
 
             # 读取控制台输出设置
-            self._console_output_enabled = self._config_service.get_setting("logging.console_output", False)
+            self._console_output_enabled = self._config_service.get_setting(
+                "logging.console_output", False
+            )
 
             # 读取启用的类别
-            enabled_categories_str = self._config_service.get_setting("logging.enabled_categories", [])
+            enabled_categories_str = self._config_service.get_setting(
+                "logging.enabled_categories", []
+            )
             if enabled_categories_str:
                 self._enabled_categories = set(
                     LogCategory(cat) for cat in enabled_categories_str
@@ -157,7 +166,10 @@ class UnifiedLogger:
                 self._enabled_categories = set(LogCategory)
 
         except Exception as e:
-            print(f"[LOG WARNING] Failed to load logger settings from config: {e}", file=sys.stderr)
+            print(
+                f"[LOG WARNING] Failed to load logger settings from config: {e}",
+                file=sys.stderr,
+            )
 
     def _string_to_log_level(self, level_str: str) -> LogLevel:
         """将字符串转换为 LogLevel 枚举"""
@@ -166,11 +178,11 @@ class UnifiedLogger:
             "INFO": LogLevel.INFO,
             "WARNING": LogLevel.WARNING,
             "ERROR": LogLevel.ERROR,
-            "CRITICAL": LogLevel.CRITICAL
+            "CRITICAL": LogLevel.CRITICAL,
         }
         return level_map.get(level_str.upper(), LogLevel.INFO)
 
-    def set_log_level(self, level: 'Union[str, LogLevel]') -> None:
+    def set_log_level(self, level: "Union[str, LogLevel]") -> None:
         """动态修改日志级别
 
         Args:
@@ -185,9 +197,14 @@ class UnifiedLogger:
             # 如果有配置服务，同步更新配置
             if self._config_service:
                 try:
-                    self._config_service.set_setting("logging.level", self._min_level.name)
+                    self._config_service.set_setting(
+                        "logging.level", self._min_level.name
+                    )
                 except Exception as e:
-                    print(f"[LOG WARNING] Failed to save log level to config: {e}", file=sys.stderr)
+                    print(
+                        f"[LOG WARNING] Failed to save log level to config: {e}",
+                        file=sys.stderr,
+                    )
 
     def set_console_output(self, enabled: bool) -> None:
         """动态修改控制台输出设置
@@ -203,7 +220,10 @@ class UnifiedLogger:
                 try:
                     self._config_service.set_setting("logging.console_output", enabled)
                 except Exception as e:
-                    print(f"[LOG WARNING] Failed to save console output setting: {e}", file=sys.stderr)
+                    print(
+                        f"[LOG WARNING] Failed to save console output setting: {e}",
+                        file=sys.stderr,
+                    )
 
     def is_debug_enabled(self) -> bool:
         """检查DEBUG级别日志是否启用
@@ -213,7 +233,7 @@ class UnifiedLogger:
         """
         return self._min_level == LogLevel.DEBUG
 
-    def set_enabled_categories(self, categories: 'List[LogCategory]') -> None:
+    def set_enabled_categories(self, categories: "List[LogCategory]") -> None:
         """设置启用的日志类别
 
         Args:
@@ -226,9 +246,14 @@ class UnifiedLogger:
             if self._config_service:
                 try:
                     category_names = [cat.value for cat in categories]
-                    self._config_service.set_setting("logging.enabled_categories", category_names)
+                    self._config_service.set_setting(
+                        "logging.enabled_categories", category_names
+                    )
                 except Exception as e:
-                    print(f"[LOG WARNING] Failed to save enabled categories: {e}", file=sys.stderr)
+                    print(
+                        f"[LOG WARNING] Failed to save enabled categories: {e}",
+                        file=sys.stderr,
+                    )
 
     def get_log_level(self) -> LogLevel:
         """获取当前日志级别"""
@@ -238,7 +263,7 @@ class UnifiedLogger:
         """获取控制台输出设置"""
         return self._console_output_enabled
 
-    def get_enabled_categories(self) -> 'List[LogCategory]':
+    def get_enabled_categories(self) -> "List[LogCategory]":
         """获取启用的日志类别"""
         return list(self._enabled_categories)
 
@@ -246,27 +271,39 @@ class UnifiedLogger:
         """检查是否应该记录该级别日志"""
         return level.value >= self._min_level.value
 
-    def _format_console_message(self, level: LogLevel, category: LogCategory,
-                                 message: str, context: Dict[str, Any] = None) -> str:
+    def _format_console_message(
+        self,
+        level: LogLevel,
+        category: LogCategory,
+        message: str,
+        context: Dict[str, Any] = None,
+    ) -> str:
         """格式化控制台消息（包含context）"""
-        timestamp = time.strftime('%H:%M:%S')
+        timestamp = time.strftime("%H:%M:%S")
 
         # 颜色代码
         colors = {
-            LogLevel.DEBUG: '\033[36m',    # Cyan
-            LogLevel.INFO: '\033[32m',     # Green
-            LogLevel.WARNING: '\033[33m',  # Yellow
-            LogLevel.ERROR: '\033[31m',    # Red
-            LogLevel.CRITICAL: '\033[35m'  # Magenta
+            LogLevel.DEBUG: "\033[36m",  # Cyan
+            LogLevel.INFO: "\033[32m",  # Green
+            LogLevel.WARNING: "\033[33m",  # Yellow
+            LogLevel.ERROR: "\033[31m",  # Red
+            LogLevel.CRITICAL: "\033[35m",  # Magenta
         }
-        reset = '\033[0m'
-        color = colors.get(level, '')
+        reset = "\033[0m"
+        color = colors.get(level, "")
 
         # 基本消息
-        parts = [f"[{timestamp}] {color}{level.name}{reset} | {category.value} | {message}"]
+        parts = [
+            f"[{timestamp}] {color}{level.name}{reset} | {category.value} | {message}"
+        ]
 
         # 添加context（如果有且重要）
-        if context and category in [LogCategory.PERFORMANCE, LogCategory.AUDIO, LogCategory.MODEL, LogCategory.ERROR]:
+        if context and category in [
+            LogCategory.PERFORMANCE,
+            LogCategory.AUDIO,
+            LogCategory.MODEL,
+            LogCategory.ERROR,
+        ]:
             # 格式化context为可读形式
             context_str = self._format_context_readable(context)
             if context_str:
@@ -294,19 +331,24 @@ class UnifiedLogger:
     def _safe_json_serialize(obj):
         """安全的 JSON 序列化，处理枚举和其他特殊类型"""
         # 处理枚举类型（如 PySide6 的 ActivationReason）
-        if hasattr(obj, 'value') and hasattr(obj, 'name'):
+        if hasattr(obj, "value") and hasattr(obj, "name"):
             return f"{type(obj).__name__}.{obj.name}"
         # 处理类型对象
-        if hasattr(obj, '__name__'):
+        if hasattr(obj, "__name__"):
             return obj.__name__
         # 其他情况转为字符串
         return str(obj)
 
-    def _format_file_message(self, level: LogLevel, category: LogCategory,
-                            message: str, context: Dict[str, Any] = None,
-                            component: str = None) -> str:
+    def _format_file_message(
+        self,
+        level: LogLevel,
+        category: LogCategory,
+        message: str,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> str:
         """格式化文件日志消息（详细JSON格式）"""
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
 
         parts = [timestamp, level.name.ljust(8), category.value.ljust(12)]
         if component:
@@ -315,15 +357,24 @@ class UnifiedLogger:
 
         if context:
             # 使用自定义序列化器处理特殊类型
-            context_json = json.dumps(context, ensure_ascii=False,
-                                     separators=(',', ':'),
-                                     default=self._safe_json_serialize)
+            context_json = json.dumps(
+                context,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=self._safe_json_serialize,
+            )
             parts.append(f"| {context_json}")
 
         return " | ".join(parts)
 
-    def _write_log(self, level: LogLevel, category: LogCategory, message: str,
-                   context: Dict[str, Any] = None, component: str = None) -> None:
+    def _write_log(
+        self,
+        level: LogLevel,
+        category: LogCategory,
+        message: str,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         """写入日志（控制台 + 文件）"""
         # PERFORMANCE 类别绕过级别检查，总是记录
         if category != LogCategory.PERFORMANCE:
@@ -336,16 +387,24 @@ class UnifiedLogger:
 
         with self._lock:
             # 控制台输出（选择性）
-            if self._console_output_enabled and self._should_output_to_console(level, category):
-                console_msg = self._format_console_message(level, category, message, context)
-                output_stream = sys.stderr if level.value >= LogLevel.ERROR.value else sys.stdout
+            if self._console_output_enabled and self._should_output_to_console(
+                level, category
+            ):
+                console_msg = self._format_console_message(
+                    level, category, message, context
+                )
+                output_stream = (
+                    sys.stderr if level.value >= LogLevel.ERROR.value else sys.stdout
+                )
                 _safe_print(console_msg, output_stream)
 
             # 文件输出（全部）
             try:
-                file_msg = self._format_file_message(level, category, message, context, component)
-                with open(self._log_file, 'a', encoding='utf-8') as f:
-                    f.write(file_msg + '\n')
+                file_msg = self._format_file_message(
+                    level, category, message, context, component
+                )
+                with open(self._log_file, "a", encoding="utf-8") as f:
+                    f.write(file_msg + "\n")
                     f.flush()
             except Exception as e:
                 print(f"[LOG ERROR] Failed to write to log file: {e}", file=sys.stderr)
@@ -368,39 +427,64 @@ class UnifiedLogger:
 
     # ============ 公开API ============
 
-    def debug(self, message: str, category: LogCategory = LogCategory.STARTUP,
-              context: Dict[str, Any] = None, component: str = None) -> None:
+    def debug(
+        self,
+        message: str,
+        category: LogCategory = LogCategory.STARTUP,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         """记录DEBUG日志"""
         self._write_log(LogLevel.DEBUG, category, message, context, component)
 
-    def info(self, message: str, category: LogCategory = LogCategory.STARTUP,
-             context: Dict[str, Any] = None, component: str = None) -> None:
+    def info(
+        self,
+        message: str,
+        category: LogCategory = LogCategory.STARTUP,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         """记录INFO日志"""
         self._write_log(LogLevel.INFO, category, message, context, component)
 
-    def warning(self, message: str, category: LogCategory = LogCategory.ERROR,
-                context: Dict[str, Any] = None, component: str = None) -> None:
+    def warning(
+        self,
+        message: str,
+        category: LogCategory = LogCategory.ERROR,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         """记录WARNING日志"""
         self._write_log(LogLevel.WARNING, category, message, context, component)
 
-    def error(self, message: str, exception: Exception = None,
-              category: LogCategory = LogCategory.ERROR,
-              context: Dict[str, Any] = None, component: str = None) -> None:
+    def error(
+        self,
+        message: str,
+        exception: Exception = None,
+        category: LogCategory = LogCategory.ERROR,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         """记录ERROR日志"""
         ctx = context or {}
         if exception:
-            ctx['exception'] = str(exception)
-            ctx['exception_type'] = type(exception).__name__
+            ctx["exception"] = str(exception)
+            ctx["exception_type"] = type(exception).__name__
         self._write_log(LogLevel.ERROR, category, message, ctx, component)
 
-    def critical(self, message: str, exception: Exception = None,
-                 category: LogCategory = LogCategory.ERROR,
-                 context: Dict[str, Any] = None, component: str = None) -> None:
+    def critical(
+        self,
+        message: str,
+        exception: Exception = None,
+        category: LogCategory = LogCategory.ERROR,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         """记录CRITICAL日志"""
         ctx = context or {}
         if exception:
-            ctx['exception'] = str(exception)
-            ctx['exception_type'] = type(exception).__name__
+            ctx["exception"] = str(exception)
+            ctx["exception_type"] = type(exception).__name__
         self._write_log(LogLevel.CRITICAL, category, message, ctx, component)
 
     # ============ 便捷方法 ============
@@ -409,14 +493,19 @@ class UnifiedLogger:
         """记录音频事件"""
         self.info(f"Audio: {event}", LogCategory.AUDIO, details, "audio")
 
-    def performance(self, operation: str, duration: float,
-                   audio_duration: float = None, details: Dict[str, Any] = None) -> None:
+    def performance(
+        self,
+        operation: str,
+        duration: float,
+        audio_duration: float = None,
+        details: Dict[str, Any] = None,
+    ) -> None:
         """记录性能指标（自动格式化）"""
         ctx = details or {}
-        ctx['duration'] = f"{duration:.3f}s"
+        ctx["duration"] = f"{duration:.3f}s"
 
         if audio_duration:
-            ctx['audio_duration'] = f"{audio_duration:.2f}s"
+            ctx["audio_duration"] = f"{audio_duration:.2f}s"
 
         # 简化消息，移除RTF状态指示器
         message = f"Performance: {operation} - {duration:.3f}s"
@@ -424,8 +513,9 @@ class UnifiedLogger:
         self.info(message, LogCategory.PERFORMANCE, ctx, "performance")
 
     @contextmanager
-    def trace(self, operation: str, component: str = "",
-              parameters: Dict[str, Any] = None):
+    def trace(
+        self, operation: str, component: str = "", parameters: Dict[str, Any] = None
+    ):
         """性能追踪上下文管理器"""
         thread_id = threading.get_ident()
 
@@ -438,7 +528,7 @@ class UnifiedLogger:
             trace_id=trace_id,
             operation=operation,
             component=component,
-            parameters=parameters or {}
+            parameters=parameters or {},
         )
 
         # 入栈
@@ -448,15 +538,24 @@ class UnifiedLogger:
             self._trace_stack[thread_id].append(trace_ctx)
 
         # 记录开始
-        self.info(f"Starting {operation}", LogCategory.PERFORMANCE,
-                 {'trace_id': trace_id, 'parameters': parameters}, component)
+        self.info(
+            f"Starting {operation}",
+            LogCategory.PERFORMANCE,
+            {"trace_id": trace_id, "parameters": parameters},
+            component,
+        )
 
         try:
             yield trace_ctx
         except Exception as e:
-            trace_ctx.checkpoint("error", {'error': str(e), 'type': type(e).__name__})
-            self.error(f"Operation {operation} failed", e, LogCategory.ERROR,
-                      {'trace_id': trace_id}, component)
+            trace_ctx.checkpoint("error", {"error": str(e), "type": type(e).__name__})
+            self.error(
+                f"Operation {operation} failed",
+                e,
+                LogCategory.ERROR,
+                {"trace_id": trace_id},
+                component,
+            )
             raise
         finally:
             # 出栈
@@ -466,9 +565,16 @@ class UnifiedLogger:
 
             # 记录完成
             duration = trace_ctx.duration()
-            self.info(f"Completed {operation} in {duration:.3f}s", LogCategory.PERFORMANCE,
-                     {'trace_id': trace_id, 'duration': f"{duration:.3f}s",
-                      'checkpoints': len(trace_ctx.checkpoints)}, component)
+            self.info(
+                f"Completed {operation} in {duration:.3f}s",
+                LogCategory.PERFORMANCE,
+                {
+                    "trace_id": trace_id,
+                    "duration": f"{duration:.3f}s",
+                    "checkpoints": len(trace_ctx.checkpoints),
+                },
+                component,
+            )
 
 
 # ============ 全局单例和兼容接口 ============
@@ -488,22 +594,42 @@ class LegacyLoggerAdapter:
         self._logger = logger_instance
 
     # 基础日志方法（委托给UnifiedLogger）
-    def debug(self, message: str, category: LogCategory = LogCategory.STARTUP,
-              context: Dict[str, Any] = None, component: str = None) -> None:
+    def debug(
+        self,
+        message: str,
+        category: LogCategory = LogCategory.STARTUP,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         self._logger.debug(message, category, context, component)
 
-    def info(self, message: str, category: LogCategory = LogCategory.STARTUP,
-             context: Dict[str, Any] = None, component: str = None) -> None:
+    def info(
+        self,
+        message: str,
+        category: LogCategory = LogCategory.STARTUP,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         self._logger.info(message, category, context, component)
 
-    def warning(self, message: str, category: LogCategory = LogCategory.ERROR,
-                context: Dict[str, Any] = None, component: str = None) -> None:
+    def warning(
+        self,
+        message: str,
+        category: LogCategory = LogCategory.ERROR,
+        context: Dict[str, Any] = None,
+        component: str = None,
+    ) -> None:
         self._logger.warning(message, category, context, component)
 
-    def error(self, message: str, exception: Exception = None,
-              category: LogCategory = LogCategory.ERROR,
-              context: Dict[str, Any] = None, component: str = None,
-              exc_info=None) -> None:
+    def error(
+        self,
+        message: str,
+        exception: Exception = None,
+        category: LogCategory = LogCategory.ERROR,
+        context: Dict[str, Any] = None,
+        component: str = None,
+        exc_info=None,
+    ) -> None:
         """记录错误日志
 
         Args:
@@ -518,18 +644,27 @@ class LegacyLoggerAdapter:
         """记录音频事件"""
         self._logger.audio(event, details)
 
-    def log_transcription(self, audio_length: float, text: str, confidence: float = None) -> None:
+    def log_transcription(
+        self, audio_length: float, text: str, confidence: float = None
+    ) -> None:
         details = {
-            'audio_length': f"{audio_length:.2f}s",
-            'text_preview': text[:50] + '...' if len(text) > 50 else text
+            "audio_length": f"{audio_length:.2f}s",
+            "text_preview": text[:50] + "..." if len(text) > 50 else text,
         }
         if confidence is not None:
-            details['confidence'] = confidence
+            details["confidence"] = confidence
         self._logger.audio("Transcription completed", details)
 
-    def log_api_call(self, service: str, response_time: float, success: bool, error: str = None,
-                     prompt_tokens: int = None, completion_tokens: int = None, total_tokens: int = None) -> None:
-
+    def log_api_call(
+        self,
+        service: str,
+        response_time: float,
+        success: bool,
+        error: str = None,
+        prompt_tokens: int = None,
+        completion_tokens: int = None,
+        total_tokens: int = None,
+    ) -> None:
         # 基础消息
         message = f"API Call: {service} - {'Success' if success else 'Failed'} in {response_time:.2f}s"
 
@@ -538,20 +673,26 @@ class LegacyLoggerAdapter:
             tps = completion_tokens / response_time
             message += f" | TPS: {tps:.2f}"
 
-        context = {'service': service, 'response_time': f"{response_time:.2f}s", 'success': success}
+        context = {
+            "service": service,
+            "response_time": f"{response_time:.2f}s",
+            "success": success,
+        }
 
         # 添加token统计
         if prompt_tokens is not None:
-            context['prompt_tokens'] = prompt_tokens
+            context["prompt_tokens"] = prompt_tokens
         if completion_tokens is not None:
-            context['completion_tokens'] = completion_tokens
+            context["completion_tokens"] = completion_tokens
             if response_time > 0:
-                context['tokens_per_second'] = round(completion_tokens / response_time, 2)
+                context["tokens_per_second"] = round(
+                    completion_tokens / response_time, 2
+                )
         if total_tokens is not None:
-            context['total_tokens'] = total_tokens
+            context["total_tokens"] = total_tokens
 
         if error:
-            context['error'] = error
+            context["error"] = error
 
         # 明确区分 info 和 error 的调用（参数数量不同）
         if success:
@@ -562,36 +703,50 @@ class LegacyLoggerAdapter:
     def log_error(self, error: Exception, context: str) -> None:
         # 获取完整的异常堆栈
         tb_lines = traceback.format_exception(type(error), error, error.__traceback__)
-        tb_str = ''.join(tb_lines)
+        tb_str = "".join(tb_lines)
 
         # 记录错误和完整堆栈
         self._logger.error(
             f"Error in {context}",
             error,
             LogCategory.ERROR,
-            context={'traceback': tb_str, 'error_details': str(error)},
-            component=context
+            context={"traceback": tb_str, "error_details": str(error)},
+            component=context,
         )
 
     def log_startup(self) -> None:
-        self._logger.info("Voice Input Software starting up", LogCategory.STARTUP, component="startup")
+        self._logger.info(
+            "Voice Input Software starting up", LogCategory.STARTUP, component="startup"
+        )
 
     def log_shutdown(self) -> None:
-        self._logger.info("Voice Input Software shutting down", LogCategory.STARTUP, component="shutdown")
+        self._logger.info(
+            "Voice Input Software shutting down",
+            LogCategory.STARTUP,
+            component="shutdown",
+        )
 
     def log_hotkey_event(self, hotkey: str, action: str) -> None:
-        self._logger.info(f"Hotkey Event: {hotkey} - {action}", LogCategory.HOTKEY, component="hotkey")
+        self._logger.info(
+            f"Hotkey Event: {hotkey} - {action}", LogCategory.HOTKEY, component="hotkey"
+        )
 
-    def log_gpu_info(self, gpu_available: bool, memory_usage: Dict[str, float] = None) -> None:
-        context = {'gpu_available': gpu_available}
+    def log_gpu_info(
+        self, gpu_available: bool, memory_usage: Dict[str, float] = None
+    ) -> None:
+        context = {"gpu_available": gpu_available}
         if memory_usage:
-            context['memory_usage'] = memory_usage
-        self._logger.info(f"GPU Available: {gpu_available}", LogCategory.GPU, context, "gpu")
+            context["memory_usage"] = memory_usage
+        self._logger.info(
+            f"GPU Available: {gpu_available}", LogCategory.GPU, context, "gpu"
+        )
 
     def log_model_loading_step(self, step: str, details: Dict[str, Any] = None) -> None:
         self._logger.info(f"Model: {step}", LogCategory.MODEL, details, "model")
 
-    def log_gui_operation(self, operation: str, details: str = "", level: str = "INFO") -> None:
+    def log_gui_operation(
+        self, operation: str, details: str = "", level: str = "INFO"
+    ) -> None:
         message = f"GUI Operation: {operation}"
         if details:
             message += f" - {details}"
@@ -609,10 +764,10 @@ app_logger_compat = LegacyLoggerAdapter(logger)
 
 
 __all__ = [
-    'logger',
-    'unified_logger',
-    'app_logger_compat',
-    'LogLevel',
-    'LogCategory',
-    'TraceContext',
+    "logger",
+    "unified_logger",
+    "app_logger_compat",
+    "LogLevel",
+    "LogCategory",
+    "TraceContext",
 ]

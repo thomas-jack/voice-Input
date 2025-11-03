@@ -1,7 +1,14 @@
 """Hotkeys settings tab"""
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
-                            QLineEdit, QPushButton, QCheckBox, QHBoxLayout)
+from PySide6.QtWidgets import (
+    QWidget,
+    QFormLayout,
+    QGroupBox,
+    QLineEdit,
+    QPushButton,
+    QCheckBox,
+    QHBoxLayout,
+)
 from PySide6.QtCore import Qt, Signal
 from typing import Callable, Any
 
@@ -15,7 +22,9 @@ class HotkeysTab(BaseSettingsTab):
     # Signal for test request
     test_requested = Signal(str)
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         super().__init__(on_setting_changed, parent)
         self._setup_ui()
 
@@ -45,7 +54,9 @@ class HotkeysTab(BaseSettingsTab):
         # Enable global hotkeys
         enable_hotkeys_cb = QCheckBox("Enable global hotkeys")
         enable_hotkeys_cb.stateChanged.connect(
-            lambda state: self._on_setting_changed(ConfigKeys.HOTKEYS_ENABLED, state == Qt.CheckState.Checked)
+            lambda state: self._on_setting_changed(
+                ConfigKeys.HOTKEYS_ENABLED, state == Qt.CheckState.Checked
+            )
         )
         self._controls[ConfigKeys.HOTKEYS_ENABLED] = enable_hotkeys_cb
         hotkeys_layout.addRow("Enable Hotkeys:", enable_hotkeys_cb)

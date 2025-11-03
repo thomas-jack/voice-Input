@@ -184,7 +184,9 @@ class ITrayComponent(IUIComponent):
         pass
 
     @abstractmethod
-    def add_menu_item(self, text: str, callback: Callable, separator_before: bool = False) -> None:
+    def add_menu_item(
+        self, text: str, callback: Callable, separator_before: bool = False
+    ) -> None:
         """添加菜单项
 
         Args:

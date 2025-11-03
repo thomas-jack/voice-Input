@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional, TypeVar
 from ....utils import app_logger
 from .config_defaults import get_default_config
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ConfigReader:
@@ -31,23 +31,27 @@ class ConfigReader:
         """
         try:
             if self.config_path.exists():
-                with open(self.config_path, 'r', encoding='utf-8') as f:
+                with open(self.config_path, "r", encoding="utf-8") as f:
                     loaded_config = json.load(f)
 
                 # 合并默认配置和加载的配置
                 self._config = self._merge_configs(self._default_config, loaded_config)
 
-                app_logger.log_audio_event("Configuration loaded", {
-                    "config_path": str(self.config_path),
-                    "keys_loaded": len(loaded_config)
-                })
+                app_logger.log_audio_event(
+                    "Configuration loaded",
+                    {
+                        "config_path": str(self.config_path),
+                        "keys_loaded": len(loaded_config),
+                    },
+                )
             else:
                 # 使用默认配置
                 self._config = self._default_config.copy()
 
-                app_logger.log_audio_event("Using default configuration", {
-                    "config_path": str(self.config_path)
-                })
+                app_logger.log_audio_event(
+                    "Using default configuration",
+                    {"config_path": str(self.config_path)},
+                )
 
             return True
 
@@ -67,7 +71,7 @@ class ConfigReader:
             配置项的值，如果不存在则返回默认值
         """
         try:
-            keys = key.split('.')
+            keys = key.split(".")
             value = self._config
 
             for k in keys:
@@ -100,7 +104,7 @@ class ConfigReader:
             默认值，不存在返回None
         """
         try:
-            keys = key.split('.')
+            keys = key.split(".")
             value = self._default_config
 
             for k in keys:
@@ -114,7 +118,9 @@ class ConfigReader:
         except Exception:
             return None
 
-    def _merge_configs(self, default: Dict[str, Any], loaded: Dict[str, Any]) -> Dict[str, Any]:
+    def _merge_configs(
+        self, default: Dict[str, Any], loaded: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """合并默认配置和加载的配置
 
         Args:
@@ -128,7 +134,11 @@ class ConfigReader:
 
         def merge_recursive(base: Dict[str, Any], update: Dict[str, Any]) -> None:
             for key, value in update.items():
-                if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+                if (
+                    key in base
+                    and isinstance(base[key], dict)
+                    and isinstance(value, dict)
+                ):
                     merge_recursive(base[key], value)
                 else:
                     base[key] = value

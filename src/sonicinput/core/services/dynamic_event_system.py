@@ -24,6 +24,7 @@ def _get_logger():
     """懒加载logger"""
     try:
         from ...utils import app_logger
+
         return app_logger
     except ImportError:
         return None
@@ -32,6 +33,7 @@ def _get_logger():
 @dataclass
 class EventMetadata:
     """事件元数据"""
+
     name: str
     description: str = ""
     version: str = "1.0.0"
@@ -46,6 +48,7 @@ class EventMetadata:
 @dataclass
 class EventSchema:
     """事件数据模式"""
+
     required_fields: List[str] = field(default_factory=list)
     optional_fields: List[str] = field(default_factory=list)
     field_types: Dict[str, type] = field(default_factory=dict)
@@ -67,7 +70,9 @@ class EventSchema:
         # 检查字段类型
         for field, expected_type in self.field_types.items():
             if field in data and not isinstance(data[field], expected_type):
-                errors.append(f"Field '{field}' must be of type {expected_type.__name__}")
+                errors.append(
+                    f"Field '{field}' must be of type {expected_type.__name__}"
+                )
 
         # 运行自定义验证器
         for field, validator in self.validators.items():
@@ -84,6 +89,7 @@ class EventSchema:
 @dataclass
 class EventListener:
     """事件监听器信息"""
+
     id: str
     callback: Callable
     priority: EventPriority
@@ -98,6 +104,7 @@ class EventListener:
 @dataclass
 class EventStats:
     """事件统计信息"""
+
     name: str
     namespace: str = "default"
     emit_count: int = 0
@@ -120,7 +127,7 @@ class EventPlugin(ABC):
         """获取插件版本"""
         pass
 
-    def initialize(self, event_system: 'DynamicEventSystem') -> None:
+    def initialize(self, event_system: "DynamicEventSystem") -> None:
         """插件初始化"""
         pass
 
@@ -198,9 +205,10 @@ class DynamicEventSystem(IEventService):
         self._register_builtin_events()
 
         if self.logger:
-            self.logger.log_audio_event("DynamicEventSystem initialized", {
-                "builtin_events": len(self._registered_events)
-            })
+            self.logger.log_audio_event(
+                "DynamicEventSystem initialized",
+                {"builtin_events": len(self._registered_events)},
+            )
 
     def _register_builtin_events(self) -> None:
         """注册内置事件类型"""
@@ -210,199 +218,190 @@ class DynamicEventSystem(IEventService):
                 name="recording_started",
                 description="录音开始事件",
                 namespace="audio",
-                tags=["audio", "recording"]
+                tags=["audio", "recording"],
             ),
             "recording_stopped": EventMetadata(
                 name="recording_stopped",
                 description="录音停止事件",
                 namespace="audio",
-                tags=["audio", "recording"]
+                tags=["audio", "recording"],
             ),
             "recording_error": EventMetadata(
                 name="recording_error",
                 description="录音错误事件",
                 namespace="audio",
-                tags=["audio", "recording", "error"]
+                tags=["audio", "recording", "error"],
             ),
             "audio_level_update": EventMetadata(
                 name="audio_level_update",
                 description="音频电平更新事件",
                 namespace="audio",
-                tags=["audio", "level"]
+                tags=["audio", "level"],
             ),
-
             # 转录相关事件
             "transcription_started": EventMetadata(
                 name="transcription_started",
                 description="转录开始事件",
                 namespace="speech",
-                tags=["speech", "transcription"]
+                tags=["speech", "transcription"],
             ),
             "transcription_completed": EventMetadata(
                 name="transcription_completed",
                 description="转录完成事件",
                 namespace="speech",
-                tags=["speech", "transcription"]
+                tags=["speech", "transcription"],
             ),
             "transcription_error": EventMetadata(
                 name="transcription_error",
                 description="转录错误事件",
                 namespace="speech",
-                tags=["speech", "transcription", "error"]
+                tags=["speech", "transcription", "error"],
             ),
-
             # 模型相关事件
             "model_loading_started": EventMetadata(
                 name="model_loading_started",
                 description="模型加载开始事件",
                 namespace="model",
-                tags=["model", "loading"]
+                tags=["model", "loading"],
             ),
             "model_loaded": EventMetadata(
                 name="model_loaded",
                 description="模型加载完成事件",
                 namespace="model",
-                tags=["model", "loading"]
+                tags=["model", "loading"],
             ),
             "model_loading_failed": EventMetadata(
                 name="model_loading_failed",
                 description="模型加载失败事件",
                 namespace="model",
-                tags=["model", "loading", "error"]
+                tags=["model", "loading", "error"],
             ),
             "model_unloaded": EventMetadata(
                 name="model_unloaded",
                 description="模型卸载事件",
                 namespace="model",
-                tags=["model", "loading"]
+                tags=["model", "loading"],
             ),
-
             # AI相关事件
             "ai_processing_started": EventMetadata(
                 name="ai_processing_started",
                 description="AI处理开始事件",
                 namespace="ai",
-                tags=["ai", "processing"]
+                tags=["ai", "processing"],
             ),
             "ai_processing_completed": EventMetadata(
                 name="ai_processing_completed",
                 description="AI处理完成事件",
                 namespace="ai",
-                tags=["ai", "processing"]
+                tags=["ai", "processing"],
             ),
             "ai_processing_error": EventMetadata(
                 name="ai_processing_error",
                 description="AI处理错误事件",
                 namespace="ai",
-                tags=["ai", "processing", "error"]
+                tags=["ai", "processing", "error"],
             ),
-
             # 输入相关事件
             "text_input_started": EventMetadata(
                 name="text_input_started",
                 description="文本输入开始事件",
                 namespace="input",
-                tags=["input", "text"]
+                tags=["input", "text"],
             ),
             "text_input_completed": EventMetadata(
                 name="text_input_completed",
                 description="文本输入完成事件",
                 namespace="input",
-                tags=["input", "text"]
+                tags=["input", "text"],
             ),
             "text_input_error": EventMetadata(
                 name="text_input_error",
                 description="文本输入错误事件",
                 namespace="input",
-                tags=["input", "text", "error"]
+                tags=["input", "text", "error"],
             ),
-
             # 配置相关事件
             "config_changed": EventMetadata(
                 name="config_changed",
                 description="配置变更事件",
                 namespace="config",
-                tags=["config"]
+                tags=["config"],
             ),
             "config_loaded": EventMetadata(
                 name="config_loaded",
                 description="配置加载事件",
                 namespace="config",
-                tags=["config"]
+                tags=["config"],
             ),
             "config_saved": EventMetadata(
                 name="config_saved",
                 description="配置保存事件",
                 namespace="config",
-                tags=["config"]
+                tags=["config"],
             ),
-
             # UI相关事件
             "window_shown": EventMetadata(
                 name="window_shown",
                 description="窗口显示事件",
                 namespace="ui",
-                tags=["ui", "window"]
+                tags=["ui", "window"],
             ),
             "window_hidden": EventMetadata(
                 name="window_hidden",
                 description="窗口隐藏事件",
                 namespace="ui",
-                tags=["ui", "window"]
+                tags=["ui", "window"],
             ),
             "tray_clicked": EventMetadata(
                 name="tray_clicked",
                 description="系统托盘点击事件",
                 namespace="ui",
-                tags=["ui", "tray"]
+                tags=["ui", "tray"],
             ),
-
             # 应用程序生命周期事件
             "app_started": EventMetadata(
                 name="app_started",
                 description="应用程序启动事件",
                 namespace="app",
-                tags=["app", "lifecycle"]
+                tags=["app", "lifecycle"],
             ),
             "app_stopping": EventMetadata(
                 name="app_stopping",
                 description="应用程序停止事件",
                 namespace="app",
-                tags=["app", "lifecycle"]
+                tags=["app", "lifecycle"],
             ),
-
             # 流式转录事件
             "streaming_started": EventMetadata(
                 name="streaming_started",
                 description="流式转录开始事件",
                 namespace="streaming",
-                tags=["streaming"]
+                tags=["streaming"],
             ),
             "streaming_stopped": EventMetadata(
                 name="streaming_stopped",
                 description="流式转录停止事件",
                 namespace="streaming",
-                tags=["streaming"]
+                tags=["streaming"],
             ),
             "streaming_chunk_completed": EventMetadata(
                 name="streaming_chunk_completed",
                 description="流式转录块完成事件",
                 namespace="streaming",
-                tags=["streaming"]
+                tags=["streaming"],
             ),
-
             # 错误恢复事件
             "error_occurred": EventMetadata(
                 name="error_occurred",
                 description="错误发生事件",
                 namespace="error",
-                tags=["error"]
+                tags=["error"],
             ),
             "error_auto_resolved": EventMetadata(
                 name="error_auto_resolved",
                 description="错误自动恢复事件",
                 namespace="error",
-                tags=["error", "recovery"]
+                tags=["error", "recovery"],
             ),
         }
 
@@ -413,7 +412,7 @@ class DynamicEventSystem(IEventService):
         self,
         event_name: str,
         metadata: Optional[EventMetadata] = None,
-        schema: Optional[EventSchema] = None
+        schema: Optional[EventSchema] = None,
     ) -> None:
         """注册事件类型
 
@@ -425,7 +424,9 @@ class DynamicEventSystem(IEventService):
         with self._lock:
             if event_name in self._registered_events:
                 if self.logger:
-                    self.logger.warning(f"Event '{event_name}' already registered, updating metadata")
+                    self.logger.warning(
+                        f"Event '{event_name}' already registered, updating metadata"
+                    )
 
             # 创建默认元数据
             if metadata is None:
@@ -448,11 +449,14 @@ class DynamicEventSystem(IEventService):
             self._invalidate_cache_for_event(event_name)
 
             if self.logger:
-                self.logger.log_audio_event("Event type registered", {
-                    "event_name": event_name,
-                    "namespace": metadata.namespace,
-                    "description": metadata.description
-                })
+                self.logger.log_audio_event(
+                    "Event type registered",
+                    {
+                        "event_name": event_name,
+                        "namespace": metadata.namespace,
+                        "description": metadata.description,
+                    },
+                )
 
             # 通知插件
             self._notify_plugins_event_registered(event_name, metadata)
@@ -472,7 +476,9 @@ class DynamicEventSystem(IEventService):
             # 检查是否有监听器
             if event_name in self._listeners and self._listeners[event_name]:
                 if self.logger:
-                    self.logger.warning(f"Cannot unregister event '{event_name}' - has active listeners")
+                    self.logger.warning(
+                        f"Cannot unregister event '{event_name}' - has active listeners"
+                    )
                 return
 
             # 移除事件
@@ -495,9 +501,9 @@ class DynamicEventSystem(IEventService):
             self._invalidate_cache_for_event(event_name)
 
             if self.logger:
-                self.logger.log_audio_event("Event type unregistered", {
-                    "event_name": event_name
-                })
+                self.logger.log_audio_event(
+                    "Event type unregistered", {"event_name": event_name}
+                )
 
     def add_plugin(self, plugin: EventPlugin) -> None:
         """添加事件插件
@@ -518,14 +524,19 @@ class DynamicEventSystem(IEventService):
                 self._plugins[plugin_name] = plugin
 
                 if self.logger:
-                    self.logger.log_audio_event("Event plugin added", {
-                        "plugin_name": plugin_name,
-                        "plugin_version": plugin.get_version()
-                    })
+                    self.logger.log_audio_event(
+                        "Event plugin added",
+                        {
+                            "plugin_name": plugin_name,
+                            "plugin_version": plugin.get_version(),
+                        },
+                    )
 
             except Exception as e:
                 if self.logger:
-                    self.logger.error(f"Failed to initialize plugin '{plugin_name}': {e}")
+                    self.logger.error(
+                        f"Failed to initialize plugin '{plugin_name}': {e}"
+                    )
                 raise
 
     def remove_plugin(self, plugin_name: str) -> None:
@@ -546,15 +557,20 @@ class DynamicEventSystem(IEventService):
                 del self._plugins[plugin_name]
 
                 if self.logger:
-                    self.logger.log_audio_event("Event plugin removed", {
-                        "plugin_name": plugin_name
-                    })
+                    self.logger.log_audio_event(
+                        "Event plugin removed", {"plugin_name": plugin_name}
+                    )
 
             except Exception as e:
                 if self.logger:
                     self.logger.error(f"Error cleaning up plugin '{plugin_name}': {e}")
 
-    def emit(self, event_name: str, data: Any = None, priority: EventPriority = EventPriority.NORMAL) -> None:
+    def emit(
+        self,
+        event_name: str,
+        data: Any = None,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> None:
         """发出事件（兼容原有接口）
 
         Args:
@@ -579,7 +595,9 @@ class DynamicEventSystem(IEventService):
         is_valid, errors = self._validator.validate_event(event_name, data)
         if not is_valid:
             if self.logger:
-                self.logger.error(f"Event data validation failed for '{event_name}': {errors}")
+                self.logger.error(
+                    f"Event data validation failed for '{event_name}': {errors}"
+                )
             # 不阻止事件发出，但记录错误
 
         # 更新统计
@@ -618,7 +636,9 @@ class DynamicEventSystem(IEventService):
                     stats.error_count += 1
 
                     if self.logger:
-                        self.logger.error(f"Error in event listener for '{event_name}': {e}")
+                        self.logger.error(
+                            f"Error in event listener for '{event_name}': {e}"
+                        )
 
                     # 继续处理其他监听器
 
@@ -643,7 +663,7 @@ class DynamicEventSystem(IEventService):
         priority: EventPriority = EventPriority.NORMAL,
         is_once: bool = False,
         namespace: str = "default",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """订阅事件（增强版）
 
@@ -667,7 +687,7 @@ class DynamicEventSystem(IEventService):
                 priority=priority,
                 is_once=is_once,
                 namespace=namespace,
-                metadata=metadata or {}
+                metadata=metadata or {},
             )
 
             self._listeners[event_name].append(listener)
@@ -684,13 +704,16 @@ class DynamicEventSystem(IEventService):
             self._notify_plugins_listener_added(event_name, listener)
 
             if self.logger:
-                self.logger.log_audio_event("Event listener added", {
-                    "event_name": event_name,
-                    "listener_id": listener_id,
-                    "priority": priority.name,
-                    "is_once": is_once,
-                    "namespace": namespace
-                })
+                self.logger.log_audio_event(
+                    "Event listener added",
+                    {
+                        "event_name": event_name,
+                        "listener_id": listener_id,
+                        "priority": priority.name,
+                        "is_once": is_once,
+                        "namespace": namespace,
+                    },
+                )
 
             return listener_id
 
@@ -714,7 +737,8 @@ class DynamicEventSystem(IEventService):
 
         original_count = len(self._listeners[event_name])
         self._listeners[event_name] = [
-            listener for listener in self._listeners[event_name]
+            listener
+            for listener in self._listeners[event_name]
             if listener.id != listener_id
         ]
 
@@ -723,13 +747,17 @@ class DynamicEventSystem(IEventService):
         if removed:
             # 更新统计
             if event_name in self._stats:
-                self._stats[event_name].listener_count = len(self._listeners[event_name])
+                self._stats[event_name].listener_count = len(
+                    self._listeners[event_name]
+                )
 
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
 
             if self.logger:
-                self.logger.debug(f"Event listener removed: {listener_id} from {event_name}")
+                self.logger.debug(
+                    f"Event listener removed: {listener_id} from {event_name}"
+                )
 
         return removed
 
@@ -757,10 +785,10 @@ class DynamicEventSystem(IEventService):
             self._invalidate_cache_for_event(event_name)
 
             if self.logger:
-                self.logger.log_audio_event("All event listeners removed", {
-                    "event_name": event_name,
-                    "count": count
-                })
+                self.logger.log_audio_event(
+                    "All event listeners removed",
+                    {"event_name": event_name, "count": count},
+                )
 
             return count
 
@@ -769,9 +797,12 @@ class DynamicEventSystem(IEventService):
         # 检查缓存
         cache_key = f"{event_name}_{len(self._listeners.get(event_name, []))}"
 
-        if (cache_key in self._sorted_listeners_cache and
-            event_name in self._listener_version and
-            self._listener_version[event_name] == len(self._listeners.get(event_name, []))):
+        if (
+            cache_key in self._sorted_listeners_cache
+            and event_name in self._listener_version
+            and self._listener_version[event_name]
+            == len(self._listeners.get(event_name, []))
+        ):
             return self._sorted_listeners_cache[cache_key].copy()
 
         # 排序监听器
@@ -787,7 +818,8 @@ class DynamicEventSystem(IEventService):
     def _invalidate_cache_for_event(self, event_name: str) -> None:
         """清除指定事件的缓存"""
         keys_to_remove = [
-            key for key in self._sorted_listeners_cache.keys()
+            key
+            for key in self._sorted_listeners_cache.keys()
             if key.startswith(f"{event_name}_")
         ]
         for key in keys_to_remove:
@@ -821,7 +853,9 @@ class DynamicEventSystem(IEventService):
         """
         return self._event_metadata.get(event_name)
 
-    def get_event_stats(self, event_name: Optional[str] = None) -> Union[EventStats, Dict[str, EventStats]]:
+    def get_event_stats(
+        self, event_name: Optional[str] = None
+    ) -> Union[EventStats, Dict[str, EventStats]]:
         """获取事件统计
 
         Args:
@@ -872,7 +906,12 @@ class DynamicEventSystem(IEventService):
         return self._enabled
 
     # IEventService接口的额外方法
-    def on(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def on(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """监听事件（IEventService接口）"""
         return self.subscribe(event_name, callback, priority)
 
@@ -880,7 +919,12 @@ class DynamicEventSystem(IEventService):
         """取消监听事件（IEventService接口）"""
         return self.unsubscribe(event_name, listener_id)
 
-    def once(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def once(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """一次性监听事件（IEventService接口）"""
         return self.subscribe(event_name, callback, priority, is_once=True)
 
@@ -938,7 +982,9 @@ class DynamicEventSystem(IEventService):
         if self.logger:
             self.logger.log_audio_event("DynamicEventSystem cleaned up", {})
 
-    def _notify_plugins_event_registered(self, event_name: str, metadata: EventMetadata) -> None:
+    def _notify_plugins_event_registered(
+        self, event_name: str, metadata: EventMetadata
+    ) -> None:
         """通知插件事件已注册"""
         for plugin in self._plugins.values():
             try:
@@ -956,7 +1002,9 @@ class DynamicEventSystem(IEventService):
                 if self.logger:
                     self.logger.error(f"Plugin error in on_event_emitted: {e}")
 
-    def _notify_plugins_listener_added(self, event_name: str, listener: EventListener) -> None:
+    def _notify_plugins_listener_added(
+        self, event_name: str, listener: EventListener
+    ) -> None:
         """通知插件监听器已添加"""
         for plugin in self._plugins.values():
             try:

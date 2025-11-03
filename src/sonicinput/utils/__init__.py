@@ -16,6 +16,7 @@ try:
         LogCategory,
         TraceContext,
     )
+
     UNIFIED_LOGGING_AVAILABLE = True
 
     # 向后兼容：保留旧接口别名
@@ -32,25 +33,39 @@ except ImportError as e:
 
 # 兼容旧的函数接口
 if UNIFIED_LOGGING_AVAILABLE:
-    def log_component_lifecycle(component: str, event: str, state: str = None, details: dict = None):
+
+    def log_component_lifecycle(
+        component: str, event: str, state: str = None, details: dict = None
+    ):
         """兼容接口"""
-        ctx = {'event_type': 'lifecycle', 'lifecycle_event': event}
+        ctx = {"event_type": "lifecycle", "lifecycle_event": event}
         if state:
-            ctx['state'] = state
+            ctx["state"] = state
         if details:
             ctx.update(details)
-        logger.info(f"Lifecycle: {component} {event}", LogCategory.STARTUP, ctx, component)
+        logger.info(
+            f"Lifecycle: {component} {event}", LogCategory.STARTUP, ctx, component
+        )
 
-    def log_configuration_change(setting: str, old_value, new_value, component: str = "config"):
+    def log_configuration_change(
+        setting: str, old_value, new_value, component: str = "config"
+    ):
         """兼容接口"""
-        ctx = {'event_type': 'config_change', 'setting': setting,
-               'old_value': old_value, 'new_value': new_value}
+        ctx = {
+            "event_type": "config_change",
+            "setting": setting,
+            "old_value": old_value,
+            "new_value": new_value,
+        }
         logger.info(f"Config Change: {setting}", LogCategory.STARTUP, ctx, component)
 
-    def log_performance_milestone(operation: str, duration: float, threshold: float = 1.0, component: str = None):
+    def log_performance_milestone(
+        operation: str, duration: float, threshold: float = 1.0, component: str = None
+    ):
         """兼容接口"""
         if duration >= threshold:
-            logger.performance(operation, duration, details={'threshold': threshold})
+            logger.performance(operation, duration, details={"threshold": threshold})
+
 
 # 保留旧的导入兼容（避免立即破坏）
 ENHANCED_LOGGING_AVAILABLE = UNIFIED_LOGGING_AVAILABLE
@@ -59,8 +74,9 @@ ENHANCED_LOGGING_AVAILABLE = UNIFIED_LOGGING_AVAILABLE
 try:
     from .error_messages import (  # noqa: F401
         ErrorMessageTranslator,
-        get_user_friendly_error
+        get_user_friendly_error,
     )
+
     ERROR_MESSAGES_AVAILABLE = True
 except ImportError:
     ERROR_MESSAGES_AVAILABLE = False
@@ -68,9 +84,14 @@ except ImportError:
 # Import error reporting utilities
 try:
     from .error_reporting import (  # noqa: F401
-        get_error_reporter, setup_error_reporter, report_error,
-        report_warning, error_context, safe_call
+        get_error_reporter,
+        setup_error_reporter,
+        report_error,
+        report_warning,
+        error_context,
+        safe_call,
     )
+
     ERROR_REPORTING_AVAILABLE = True
 except ImportError:
     ERROR_REPORTING_AVAILABLE = False
@@ -78,114 +99,135 @@ except ImportError:
 # Import validation and configuration utilities
 try:
     from .validation_utils import (  # noqa: F401
-        validate_type, validate_not_empty, validate_dict_structure,
-        validate_range, validate_in_choices, validate_chain,
-        validate_config_structure, ConfigValidator
+        validate_type,
+        validate_not_empty,
+        validate_dict_structure,
+        validate_range,
+        validate_in_choices,
+        validate_chain,
+        validate_config_structure,
+        ConfigValidator,
     )
     from .config_utils import (  # noqa: F401
-        ConfigMerger, ConfigValidator as ConfigUtilsValidator,
-        ConfigPathHelper, get_nested_value, set_nested_value
+        ConfigMerger,
+        ConfigValidator as ConfigUtilsValidator,
+        ConfigPathHelper,
+        get_nested_value,
+        set_nested_value,
     )
     from .common_utils import (  # noqa: F401
-        ThreadSafeContainer, TimestampTracker, ComponentTracker,
-        EventCounter, SafeTimer, PerformanceTracker,
-        safe_file_operation, log_with_context
+        ThreadSafeContainer,
+        TimestampTracker,
+        ComponentTracker,
+        EventCounter,
+        SafeTimer,
+        PerformanceTracker,
+        safe_file_operation,
+        log_with_context,
     )
+
     UTILITY_MODULES_AVAILABLE = True
 except ImportError:
     UTILITY_MODULES_AVAILABLE = False
 
 __all__ = [  # noqa: F405
     # Core exceptions
-    'VoiceInputError',
-    'AudioRecordingError',
-    'WhisperLoadError',
-    'OpenRouterAPIError',
-    'GroqAPIError',
-    'NVIDIAAPIError',
-    'OpenAICompatibleAPIError',
-    'TextInputError',
-    'ConfigurationError',
-    'HotkeyRegistrationError',
-    'GPUError',
-    'ComponentInitializationError',
-    'ComponentStateError',
-    'NetworkError',
-    'ValidationError',
-
+    "VoiceInputError",
+    "AudioRecordingError",
+    "WhisperLoadError",
+    "OpenRouterAPIError",
+    "GroqAPIError",
+    "NVIDIAAPIError",
+    "OpenAICompatibleAPIError",
+    "TextInputError",
+    "ConfigurationError",
+    "HotkeyRegistrationError",
+    "GPUError",
+    "ComponentInitializationError",
+    "ComponentStateError",
+    "NetworkError",
+    "ValidationError",
     # Core utilities
-    'environment_validator',
-    'startup_diagnostics',
-    'dependency_diagnostics',
+    "environment_validator",
+    "startup_diagnostics",
+    "dependency_diagnostics",
 ]
 
 # Add unified logging to exports if available
 if UNIFIED_LOGGING_AVAILABLE:
-    __all__.extend([
-        # 新的统一接口
-        'logger',
-        'unified_logger',
-        'LogLevel',
-        'LogCategory',
-        'TraceContext',
-        # 兼容旧接口
-        'app_logger',
-        'optimized_logger',
-        'structured_logger',
-        'log_component_lifecycle',
-        'log_configuration_change',
-        'log_performance_milestone',
-    ])
+    __all__.extend(
+        [
+            # 新的统一接口
+            "logger",
+            "unified_logger",
+            "LogLevel",
+            "LogCategory",
+            "TraceContext",
+            # 兼容旧接口
+            "app_logger",
+            "optimized_logger",
+            "structured_logger",
+            "log_component_lifecycle",
+            "log_configuration_change",
+            "log_performance_milestone",
+        ]
+    )
 
 # Add error message translation to exports if available
 if ERROR_MESSAGES_AVAILABLE:
-    __all__.extend([
-        'ErrorMessageTranslator',
-        'get_user_friendly_error',
-    ])
+    __all__.extend(
+        [
+            "ErrorMessageTranslator",
+            "get_user_friendly_error",
+        ]
+    )
 
 # Add error reporting to exports if available
 if ERROR_REPORTING_AVAILABLE:
-    __all__.extend([
-        'get_error_reporter',
-        'setup_error_reporter',
-        'report_error',
-        'report_warning',
-        'error_context',
-        'safe_call',
-    ])
+    __all__.extend(
+        [
+            "get_error_reporter",
+            "setup_error_reporter",
+            "report_error",
+            "report_warning",
+            "error_context",
+            "safe_call",
+        ]
+    )
 
 # Add utility modules to exports if available
 if UTILITY_MODULES_AVAILABLE:
-    __all__.extend([
-        'validate_type',
-        'validate_not_empty',
-        'validate_dict_structure',
-        'validate_range',
-        'validate_in_choices',
-        'validate_chain',
-        'validate_config_structure',
-        'ConfigValidator',
-        'ConfigMerger',
-        'ConfigPathHelper',
-        'get_nested_value',
-        'set_nested_value',
-        'ThreadSafeContainer',
-        'TimestampTracker',
-        'ComponentTracker',
-        'EventCounter',
-        'SafeTimer',
-        'PerformanceTracker',
-        'safe_file_operation',
-        'log_with_context',
-    ])
+    __all__.extend(
+        [
+            "validate_type",
+            "validate_not_empty",
+            "validate_dict_structure",
+            "validate_range",
+            "validate_in_choices",
+            "validate_chain",
+            "validate_config_structure",
+            "ConfigValidator",
+            "ConfigMerger",
+            "ConfigPathHelper",
+            "get_nested_value",
+            "set_nested_value",
+            "ThreadSafeContainer",
+            "TimestampTracker",
+            "ComponentTracker",
+            "EventCounter",
+            "SafeTimer",
+            "PerformanceTracker",
+            "safe_file_operation",
+            "log_with_context",
+        ]
+    )
 
 
 def get_utils_status() -> dict:
     """Get status of available utility modules"""
     return {
-        'enhanced_logging': ENHANCED_LOGGING_AVAILABLE,
-        'error_reporting': ERROR_REPORTING_AVAILABLE,
-        'utility_modules': UTILITY_MODULES_AVAILABLE,
-        'core_modules': True
+        "enhanced_logging": ENHANCED_LOGGING_AVAILABLE,
+        "error_reporting": ERROR_REPORTING_AVAILABLE,
+        "utility_modules": UTILITY_MODULES_AVAILABLE,
+        "core_modules": True,
     }

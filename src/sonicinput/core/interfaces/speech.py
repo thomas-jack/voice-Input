@@ -12,7 +12,9 @@ class ISpeechService(ABC):
     """
 
     @abstractmethod
-    def transcribe(self, audio_data: np.ndarray, language: Optional[str] = None) -> Dict[str, Any]:
+    def transcribe(
+        self, audio_data: np.ndarray, language: Optional[str] = None
+    ) -> Dict[str, Any]:
         """转录音频数据
 
         Args:

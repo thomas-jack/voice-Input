@@ -2,4 +2,4 @@
 
 from .components import StatusIndicator, CloseButton
 
-__all__ = ['StatusIndicator', 'CloseButton']
+__all__ = ["StatusIndicator", "CloseButton"]

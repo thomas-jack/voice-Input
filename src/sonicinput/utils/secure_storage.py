@@ -36,7 +36,7 @@ class SecureStorage:
             kdf = PBKDF2HMAC(
                 algorithm=hashes.SHA256(),
                 length=32,
-                salt=b'sonicinput_salt_2025',  # 固定salt，确保同一机器上密钥一致
+                salt=b"sonicinput_salt_2025",  # 固定salt，确保同一机器上密钥一致
                 iterations=100000,
             )
             key = base64.urlsafe_b64encode(kdf.derive(key_material))
@@ -59,9 +59,9 @@ class SecureStorage:
             # 尝试多种方式获取机器ID
             machine_id_sources = [
                 lambda: str(uuid.getnode()),  # MAC地址
-                lambda: platform.node(),      # 计算机名
-                lambda: os.environ.get('COMPUTERNAME', ''),  # Windows计算机名
-                lambda: os.environ.get('USERNAME', ''),      # 用户名
+                lambda: platform.node(),  # 计算机名
+                lambda: os.environ.get("COMPUTERNAME", ""),  # Windows计算机名
+                lambda: os.environ.get("USERNAME", ""),  # 用户名
             ]
 
             combined_id = ""
@@ -137,7 +137,10 @@ class SecureStorage:
         for key, value in data.items():
             if isinstance(value, str) and value:  # 只加密非空字符串
                 # 检测是否是API密钥（包含'key', 'token', 'secret'等关键词）
-                if any(keyword in key.lower() for keyword in ['key', 'token', 'secret', 'password']):
+                if any(
+                    keyword in key.lower()
+                    for keyword in ["key", "token", "secret", "password"]
+                ):
                     secure_data[key] = self.encrypt(value)
                 else:
                     secure_data[key] = value
@@ -159,7 +162,10 @@ class SecureStorage:
         for key, value in secure_data.items():
             if isinstance(value, str) and value:
                 # 检测是否是API密钥字段
-                if any(keyword in key.lower() for keyword in ['key', 'token', 'secret', 'password']):
+                if any(
+                    keyword in key.lower()
+                    for keyword in ["key", "token", "secret", "password"]
+                ):
                     data[key] = self.decrypt(value)
                 else:
                     data[key] = value
@@ -174,6 +180,7 @@ class SecureStorage:
 
 # 全局安全存储实例
 _secure_storage = None
+
 
 def get_secure_storage() -> SecureStorage:
     """获取全局安全存储实例"""

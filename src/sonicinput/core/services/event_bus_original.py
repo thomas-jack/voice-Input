@@ -14,11 +14,13 @@ from collections import defaultdict
 
 from ..interfaces.event import IEventService, EventPriority
 
+
 # 延迟导入logger以避免循环依赖
 def _get_logger():
     """懒加载logger"""
     try:
         from ...utils import app_logger
+
         return app_logger
     except ImportError:
         return None
@@ -27,6 +29,7 @@ def _get_logger():
 @dataclass
 class EventListener:
     """事件监听器信息"""
+
     id: str
     callback: Callable
     priority: EventPriority
@@ -39,6 +42,7 @@ class EventListener:
 @dataclass
 class EventStats:
     """事件统计信息"""
+
     name: str
     emit_count: int = 0
     listener_count: int = 0
@@ -70,13 +74,22 @@ class EventBus(IEventService):
 
     def _invalidate_cache_for_event(self, event_name: str) -> None:
         """清除指定事件的缓存"""
-        keys_to_remove = [key for key in self._sorted_listeners_cache.keys() if key.startswith(f"{event_name}_")]
+        keys_to_remove = [
+            key
+            for key in self._sorted_listeners_cache.keys()
+            if key.startswith(f"{event_name}_")
+        ]
         for key in keys_to_remove:
             del self._sorted_listeners_cache[key]
         if event_name in self._listener_version:
             del self._listener_version[event_name]
 
-    def emit(self, event_name: str, data: Any = None, priority: EventPriority = EventPriority.NORMAL) -> None:
+    def emit(
+        self,
+        event_name: str,
+        data: Any = None,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> None:
         """发出事件
 
         Args:
@@ -86,6 +99,7 @@ class EventBus(IEventService):
         """
         # === DEBUG: 事件发出开始 ===
         import traceback
+
         start_time = time.time()
         thread_id = threading.get_ident()
         thread_name = threading.current_thread().name
@@ -99,14 +113,18 @@ class EventBus(IEventService):
             logger.debug(f"Event name: {event_name}")
             logger.debug(f"Event priority: {priority.name}")
             logger.debug(f"Event enabled: {self._enabled}")
-            logger.debug(f"Data type: {type(data).__name__ if data is not None else 'None'}")
+            logger.debug(
+                f"Data type: {type(data).__name__ if data is not None else 'None'}"
+            )
             logger.debug(f"Data is None: {data is None}")
 
             if data is not None:
                 try:
                     data_size = len(str(data))
-                    logger.debug(f"Data size (string representation): {data_size} chars")
-                    if hasattr(data, '__dict__'):
+                    logger.debug(
+                        f"Data size (string representation): {data_size} chars"
+                    )
+                    if hasattr(data, "__dict__"):
                         logger.debug(f"Data keys: {list(data.__dict__.keys())}")
                 except Exception:
                     logger.debug("Could not determine data size/keys")
@@ -132,19 +150,32 @@ class EventBus(IEventService):
 
                     logger = _get_logger()
                     if logger and logger.is_debug_enabled():
-                        logger.debug(f"Current listeners count: {len(current_listeners)}")
+                        logger.debug(
+                            f"Current listeners count: {len(current_listeners)}"
+                        )
                         logger.debug(f"Cache key: {cache_key}")
-                        logger.debug(f"Cache exists: {cache_key in self._sorted_listeners_cache}")
-                        logger.debug(f"Listener version matches: {self._listener_version.get(event_name, 0) == len(current_listeners)}")
+                        logger.debug(
+                            f"Cache exists: {cache_key in self._sorted_listeners_cache}"
+                        )
+                        logger.debug(
+                            f"Listener version matches: {self._listener_version.get(event_name, 0) == len(current_listeners)}"
+                        )
 
-                    if (cache_key not in self._sorted_listeners_cache or
-                        self._listener_version.get(event_name, 0) != len(current_listeners)):
+                    if (
+                        cache_key not in self._sorted_listeners_cache
+                        or self._listener_version.get(event_name, 0)
+                        != len(current_listeners)
+                    ):
                         # 需要重新排序和缓存
                         logger = _get_logger()
                         if logger and logger.is_debug_enabled():
                             logger.debug("Re-sorting listeners and updating cache")
 
-                        listeners = sorted(current_listeners, key=lambda x: x.priority.value, reverse=True)
+                        listeners = sorted(
+                            current_listeners,
+                            key=lambda x: x.priority.value,
+                            reverse=True,
+                        )
                         self._sorted_listeners_cache[cache_key] = listeners
                         self._listener_version[event_name] = len(current_listeners)
                     else:
@@ -161,9 +192,15 @@ class EventBus(IEventService):
 
                 logger = _get_logger()
                 if logger and logger.is_debug_enabled():
-                    logger.debug(f"Final listeners count after sorting: {len(listeners)}")
-                    for i, listener in enumerate(listeners[:3]):  # Log first 3 listeners
-                        logger.debug(f"Listener {i+1}: ID={listener.id}, Priority={listener.priority.name}, Calls={listener.call_count}")
+                    logger.debug(
+                        f"Final listeners count after sorting: {len(listeners)}"
+                    )
+                    for i, listener in enumerate(
+                        listeners[:3]
+                    ):  # Log first 3 listeners
+                        logger.debug(
+                            f"Listener {i + 1}: ID={listener.id}, Priority={listener.priority.name}, Calls={listener.call_count}"
+                        )
 
                 # 更新统计信息
                 stats = self._stats[event_name]
@@ -197,7 +234,9 @@ class EventBus(IEventService):
 
             logger = _get_logger()
             if logger and logger.is_debug_enabled():
-                logger.debug(f"Executing listener {i+1}/{len(listeners)}: ID={listener.id}, Priority={listener.priority.name}")
+                logger.debug(
+                    f"Executing listener {i + 1}/{len(listeners)}: ID={listener.id}, Priority={listener.priority.name}"
+                )
 
             try:
                 # 执行回调
@@ -215,8 +254,12 @@ class EventBus(IEventService):
                 logger = _get_logger()
                 if logger and logger.is_debug_enabled():
                     logger.debug(f"Listener {listener.id} failed: {callback_error}")
-                    logger.debug(f"Callback error type: {type(callback_error).__name__}")
-                    logger.debug(f"Callback error stack trace: {traceback.format_exc()}")
+                    logger.debug(
+                        f"Callback error type: {type(callback_error).__name__}"
+                    )
+                    logger.debug(
+                        f"Callback error stack trace: {traceback.format_exc()}"
+                    )
 
                 failed_listeners.append((listener, callback_error))
 
@@ -261,7 +304,9 @@ class EventBus(IEventService):
             logger = _get_logger()
             if logger:
                 for listener, error in failed_listeners:
-                    logger.log_error(error, f"event_listener_{event_name}_{listener.id}")
+                    logger.log_error(
+                        error, f"event_listener_{event_name}_{listener.id}"
+                    )
                     if logger.is_debug_enabled():
                         logger.debug(f"Error for listener {listener.id}: {error}")
 
@@ -273,20 +318,32 @@ class EventBus(IEventService):
         # 排除高频事件（audio_level_update, recording_chunk_batch 等）
         high_frequency_events = {"audio_level_update", "recording_chunk_batch"}
         logger = _get_logger()
-        if logger and logger.is_debug_enabled() and event_name not in high_frequency_events:
-            logger.log_audio_event("Event emitted", {
-                "event_name": event_name,
-                "listeners_executed": executed_count,
-                "has_data": data is not None,
-                "priority": priority.name,
-                "processing_time_ms": processing_time * 1000
-            })
+        if (
+            logger
+            and logger.is_debug_enabled()
+            and event_name not in high_frequency_events
+        ):
+            logger.log_audio_event(
+                "Event emitted",
+                {
+                    "event_name": event_name,
+                    "listeners_executed": executed_count,
+                    "has_data": data is not None,
+                    "priority": priority.name,
+                    "processing_time_ms": processing_time * 1000,
+                },
+            )
 
         logger = _get_logger()
         if logger and logger.is_debug_enabled():
             logger.debug("=== EVENT EMIT DEBUG END ===")
 
-    def on(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def on(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """监听事件
 
         Args:
@@ -299,10 +356,7 @@ class EventBus(IEventService):
         """
         listener_id = str(uuid.uuid4())
         listener = EventListener(
-            id=listener_id,
-            callback=callback,
-            priority=priority,
-            is_once=False
+            id=listener_id, callback=callback, priority=priority, is_once=False
         )
 
         with self._lock:
@@ -313,16 +367,24 @@ class EventBus(IEventService):
         # 只在DEBUG模式下记录监听器添加日志（减少日志开销）
         logger = _get_logger()
         if logger and logger.is_debug_enabled():
-            logger.log_audio_event("Event listener added", {
-                "event_name": event_name,
-                "listener_id": listener_id,
-                "priority": priority.name,
-                "total_listeners": len(self._listeners[event_name])
-            })
+            logger.log_audio_event(
+                "Event listener added",
+                {
+                    "event_name": event_name,
+                    "listener_id": listener_id,
+                    "priority": priority.name,
+                    "total_listeners": len(self._listeners[event_name]),
+                },
+            )
 
         return listener_id
 
-    def subscribe(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def subscribe(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """订阅事件 (alias for on method)
 
         Args:
@@ -358,11 +420,14 @@ class EventBus(IEventService):
                     # 只在DEBUG模式下记录监听器移除日志（减少日志开销）
                     logger = _get_logger()
                     if logger and logger.is_debug_enabled():
-                        logger.log_audio_event("Event listener removed", {
-                            "event_name": event_name,
-                            "listener_id": listener_id,
-                            "remaining_listeners": len(self._listeners[event_name])
-                        })
+                        logger.log_audio_event(
+                            "Event listener removed",
+                            {
+                                "event_name": event_name,
+                                "listener_id": listener_id,
+                                "remaining_listeners": len(self._listeners[event_name]),
+                            },
+                        )
 
                     # 如果没有监听器了，删除事件键
                     if not self._listeners[event_name]:
@@ -383,7 +448,12 @@ class EventBus(IEventService):
         """
         return self.clear_listeners(event_name)
 
-    def once(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def once(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """添加一次性事件监听器
 
         Args:
@@ -396,10 +466,7 @@ class EventBus(IEventService):
         """
         listener_id = str(uuid.uuid4())
         listener = EventListener(
-            id=listener_id,
-            callback=callback,
-            priority=priority,
-            is_once=True
+            id=listener_id, callback=callback, priority=priority, is_once=True
         )
 
         with self._lock:
@@ -408,11 +475,14 @@ class EventBus(IEventService):
         # 只在DEBUG模式下记录一次性监听器添加日志（减少日志开销）
         logger = _get_logger()
         if logger and logger.is_debug_enabled():
-            logger.log_audio_event("One-time event listener added", {
-                "event_name": event_name,
-                "listener_id": listener_id,
-                "priority": priority.name
-            })
+            logger.log_audio_event(
+                "One-time event listener added",
+                {
+                    "event_name": event_name,
+                    "listener_id": listener_id,
+                    "priority": priority.name,
+                },
+            )
 
         return listener_id
 
@@ -435,10 +505,10 @@ class EventBus(IEventService):
             # 只在DEBUG模式下记录监听器清除日志（减少日志开销）
             logger = _get_logger()
             if logger and logger.is_debug_enabled():
-                logger.log_audio_event("All event listeners cleared", {
-                    "event_name": event_name,
-                    "cleared_count": count
-                })
+                logger.log_audio_event(
+                    "All event listeners cleared",
+                    {"event_name": event_name, "cleared_count": count},
+                )
 
             return count
 
@@ -455,9 +525,9 @@ class EventBus(IEventService):
             # 只在DEBUG模式下记录所有监听器清除日志（减少日志开销）
             logger = _get_logger()
             if logger and logger.is_debug_enabled():
-                logger.log_audio_event("All event listeners cleared", {
-                    "total_cleared": total_count
-                })
+                logger.log_audio_event(
+                    "All event listeners cleared", {"total_cleared": total_count}
+                )
 
             return total_count
 
@@ -500,11 +570,12 @@ class EventBus(IEventService):
                         "last_emitted": stats.last_emitted,
                         "avg_processing_time_ms": (
                             (stats.total_processing_time / stats.emit_count * 1000)
-                            if stats.emit_count > 0 else 0
-                        )
+                            if stats.emit_count > 0
+                            else 0
+                        ),
                     }
                     for name, stats in self._stats.items()
-                }
+                },
             }
 
     def enable(self) -> None:

@@ -4,16 +4,25 @@ A decoupled settings dialog with clean separation between
 UI presentation and configuration logic.
 """
 
-from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout,
-                            QTabWidget, QMessageBox, QDialogButtonBox,
-                            QCheckBox, QComboBox, QSpinBox, QDoubleSpinBox,
-                            QSlider, QLineEdit)
+from PySide6.QtWidgets import (
+    QDialog,
+    QWidget,
+    QVBoxLayout,
+    QTabWidget,
+    QMessageBox,
+    QDialogButtonBox,
+    QCheckBox,
+    QComboBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QSlider,
+    QLineEdit,
+)
 from PySide6.QtCore import Signal, Qt
 from typing import Dict, Any, Optional
 
 from ....utils import app_logger
-from .tabs import (GeneralTab, AudioTab, SpeechTab, HotkeysTab,
-                  ApiTab, UiTab, LoggingTab)
+from .tabs import GeneralTab, AudioTab, SpeechTab, HotkeysTab, ApiTab, UiTab, LoggingTab
 
 
 class SettingsDialog(QDialog):
@@ -89,7 +98,15 @@ class SettingsDialog(QDialog):
         self._tabs.addTab(logging_tab, "Logging")
 
         # Collect all controls from tabs
-        for tab in [general_tab, audio_tab, speech_tab, hotkeys_tab, api_tab, ui_tab, logging_tab]:
+        for tab in [
+            general_tab,
+            audio_tab,
+            speech_tab,
+            hotkeys_tab,
+            api_tab,
+            ui_tab,
+            logging_tab,
+        ]:
             self._controls.update(tab.get_controls())
 
         # Store reference to logging tab for category checkboxes
@@ -97,17 +114,21 @@ class SettingsDialog(QDialog):
 
         # Create button box
         button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok |
-            QDialogButtonBox.StandardButton.Cancel |
-            QDialogButtonBox.StandardButton.Apply |
-            QDialogButtonBox.StandardButton.RestoreDefaults
+            QDialogButtonBox.StandardButton.Ok
+            | QDialogButtonBox.StandardButton.Cancel
+            | QDialogButtonBox.StandardButton.Apply
+            | QDialogButtonBox.StandardButton.RestoreDefaults
         )
 
         # Connect button signals
         button_box.accepted.connect(self._on_ok_clicked)
         button_box.rejected.connect(self._on_cancel_clicked)
-        button_box.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self._on_apply_clicked)
-        button_box.button(QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self._on_reset_clicked)
+        button_box.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(
+            self._on_apply_clicked
+        )
+        button_box.button(
+            QDialogButtonBox.StandardButton.RestoreDefaults
+        ).clicked.connect(self._on_reset_clicked)
 
         layout.addWidget(button_box)
 
@@ -144,7 +165,7 @@ class SettingsDialog(QDialog):
             "Reset Settings",
             "Are you sure you want to reset all settings to defaults?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -223,9 +244,7 @@ class SettingsDialog(QDialog):
         """
         # For now, just log the message
         # Could be enhanced with a status bar in the future
-        app_logger.log_audio_event("Settings status message", {
-            "message": message
-        })
+        app_logger.log_audio_event("Settings status message", {"message": message})
 
     def show_error_message(self, title: str, message: str) -> None:
         """Show an error message

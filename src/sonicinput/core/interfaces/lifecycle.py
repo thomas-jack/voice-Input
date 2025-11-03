@@ -7,6 +7,7 @@ from enum import Enum
 
 class ComponentState(Enum):
     """组件状态枚举"""
+
     UNINITIALIZED = "uninitialized"
     INITIALIZING = "initializing"
     INITIALIZED = "initialized"
@@ -94,7 +95,9 @@ class ILifecycleManager(ABC):
     """
 
     @abstractmethod
-    def register_component(self, component: ILifecycleManaged, priority: int = 0) -> bool:
+    def register_component(
+        self, component: ILifecycleManaged, priority: int = 0
+    ) -> bool:
         """注册组件
 
         Args:
@@ -196,7 +199,9 @@ class ILifecycleManager(ABC):
         pass
 
     @abstractmethod
-    def set_state_change_callback(self, callback: Callable[[str, ComponentState, ComponentState], None]) -> None:
+    def set_state_change_callback(
+        self, callback: Callable[[str, ComponentState, ComponentState], None]
+    ) -> None:
         """设置状态变更回调
 
         Args:

@@ -1,7 +1,13 @@
 """Speech recognition settings tab"""
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
-                            QComboBox, QPushButton, QDoubleSpinBox)
+from PySide6.QtWidgets import (
+    QWidget,
+    QFormLayout,
+    QGroupBox,
+    QComboBox,
+    QPushButton,
+    QDoubleSpinBox,
+)
 from PySide6.QtCore import Signal
 from typing import Callable, Any
 
@@ -15,7 +21,9 @@ class SpeechTab(BaseSettingsTab):
     # Signal for test request
     test_requested = Signal(str)
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         super().__init__(on_setting_changed, parent)
         self._setup_ui()
 
@@ -29,11 +37,9 @@ class SpeechTab(BaseSettingsTab):
 
         # Model selection
         model_combo = QComboBox()
-        model_combo.addItems([
-            "tiny", "base", "small", "medium",
-            "large-v3", "large-v3-turbo",
-            "turbo"
-        ])
+        model_combo.addItems(
+            ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo", "turbo"]
+        )
         model_combo.currentTextChanged.connect(
             lambda text: self._on_setting_changed(ConfigKeys.WHISPER_MODEL, text)
         )
@@ -66,7 +72,9 @@ class SpeechTab(BaseSettingsTab):
         temperature_spin.setSingleStep(0.1)
         temperature_spin.setDecimals(1)
         temperature_spin.valueChanged.connect(
-            lambda value: self._on_setting_changed(ConfigKeys.WHISPER_TEMPERATURE, value)
+            lambda value: self._on_setting_changed(
+                ConfigKeys.WHISPER_TEMPERATURE, value
+            )
         )
         self._controls[ConfigKeys.WHISPER_TEMPERATURE] = temperature_spin
         recognition_layout.addRow("Temperature:", temperature_spin)

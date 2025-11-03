@@ -20,6 +20,7 @@ from ...utils import app_logger
 # Create a compatible metaclass for QObject + ABC
 class QObjectABCMeta(type(QObject), type(ABC)):
     """Metaclass that combines QObject and ABC metaclasses"""
+
     pass
 
 
@@ -34,12 +35,14 @@ class LifecycleComponent(QObject, ILifecycleManaged, ABC, metaclass=QObjectABCMe
     - Error handling and logging
     """
 
-    def __init__(self,
-                 component_name: str,
-                 config_service: Optional[IConfigService] = None,
-                 event_service: Optional[IEventService] = None,
-                 state_manager: Optional[IStateManager] = None,
-                 parent: Optional[QObject] = None):
+    def __init__(
+        self,
+        component_name: str,
+        config_service: Optional[IConfigService] = None,
+        event_service: Optional[IEventService] = None,
+        state_manager: Optional[IStateManager] = None,
+        parent: Optional[QObject] = None,
+    ):
         """Initialize base lifecycle component
 
         Args:
@@ -191,15 +194,13 @@ class LifecycleComponent(QObject, ILifecycleManaged, ABC, metaclass=QObjectABCMe
                 uptime_seconds = time.time() - self._started_at
 
             base_health = {
-                "healthy": self._component_state in [
-                    ComponentState.INITIALIZED,
-                    ComponentState.RUNNING
-                ],
+                "healthy": self._component_state
+                in [ComponentState.INITIALIZED, ComponentState.RUNNING],
                 "state": self._component_state.value,
                 "component_state": self._component_state.value,
                 "error_count": self._error_count,
                 "last_error": self._last_error,
-                "uptime_seconds": uptime_seconds
+                "uptime_seconds": uptime_seconds,
             }
 
             # Add subclass-specific health information
@@ -212,7 +213,7 @@ class LifecycleComponent(QObject, ILifecycleManaged, ABC, metaclass=QObjectABCMe
             return {
                 "healthy": False,
                 "error": str(e),
-                "state": self._component_state.value
+                "state": self._component_state.value,
             }
 
     # ==================== Abstract Methods for Subclasses ====================
@@ -264,7 +265,9 @@ class LifecycleComponent(QObject, ILifecycleManaged, ABC, metaclass=QObjectABCMe
 
     # ==================== Protected Helper Methods ====================
 
-    def _log_event(self, event: str, extra_data: Optional[Dict[str, Any]] = None) -> None:
+    def _log_event(
+        self, event: str, extra_data: Optional[Dict[str, Any]] = None
+    ) -> None:
         """Log component event with standardized format
 
         Args:
@@ -350,10 +353,11 @@ class LifecycleComponent(QObject, ILifecycleManaged, ABC, metaclass=QObjectABCMe
     @property
     def is_healthy(self) -> bool:
         """Check if component is healthy"""
-        return self._component_state in [
-            ComponentState.INITIALIZED,
-            ComponentState.RUNNING
-        ] and self._error_count == 0
+        return (
+            self._component_state
+            in [ComponentState.INITIALIZED, ComponentState.RUNNING]
+            and self._error_count == 0
+        )
 
     @property
     def uptime_seconds(self) -> float:

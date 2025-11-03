@@ -30,10 +30,13 @@ class AudioVisualizer:
         # 敏感度倍数（正常说话音量能显示）
         self.sensitivity_multiplier = 20
 
-        app_logger.log_audio_event("AudioVisualizer initialized", {
-            "bars_count": len(self.audio_level_bars),
-            "sensitivity": self.sensitivity_multiplier
-        })
+        app_logger.log_audio_event(
+            "AudioVisualizer initialized",
+            {
+                "bars_count": len(self.audio_level_bars),
+                "sensitivity": self.sensitivity_multiplier,
+            },
+        )
 
     def update_audio_level(self, raw_level: float, is_recording: bool = True) -> None:
         """更新音频级别显示
@@ -47,7 +50,9 @@ class AudioVisualizer:
 
         try:
             # 标准化到 0-1 范围，提高敏感度
-            normalized_level = min(1.0, max(0.0, raw_level * self.sensitivity_multiplier))
+            normalized_level = min(
+                1.0, max(0.0, raw_level * self.sensitivity_multiplier)
+            )
             self.current_audio_level = normalized_level
 
             # 更新音频级别条显示
@@ -133,15 +138,15 @@ class AudioVisualizer:
             multiplier: 敏感度倍数（建议范围1-50）
         """
         if multiplier <= 0:
-            app_logger.log_audio_event("Invalid sensitivity multiplier", {
-                "multiplier": multiplier
-            })
+            app_logger.log_audio_event(
+                "Invalid sensitivity multiplier", {"multiplier": multiplier}
+            )
             return
 
         self.sensitivity_multiplier = multiplier
-        app_logger.log_audio_event("Audio sensitivity updated", {
-            "new_sensitivity": multiplier
-        })
+        app_logger.log_audio_event(
+            "Audio sensitivity updated", {"new_sensitivity": multiplier}
+        )
 
     def get_current_level(self) -> float:
         """获取当前音频级别

@@ -6,11 +6,12 @@ from dataclasses import dataclass
 from enum import Enum
 
 # 定义事件数据类型
-EventData = TypeVar('EventData')
+EventData = TypeVar("EventData")
 
 
 class EventPriority(Enum):
     """事件优先级"""
+
     LOW = 1
     NORMAL = 2
     HIGH = 3
@@ -20,6 +21,7 @@ class EventPriority(Enum):
 @dataclass
 class Event(Generic[EventData]):
     """类型安全的事件定义"""
+
     name: str
     data: EventData
     priority: EventPriority = EventPriority.NORMAL
@@ -34,7 +36,12 @@ class IEventService(ABC):
     """
 
     @abstractmethod
-    def emit(self, event_name: str, data: Any = None, priority: EventPriority = EventPriority.NORMAL) -> None:
+    def emit(
+        self,
+        event_name: str,
+        data: Any = None,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> None:
         """发出事件
 
         Args:
@@ -45,7 +52,12 @@ class IEventService(ABC):
         pass
 
     @abstractmethod
-    def on(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def on(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """监听事件
 
         Args:
@@ -72,7 +84,12 @@ class IEventService(ABC):
         pass
 
     @abstractmethod
-    def once(self, event_name: str, callback: Callable, priority: EventPriority = EventPriority.NORMAL) -> str:
+    def once(
+        self,
+        event_name: str,
+        callback: Callable,
+        priority: EventPriority = EventPriority.NORMAL,
+    ) -> str:
         """添加一次性事件监听器
 
         Args:

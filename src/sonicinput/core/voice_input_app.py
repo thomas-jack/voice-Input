@@ -13,7 +13,7 @@ from .controllers import (
     RecordingController,
     TranscriptionController,
     AIProcessingController,
-    InputController
+    InputController,
 )
 from .interfaces import (
     IConfigService,
@@ -22,7 +22,7 @@ from .interfaces import (
     IAudioService,
     ISpeechService,
     IInputService,
-    IHotkeyService
+    IHotkeyService,
 )
 from .services.event_bus import Events
 from ..utils import app_logger, logger, VoiceInputError
@@ -94,6 +94,7 @@ class VoiceInputApp:
             # 初始化快捷键服务（仅使用久经测试的 legacy 实现）
             # 注意：GlobalHotkeys 新实现已被禁用，确保稳定性
             from .hotkey_manager import HotkeyManager
+
             self._hotkey_service = HotkeyManager(self._on_hotkey_triggered)
             app_logger.log_audio_event("Using legacy HotkeyManager (stable)", {})
 
@@ -106,7 +107,9 @@ class VoiceInputApp:
             # 注册所有快捷键
             for hotkey in hotkeys:
                 if hotkey and hotkey.strip():  # 跳过空字符串
-                    self._hotkey_service.register_hotkey(hotkey.strip(), "toggle_recording")
+                    self._hotkey_service.register_hotkey(
+                        hotkey.strip(), "toggle_recording"
+                    )
 
             self._hotkey_service.start_listening()
 
@@ -117,9 +120,9 @@ class VoiceInputApp:
             # 自动加载模型（如果配置启用）
             if self._should_enable_auto_load():
                 model_name = self.config.get_setting("whisper.model", "large-v3-turbo")
-                app_logger.log_audio_event("Auto-loading model on startup", {
-                    "model_name": model_name
-                })
+                app_logger.log_audio_event(
+                    "Auto-loading model on startup", {"model_name": model_name}
+                )
                 self._load_model_async()
 
             self.is_initialized = True
@@ -148,7 +151,7 @@ class VoiceInputApp:
             config_service=self.config,
             event_service=self.events,
             state_manager=self.state,
-            speech_service=self._speech_service
+            speech_service=self._speech_service,
         )
 
         # 转录控制器
@@ -156,14 +159,14 @@ class VoiceInputApp:
             speech_service=self._speech_service,
             config_service=self.config,
             event_service=self.events,
-            state_manager=self.state
+            state_manager=self.state,
         )
 
         # AI处理控制器
         self._ai_controller = AIProcessingController(
             config_service=self.config,
             event_service=self.events,
-            state_manager=self.state
+            state_manager=self.state,
         )
 
         # 输入控制器
@@ -171,7 +174,7 @@ class VoiceInputApp:
             input_service=self._input_service,
             config_service=self.config,
             event_service=self.events,
-            state_manager=self.state
+            state_manager=self.state,
         )
 
         app_logger.log_audio_event("All controllers initialized", {})
@@ -186,8 +189,10 @@ class VoiceInputApp:
             return False
 
         # 否则根据配置决定
-        return self.config.get_setting("transcription.local.auto_load",
-                                     self.config.get_setting("whisper.auto_load", True))
+        return self.config.get_setting(
+            "transcription.local.auto_load",
+            self.config.get_setting("whisper.auto_load", True),
+        )
 
     def _load_model_async(self) -> None:
         """异步加载语音模型"""
@@ -195,18 +200,18 @@ class VoiceInputApp:
         self.events.emit(Events.MODEL_LOADING_STARTED)
 
         def on_success(success: bool, error: str):
-            app_logger.log_audio_event("Model loaded successfully", {
-                "model": model_name
-            })
+            app_logger.log_audio_event(
+                "Model loaded successfully", {"model": model_name}
+            )
             # 获取模型详细信息并发送事件
             model_info = {}
-            if hasattr(self._speech_service, 'get_model_info'):
+            if hasattr(self._speech_service, "get_model_info"):
                 model_info = self._speech_service.get_model_info()
             else:
                 model_info = {
                     "model_name": model_name,
                     "is_loaded": True,
-                    "device": getattr(self._speech_service, 'device', 'Unknown')
+                    "device": getattr(self._speech_service, "device", "Unknown"),
                 }
             self.events.emit(Events.MODEL_LOADING_COMPLETED, model_info)
 
@@ -215,9 +220,7 @@ class VoiceInputApp:
             self.events.emit(Events.MODEL_LOADING_ERROR, error_msg)
 
         self._speech_service.load_model_async(
-            model_name=model_name,
-            callback=on_success,
-            error_callback=on_error
+            model_name=model_name, callback=on_success, error_callback=on_error
         )
 
     def _on_hotkey_triggered(self, action: str) -> None:
@@ -244,9 +247,15 @@ class VoiceInputApp:
             self.events.on(Events.RECORDING_STARTED, self._on_recording_started_overlay)
             self.events.on(Events.RECORDING_STOPPED, self._on_recording_stopped_overlay)
             self.events.on(Events.AI_PROCESSING_STARTED, self._on_ai_started_overlay)
-            self.events.on(Events.AI_PROCESSING_COMPLETED, self._on_ai_completed_overlay)
-            self.events.on(Events.TEXT_INPUT_COMPLETED, self._on_input_completed_overlay)
-            self.events.on(Events.AUDIO_LEVEL_UPDATE, self._on_audio_level_update_overlay)
+            self.events.on(
+                Events.AI_PROCESSING_COMPLETED, self._on_ai_completed_overlay
+            )
+            self.events.on(
+                Events.TEXT_INPUT_COMPLETED, self._on_input_completed_overlay
+            )
+            self.events.on(
+                Events.AUDIO_LEVEL_UPDATE, self._on_audio_level_update_overlay
+            )
 
             # 错误事件 - 关闭悬浮窗
             self.events.on(Events.TRANSCRIPTION_ERROR, self._on_error_overlay)
@@ -272,6 +281,7 @@ class VoiceInputApp:
         """AI处理完成时更新悬浮窗状态为完成（绿色）"""
         if self.recording_overlay:
             from ..ui.overlay import StatusIndicator
+
             self.recording_overlay.status_indicator.set_state(
                 StatusIndicator.STATE_COMPLETED
             )
@@ -309,13 +319,14 @@ class VoiceInputApp:
                 registered_count = 0
                 for hotkey in hotkeys:
                     if hotkey and hotkey.strip():
-                        self._hotkey_service.register_hotkey(hotkey.strip(), "toggle_recording")
+                        self._hotkey_service.register_hotkey(
+                            hotkey.strip(), "toggle_recording"
+                        )
                         registered_count += 1
 
-                app_logger.log_audio_event("Hotkeys reloaded", {
-                    "hotkeys": hotkeys,
-                    "count": registered_count
-                })
+                app_logger.log_audio_event(
+                    "Hotkeys reloaded", {"hotkeys": hotkeys, "count": registered_count}
+                )
                 return True
             return False
 
@@ -327,17 +338,20 @@ class VoiceInputApp:
         """配置变更事件处理器 - 热重载配置"""
         try:
             new_config = data.get("config", {})
-            app_logger.log_audio_event("Config changed, reloading...", {
-                "timestamp": data.get("timestamp")
-            })
+            app_logger.log_audio_event(
+                "Config changed, reloading...", {"timestamp": data.get("timestamp")}
+            )
 
             # 1. 重新加载日志配置
             if "logging" in new_config:
                 logger.set_config_service(self.config)
-                app_logger.log_audio_event("Logger config reloaded", {
-                    "level": new_config["logging"].get("level"),
-                    "console_output": new_config["logging"].get("console_output")
-                })
+                app_logger.log_audio_event(
+                    "Logger config reloaded",
+                    {
+                        "level": new_config["logging"].get("level"),
+                        "console_output": new_config["logging"].get("console_output"),
+                    },
+                )
 
             # 2. 重新加载快捷键
             if "hotkeys" in new_config or "hotkey" in new_config:
@@ -347,11 +361,11 @@ class VoiceInputApp:
             if "audio" in new_config and not self.state.is_recording():
                 device_id = new_config["audio"].get("device_id")
                 if device_id is not None and self._audio_service:
-                    if hasattr(self._audio_service, 'set_audio_device'):
+                    if hasattr(self._audio_service, "set_audio_device"):
                         self._audio_service.set_audio_device(device_id)
-                        app_logger.log_audio_event("Audio device reloaded", {
-                            "device_id": device_id
-                        })
+                        app_logger.log_audio_event(
+                            "Audio device reloaded", {"device_id": device_id}
+                        )
 
             # 4. 处理 Whisper GPU 配置变更（需要重新加载模型）
             if "whisper" in new_config:
@@ -363,34 +377,52 @@ class VoiceInputApp:
 
                     # 安全地获取当前 GPU 设置，通过新API访问
                     current_use_gpu = None
-                    if self._speech_service and hasattr(self._speech_service, 'model_manager'):
+                    if self._speech_service and hasattr(
+                        self._speech_service, "model_manager"
+                    ):
                         try:
                             # 通过model_manager获取whisper_engine
-                            whisper_engine = self._speech_service.model_manager.get_whisper_engine()
+                            whisper_engine = (
+                                self._speech_service.model_manager.get_whisper_engine()
+                            )
                             # 只在 whisper_engine 不为 None 时才尝试访问 use_gpu
                             if whisper_engine is not None:
-                                current_use_gpu = getattr(whisper_engine, 'use_gpu', None)
+                                current_use_gpu = getattr(
+                                    whisper_engine, "use_gpu", None
+                                )
                         except (AttributeError, RuntimeError) as e:
-                            app_logger.log_audio_event("Warning: Could not retrieve current GPU setting", {
-                                "error": str(e),
-                                "action": "proceeding with config change"
-                            })
+                            app_logger.log_audio_event(
+                                "Warning: Could not retrieve current GPU setting",
+                                {
+                                    "error": str(e),
+                                    "action": "proceeding with config change",
+                                },
+                            )
 
                     # 只有在配置真正改变时才重载
                     if current_use_gpu is not None and new_use_gpu != current_use_gpu:
-                        app_logger.log_audio_event("GPU setting changed, reloading model...", {
-                            "old_use_gpu": current_use_gpu,
-                            "new_use_gpu": new_use_gpu
-                        })
+                        app_logger.log_audio_event(
+                            "GPU setting changed, reloading model...",
+                            {
+                                "old_use_gpu": current_use_gpu,
+                                "new_use_gpu": new_use_gpu,
+                            },
+                        )
 
                         # 只有在未录音且未处理时才重载
-                        if not self.state.is_recording() and not self.state.is_processing():
+                        if (
+                            not self.state.is_recording()
+                            and not self.state.is_processing()
+                        ):
                             self._reload_model_with_gpu_setting(new_use_gpu)
                         else:
-                            app_logger.log_audio_event("Cannot reload model during recording/processing", {
-                                "is_recording": self.state.is_recording(),
-                                "is_processing": self.state.is_processing()
-                            })
+                            app_logger.log_audio_event(
+                                "Cannot reload model during recording/processing",
+                                {
+                                    "is_recording": self.state.is_recording(),
+                                    "is_processing": self.state.is_processing(),
+                                },
+                            )
 
             app_logger.log_audio_event("Config hot reload completed", {})
 
@@ -403,32 +435,37 @@ class VoiceInputApp:
         Args:
             use_gpu: 是否使用 GPU
         """
-        if self._speech_service and hasattr(self._speech_service, 'reload_model'):
+        if self._speech_service and hasattr(self._speech_service, "reload_model"):
+
             def on_success(success: bool, error: str):
                 # 安全地获取重加载后的设备信息，通过新API访问
                 device_info = "unknown"
                 try:
-                    if hasattr(self._speech_service, 'model_manager'):
-                        whisper_engine = self._speech_service.model_manager.get_whisper_engine()
+                    if hasattr(self._speech_service, "model_manager"):
+                        whisper_engine = (
+                            self._speech_service.model_manager.get_whisper_engine()
+                        )
                         if whisper_engine is not None:
-                            device_info = getattr(whisper_engine, 'device', 'unknown')
+                            device_info = getattr(whisper_engine, "device", "unknown")
                 except (AttributeError, RuntimeError):
                     pass  # 继续记录事件，即使无法获取设备信息
 
-                app_logger.log_audio_event("Model reloaded with new GPU setting", {
-                    "use_gpu": use_gpu,
-                    "device": device_info
-                })
+                app_logger.log_audio_event(
+                    "Model reloaded with new GPU setting",
+                    {"use_gpu": use_gpu, "device": device_info},
+                )
 
                 # 获取模型详细信息并发送事件
                 model_info = {}
-                if hasattr(self._speech_service, 'get_model_info'):
+                if hasattr(self._speech_service, "get_model_info"):
                     model_info = self._speech_service.get_model_info()
                 else:
                     model_info = {
-                        "model_name": self.config.get_setting("whisper.model", "Unknown"),
+                        "model_name": self.config.get_setting(
+                            "whisper.model", "Unknown"
+                        ),
                         "is_loaded": True,
-                        "device": device_info
+                        "device": device_info,
                     }
                 self.events.emit(Events.MODEL_LOADING_COMPLETED, model_info)
 
@@ -436,9 +473,7 @@ class VoiceInputApp:
                 app_logger.log_error(Exception(error_msg), "reload_model_with_gpu")
 
             self._speech_service.reload_model(
-                use_gpu=use_gpu,
-                callback=on_success,
-                error_callback=on_error
+                use_gpu=use_gpu, callback=on_success, error_callback=on_error
             )
         else:
             app_logger.log_audio_event("Speech service does not support hot reload", {})
@@ -449,9 +484,15 @@ class VoiceInputApp:
             "is_initialized": self.is_initialized,
             "is_recording": self.state.is_recording(),
             "is_processing": self.state.is_processing(),
-            "model_loaded": (self._speech_service.model_manager.is_model_loaded()
-                          if self._speech_service and hasattr(self._speech_service, 'model_manager') else False),
-            "hotkey_active": self._hotkey_service.is_listening if self._hotkey_service else False
+            "model_loaded": (
+                self._speech_service.model_manager.is_model_loaded()
+                if self._speech_service
+                and hasattr(self._speech_service, "model_manager")
+                else False
+            ),
+            "hotkey_active": self._hotkey_service.is_listening
+            if self._hotkey_service
+            else False,
         }
 
     def shutdown(self) -> None:

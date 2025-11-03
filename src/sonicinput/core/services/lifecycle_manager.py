@@ -19,6 +19,7 @@ from ...utils import app_logger
 @dataclass
 class ComponentInfo:
     """组件信息"""
+
     component: ILifecycleManaged
     priority: int
     state: ComponentState = ComponentState.UNINITIALIZED
@@ -38,7 +39,11 @@ class LifecycleManager(ILifecycleManager):
     确保组件正确的初始化、启动、停止和清理，防止悬浮窗闪退问题。
     """
 
-    def __init__(self, event_service: Optional[IEventService] = None, state_manager: Optional[IStateManager] = None):
+    def __init__(
+        self,
+        event_service: Optional[IEventService] = None,
+        state_manager: Optional[IStateManager] = None,
+    ):
         """初始化生命周期管理器
 
         Args:
@@ -49,15 +54,22 @@ class LifecycleManager(ILifecycleManager):
         self._state_manager = state_manager
         self._components: Dict[str, ComponentInfo] = {}
         self._lock = threading.RLock()
-        self._state_change_callback: Optional[Callable[[str, ComponentState, ComponentState], None]] = None
+        self._state_change_callback: Optional[
+            Callable[[str, ComponentState, ComponentState], None]
+        ] = None
         self._shutdown_in_progress = False
 
-        app_logger.log_audio_event("LifecycleManager initialized", {
-            "event_service_enabled": self._event_service is not None,
-            "state_manager_enabled": self._state_manager is not None
-        })
+        app_logger.log_audio_event(
+            "LifecycleManager initialized",
+            {
+                "event_service_enabled": self._event_service is not None,
+                "state_manager_enabled": self._state_manager is not None,
+            },
+        )
 
-    def register_component(self, component: ILifecycleManaged, priority: int = 0) -> bool:
+    def register_component(
+        self, component: ILifecycleManaged, priority: int = 0
+    ) -> bool:
         """注册组件
 
         Args:
@@ -72,30 +84,38 @@ class LifecycleManager(ILifecycleManager):
 
             with self._lock:
                 if component_name in self._components:
-                    app_logger.log_audio_event("Component already registered", {
-                        "component_name": component_name
-                    })
+                    app_logger.log_audio_event(
+                        "Component already registered",
+                        {"component_name": component_name},
+                    )
                     return False
 
                 self._components[component_name] = ComponentInfo(
                     component=component,
                     priority=priority,
-                    state=ComponentState.UNINITIALIZED
+                    state=ComponentState.UNINITIALIZED,
                 )
 
             # 发送组件注册事件
             if self._event_service:
-                self._event_service.emit("component_registered", {
+                self._event_service.emit(
+                    "component_registered",
+                    {
+                        "component_name": component_name,
+                        "priority": priority,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    EventPriority.NORMAL,
+                )
+
+            app_logger.log_audio_event(
+                "Component registered",
+                {
                     "component_name": component_name,
                     "priority": priority,
-                    "timestamp": datetime.now().isoformat()
-                }, EventPriority.NORMAL)
-
-            app_logger.log_audio_event("Component registered", {
-                "component_name": component_name,
-                "priority": priority,
-                "total_components": len(self._components)
-            })
+                    "total_components": len(self._components),
+                },
+            )
 
             return True
 
@@ -134,15 +154,22 @@ class LifecycleManager(ILifecycleManager):
 
             # 发送组件注销事件
             if self._event_service:
-                self._event_service.emit("component_unregistered", {
-                    "component_name": component_name,
-                    "timestamp": datetime.now().isoformat()
-                }, EventPriority.NORMAL)
+                self._event_service.emit(
+                    "component_unregistered",
+                    {
+                        "component_name": component_name,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    EventPriority.NORMAL,
+                )
 
-            app_logger.log_audio_event("Component unregistered", {
-                "component_name": component_name,
-                "remaining_components": len(self._components)
-            })
+            app_logger.log_audio_event(
+                "Component unregistered",
+                {
+                    "component_name": component_name,
+                    "remaining_components": len(self._components),
+                },
+            )
 
             return True
 
@@ -167,7 +194,9 @@ class LifecycleManager(ILifecycleManager):
 
             for component_name, component_info in sorted_components:
                 try:
-                    self._set_component_state(component_name, ComponentState.INITIALIZING)
+                    self._set_component_state(
+                        component_name, ComponentState.INITIALIZING
+                    )
 
                     # 获取组件特定的配置
                     component_config = config.get(component_name, {})
@@ -177,19 +206,24 @@ class LifecycleManager(ILifecycleManager):
                     results[component_name] = success
 
                     if success:
-                        self._set_component_state(component_name, ComponentState.INITIALIZED)
+                        self._set_component_state(
+                            component_name, ComponentState.INITIALIZED
+                        )
                         component_info.initialized_at = time.time()
 
-                        app_logger.log_audio_event("Component initialized", {
-                            "component_name": component_name
-                        })
+                        app_logger.log_audio_event(
+                            "Component initialized", {"component_name": component_name}
+                        )
                     else:
                         self._set_component_state(component_name, ComponentState.ERROR)
-                        self._record_component_error(component_name, "Initialization failed")
+                        self._record_component_error(
+                            component_name, "Initialization failed"
+                        )
 
-                        app_logger.log_audio_event("Component initialization failed", {
-                            "component_name": component_name
-                        })
+                        app_logger.log_audio_event(
+                            "Component initialization failed",
+                            {"component_name": component_name},
+                        )
 
                 except Exception as e:
                     results[component_name] = False
@@ -197,11 +231,14 @@ class LifecycleManager(ILifecycleManager):
                     self._record_component_error(component_name, str(e))
                     app_logger.log_error(e, f"initialize_component_{component_name}")
 
-            app_logger.log_audio_event("All components initialization completed", {
-                "successful": sum(1 for success in results.values() if success),
-                "failed": sum(1 for success in results.values() if not success),
-                "total": len(results)
-            })
+            app_logger.log_audio_event(
+                "All components initialization completed",
+                {
+                    "successful": sum(1 for success in results.values() if success),
+                    "failed": sum(1 for success in results.values() if not success),
+                    "total": len(results),
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, "initialize_all")
@@ -234,19 +271,21 @@ class LifecycleManager(ILifecycleManager):
                     results[component_name] = success
 
                     if success:
-                        self._set_component_state(component_name, ComponentState.RUNNING)
+                        self._set_component_state(
+                            component_name, ComponentState.RUNNING
+                        )
                         component_info.started_at = time.time()
 
-                        app_logger.log_audio_event("Component started", {
-                            "component_name": component_name
-                        })
+                        app_logger.log_audio_event(
+                            "Component started", {"component_name": component_name}
+                        )
                     else:
                         self._set_component_state(component_name, ComponentState.ERROR)
                         self._record_component_error(component_name, "Start failed")
 
-                        app_logger.log_audio_event("Component start failed", {
-                            "component_name": component_name
-                        })
+                        app_logger.log_audio_event(
+                            "Component start failed", {"component_name": component_name}
+                        )
 
                 except Exception as e:
                     results[component_name] = False
@@ -254,11 +293,14 @@ class LifecycleManager(ILifecycleManager):
                     self._record_component_error(component_name, str(e))
                     app_logger.log_error(e, f"start_component_{component_name}")
 
-            app_logger.log_audio_event("All components start completed", {
-                "successful": sum(1 for success in results.values() if success),
-                "failed": sum(1 for success in results.values() if not success),
-                "total": len(results)
-            })
+            app_logger.log_audio_event(
+                "All components start completed",
+                {
+                    "successful": sum(1 for success in results.values() if success),
+                    "failed": sum(1 for success in results.values() if not success),
+                    "total": len(results),
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, "start_all")
@@ -281,11 +323,14 @@ class LifecycleManager(ILifecycleManager):
             for component_name, component_info in sorted_components:
                 results[component_name] = self._stop_component(component_name)
 
-            app_logger.log_audio_event("All components stop completed", {
-                "successful": sum(1 for success in results.values() if success),
-                "failed": sum(1 for success in results.values() if not success),
-                "total": len(results)
-            })
+            app_logger.log_audio_event(
+                "All components stop completed",
+                {
+                    "successful": sum(1 for success in results.values() if success),
+                    "failed": sum(1 for success in results.values() if not success),
+                    "total": len(results),
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, "stop_all")
@@ -305,9 +350,9 @@ class LifecycleManager(ILifecycleManager):
                     component_info.component.cleanup()
                     self._set_component_state(component_name, ComponentState.DESTROYED)
 
-                    app_logger.log_audio_event("Component cleaned up", {
-                        "component_name": component_name
-                    })
+                    app_logger.log_audio_event(
+                        "Component cleaned up", {"component_name": component_name}
+                    )
 
                 except Exception as e:
                     app_logger.log_error(e, f"cleanup_component_{component_name}")
@@ -369,28 +414,33 @@ class LifecycleManager(ILifecycleManager):
         for component_name, component_info in components:
             try:
                 health_result = component_info.component.health_check()
-                health_result.update({
-                    "component_state": component_info.state.value,
-                    "error_count": component_info.error_count,
-                    "last_error": component_info.last_error,
-                    "uptime_seconds": (
-                        time.time() - component_info.started_at
-                        if component_info.started_at else 0
-                    )
-                })
+                health_result.update(
+                    {
+                        "component_state": component_info.state.value,
+                        "error_count": component_info.error_count,
+                        "last_error": component_info.last_error,
+                        "uptime_seconds": (
+                            time.time() - component_info.started_at
+                            if component_info.started_at
+                            else 0
+                        ),
+                    }
+                )
                 health_results[component_name] = health_result
 
             except Exception as e:
                 health_results[component_name] = {
                     "healthy": False,
                     "error": str(e),
-                    "component_state": component_info.state.value
+                    "component_state": component_info.state.value,
                 }
                 app_logger.log_error(e, f"health_check_{component_name}")
 
         return health_results
 
-    def set_state_change_callback(self, callback: Callable[[str, ComponentState, ComponentState], None]) -> None:
+    def set_state_change_callback(
+        self, callback: Callable[[str, ComponentState, ComponentState], None]
+    ) -> None:
         """设置状态变更回调
 
         Args:
@@ -423,9 +473,13 @@ class LifecycleManager(ILifecycleManager):
 
                 # 重新初始化（如果需要）
                 if component_info.state == ComponentState.STOPPED:
-                    self._set_component_state(component_name, ComponentState.INITIALIZING)
+                    self._set_component_state(
+                        component_name, ComponentState.INITIALIZING
+                    )
                     if component_info.component.initialize({}):
-                        self._set_component_state(component_name, ComponentState.INITIALIZED)
+                        self._set_component_state(
+                            component_name, ComponentState.INITIALIZED
+                        )
                         component_info.initialized_at = time.time()
                     else:
                         self._set_component_state(component_name, ComponentState.ERROR)
@@ -437,9 +491,9 @@ class LifecycleManager(ILifecycleManager):
                     self._set_component_state(component_name, ComponentState.RUNNING)
                     component_info.started_at = time.time()
 
-                    app_logger.log_audio_event("Component restarted", {
-                        "component_name": component_name
-                    })
+                    app_logger.log_audio_event(
+                        "Component restarted", {"component_name": component_name}
+                    )
                     return True
                 else:
                     self._set_component_state(component_name, ComponentState.ERROR)
@@ -459,8 +513,11 @@ class LifecycleManager(ILifecycleManager):
     def running_components(self) -> int:
         """正在运行的组件数量"""
         with self._lock:
-            return sum(1 for info in self._components.values()
-                      if info.state == ComponentState.RUNNING)
+            return sum(
+                1
+                for info in self._components.values()
+                if info.state == ComponentState.RUNNING
+            )
 
     def _get_sorted_components(self, reverse: bool = False) -> List[tuple]:
         """获取按优先级排序的组件列表
@@ -507,10 +564,10 @@ class LifecycleManager(ILifecycleManager):
                     self._set_component_state(component_name, ComponentState.ERROR)
                     self._record_component_error(component_name, "Stop failed")
 
-            app_logger.log_audio_event("Component stopped", {
-                "component_name": component_name,
-                "success": success
-            })
+            app_logger.log_audio_event(
+                "Component stopped",
+                {"component_name": component_name, "success": success},
+            )
 
             return success
 
@@ -521,7 +578,9 @@ class LifecycleManager(ILifecycleManager):
             app_logger.log_error(e, f"stop_component_{component_name}")
             return False
 
-    def _set_component_state(self, component_name: str, new_state: ComponentState) -> None:
+    def _set_component_state(
+        self, component_name: str, new_state: ComponentState
+    ) -> None:
         """设置组件状态
 
         Args:
@@ -545,16 +604,22 @@ class LifecycleManager(ILifecycleManager):
 
         # 发送组件状态变更事件
         if self._event_service:
-            self._event_service.emit("component_state_changed", {
-                "component_name": component_name,
-                "old_state": old_state.value,
-                "new_state": new_state.value,
-                "timestamp": datetime.now().isoformat()
-            }, EventPriority.NORMAL)
+            self._event_service.emit(
+                "component_state_changed",
+                {
+                    "component_name": component_name,
+                    "old_state": old_state.value,
+                    "new_state": new_state.value,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                EventPriority.NORMAL,
+            )
 
         # 更新状态管理器
         if self._state_manager:
-            self._state_manager.set_state(f"component_{component_name}_state", new_state.value)
+            self._state_manager.set_state(
+                f"component_{component_name}_state", new_state.value
+            )
 
     def _record_component_error(self, component_name: str, error_message: str) -> None:
         """记录组件错误
@@ -572,9 +637,13 @@ class LifecycleManager(ILifecycleManager):
 
         # 发送组件错误事件
         if self._event_service:
-            self._event_service.emit("component_error", {
-                "component_name": component_name,
-                "error_message": error_message,
-                "error_count": component_info.error_count if component_info else 0,
-                "timestamp": datetime.now().isoformat()
-            }, EventPriority.HIGH)
+            self._event_service.emit(
+                "component_error",
+                {
+                    "component_name": component_name,
+                    "error_message": error_message,
+                    "error_count": component_info.error_count if component_info else 0,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                EventPriority.HIGH,
+            )

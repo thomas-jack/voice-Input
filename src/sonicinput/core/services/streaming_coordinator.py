@@ -12,6 +12,7 @@ from ...utils import app_logger
 @dataclass
 class StreamingChunk:
     """流式转录块"""
+
     chunk_id: int
     audio_data: np.ndarray
     timestamp: float
@@ -49,7 +50,7 @@ class StreamingCoordinator:
             "completed_chunks": 0,
             "failed_chunks": 0,
             "total_audio_duration": 0.0,
-            "average_chunk_time": 0.0
+            "average_chunk_time": 0.0,
         }
 
         app_logger.log_audio_event("StreamingCoordinator initialized", {})
@@ -83,17 +84,19 @@ class StreamingCoordinator:
             # 处理剩余的块
             pending_chunks = len(self._streaming_chunks)
             if pending_chunks > 0:
-                app_logger.log_audio_event("Cleaning up pending chunks", {
-                    "pending_count": pending_chunks
-                })
+                app_logger.log_audio_event(
+                    "Cleaning up pending chunks", {"pending_count": pending_chunks}
+                )
 
                 # 标记剩余块为失败
                 for chunk in self._streaming_chunks:
-                    chunk.result_container.update({
-                        "success": False,
-                        "error": "Streaming stopped before processing",
-                        "error_type": "streaming_stopped"
-                    })
+                    chunk.result_container.update(
+                        {
+                            "success": False,
+                            "error": "Streaming stopped before processing",
+                            "error_type": "streaming_stopped",
+                        }
+                    )
                     chunk.result_event.set()
 
                 self._streaming_chunks.clear()
@@ -130,7 +133,7 @@ class StreamingCoordinator:
                 "error": None,
                 "error_type": None,
                 "processing_time": 0.0,
-                "timestamp": time.time()
+                "timestamp": time.time(),
             }
 
             result_event = threading.Event()
@@ -141,18 +144,23 @@ class StreamingCoordinator:
                 audio_data=audio_data.copy(),  # 复制数据避免引用问题
                 timestamp=time.time(),
                 result_event=result_event,
-                result_container=result_container
+                result_container=result_container,
             )
 
             self._streaming_chunks.append(chunk)
             self._streaming_stats["total_chunks"] += 1
-            self._streaming_stats["total_audio_duration"] += len(audio_data) / 16000  # 假设16kHz
+            self._streaming_stats["total_audio_duration"] += (
+                len(audio_data) / 16000
+            )  # 假设16kHz
 
-            app_logger.log_audio_event("Streaming chunk added", {
-                "chunk_id": chunk_id,
-                "audio_length": len(audio_data),
-                "queue_size": len(self._streaming_chunks)
-            })
+            app_logger.log_audio_event(
+                "Streaming chunk added",
+                {
+                    "chunk_id": chunk_id,
+                    "audio_length": len(audio_data),
+                    "queue_size": len(self._streaming_chunks),
+                },
+            )
 
             return chunk_id
 
@@ -166,7 +174,9 @@ class StreamingCoordinator:
             # 返回所有待处理块的副本
             return list(self._streaming_chunks)
 
-    def get_next_chunk(self, timeout: Optional[float] = None) -> Optional[StreamingChunk]:
+    def get_next_chunk(
+        self, timeout: Optional[float] = None
+    ) -> Optional[StreamingChunk]:
         """获取下一个待处理的流式块
 
         Args:
@@ -228,21 +238,26 @@ class StreamingCoordinator:
                 # 从队列中移除
                 self._streaming_chunks.remove(chunk)
 
-                app_logger.log_audio_event("Streaming chunk completed", {
-                    "chunk_id": chunk_id,
-                    "success": result.get("success", False),
-                    "processing_time": processing_time,
-                    "text_length": len(result.get("text", "")),
-                    "queue_size": len(self._streaming_chunks)
-                })
+                app_logger.log_audio_event(
+                    "Streaming chunk completed",
+                    {
+                        "chunk_id": chunk_id,
+                        "success": result.get("success", False),
+                        "processing_time": processing_time,
+                        "text_length": len(result.get("text", "")),
+                        "queue_size": len(self._streaming_chunks),
+                    },
+                )
 
                 # 发送块完成事件
-                self._emit_streaming_event("streaming_chunk_completed", {
-                    "chunk_id": chunk_id,
-                    "result": result
-                })
+                self._emit_streaming_event(
+                    "streaming_chunk_completed",
+                    {"chunk_id": chunk_id, "result": result},
+                )
 
-    def get_chunk_result(self, chunk_id: int, timeout: Optional[float] = None) -> Optional[Dict[str, Any]]:
+    def get_chunk_result(
+        self, chunk_id: int, timeout: Optional[float] = None
+    ) -> Optional[Dict[str, Any]]:
         """获取流式块的处理结果
 
         Args:
@@ -314,14 +329,18 @@ class StreamingCoordinator:
     def _get_stats(self) -> Dict[str, Any]:
         """获取统计信息（内部方法，需要持有锁）"""
         stats = self._streaming_stats.copy()
-        stats.update({
-            "is_streaming": self._streaming_mode,
-            "pending_chunks": len(self._streaming_chunks),
-            "next_chunk_id": self._next_chunk_id,
-            "success_rate": (
-                stats["completed_chunks"] / max(stats["total_chunks"], 1) * 100
-            ) if stats["total_chunks"] > 0 else 0.0
-        })
+        stats.update(
+            {
+                "is_streaming": self._streaming_mode,
+                "pending_chunks": len(self._streaming_chunks),
+                "next_chunk_id": self._next_chunk_id,
+                "success_rate": (
+                    stats["completed_chunks"] / max(stats["total_chunks"], 1) * 100
+                )
+                if stats["total_chunks"] > 0
+                else 0.0,
+            }
+        )
         return stats
 
     def _reset_stats(self) -> None:
@@ -331,7 +350,7 @@ class StreamingCoordinator:
             "completed_chunks": 0,
             "failed_chunks": 0,
             "total_audio_duration": 0.0,
-            "average_chunk_time": 0.0
+            "average_chunk_time": 0.0,
         }
         self._next_chunk_id = 0
 
@@ -352,8 +371,8 @@ class StreamingCoordinator:
         if completed > 0:
             current_avg = self._streaming_stats["average_chunk_time"]
             self._streaming_stats["average_chunk_time"] = (
-                (current_avg * (completed - 1) + processing_time) / completed
-            )
+                current_avg * (completed - 1) + processing_time
+            ) / completed
 
     def _emit_streaming_event(self, event_name: str, data: Dict[str, Any]) -> None:
         """发送流式转录事件

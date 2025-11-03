@@ -17,10 +17,11 @@ from ..interfaces.event import IEventService, EventPriority
 @dataclass
 class PerformanceMetrics:
     """性能指标数据"""
+
     method_name: str
     call_count: int = 0
     total_time: float = 0.0
-    min_time: float = float('inf')
+    min_time: float = float("inf")
     max_time: float = 0.0
     last_call_time: float = 0.0
     cache_hits: int = 0
@@ -36,8 +37,13 @@ class PerformanceMonitor:
         self.event_service = event_service
         self._lock = threading.RLock()
 
-    def record_execution(self, method_name: str, execution_time: float,
-                        success: bool = True, cache_hit: bool = False):
+    def record_execution(
+        self,
+        method_name: str,
+        execution_time: float,
+        success: bool = True,
+        cache_hit: bool = False,
+    ):
         """记录执行指标"""
         with self._lock:
             if method_name not in self.metrics:
@@ -62,16 +68,25 @@ class PerformanceMonitor:
                 metrics.cache_misses += 1
 
             # 发送事件（如果有事件服务）
-            if self.event_service and metrics.call_count % 10 == 0:  # 每10次调用记录一次
-                self.event_service.emit("performance_metrics", {
-                    "method": method_name,
-                    "call_count": metrics.call_count,
-                    "avg_time": metrics.total_time / metrics.call_count,
-                    "min_time": metrics.min_time,
-                    "max_time": metrics.max_time,
-                    "cache_hit_rate": metrics.cache_hits / (metrics.cache_hits + metrics.cache_misses) if (metrics.cache_hits + metrics.cache_misses) > 0 else 0,
-                    "error_rate": metrics.error_count / metrics.call_count
-                }, EventPriority.LOW)
+            if (
+                self.event_service and metrics.call_count % 10 == 0
+            ):  # 每10次调用记录一次
+                self.event_service.emit(
+                    "performance_metrics",
+                    {
+                        "method": method_name,
+                        "call_count": metrics.call_count,
+                        "avg_time": metrics.total_time / metrics.call_count,
+                        "min_time": metrics.min_time,
+                        "max_time": metrics.max_time,
+                        "cache_hit_rate": metrics.cache_hits
+                        / (metrics.cache_hits + metrics.cache_misses)
+                        if (metrics.cache_hits + metrics.cache_misses) > 0
+                        else 0,
+                        "error_rate": metrics.error_count / metrics.call_count,
+                    },
+                    EventPriority.LOW,
+                )
 
     def get_metrics(self, method_name: Optional[str] = None) -> Dict[str, Any]:
         """获取性能指标"""
@@ -83,21 +98,28 @@ class PerformanceMonitor:
                         "method_name": metrics.method_name,
                         "call_count": metrics.call_count,
                         "total_time": metrics.total_time,
-                        "avg_time": metrics.total_time / metrics.call_count if metrics.call_count > 0 else 0,
-                        "min_time": metrics.min_time if metrics.min_time != float('inf') else 0,
+                        "avg_time": metrics.total_time / metrics.call_count
+                        if metrics.call_count > 0
+                        else 0,
+                        "min_time": metrics.min_time
+                        if metrics.min_time != float("inf")
+                        else 0,
                         "max_time": metrics.max_time,
                         "last_call_time": metrics.last_call_time,
                         "cache_hits": metrics.cache_hits,
                         "cache_misses": metrics.cache_misses,
-                        "cache_hit_rate": metrics.cache_hits / (metrics.cache_hits + metrics.cache_misses) if (metrics.cache_hits + metrics.cache_misses) > 0 else 0,
+                        "cache_hit_rate": metrics.cache_hits
+                        / (metrics.cache_hits + metrics.cache_misses)
+                        if (metrics.cache_hits + metrics.cache_misses) > 0
+                        else 0,
                         "error_count": metrics.error_count,
-                        "error_rate": metrics.error_count / metrics.call_count if metrics.call_count > 0 else 0
+                        "error_rate": metrics.error_count / metrics.call_count
+                        if metrics.call_count > 0
+                        else 0,
                     }
                 return {}
 
-            return {
-                name: self.get_metrics(name) for name in self.metrics.keys()
-            }
+            return {name: self.get_metrics(name) for name in self.metrics.keys()}
 
     def reset_metrics(self, method_name: Optional[str] = None):
         """重置指标"""
@@ -124,10 +146,13 @@ class BaseDecorator(ABC):
 class PerformanceDecorator(BaseDecorator):
     """性能监控装饰器"""
 
-    def __init__(self, func: Callable,
-                 monitor: Optional[PerformanceMonitor] = None,
-                 log_slow_calls: bool = True,
-                 slow_threshold: float = 1.0):
+    def __init__(
+        self,
+        func: Callable,
+        monitor: Optional[PerformanceMonitor] = None,
+        log_slow_calls: bool = True,
+        slow_threshold: float = 1.0,
+    ):
         super().__init__(func)
         self.monitor = monitor or PerformanceMonitor()
         self.log_slow_calls = log_slow_calls
@@ -154,20 +179,26 @@ class PerformanceDecorator(BaseDecorator):
                 method_name=self.func.__name__,
                 execution_time=execution_time,
                 success=success,
-                cache_hit=False
+                cache_hit=False,
             )
 
             # 记录慢调用
             if self.log_slow_calls and execution_time > self.slow_threshold:
-                logging.warning(f"Slow call detected: {self.func.__name__} took {execution_time:.3f}s")
+                logging.warning(
+                    f"Slow call detected: {self.func.__name__} took {execution_time:.3f}s"
+                )
 
             if error and self.monitor.event_service:
-                self.monitor.event_service.emit("method_error", {
-                    "method": self.func.__name__,
-                    "execution_time": execution_time,
-                    "error": str(error),
-                    "error_type": type(error).__name__
-                }, EventPriority.HIGH)
+                self.monitor.event_service.emit(
+                    "method_error",
+                    {
+                        "method": self.func.__name__,
+                        "execution_time": execution_time,
+                        "error": str(error),
+                        "error_type": type(error).__name__,
+                    },
+                    EventPriority.HIGH,
+                )
 
         return result
 
@@ -175,10 +206,13 @@ class PerformanceDecorator(BaseDecorator):
 class CacheDecorator(BaseDecorator):
     """缓存装饰器"""
 
-    def __init__(self, func: Callable,
-                 max_size: int = 128,
-                 ttl: Optional[float] = None,
-                 key_func: Optional[Callable] = None):
+    def __init__(
+        self,
+        func: Callable,
+        max_size: int = 128,
+        ttl: Optional[float] = None,
+        key_func: Optional[Callable] = None,
+    ):
         super().__init__(func)
         self.cache = {}
         self.max_size = max_size
@@ -194,7 +228,7 @@ class CacheDecorator(BaseDecorator):
         """检查缓存是否有效"""
         if self.ttl is None:
             return True
-        return time.time() - entry['timestamp'] < self.ttl
+        return time.time() - entry["timestamp"] < self.ttl
 
     def __call__(self, *args, **kwargs):
         # 生成缓存键
@@ -208,9 +242,9 @@ class CacheDecorator(BaseDecorator):
                     method_name=self.func.__name__,
                     execution_time=0,
                     success=True,
-                    cache_hit=True
+                    cache_hit=True,
                 )
-                return entry['value']
+                return entry["value"]
             else:
                 # 缓存过期，删除
                 del self.cache[cache_key]
@@ -221,22 +255,20 @@ class CacheDecorator(BaseDecorator):
         execution_time = time.perf_counter() - start_time
 
         # 更新缓存
-        self.cache[cache_key] = {
-            'value': result,
-            'timestamp': time.time()
-        }
+        self.cache[cache_key] = {"value": result, "timestamp": time.time()}
 
         # 缓存大小控制
         if len(self.cache) > self.max_size:
-            oldest_key = min(self.cache.keys(),
-                           key=lambda k: self.cache[k]['timestamp'])
+            oldest_key = min(
+                self.cache.keys(), key=lambda k: self.cache[k]["timestamp"]
+            )
             del self.cache[oldest_key]
 
         self.monitor.record_execution(
             method_name=self.func.__name__,
             execution_time=execution_time,
             success=True,
-            cache_hit=False
+            cache_hit=False,
         )
 
         return result
@@ -249,10 +281,13 @@ class CacheDecorator(BaseDecorator):
 class LoggingDecorator(BaseDecorator):
     """日志装饰器"""
 
-    def __init__(self, func: Callable,
-                 log_args: bool = True,
-                 log_result: bool = True,
-                 log_errors: bool = True):
+    def __init__(
+        self,
+        func: Callable,
+        log_args: bool = True,
+        log_result: bool = True,
+        log_errors: bool = True,
+    ):
         super().__init__(func)
         self.log_args = log_args
         self.log_result = log_result
@@ -261,7 +296,9 @@ class LoggingDecorator(BaseDecorator):
     def __call__(self, *args, **kwargs):
         # 记录参数
         if self.log_args:
-            logging.info(f"Calling {self.func.__name__} with args: {args}, kwargs: {kwargs}")
+            logging.info(
+                f"Calling {self.func.__name__} with args: {args}, kwargs: {kwargs}"
+            )
 
         try:
             result = self.func(*args, **kwargs)
@@ -281,20 +318,26 @@ class LoggingDecorator(BaseDecorator):
 
 def performance_monitor(monitor: Optional[PerformanceMonitor] = None):
     """性能监控装饰器工厂"""
+
     def decorator(func: Callable) -> PerformanceDecorator:
         return PerformanceDecorator(func, monitor)
+
     return decorator
 
 
 def cache_decorator(max_size: int = 128, ttl: Optional[float] = None):
     """缓存装饰器工厂"""
+
     def decorator(func: Callable) -> CacheDecorator:
         return CacheDecorator(func, max_size, ttl)
+
     return decorator
 
 
 def logging_decorator(log_args: bool = True, log_result: bool = True):
     """日志装饰器工厂"""
+
     def decorator(func: Callable) -> LoggingDecorator:
         return LoggingDecorator(func, log_args, log_result)
+
     return decorator

@@ -25,7 +25,7 @@ class AIClientFactory:
         base_url: Optional[str] = None,
         timeout: int = 30,
         max_retries: int = 3,
-        filter_thinking: bool = True
+        filter_thinking: bool = True,
     ) -> IAIService:
         """创建 AI 客户端实例
 
@@ -49,29 +49,35 @@ class AIClientFactory:
         try:
             if provider_lower == "groq":
                 from .groq import GroqClient
+
                 return GroqClient(api_key, timeout, max_retries, filter_thinking)
 
             elif provider_lower == "nvidia":
                 from .nvidia import NvidiaClient
+
                 return NvidiaClient(api_key, timeout, max_retries, filter_thinking)
 
             elif provider_lower == "openai_compatible":
                 from .openai_compatible import OpenAICompatibleClient
+
                 # openai_compatible 需要 base_url
                 if base_url is None:
                     base_url = "http://localhost:1234/v1"
-                return OpenAICompatibleClient(api_key, base_url, timeout, max_retries, filter_thinking)
+                return OpenAICompatibleClient(
+                    api_key, base_url, timeout, max_retries, filter_thinking
+                )
 
             elif provider_lower == "openrouter":
                 from .openrouter import OpenRouterClient
+
                 return OpenRouterClient(api_key, timeout, max_retries, filter_thinking)
 
             else:
                 error_msg = f"Unsupported AI provider: {provider}"
-                app_logger.log_audio_event("AI client creation failed", {
-                    "provider": provider,
-                    "error": error_msg
-                })
+                app_logger.log_audio_event(
+                    "AI client creation failed",
+                    {"provider": provider, "error": error_msg},
+                )
                 raise ValueError(error_msg)
 
         except ImportError as e:
@@ -99,20 +105,30 @@ class AIClientFactory:
             # 读取提供商特定配置
             if provider == "groq":
                 api_key = config.get_setting("ai.groq.api_key", "")
-                return AIClientFactory.create_client(provider, api_key, None, timeout, max_retries, filter_thinking)
+                return AIClientFactory.create_client(
+                    provider, api_key, None, timeout, max_retries, filter_thinking
+                )
 
             elif provider == "nvidia":
                 api_key = config.get_setting("ai.nvidia.api_key", "")
-                return AIClientFactory.create_client(provider, api_key, None, timeout, max_retries, filter_thinking)
+                return AIClientFactory.create_client(
+                    provider, api_key, None, timeout, max_retries, filter_thinking
+                )
 
             elif provider == "openai_compatible":
                 api_key = config.get_setting("ai.openai_compatible.api_key", "")
-                base_url = config.get_setting("ai.openai_compatible.base_url", "http://localhost:1234/v1")
-                return AIClientFactory.create_client(provider, api_key, base_url, timeout, max_retries, filter_thinking)
+                base_url = config.get_setting(
+                    "ai.openai_compatible.base_url", "http://localhost:1234/v1"
+                )
+                return AIClientFactory.create_client(
+                    provider, api_key, base_url, timeout, max_retries, filter_thinking
+                )
 
             else:  # openrouter (default)
                 api_key = config.get_setting("ai.openrouter.api_key", "")
-                return AIClientFactory.create_client(provider, api_key, None, timeout, max_retries, filter_thinking)
+                return AIClientFactory.create_client(
+                    provider, api_key, None, timeout, max_retries, filter_thinking
+                )
 
         except Exception as e:
             app_logger.log_error(e, "AIClientFactory.create_from_config")

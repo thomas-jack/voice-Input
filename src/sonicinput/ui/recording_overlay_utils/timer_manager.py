@@ -13,7 +13,9 @@ class TimerManager:
     """
 
     @staticmethod
-    def safe_timer_connect(timer: QTimer, target_method: Callable, description: str = "") -> None:
+    def safe_timer_connect(
+        timer: QTimer, target_method: Callable, description: str = ""
+    ) -> None:
         """安全地连接定时器，防止重复连接
 
         Args:
@@ -31,12 +33,14 @@ class TimerManager:
         timer.timeout.connect(target_method)
 
         if description:
-            app_logger.log_audio_event(f"Timer connected: {description}", {
-                "timer_active": timer.isActive()
-            })
+            app_logger.log_audio_event(
+                f"Timer connected: {description}", {"timer_active": timer.isActive()}
+            )
 
     @staticmethod
-    def safe_timer_start(timer: QTimer, interval: int, target_method: Callable, description: str = "") -> None:
+    def safe_timer_start(
+        timer: QTimer, interval: int, target_method: Callable, description: str = ""
+    ) -> None:
         """安全地启动定时器
 
         Args:
@@ -51,21 +55,25 @@ class TimerManager:
                 timer.stop()
 
             # 确保连接正确
-            TimerManager.safe_timer_connect(timer, target_method, f"{description}_connect")
+            TimerManager.safe_timer_connect(
+                timer, target_method, f"{description}_connect"
+            )
 
             # 启动定时器
             timer.start(interval)
 
             if description:
-                app_logger.log_audio_event(f"Timer started: {description}", {
-                    "interval": interval,
-                    "timer_active": timer.isActive()
-                })
+                app_logger.log_audio_event(
+                    f"Timer started: {description}",
+                    {"interval": interval, "timer_active": timer.isActive()},
+                )
         except Exception as e:
             app_logger.log_error(e, f"safe_timer_start_{description}")
 
     @staticmethod
-    def safe_timer_stop(timer: QTimer, target_method: Callable, description: str = "") -> None:
+    def safe_timer_stop(
+        timer: QTimer, target_method: Callable, description: str = ""
+    ) -> None:
         """安全地停止定时器
 
         Args:
@@ -84,14 +92,17 @@ class TimerManager:
                     pass  # 如果没有连接则忽略
 
                 if description:
-                    app_logger.log_audio_event(f"Timer stopped: {description}", {
-                        "timer_active": timer.isActive()
-                    })
+                    app_logger.log_audio_event(
+                        f"Timer stopped: {description}",
+                        {"timer_active": timer.isActive()},
+                    )
         except Exception as e:
             app_logger.log_error(e, f"safe_timer_stop_{description}")
 
     @staticmethod
-    def cleanup_all_timers(timers_with_callbacks: list[tuple[str, Optional[str], Optional[QTimer]]]) -> None:
+    def cleanup_all_timers(
+        timers_with_callbacks: list[tuple[str, Optional[str], Optional[QTimer]]],
+    ) -> None:
         """彻底清理所有定时器
 
         Args:
@@ -101,12 +112,12 @@ class TimerManager:
             for timer_name, callback_name, timer in timers_with_callbacks:
                 if timer:
                     try:
-                        if hasattr(timer, 'isActive') and timer.isActive():
+                        if hasattr(timer, "isActive") and timer.isActive():
                             timer.stop()
                             app_logger.log_audio_event(f"Stopped {timer_name}", {})
 
                         # 断开信号连接
-                        if callback_name and hasattr(timer, 'timeout'):
+                        if callback_name and hasattr(timer, "timeout"):
                             try:
                                 timer.timeout.disconnect()
                             except (TypeError, RuntimeError):

@@ -11,4 +11,4 @@ except ImportError:
     # Fallback if unified_logger is not available
     app_logger = None
 
-__all__ = ['app_logger']
+__all__ = ["app_logger"]

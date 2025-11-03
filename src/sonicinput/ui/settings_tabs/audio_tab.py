@@ -1,7 +1,15 @@
 """音频设置标签页"""
 
-from PySide6.QtWidgets import (QVBoxLayout, QGroupBox, QFormLayout, QHBoxLayout,
-                            QComboBox, QSpinBox, QDoubleSpinBox, QPushButton)
+from PySide6.QtWidgets import (
+    QVBoxLayout,
+    QGroupBox,
+    QFormLayout,
+    QHBoxLayout,
+    QComboBox,
+    QSpinBox,
+    QDoubleSpinBox,
+    QPushButton,
+)
 from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
@@ -61,8 +69,12 @@ class AudioTab(BaseSettingsTab):
         self.streaming_chunk_duration_spinbox.setRange(5.0, 60.0)
         self.streaming_chunk_duration_spinbox.setSingleStep(5.0)
         self.streaming_chunk_duration_spinbox.setSuffix(" seconds")
-        self.streaming_chunk_duration_spinbox.setToolTip("Duration of each audio chunk for streaming transcription (5-60 seconds)")
-        params_layout.addRow("Streaming Chunk Duration:", self.streaming_chunk_duration_spinbox)
+        self.streaming_chunk_duration_spinbox.setToolTip(
+            "Duration of each audio chunk for streaming transcription (5-60 seconds)"
+        )
+        params_layout.addRow(
+            "Streaming Chunk Duration:", self.streaming_chunk_duration_spinbox
+        )
 
         layout.addWidget(params_group)
 
@@ -70,11 +82,11 @@ class AudioTab(BaseSettingsTab):
 
         # 保存控件引用
         self.controls = {
-            'audio_device': self.audio_device_combo,
-            'sample_rate': self.sample_rate_combo,
-            'channels': self.channels_spinbox,
-            'chunk_size': self.chunk_size_spinbox,
-            'streaming_chunk_duration': self.streaming_chunk_duration_spinbox,
+            "audio_device": self.audio_device_combo,
+            "sample_rate": self.sample_rate_combo,
+            "channels": self.channels_spinbox,
+            "chunk_size": self.chunk_size_spinbox,
+            "streaming_chunk_duration": self.streaming_chunk_duration_spinbox,
         }
 
         # 暴露控件到parent_window
@@ -82,7 +94,9 @@ class AudioTab(BaseSettingsTab):
         self.parent_window.sample_rate_combo = self.sample_rate_combo
         self.parent_window.channels_spinbox = self.channels_spinbox
         self.parent_window.chunk_size_spinbox = self.chunk_size_spinbox
-        self.parent_window.streaming_chunk_duration_spinbox = self.streaming_chunk_duration_spinbox
+        self.parent_window.streaming_chunk_duration_spinbox = (
+            self.streaming_chunk_duration_spinbox
+        )
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -93,13 +107,17 @@ class AudioTab(BaseSettingsTab):
         audio_config = config.get("audio", {})
 
         # Audio settings
-        self.sample_rate_combo.setCurrentText(str(audio_config.get("sample_rate", 16000)))
+        self.sample_rate_combo.setCurrentText(
+            str(audio_config.get("sample_rate", 16000))
+        )
         self.channels_spinbox.setValue(audio_config.get("channels", 1))
         self.chunk_size_spinbox.setValue(audio_config.get("chunk_size", 1024))
 
         # Streaming settings
         streaming_config = audio_config.get("streaming", {})
-        self.streaming_chunk_duration_spinbox.setValue(streaming_config.get("chunk_duration", 30.0))
+        self.streaming_chunk_duration_spinbox.setValue(
+            streaming_config.get("chunk_duration", 30.0)
+        )
 
         # Audio device - 使用 itemData 查找真实设备 ID
         device_id = audio_config.get("device_id")
@@ -127,7 +145,7 @@ class AudioTab(BaseSettingsTab):
                 "device_id": device_id,  # 保存真实的设备 ID，而不是下拉框索引
                 "streaming": {
                     "chunk_duration": self.streaming_chunk_duration_spinbox.value(),
-                }
+                },
             }
         }
 
@@ -135,7 +153,7 @@ class AudioTab(BaseSettingsTab):
 
     def _refresh_audio_devices(self) -> None:
         """刷新音频设备列表 - 调用父窗口的方法"""
-        if hasattr(self.parent_window, 'refresh_audio_devices'):
+        if hasattr(self.parent_window, "refresh_audio_devices"):
             self.parent_window.refresh_audio_devices()
 
     def update_device_list(self, devices: list) -> None:

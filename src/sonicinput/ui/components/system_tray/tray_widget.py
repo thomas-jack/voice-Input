@@ -53,7 +53,9 @@ class TrayWidget(QObject):
         self._create_context_menu()
 
         # Set initial tooltip
-        self.set_tooltip("SonicInput - Ready\\nRight-click for menu, Double-click for settings")
+        self.set_tooltip(
+            "SonicInput - Ready\\nRight-click for menu, Double-click for settings"
+        )
 
         # Connect signals
         self._tray_icon.activated.connect(self._on_icon_activated)
@@ -89,13 +91,12 @@ class TrayWidget(QObject):
 
         # Create gradient for microphone body - 使用光谱上距离较远的颜色
         gradient = QLinearGradient(
-            center_x, capsule_y,
-            center_x, capsule_y + capsule_height
+            center_x, capsule_y, center_x, capsule_y + capsule_height
         )
 
         # Orange to Purple gradient (光谱上距离远，视觉冲击力强)
-        gradient.setColorAt(0, QColor(255, 152, 0))    # Material Orange 500
-        gradient.setColorAt(1, QColor(156, 39, 176))   # Material Purple 500
+        gradient.setColorAt(0, QColor(255, 152, 0))  # Material Orange 500
+        gradient.setColorAt(1, QColor(156, 39, 176))  # Material Purple 500
 
         # Draw microphone capsule (rounded rectangle, capsule-like)
         painter.setPen(Qt.PenStyle.NoPen)
@@ -112,8 +113,7 @@ class TrayWidget(QObject):
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         painter.setPen(pen)
         painter.drawLine(
-            int(center_x), int(stem_top_y),
-            int(center_x), int(stem_bottom_y)
+            int(center_x), int(stem_top_y), int(center_x), int(stem_bottom_y)
         )
 
         # Draw base (rounded rectangle at bottom) - 调整底座
@@ -145,7 +145,9 @@ class TrayWidget(QObject):
 
         # Recording action
         recording_action = QAction("Start Recording", self._context_menu)
-        recording_action.triggered.connect(lambda: self.menu_action_triggered.emit("toggle_recording"))
+        recording_action.triggered.connect(
+            lambda: self.menu_action_triggered.emit("toggle_recording")
+        )
         self._context_menu.addAction(recording_action)
         self._menu_actions["recording"] = recording_action
 
@@ -153,13 +155,17 @@ class TrayWidget(QObject):
 
         # Settings
         settings_action = QAction("Settings", self._context_menu)
-        settings_action.triggered.connect(lambda: self.menu_action_triggered.emit("show_settings"))
+        settings_action.triggered.connect(
+            lambda: self.menu_action_triggered.emit("show_settings")
+        )
         self._context_menu.addAction(settings_action)
         self._menu_actions["settings"] = settings_action
 
         # About
         about_action = QAction("About", self._context_menu)
-        about_action.triggered.connect(lambda: self.menu_action_triggered.emit("show_about"))
+        about_action.triggered.connect(
+            lambda: self.menu_action_triggered.emit("show_about")
+        )
         self._context_menu.addAction(about_action)
         self._menu_actions["about"] = about_action
 
@@ -167,7 +173,9 @@ class TrayWidget(QObject):
 
         # Exit
         exit_action = QAction("Exit", self._context_menu)
-        exit_action.triggered.connect(lambda: self.menu_action_triggered.emit("exit_application"))
+        exit_action.triggered.connect(
+            lambda: self.menu_action_triggered.emit("exit_application")
+        )
         self._context_menu.addAction(exit_action)
         self._menu_actions["exit"] = exit_action
 
@@ -216,9 +224,13 @@ class TrayWidget(QObject):
         if "recording" in self._menu_actions:
             self._menu_actions["recording"].setText(text)
 
-    def show_message(self, title: str, message: str,
-                    icon: QSystemTrayIcon.MessageIcon = QSystemTrayIcon.MessageIcon.Information,
-                    timeout: int = 3000) -> bool:
+    def show_message(
+        self,
+        title: str,
+        message: str,
+        icon: QSystemTrayIcon.MessageIcon = QSystemTrayIcon.MessageIcon.Information,
+        timeout: int = 3000,
+    ) -> bool:
         """Show a system tray message
 
         Args:

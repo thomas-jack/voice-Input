@@ -44,11 +44,12 @@ from .dynamic_event_system import (
     EventMetadata,
     EventSchema,
     EventPlugin,
-    EventValidator
+    EventValidator,
 )
 
 # 主要API - 直接使用动态事件系统
 EventBus = DynamicEventSystem
+
 
 # 导出便利的事件名称常量
 class Events:
@@ -98,16 +99,15 @@ class Events:
     ERROR_OCCURRED = "error_occurred"
     ERROR_AUTO_RESOLVED = "error_auto_resolved"
 
+
 __all__ = [
-    'EventBus',
-    'DynamicEventSystem',
-
+    "EventBus",
+    "DynamicEventSystem",
     # 核心类型
-    'EventMetadata',
-    'EventSchema',
-    'EventPlugin',
-    'EventValidator',
-
+    "EventMetadata",
+    "EventSchema",
+    "EventPlugin",
+    "EventValidator",
     # 便利常量
-    'Events'
+    "Events",
 ]

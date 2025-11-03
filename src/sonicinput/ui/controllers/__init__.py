@@ -9,9 +9,9 @@ from .position_manager import PositionManager
 from .animation_engine import AnimationEngine, AnimationType, AnimationDirection
 
 __all__ = [
-    'OverlayController',
-    'PositionManager',
-    'AnimationEngine',
-    'AnimationType',
-    'AnimationDirection',
+    "OverlayController",
+    "PositionManager",
+    "AnimationEngine",
+    "AnimationType",
+    "AnimationDirection",
 ]

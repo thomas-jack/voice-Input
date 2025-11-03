@@ -22,8 +22,14 @@ class OpenAICompatibleClient(BaseAIClient):
     - 增强的 JSON 错误处理
     """
 
-    def __init__(self, api_key: str = "", base_url: str = "http://localhost:1234/v1",
-                 timeout: int = 30, max_retries: int = 3, filter_thinking: bool = True):
+    def __init__(
+        self,
+        api_key: str = "",
+        base_url: str = "http://localhost:1234/v1",
+        timeout: int = 30,
+        max_retries: int = 3,
+        filter_thinking: bool = True,
+    ):
         """初始化 OpenAI Compatible 客户端
 
         Args:
@@ -34,7 +40,7 @@ class OpenAICompatibleClient(BaseAIClient):
             filter_thinking: 是否过滤 AI 思考标签
         """
         # 保存 base_url（移除末尾斜杠）
-        self._base_url = base_url.rstrip('/')
+        self._base_url = base_url.rstrip("/")
 
         # 调用父类初始化
         super().__init__(api_key, timeout, max_retries, filter_thinking)
@@ -71,6 +77,8 @@ class OpenAICompatibleClient(BaseAIClient):
         """
         choices = result.get("choices", [])
         if not choices:
-            raise self._create_api_error("No choices returned in OpenAI Compatible response")
+            raise self._create_api_error(
+                "No choices returned in OpenAI Compatible response"
+            )
 
         return choices[0].get("message", {}).get("content", "").strip()

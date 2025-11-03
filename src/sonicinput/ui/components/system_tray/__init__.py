@@ -8,6 +8,6 @@ from .tray_widget import TrayWidget
 from .tray_controller import TrayController
 
 __all__ = [
-    'TrayWidget',
-    'TrayController',
+    "TrayWidget",
+    "TrayController",
 ]

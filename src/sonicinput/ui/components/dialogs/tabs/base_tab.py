@@ -10,7 +10,9 @@ class BaseSettingsTab(QWidget):
     Provides common functionality for all settings tabs.
     """
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         """Initialize base tab
 
         Args:

@@ -10,7 +10,4 @@ __description__ = "Windows语音输入软件"
 from .core.voice_input_app import VoiceInputApp
 from .utils import app_logger
 
-__all__ = [
-    'VoiceInputApp',
-    'app_logger'
-]
+__all__ = ["VoiceInputApp", "app_logger"]

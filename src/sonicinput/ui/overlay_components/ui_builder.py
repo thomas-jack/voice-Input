@@ -1,8 +1,14 @@
 """UI构建器 - 单一职责：构建RecordingOverlay的UI界面"""
 
 from typing import Dict, Any, List
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                                QFrame, QGraphicsDropShadowEffect)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QFrame,
+    QGraphicsDropShadowEffect,
+)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont, QColor
 
@@ -83,14 +89,14 @@ class OverlayUIBuilder:
             app_logger.log_audio_event("UI components created successfully", {})
 
             return {
-                'main_layout': main_layout,
-                'background_frame': background_frame,
-                'status_indicator': status_indicator,
-                'audio_level_bars': audio_level_bars,
-                'time_label': time_label,
-                'close_button': close_button,
-                'position_manager': position_manager,
-                'current_audio_level': 0.0  # 初始音频级别
+                "main_layout": main_layout,
+                "background_frame": background_frame,
+                "status_indicator": status_indicator,
+                "audio_level_bars": audio_level_bars,
+                "time_label": time_label,
+                "close_button": close_button,
+                "position_manager": position_manager,
+                "current_audio_level": 0.0,  # 初始音频级别
             }
 
         except Exception as e:

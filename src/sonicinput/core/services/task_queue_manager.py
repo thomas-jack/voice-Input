@@ -13,6 +13,7 @@ from ...utils import app_logger
 
 class TaskPriority(Enum):
     """任务优先级"""
+
     LOW = 1
     NORMAL = 2
     HIGH = 3
@@ -21,6 +22,7 @@ class TaskPriority(Enum):
 
 class TaskStatus(Enum):
     """任务状态"""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -31,6 +33,7 @@ class TaskStatus(Enum):
 @dataclass
 class Task:
     """任务对象"""
+
     task_id: str
     task_type: str
     data: Dict[str, Any] = field(default_factory=dict)
@@ -88,7 +91,7 @@ class TaskQueueManager:
             "cancelled_tasks": 0,
             "average_execution_time": 0.0,
             "queue_size": 0,
-            "active_workers": 0
+            "active_workers": 0,
         }
 
         # 任务处理器注册表
@@ -98,9 +101,9 @@ class TaskQueueManager:
         self._stats_lock = threading.Lock()
         self._tasks_lock = threading.Lock()
 
-        app_logger.log_audio_event("TaskQueueManager initialized", {
-            "worker_count": worker_count
-        })
+        app_logger.log_audio_event(
+            "TaskQueueManager initialized", {"worker_count": worker_count}
+        )
 
     def register_task_handler(self, task_type: str, handler: Callable) -> None:
         """注册任务处理器
@@ -110,9 +113,7 @@ class TaskQueueManager:
             handler: 处理器函数
         """
         self._task_handlers[task_type] = handler
-        app_logger.log_audio_event("Task handler registered", {
-            "task_type": task_type
-        })
+        app_logger.log_audio_event("Task handler registered", {"task_type": task_type})
 
     def start(self) -> None:
         """启动任务队列管理器"""
@@ -125,21 +126,19 @@ class TaskQueueManager:
         # 启动工作线程
         for i in range(self.worker_count):
             worker = threading.Thread(
-                target=self._worker_loop,
-                name=f"TaskWorker-{i}",
-                daemon=True
+                target=self._worker_loop, name=f"TaskWorker-{i}", daemon=True
             )
             worker.start()
             self._workers.append(worker)
 
-        app_logger.log_audio_event("TaskQueueManager started", {
-            "worker_count": len(self._workers)
-        })
+        app_logger.log_audio_event(
+            "TaskQueueManager started", {"worker_count": len(self._workers)}
+        )
 
         # 发送启动事件
-        self._emit_task_event("task_queue_started", {
-            "worker_count": len(self._workers)
-        })
+        self._emit_task_event(
+            "task_queue_started", {"worker_count": len(self._workers)}
+        )
 
     def stop(self, timeout: Optional[float] = 10.0) -> None:
         """停止任务队列管理器
@@ -150,9 +149,7 @@ class TaskQueueManager:
         if not self._is_running:
             return
 
-        app_logger.log_audio_event("TaskQueueManager stopping", {
-            "timeout": timeout
-        })
+        app_logger.log_audio_event("TaskQueueManager stopping", {"timeout": timeout})
 
         # 设置关闭事件
         self._shutdown_event.set()
@@ -181,7 +178,7 @@ class TaskQueueManager:
         callback: Optional[Callable] = None,
         error_callback: Optional[Callable] = None,
         timeout: Optional[float] = None,
-        max_retries: int = 0
+        max_retries: int = 0,
     ) -> str:
         """提交任务
 
@@ -212,7 +209,7 @@ class TaskQueueManager:
             callback=callback,
             error_callback=error_callback,
             timeout=timeout,
-            max_retries=max_retries
+            max_retries=max_retries,
         )
 
         try:
@@ -223,18 +220,20 @@ class TaskQueueManager:
             with self._stats_lock:
                 self._stats["total_tasks"] += 1
 
-            app_logger.log_audio_event("Task submitted", {
-                "task_id": task.task_id,
-                "task_type": task_type,
-                "priority": priority.name,
-                "queue_size": self._task_queue.qsize()
-            })
+            app_logger.log_audio_event(
+                "Task submitted",
+                {
+                    "task_id": task.task_id,
+                    "task_type": task_type,
+                    "priority": priority.name,
+                    "queue_size": self._task_queue.qsize(),
+                },
+            )
 
             # 发送任务提交事件
-            self._emit_task_event("task_submitted", {
-                "task_id": task.task_id,
-                "task_type": task_type
-            })
+            self._emit_task_event(
+                "task_submitted", {"task_id": task.task_id, "task_type": task_type}
+            )
 
             return task.task_id
 
@@ -255,16 +254,14 @@ class TaskQueueManager:
             if task_id in self._running_tasks:
                 task = self._running_tasks[task_id]
                 task.status = TaskStatus.CANCELLED
-                app_logger.log_audio_event("Running task cancelled", {
-                    "task_id": task_id
-                })
+                app_logger.log_audio_event(
+                    "Running task cancelled", {"task_id": task_id}
+                )
                 return True
 
         # 尝试从队列中移除（这个比较困难，因为PriorityQueue不支持直接移除）
         # 这里简化处理，通过标记来取消
-        app_logger.log_audio_event("Task cancel requested", {
-            "task_id": task_id
-        })
+        app_logger.log_audio_event("Task cancel requested", {"task_id": task_id})
 
         return False
 
@@ -308,9 +305,9 @@ class TaskQueueManager:
     def _worker_loop(self) -> None:
         """工作线程主循环"""
         worker_name = threading.current_thread().name
-        app_logger.log_audio_event("Worker thread started", {
-            "worker_name": worker_name
-        })
+        app_logger.log_audio_event(
+            "Worker thread started", {"worker_name": worker_name}
+        )
 
         while not self._shutdown_event.is_set():
             try:
@@ -326,9 +323,9 @@ class TaskQueueManager:
             except Exception as e:
                 app_logger.log_error(e, "worker_loop_error")
 
-        app_logger.log_audio_event("Worker thread stopped", {
-            "worker_name": worker_name
-        })
+        app_logger.log_audio_event(
+            "Worker thread stopped", {"worker_name": worker_name}
+        )
 
     def _execute_task(self, task: Task) -> None:
         """执行任务
@@ -347,10 +344,10 @@ class TaskQueueManager:
         retry_scheduled = False
 
         try:
-            app_logger.log_audio_event("Task execution started", {
-                "task_id": task.task_id,
-                "task_type": task.task_type
-            })
+            app_logger.log_audio_event(
+                "Task execution started",
+                {"task_id": task.task_id, "task_type": task.task_type},
+            )
 
             # 获取处理器
             handler = self._task_handlers.get(task.task_type)
@@ -373,10 +370,13 @@ class TaskQueueManager:
                 self._stats["completed_tasks"] += 1
                 self._update_execution_time_stats(task)
 
-            app_logger.log_audio_event("Task completed successfully", {
-                "task_id": task.task_id,
-                "execution_time": task.completed_at - task.started_at
-            })
+            app_logger.log_audio_event(
+                "Task completed successfully",
+                {
+                    "task_id": task.task_id,
+                    "execution_time": task.completed_at - task.started_at,
+                },
+            )
 
             # 执行成功回调
             if task.callback:
@@ -386,10 +386,9 @@ class TaskQueueManager:
                     app_logger.log_error(e, "task_callback_error")
 
             # 发送任务完成事件
-            self._emit_task_event("task_completed", {
-                "task_id": task.task_id,
-                "result": result
-            })
+            self._emit_task_event(
+                "task_completed", {"task_id": task.task_id, "result": result}
+            )
 
         except Exception as e:
             # 任务失败
@@ -408,15 +407,20 @@ class TaskQueueManager:
                 try:
                     self._task_queue.put(task, timeout=1.0)
 
-                    app_logger.log_audio_event("Task retry scheduled", {
-                        "task_id": task.task_id,
-                        "retry_count": task.retry_count,
-                        "max_retries": task.max_retries
-                    })
+                    app_logger.log_audio_event(
+                        "Task retry scheduled",
+                        {
+                            "task_id": task.task_id,
+                            "retry_count": task.retry_count,
+                            "max_retries": task.max_retries,
+                        },
+                    )
 
                     retry_scheduled = True
                 except queue.Full:
-                    app_logger.log_error(Exception("Queue full during retry"), "task_retry_failed")
+                    app_logger.log_error(
+                        Exception("Queue full during retry"), "task_retry_failed"
+                    )
 
             # Only continue with error handling if retry was not scheduled
             if not retry_scheduled:
@@ -431,14 +435,19 @@ class TaskQueueManager:
                     try:
                         task.error_callback(str(e))
                     except Exception as callback_error:
-                        app_logger.log_error(callback_error, "task_error_callback_error")
+                        app_logger.log_error(
+                            callback_error, "task_error_callback_error"
+                        )
 
                 # 发送任务失败事件
-                self._emit_task_event("task_failed", {
-                    "task_id": task.task_id,
-                    "error": str(e),
-                    "retry_count": task.retry_count
-                })
+                self._emit_task_event(
+                    "task_failed",
+                    {
+                        "task_id": task.task_id,
+                        "error": str(e),
+                        "retry_count": task.retry_count,
+                    },
+                )
 
         finally:
             # 清理运行任务记录
@@ -448,7 +457,9 @@ class TaskQueueManager:
             # 标记队列任务完成
             self._task_queue.task_done()
 
-    def _execute_with_timeout(self, handler: Callable, data: Dict[str, Any], timeout: float) -> Any:
+    def _execute_with_timeout(
+        self, handler: Callable, data: Dict[str, Any], timeout: float
+    ) -> Any:
         """带超时执行处理器
 
         Args:
@@ -469,9 +480,9 @@ class TaskQueueManager:
 
         def target():
             try:
-                result_container['result'] = handler(data)
+                result_container["result"] = handler(data)
             except Exception as e:
-                exception_container['exception'] = e
+                exception_container["exception"] = e
             finally:
                 completed_event.set()
 
@@ -483,10 +494,10 @@ class TaskQueueManager:
         if completed_event.wait(timeout=timeout):
             thread.join(timeout=5.0)  # 增加join超时时间到5秒
 
-            if 'exception' in exception_container:
-                raise exception_container['exception']
+            if "exception" in exception_container:
+                raise exception_container["exception"]
 
-            return result_container.get('result')
+            return result_container.get("result")
         else:
             # 超时处理 - daemon线程会自动清理，不会阻止进程退出
             error_msg = f"Task execution timed out after {timeout}s"
@@ -509,8 +520,8 @@ class TaskQueueManager:
                 # 计算移动平均
                 current_avg = self._stats["average_execution_time"]
                 self._stats["average_execution_time"] = (
-                    (current_avg * (completed - 1) + execution_time) / completed
-                )
+                    current_avg * (completed - 1) + execution_time
+                ) / completed
 
     def _task_to_dict(self, task: Task) -> Dict[str, Any]:
         """将任务对象转换为字典
@@ -532,7 +543,7 @@ class TaskQueueManager:
             "retry_count": task.retry_count,
             "max_retries": task.max_retries,
             "has_result": task.result is not None,
-            "has_error": task.error is not None
+            "has_error": task.error is not None,
         }
 
     def _emit_task_event(self, event_name: str, data: Dict[str, Any]) -> None:

@@ -1,7 +1,13 @@
 """General settings tab"""
 
-from PySide6.QtWidgets import (QWidget, QFormLayout, QGroupBox,
-                            QCheckBox, QComboBox, QSpinBox)
+from PySide6.QtWidgets import (
+    QWidget,
+    QFormLayout,
+    QGroupBox,
+    QCheckBox,
+    QComboBox,
+    QSpinBox,
+)
 from PySide6.QtCore import Qt
 from typing import Callable, Any
 
@@ -12,7 +18,9 @@ from .....utils.constants import ConfigKeys
 class GeneralTab(BaseSettingsTab):
     """General settings tab"""
 
-    def __init__(self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None):
+    def __init__(
+        self, on_setting_changed: Callable[[str, Any], None], parent: QWidget = None
+    ):
         super().__init__(on_setting_changed, parent)
         self._setup_ui()
 
@@ -27,7 +35,9 @@ class GeneralTab(BaseSettingsTab):
         # Auto-start
         auto_start_cb = QCheckBox("Start with Windows")
         auto_start_cb.stateChanged.connect(
-            lambda state: self._on_setting_changed(ConfigKeys.AUTO_START, state == Qt.CheckState.Checked)
+            lambda state: self._on_setting_changed(
+                ConfigKeys.AUTO_START, state == Qt.CheckState.Checked
+            )
         )
         self._controls[ConfigKeys.AUTO_START] = auto_start_cb
         app_layout.addRow("Auto Start:", auto_start_cb)
@@ -35,7 +45,9 @@ class GeneralTab(BaseSettingsTab):
         # Notifications
         notifications_cb = QCheckBox("Enable notifications")
         notifications_cb.stateChanged.connect(
-            lambda state: self._on_setting_changed(ConfigKeys.NOTIFICATIONS_ENABLED, state == Qt.CheckState.Checked)
+            lambda state: self._on_setting_changed(
+                ConfigKeys.NOTIFICATIONS_ENABLED, state == Qt.CheckState.Checked
+            )
         )
         self._controls[ConfigKeys.NOTIFICATIONS_ENABLED] = notifications_cb
         app_layout.addRow("Notifications:", notifications_cb)

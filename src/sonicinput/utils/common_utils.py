@@ -13,7 +13,7 @@ from PySide6.QtCore import QTimer, QObject
 
 from ..utils import app_logger
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class ThreadSafeContainer(Generic[T]):
@@ -122,7 +122,9 @@ class ComponentTracker:
         self._components: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.RLock()
 
-    def register_component(self, name: str, initial_data: Dict[str, Any] = None) -> None:
+    def register_component(
+        self, name: str, initial_data: Dict[str, Any] = None
+    ) -> None:
         """Register a component for tracking
 
         Args:
@@ -131,10 +133,10 @@ class ComponentTracker:
         """
         with self._lock:
             self._components[name] = {
-                'registered_at': time.time(),
-                'last_updated': time.time(),
-                'update_count': 0,
-                **(initial_data or {})
+                "registered_at": time.time(),
+                "last_updated": time.time(),
+                "update_count": 0,
+                **(initial_data or {}),
             }
 
     def update_component(self, name: str, data: Dict[str, Any]) -> None:
@@ -147,8 +149,8 @@ class ComponentTracker:
         with self._lock:
             if name in self._components:
                 self._components[name].update(data)
-                self._components[name]['last_updated'] = time.time()
-                self._components[name]['update_count'] += 1
+                self._components[name]["last_updated"] = time.time()
+                self._components[name]["update_count"] += 1
 
     def get_component_data(self, name: str) -> Optional[Dict[str, Any]]:
         """Get component data
@@ -160,7 +162,11 @@ class ComponentTracker:
             Component data if found, None otherwise
         """
         with self._lock:
-            return self._components.get(name, {}).copy() if name in self._components else None
+            return (
+                self._components.get(name, {}).copy()
+                if name in self._components
+                else None
+            )
 
     def get_all_components(self) -> Dict[str, Dict[str, Any]]:
         """Get all component data
@@ -257,7 +263,11 @@ class SafeTimer:
         self._callback: Optional[Callable] = None
         self._error_callback: Optional[Callable[[Exception], None]] = None
 
-    def set_callback(self, callback: Callable, error_callback: Optional[Callable[[Exception], None]] = None):
+    def set_callback(
+        self,
+        callback: Callable,
+        error_callback: Optional[Callable[[Exception], None]] = None,
+    ):
         """Set the timer callback with optional error handling
 
         Args:
@@ -342,19 +352,19 @@ class PerformanceTracker:
         with self._lock:
             if operation not in self._metrics:
                 self._metrics[operation] = {
-                    'count': 0,
-                    'total_duration': 0.0,
-                    'min_duration': float('inf'),
-                    'max_duration': 0.0,
-                    'last_duration': 0.0
+                    "count": 0,
+                    "total_duration": 0.0,
+                    "min_duration": float("inf"),
+                    "max_duration": 0.0,
+                    "last_duration": 0.0,
                 }
 
             metrics = self._metrics[operation]
-            metrics['count'] += 1
-            metrics['total_duration'] += duration
-            metrics['min_duration'] = min(metrics['min_duration'], duration)
-            metrics['max_duration'] = max(metrics['max_duration'], duration)
-            metrics['last_duration'] = duration
+            metrics["count"] += 1
+            metrics["total_duration"] += duration
+            metrics["min_duration"] = min(metrics["min_duration"], duration)
+            metrics["max_duration"] = max(metrics["max_duration"], duration)
+            metrics["last_duration"] = duration
 
     def get_metrics(self, operation: str) -> Optional[Dict[str, Any]]:
         """Get metrics for an operation
@@ -370,10 +380,12 @@ class PerformanceTracker:
                 return None
 
             metrics = self._metrics[operation].copy()
-            if metrics['count'] > 0:
-                metrics['average_duration'] = metrics['total_duration'] / metrics['count']
+            if metrics["count"] > 0:
+                metrics["average_duration"] = (
+                    metrics["total_duration"] / metrics["count"]
+                )
             else:
-                metrics['average_duration'] = 0.0
+                metrics["average_duration"] = 0.0
 
             return metrics
 
@@ -387,10 +399,12 @@ class PerformanceTracker:
             result = {}
             for operation, metrics in self._metrics.items():
                 result[operation] = metrics.copy()
-                if metrics['count'] > 0:
-                    result[operation]['average_duration'] = metrics['total_duration'] / metrics['count']
+                if metrics["count"] > 0:
+                    result[operation]["average_duration"] = (
+                        metrics["total_duration"] / metrics["count"]
+                    )
                 else:
-                    result[operation]['average_duration'] = 0.0
+                    result[operation]["average_duration"] = 0.0
             return result
 
     def reset_metrics(self, operation: str = None) -> None:
@@ -407,7 +421,9 @@ class PerformanceTracker:
                 self._metrics.clear()
 
 
-def safe_file_operation(file_path: Path, operation: str, *args, **kwargs) -> tuple[bool, Optional[str]]:
+def safe_file_operation(
+    file_path: Path, operation: str, *args, **kwargs
+) -> tuple[bool, Optional[str]]:
     """Safely perform file operations with consistent error handling
 
     Args:
@@ -420,25 +436,25 @@ def safe_file_operation(file_path: Path, operation: str, *args, **kwargs) -> tup
         Tuple of (success, error_message)
     """
     try:
-        if operation == 'read':
+        if operation == "read":
             if not file_path.exists():
                 return False, "File does not exist"
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, "r", encoding="utf-8") as f:
                 return True, f.read()
 
-        elif operation == 'write':
-            content = args[0] if args else kwargs.get('content', '')
+        elif operation == "write":
+            content = args[0] if args else kwargs.get("content", "")
             file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
             return True, None
 
-        elif operation == 'delete':
+        elif operation == "delete":
             if file_path.exists():
                 file_path.unlink()
             return True, None
 
-        elif operation == 'exists':
+        elif operation == "exists":
             return file_path.exists(), None
 
         else:
@@ -448,7 +464,9 @@ def safe_file_operation(file_path: Path, operation: str, *args, **kwargs) -> tup
         return False, str(e)
 
 
-def log_with_context(event_name: str, data: Dict[str, Any] = None, component: str = "unknown") -> None:
+def log_with_context(
+    event_name: str, data: Dict[str, Any] = None, component: str = "unknown"
+) -> None:
     """Log event with consistent context information
 
     Args:
@@ -456,9 +474,5 @@ def log_with_context(event_name: str, data: Dict[str, Any] = None, component: st
         data: Additional event data
         component: Component name
     """
-    event_data = {
-        "component": component,
-        "timestamp": time.time(),
-        **(data or {})
-    }
+    event_data = {"component": component, "timestamp": time.time(), **(data or {})}
     app_logger.log_audio_event(event_name, event_data)

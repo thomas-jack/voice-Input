@@ -16,6 +16,7 @@ from ..interfaces.ui import IUICommand
 @dataclass
 class CommandHistory:
     """命令历史记录"""
+
     command_id: str
     command_name: str
     executed_at: float
@@ -45,8 +46,14 @@ class Command(ABC):
 class ConfigChangeCommand(Command):
     """配置变更命令"""
 
-    def __init__(self, config_service: IConfigService, event_service: IEventService,
-                 key: str, value: Any, group: str = "default"):
+    def __init__(
+        self,
+        config_service: IConfigService,
+        event_service: IEventService,
+        key: str,
+        value: Any,
+        group: str = "default",
+    ):
         self.config_service = config_service
         self.event_service = event_service
         self.key = key
@@ -71,9 +78,9 @@ class ConfigChangeCommand(Command):
                 "old_value": self.previous_value,
                 "new_value": self.value,
                 "group": self.group,
-                "command_id": self.command_id
+                "command_id": self.command_id,
             },
-            EventPriority.HIGH
+            EventPriority.HIGH,
         )
 
         return self.previous_value
@@ -90,9 +97,9 @@ class ConfigChangeCommand(Command):
                     "old_value": self.value,
                     "new_value": self.previous_value,
                     "group": self.group,
-                    "command_id": self.command_id
+                    "command_id": self.command_id,
                 },
-                EventPriority.HIGH
+                EventPriority.HIGH,
             )
 
     def get_name(self) -> str:
@@ -109,7 +116,7 @@ class BulkConfigCommand(Command):
         self.history: List[CommandHistory] = []
         self.command_id = str(uuid.uuid4())
 
-    def add_command(self, command: Command) -> 'BulkConfigCommand':
+    def add_command(self, command: Command) -> "BulkConfigCommand":
         """添加子命令"""
         self.commands.append(command)
         return self
@@ -126,13 +133,15 @@ class BulkConfigCommand(Command):
             results.append(result)
 
             # 记录单个命令历史
-            self.history.append(CommandHistory(
-                command_id=command.command_id,
-                command_name=command.get_name(),
-                executed_at=0,  # 将在事件中设置
-                previous_state=command.previous_value,
-                current_state=command.value
-            ))
+            self.history.append(
+                CommandHistory(
+                    command_id=command.command_id,
+                    command_name=command.get_name(),
+                    executed_at=0,  # 将在事件中设置
+                    previous_state=command.previous_value,
+                    current_state=command.value,
+                )
+            )
 
         # 发送批量配置变更事件
         self.event_service.emit(
@@ -144,14 +153,16 @@ class BulkConfigCommand(Command):
                     {
                         "command_id": cmd.command_id,
                         "name": cmd.get_name(),
-                        "key": cmd.key if hasattr(cmd, 'key') else 'bulk',
-                        "old_value": cmd.previous_value if hasattr(cmd, 'previous_value') else None,
-                        "new_value": cmd.value if hasattr(cmd, 'value') else None
+                        "key": cmd.key if hasattr(cmd, "key") else "bulk",
+                        "old_value": cmd.previous_value
+                        if hasattr(cmd, "previous_value")
+                        else None,
+                        "new_value": cmd.value if hasattr(cmd, "value") else None,
                     }
                     for cmd in self.commands
-                ]
+                ],
             },
-            EventPriority.HIGH
+            EventPriority.HIGH,
         )
 
         return results
@@ -163,11 +174,8 @@ class BulkConfigCommand(Command):
 
         self.event_service.emit(
             "bulk_config_undone",
-            {
-                "command_count": len(self.commands),
-                "command_id": self.command_id
-            },
-            EventPriority.HIGH
+            {"command_count": len(self.commands), "command_id": self.command_id},
+            EventPriority.HIGH,
         )
 
     def get_name(self) -> str:
@@ -178,7 +186,7 @@ class BulkConfigCommand(Command):
         # 简化实现，实际可能需要更完整的状态捕获
         state = {}
         for cmd in self.commands:
-            if hasattr(cmd, 'key'):
+            if hasattr(cmd, "key"):
                 state[cmd.key] = cmd.previous_value
         return state
 
@@ -236,7 +244,7 @@ class UndoRedoManager:
         return {
             "undo_count": len(self.undo_stack),
             "redo_count": len(self.redo_stack),
-            "max_history": self.max_history
+            "max_history": self.max_history,
         }
 
 
@@ -244,9 +252,17 @@ class UndoRedoManager:
 class UIConfigChangeCommand(IUICommand):
     """UI 配置变更命令"""
 
-    def __init__(self, config_service: IConfigService, event_service: IEventService,
-                 key: str, value: Any, display_name: str):
-        self.config_command = ConfigChangeCommand(config_service, event_service, key, value)
+    def __init__(
+        self,
+        config_service: IConfigService,
+        event_service: IEventService,
+        key: str,
+        value: Any,
+        display_name: str,
+    ):
+        self.config_command = ConfigChangeCommand(
+            config_service, event_service, key, value
+        )
         self.display_name = display_name
         self.undo_manager = UndoRedoManager(event_service)
 
@@ -256,10 +272,9 @@ class UIConfigChangeCommand(IUICommand):
             self.undo_manager.execute_command(self.config_command)
             return True
         except Exception as e:
-            self.event_service.emit("ui_command_error", {
-                "command_name": self.display_name,
-                "error": str(e)
-            })
+            self.event_service.emit(
+                "ui_command_error", {"command_name": self.display_name, "error": str(e)}
+            )
             return False
 
     def undo(self) -> bool:

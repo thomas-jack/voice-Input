@@ -63,7 +63,7 @@ def safe_json_load(file_path: Union[str, Path], default: Any = None) -> Any:
         Loaded JSON data or default value
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError, PermissionError):
         return default
@@ -84,7 +84,7 @@ def safe_json_save(data: Any, file_path: Union[str, Path], indent: int = 2) -> b
         # Ensure parent directory exists
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)
         return True
     except (OSError, TypeError, ValueError):
@@ -123,7 +123,7 @@ def format_duration(seconds: float) -> str:
         Formatted duration string
     """
     if seconds < 1:
-        return f"{seconds*1000:.0f}ms"
+        return f"{seconds * 1000:.0f}ms"
     elif seconds < 60:
         return f"{seconds:.1f}s"
     elif seconds < 3600:
@@ -136,7 +136,9 @@ def format_duration(seconds: float) -> str:
         return f"{hours:.0f}h {remaining_minutes:.0f}m"
 
 
-def format_timestamp(timestamp: Optional[float] = None, format_str: str = "%Y-%m-%d %H:%M:%S") -> str:
+def format_timestamp(
+    timestamp: Optional[float] = None, format_str: str = "%Y-%m-%d %H:%M:%S"
+) -> str:
     """Format timestamp to string
 
     Args:
@@ -165,7 +167,7 @@ def get_system_info() -> Dict[str, Any]:
         "processor": platform.processor(),
         "python_version": platform.python_version(),
         "hostname": platform.node(),
-        "username": os.environ.get("USERNAME", os.environ.get("USER", "unknown"))
+        "username": os.environ.get("USERNAME", os.environ.get("USER", "unknown")),
     }
 
 
@@ -177,6 +179,7 @@ def get_gpu_info() -> Dict[str, Any]:
     """
     try:
         import torch
+
         if torch.cuda.is_available():
             return {
                 "cuda_available": True,
@@ -186,7 +189,7 @@ def get_gpu_info() -> Dict[str, Any]:
                 "device_name": torch.cuda.get_device_name(),
                 "memory_total": torch.cuda.get_device_properties(0).total_memory,
                 "memory_allocated": torch.cuda.memory_allocated(),
-                "memory_cached": torch.cuda.memory_reserved()
+                "memory_cached": torch.cuda.memory_reserved(),
             }
     except ImportError:
         pass
@@ -203,6 +206,7 @@ def is_admin() -> bool:
     try:
         if platform.system() == "Windows":
             import ctypes
+
             return ctypes.windll.shell32.IsUserAnAdmin() != 0
         else:
             return os.geteuid() == 0
@@ -235,6 +239,7 @@ def debounce(delay: float) -> Callable:
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         timer = None
 
@@ -252,6 +257,7 @@ def debounce(delay: float) -> Callable:
             timer.start()
 
         return debounced
+
     return decorator
 
 
@@ -264,6 +270,7 @@ def throttle(delay: float) -> Callable:
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         last_called = [0.0]
 
@@ -275,6 +282,7 @@ def throttle(delay: float) -> Callable:
                 return func(*args, **kwargs)
 
         return throttled
+
     return decorator
 
 
@@ -289,6 +297,7 @@ def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Ca
     Returns:
         Decorated function
     """
+
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
@@ -308,6 +317,7 @@ def retry(max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0) -> Ca
             raise last_exception
 
         return wrapper
+
     return decorator
 
 
@@ -342,9 +352,7 @@ def deep_merge(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:
     result = dict1.copy()
 
     for key, value in dict2.items():
-        if (key in result and
-            isinstance(result[key], dict) and
-            isinstance(value, dict)):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = deep_merge(result[key], value)
         else:
             result[key] = value
@@ -363,7 +371,7 @@ def generate_hash(data: str, algorithm: str = "sha256") -> str:
         Hex hash string
     """
     hasher = hashlib.new(algorithm)
-    hasher.update(data.encode('utf-8'))
+    hasher.update(data.encode("utf-8"))
     return hasher.hexdigest()
 
 
@@ -379,7 +387,9 @@ def normalize_path(path: Union[str, Path]) -> Path:
     return Path(path).resolve()
 
 
-def find_available_port(start_port: int = 8000, max_attempts: int = 100) -> Optional[int]:
+def find_available_port(
+    start_port: int = 8000, max_attempts: int = 100
+) -> Optional[int]:
     """Find an available port
 
     Args:
@@ -394,7 +404,7 @@ def find_available_port(start_port: int = 8000, max_attempts: int = 100) -> Opti
     for port in range(start_port, start_port + max_attempts):
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.bind(('localhost', port))
+                s.bind(("localhost", port))
                 return port
         except OSError:
             continue
@@ -402,8 +412,12 @@ def find_available_port(start_port: int = 8000, max_attempts: int = 100) -> Opti
     return None
 
 
-def cleanup_old_files(directory: Union[str, Path], max_age_days: int = 7,
-                     pattern: str = "*", dry_run: bool = False) -> List[Path]:
+def cleanup_old_files(
+    directory: Union[str, Path],
+    max_age_days: int = 7,
+    pattern: str = "*",
+    dry_run: bool = False,
+) -> List[Path]:
     """Clean up old files in directory
 
     Args:
@@ -464,12 +478,13 @@ def get_default_config() -> Dict[str, Any]:
         ConfigKeys.VOLUME_THRESHOLD: 0.1,
         ConfigKeys.RECORDING_TIMEOUT: 30,
         ConfigKeys.OPENROUTER_TIMEOUT: Defaults.DEFAULT_TIMEOUT,
-        ConfigKeys.OPENROUTER_MAX_RETRIES: Defaults.DEFAULT_MAX_RETRIES
+        ConfigKeys.OPENROUTER_MAX_RETRIES: Defaults.DEFAULT_MAX_RETRIES,
     }
 
 
 class SingletonMeta(type):
     """Singleton metaclass"""
+
     _instances = {}
     _lock = threading.Lock()
 
@@ -555,8 +570,9 @@ def version_compare(version1: str, version2: str) -> int:
     Returns:
         -1 if version1 < version2, 0 if equal, 1 if version1 > version2
     """
+
     def normalize_version(version: str) -> List[int]:
-        return [int(x) for x in version.split('.')]
+        return [int(x) for x in version.split(".")]
 
     v1 = normalize_version(version1)
     v2 = normalize_version(version2)

@@ -45,7 +45,9 @@ class RefactoredTranscriptionService(ISpeechService):
         self.model_manager = ModelManager(whisper_engine_factory, event_service)
         self.transcription_core = None  # 将在model加载后创建
         self.streaming_coordinator = StreamingCoordinator(event_service)
-        self.task_queue_manager = TaskQueueManager(worker_count=1, event_service=event_service)
+        self.task_queue_manager = TaskQueueManager(
+            worker_count=1, event_service=event_service
+        )
         self.error_recovery_service = ErrorRecoveryService(event_service)
 
         # 状态管理
@@ -80,28 +82,51 @@ class RefactoredTranscriptionService(ISpeechService):
                         self.transcription_core = TranscriptionCore(whisper_engine)
                         app_logger.audio("Transcription core created successfully", {})
                     except Exception as e:
-                        app_logger.error("Transcription core creation failed", e, context={"error_type": "transcription_core_creation_failed"})
+                        app_logger.error(
+                            "Transcription core creation failed",
+                            e,
+                            context={
+                                "error_type": "transcription_core_creation_failed"
+                            },
+                        )
                         self.transcription_core = None
 
                 # 验证转录核心是否可用
                 if not self.transcription_core:
-                    app_logger.warning("Transcription core not available after startup",
-                        context={"whisper_engine_available": whisper_engine is not None,
-                               "model_loaded": self.model_manager.is_model_loaded()})
+                    app_logger.warning(
+                        "Transcription core not available after startup",
+                        context={
+                            "whisper_engine_available": whisper_engine is not None,
+                            "model_loaded": self.model_manager.is_model_loaded(),
+                        },
+                    )
 
                 self._is_started = True
 
-                app_logger.audio("RefactoredTranscriptionService started",
-                    {"transcription_core_available": self.transcription_core is not None})
+                app_logger.audio(
+                    "RefactoredTranscriptionService started",
+                    {
+                        "transcription_core_available": self.transcription_core
+                        is not None
+                    },
+                )
 
                 # 发送服务启动事件
                 if self.event_service:
-                    self.event_service.emit("transcription_service_started", {
-                        "transcription_core_available": self.transcription_core is not None
-                    })
+                    self.event_service.emit(
+                        "transcription_service_started",
+                        {
+                            "transcription_core_available": self.transcription_core
+                            is not None
+                        },
+                    )
 
             except Exception as e:
-                app_logger.error("Transcription service start failed", e, context={"error_type": "transcription_service_start_failed"})
+                app_logger.error(
+                    "Transcription service start failed",
+                    e,
+                    context={"error_type": "transcription_service_start_failed"},
+                )
                 self.stop()
                 raise
 
@@ -140,13 +165,17 @@ class RefactoredTranscriptionService(ISpeechService):
                     self.event_service.emit("transcription_service_stopped", {})
 
             except Exception as e:
-                app_logger.error("Transcription service stop failed", e, context={"error_type": "transcription_service_stop_failed"})
+                app_logger.error(
+                    "Transcription service stop failed",
+                    e,
+                    context={"error_type": "transcription_service_stop_failed"},
+                )
 
     def transcribe(
         self,
         audio_data: np.ndarray,
         language: Optional[str] = None,
-        temperature: float = 0.0
+        temperature: float = 0.0,
     ) -> Dict[str, Any]:
         """转录音频（同步）- ISpeechService 接口实现
 
@@ -166,7 +195,7 @@ class RefactoredTranscriptionService(ISpeechService):
         language: Optional[str] = None,
         temperature: float = 0.0,
         callback: Optional[Callable] = None,
-        error_callback: Optional[Callable] = None
+        error_callback: Optional[Callable] = None,
     ) -> str:
         """转录音频（异步）- 保持向后兼容
 
@@ -187,7 +216,7 @@ class RefactoredTranscriptionService(ISpeechService):
         task_data = {
             "audio_data": audio_data,
             "language": language,
-            "temperature": temperature
+            "temperature": temperature,
         }
 
         # 提交任务
@@ -198,7 +227,7 @@ class RefactoredTranscriptionService(ISpeechService):
             callback=callback,
             error_callback=error_callback,
             timeout=120.0,  # 2分钟超时
-            max_retries=2
+            max_retries=2,
         )
 
         return task_id
@@ -207,7 +236,7 @@ class RefactoredTranscriptionService(ISpeechService):
         self,
         audio_data: np.ndarray,
         language: Optional[str] = None,
-        temperature: float = 0.0
+        temperature: float = 0.0,
     ) -> Dict[str, Any]:
         """转录音频（同步）
 
@@ -233,27 +262,28 @@ class RefactoredTranscriptionService(ISpeechService):
 
             # 发送转录完成事件
             if self.event_service:
-                self.event_service.emit("transcription_completed", {
-                    "result": result
-                })
+                self.event_service.emit("transcription_completed", {"result": result})
 
             return result
 
         except Exception as e:
             # 使用错误恢复服务处理错误
-            error_result = self.error_recovery_service.handle_error(e, {
-                "operation": "transcribe_sync",
-                "audio_length": len(audio_data),
-                "language": language,
-                "temperature": temperature
-            })
+            error_result = self.error_recovery_service.handle_error(
+                e,
+                {
+                    "operation": "transcribe_sync",
+                    "audio_length": len(audio_data),
+                    "language": language,
+                    "temperature": temperature,
+                },
+            )
 
             # 转换为标准错误格式
             return {
                 "success": False,
                 "text": "",
                 "error": str(e),
-                "error_result": error_result
+                "error_result": error_result,
             }
 
     def start_streaming(self) -> None:
@@ -274,32 +304,30 @@ class RefactoredTranscriptionService(ISpeechService):
         # 获取所有待处理的块
         pending_chunks = self.streaming_coordinator.get_pending_chunks()
 
-        app_logger.audio("Processing pending chunks before stopping", {
-            "pending_count": len(pending_chunks)
-        })
+        app_logger.audio(
+            "Processing pending chunks before stopping",
+            {"pending_count": len(pending_chunks)},
+        )
 
         # 为每个待处理的块提交转录任务,并保存块的引用
         pending_chunk_refs = []
         for chunk in pending_chunks:
-            task_data = {
-                "chunk_id": chunk.chunk_id,
-                "audio_data": chunk.audio_data
-            }
+            task_data = {"chunk_id": chunk.chunk_id, "audio_data": chunk.audio_data}
 
             # 提交到任务队列进行转录
             self.task_queue_manager.submit_task(
                 task_type="process_streaming_chunk",
                 data=task_data,
-                priority=TaskPriority.HIGH
+                priority=TaskPriority.HIGH,
             )
 
             # 保存块的完整引用(包括result_event和result_container)
             pending_chunk_refs.append(chunk)
 
-            app_logger.audio("Submitted pending chunk for transcription", {
-                "chunk_id": chunk.chunk_id,
-                "audio_length": len(chunk.audio_data)
-            })
+            app_logger.audio(
+                "Submitted pending chunk for transcription",
+                {"chunk_id": chunk.chunk_id, "audio_length": len(chunk.audio_data)},
+            )
 
         # 等待所有块完成转录(最多等待30秒)
         timeout = 30.0
@@ -308,16 +336,16 @@ class RefactoredTranscriptionService(ISpeechService):
         for chunk in pending_chunk_refs:
             remaining_time = timeout - (time.time() - start_time)
             if remaining_time <= 0:
-                app_logger.audio("Timeout waiting for chunk completion", {
-                    "chunk_id": chunk.chunk_id
-                })
+                app_logger.audio(
+                    "Timeout waiting for chunk completion", {"chunk_id": chunk.chunk_id}
+                )
                 break
 
             if not chunk.result_event.wait(timeout=remaining_time):
-                app_logger.audio("Chunk processing timeout", {
-                    "chunk_id": chunk.chunk_id,
-                    "timeout": remaining_time
-                })
+                app_logger.audio(
+                    "Chunk processing timeout",
+                    {"chunk_id": chunk.chunk_id, "timeout": remaining_time},
+                )
 
         # 从保存的块引用中提取转录文本
         text_parts = []
@@ -334,11 +362,14 @@ class RefactoredTranscriptionService(ISpeechService):
 
         transcribed_text = " ".join(text_parts).strip()
 
-        app_logger.audio("Extracted transcription text from chunks", {
-            "total_chunks": len(pending_chunk_refs),
-            "completed_chunks": completed_count,
-            "text_length": len(transcribed_text)
-        })
+        app_logger.audio(
+            "Extracted transcription text from chunks",
+            {
+                "total_chunks": len(pending_chunk_refs),
+                "completed_chunks": completed_count,
+                "text_length": len(transcribed_text),
+            },
+        )
 
         # 停止流式模式
         stats = self.streaming_coordinator.stop_streaming()
@@ -346,10 +377,7 @@ class RefactoredTranscriptionService(ISpeechService):
         app_logger.audio("Streaming transcription stopped", stats)
 
         # 返回包含文本和统计信息的结果
-        return {
-            "text": transcribed_text,
-            "stats": stats
-        }
+        return {"text": transcribed_text, "stats": stats}
 
     def add_streaming_chunk(self, audio_data: np.ndarray) -> int:
         """添加流式转录块
@@ -370,7 +398,7 @@ class RefactoredTranscriptionService(ISpeechService):
         model_name: Optional[str] = None,
         timeout: int = 300,
         callback: Optional[Callable] = None,
-        error_callback: Optional[Callable] = None
+        error_callback: Optional[Callable] = None,
     ) -> str:
         """加载模型（异步）
 
@@ -386,15 +414,12 @@ class RefactoredTranscriptionService(ISpeechService):
         # 提交模型加载任务
         task_id = self.task_queue_manager.submit_task(
             task_type="load_model",
-            data={
-                "model_name": model_name,
-                "timeout": timeout
-            },
+            data={"model_name": model_name, "timeout": timeout},
             priority=TaskPriority.HIGH,
             callback=callback,
             error_callback=error_callback,
             timeout=float(timeout + 60),  # 额外60秒缓冲
-            max_retries=1
+            max_retries=1,
         )
 
         return task_id
@@ -414,7 +439,7 @@ class RefactoredTranscriptionService(ISpeechService):
         model_name: Optional[str] = None,
         use_gpu: Optional[bool] = None,
         callback: Optional[Callable] = None,
-        error_callback: Optional[Callable] = None
+        error_callback: Optional[Callable] = None,
     ) -> str:
         """重新加载模型（异步）
 
@@ -430,23 +455,18 @@ class RefactoredTranscriptionService(ISpeechService):
         # 提交模型重载任务
         task_id = self.task_queue_manager.submit_task(
             task_type="reload_model",
-            data={
-                "model_name": model_name,
-                "use_gpu": use_gpu
-            },
+            data={"model_name": model_name, "use_gpu": use_gpu},
             priority=TaskPriority.HIGH,
             callback=callback,
             error_callback=error_callback,
             timeout=600.0,  # 10分钟超时
-            max_retries=1
+            max_retries=1,
         )
 
         return task_id
 
     def reload_model_sync(
-        self,
-        model_name: Optional[str] = None,
-        use_gpu: Optional[bool] = None
+        self, model_name: Optional[str] = None, use_gpu: Optional[bool] = None
     ) -> bool:
         """重新加载模型（同步）
 
@@ -476,9 +496,11 @@ class RefactoredTranscriptionService(ISpeechService):
         Returns:
             True如果服务已启动且模型已加载
         """
-        return (self._is_started and
-                self.model_manager.is_model_loaded() and
-                self.transcription_core is not None)
+        return (
+            self._is_started
+            and self.model_manager.is_model_loaded()
+            and self.transcription_core is not None
+        )
 
     def get_service_status(self) -> Dict[str, Any]:
         """获取服务状态
@@ -491,7 +513,7 @@ class RefactoredTranscriptionService(ISpeechService):
             "model_status": self.model_manager.get_model_info(),
             "streaming_status": self.streaming_coordinator.get_stats(),
             "task_queue_status": self.task_queue_manager.get_stats(),
-            "error_recovery_status": self.error_recovery_service.get_error_stats()
+            "error_recovery_status": self.error_recovery_service.get_error_stats(),
         }
 
         return status
@@ -507,24 +529,20 @@ class RefactoredTranscriptionService(ISpeechService):
     def _register_task_handlers(self) -> None:
         """注册任务处理器"""
         self.task_queue_manager.register_task_handler(
-            "transcribe",
-            self._handle_transcribe_task
+            "transcribe", self._handle_transcribe_task
         )
 
         self.task_queue_manager.register_task_handler(
-            "load_model",
-            self._handle_load_model_task
+            "load_model", self._handle_load_model_task
         )
 
         self.task_queue_manager.register_task_handler(
-            "reload_model",
-            self._handle_reload_model_task
+            "reload_model", self._handle_reload_model_task
         )
 
         # 流式转录处理器
         self.task_queue_manager.register_task_handler(
-            "process_streaming_chunk",
-            self._handle_streaming_chunk_task
+            "process_streaming_chunk", self._handle_streaming_chunk_task
         )
 
     def ensure_transcription_core(self) -> bool:
@@ -541,7 +559,11 @@ class RefactoredTranscriptionService(ISpeechService):
                     app_logger.audio("Transcription core recreated successfully", {})
                     return True
             except Exception as e:
-                app_logger.error("Transcription core recreation failed", e, context={"error_type": "transcription_core_recreation_failed"})
+                app_logger.error(
+                    "Transcription core recreation failed",
+                    e,
+                    context={"error_type": "transcription_core_recreation_failed"},
+                )
                 return False
 
         return self.transcription_core is not None
@@ -564,10 +586,20 @@ class RefactoredTranscriptionService(ISpeechService):
             # 提供详细的错误信息帮助诊断
             error_info = {
                 "service_started": self._is_started,
-                "model_loaded": self.model_manager.is_model_loaded() if self.model_manager else False,
-                "whisper_engine_available": self.model_manager.get_whisper_engine() is not None if self.model_manager else False
+                "model_loaded": self.model_manager.is_model_loaded()
+                if self.model_manager
+                else False,
+                "whisper_engine_available": self.model_manager.get_whisper_engine()
+                is not None
+                if self.model_manager
+                else False,
             }
-            app_logger.error("Transcription core not available", Exception("Transcription core not available"), context=error_info, category="transcribe_task_failed")
+            app_logger.error(
+                "Transcription core not available",
+                Exception("Transcription core not available"),
+                context=error_info,
+                category="transcribe_task_failed",
+            )
             raise WhisperLoadError("Transcription core not available")
 
         try:
@@ -575,11 +607,15 @@ class RefactoredTranscriptionService(ISpeechService):
                 audio_data, language, temperature
             )
         except Exception as e:
-            app_logger.error("Transcription core transcription failed", e, context={
-                "audio_length": len(audio_data),
-                "language": language,
-                "temperature": temperature
-            })
+            app_logger.error(
+                "Transcription core transcription failed",
+                e,
+                context={
+                    "audio_length": len(audio_data),
+                    "language": language,
+                    "temperature": temperature,
+                },
+            )
             raise
 
     def _handle_load_model_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -605,7 +641,7 @@ class RefactoredTranscriptionService(ISpeechService):
         return {
             "success": success,
             "model_name": model_name,
-            "model_info": self.model_manager.get_model_info()
+            "model_info": self.model_manager.get_model_info(),
         }
 
     def _handle_reload_model_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -632,7 +668,7 @@ class RefactoredTranscriptionService(ISpeechService):
             "success": success,
             "model_name": model_name,
             "use_gpu": use_gpu,
-            "model_info": self.model_manager.get_model_info()
+            "model_info": self.model_manager.get_model_info(),
         }
 
     def _handle_streaming_chunk_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -651,15 +687,25 @@ class RefactoredTranscriptionService(ISpeechService):
             # 提供详细的错误信息帮助诊断
             error_info = {
                 "service_started": self._is_started,
-                "model_loaded": self.model_manager.is_model_loaded() if self.model_manager else False,
-                "whisper_engine_available": self.model_manager.get_whisper_engine() is not None if self.model_manager else False,
-                "chunk_id": chunk_id
+                "model_loaded": self.model_manager.is_model_loaded()
+                if self.model_manager
+                else False,
+                "whisper_engine_available": self.model_manager.get_whisper_engine()
+                is not None
+                if self.model_manager
+                else False,
+                "chunk_id": chunk_id,
             }
-            app_logger.error("Transcription core not available for streaming chunk", Exception("Transcription core not available for streaming chunk"), context=error_info, category="streaming_chunk_failed")
+            app_logger.error(
+                "Transcription core not available for streaming chunk",
+                Exception("Transcription core not available for streaming chunk"),
+                context=error_info,
+                category="streaming_chunk_failed",
+            )
 
             error_result = {
                 "success": False,
-                "error": "Transcription core not available"
+                "error": "Transcription core not available",
             }
             self.streaming_coordinator.complete_chunk(chunk_id, error_result)
             return error_result
@@ -675,16 +721,14 @@ class RefactoredTranscriptionService(ISpeechService):
 
         except Exception as e:
             # 标记块为失败
-            error_result = {
-                "success": False,
-                "error": str(e)
-            }
+            error_result = {"success": False, "error": str(e)}
             self.streaming_coordinator.complete_chunk(chunk_id, error_result)
 
-            app_logger.error("Streaming chunk transcription failed", e, context={
-                "chunk_id": chunk_id,
-                "audio_length": len(audio_data)
-            })
+            app_logger.error(
+                "Streaming chunk transcription failed",
+                e,
+                context={"chunk_id": chunk_id, "audio_length": len(audio_data)},
+            )
 
             raise
 
@@ -695,7 +739,7 @@ class RefactoredTranscriptionService(ISpeechService):
             task_type="streaming_processor",
             data={},
             priority=TaskPriority.LOW,
-            max_retries=0
+            max_retries=0,
         )
 
     def cleanup(self) -> None:
@@ -712,7 +756,7 @@ class RefactoredTranscriptionService(ISpeechService):
     @property
     def model_name(self) -> str:
         """获取当前模型名称 - 向后兼容性"""
-        if self.model_manager and hasattr(self.model_manager, '_current_model_name'):
+        if self.model_manager and hasattr(self.model_manager, "_current_model_name"):
             return self.model_manager._current_model_name or "Unknown"
         return "Unknown"
 
@@ -721,8 +765,8 @@ class RefactoredTranscriptionService(ISpeechService):
         """获取当前设备 - 向后兼容性"""
         if self.model_manager:
             whisper_engine = self.model_manager.get_whisper_engine()
-            if whisper_engine and hasattr(whisper_engine, 'device'):
-                return getattr(whisper_engine, 'device', 'Unknown')
+            if whisper_engine and hasattr(whisper_engine, "device"):
+                return getattr(whisper_engine, "device", "Unknown")
         return "Unknown"
 
     def get_model_info(self) -> Dict[str, Any]:
@@ -733,7 +777,7 @@ class RefactoredTranscriptionService(ISpeechService):
             "model_name": self.model_name,
             "device": self.device,
             "is_loaded": False,
-            "use_gpu": False
+            "use_gpu": False,
         }
 
     # ISpeechService interface implementation (同步版本)

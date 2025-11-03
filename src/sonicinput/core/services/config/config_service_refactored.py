@@ -18,7 +18,7 @@ from .config_validator import ConfigValidator
 from .config_migrator import ConfigMigrator
 from .config_backup import ConfigBackupService
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class RefactoredConfigService(IConfigService):
@@ -27,7 +27,11 @@ class RefactoredConfigService(IConfigService):
     协调多个专职服务提供统一的配置管理接口，保持与原ConfigService完全兼容。
     """
 
-    def __init__(self, config_path: Optional[str] = None, event_service: Optional[IEventService] = None):
+    def __init__(
+        self,
+        config_path: Optional[str] = None,
+        event_service: Optional[IEventService] = None,
+    ):
         """初始化配置服务
 
         Args:
@@ -40,9 +44,9 @@ class RefactoredConfigService(IConfigService):
         if config_path:
             self.config_path = Path(config_path)
         else:
-            config_dir = Path(os.getenv('APPDATA', '.')) / 'SonicInput'
+            config_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput"
             config_dir.mkdir(parents=True, exist_ok=True)
-            self.config_path = config_dir / 'config.json'
+            self.config_path = config_dir / "config.json"
 
         # 初始化各专职服务
         self._reader = ConfigReader(self.config_path)
@@ -60,12 +64,15 @@ class RefactoredConfigService(IConfigService):
         # 验证和修复配置结构完整性
         self._validate_and_repair_config_structure()
 
-        app_logger.log_audio_event("ConfigService initialized", {
-            "config_path": str(self.config_path),
-            "config_exists": self.config_path.exists(),
-            "structure_validated": True,
-            "event_service_enabled": self._event_service is not None
-        })
+        app_logger.log_audio_event(
+            "ConfigService initialized",
+            {
+                "config_path": str(self.config_path),
+                "config_exists": self.config_path.exists(),
+                "structure_validated": True,
+                "event_service_enabled": self._event_service is not None,
+            },
+        )
 
     def get_setting(self, key: str, default: Optional[T] = None) -> T:
         """获取配置项
@@ -100,17 +107,23 @@ class RefactoredConfigService(IConfigService):
 
         # 发送配置变更事件
         if self._event_service:
-            self._event_service.emit("config_changed", {
-                "key": key,
-                "old_value": old_value,
-                "new_value": value,
-                "timestamp": datetime.now().isoformat()
-            }, EventPriority.NORMAL)
+            self._event_service.emit(
+                "config_changed",
+                {
+                    "key": key,
+                    "old_value": old_value,
+                    "new_value": value,
+                    "timestamp": datetime.now().isoformat(),
+                },
+                EventPriority.NORMAL,
+            )
 
         # 保存配置
         if immediate:
             if not self._writer.save_config():
-                raise ConfigurationError(f"Failed to save configuration after setting '{key}'")
+                raise ConfigurationError(
+                    f"Failed to save configuration after setting '{key}'"
+                )
             self._send_config_saved_event()
         else:
             self._writer.schedule_save()
@@ -138,7 +151,9 @@ class RefactoredConfigService(IConfigService):
 
         if success:
             # 执行配置迁移
-            config, migrated = self._migrator.migrate_config_structure(self._reader._config)
+            config, migrated = self._migrator.migrate_config_structure(
+                self._reader._config
+            )
             self._reader._config = config
             self._writer.set_config(config)
 
@@ -147,10 +162,14 @@ class RefactoredConfigService(IConfigService):
 
             # 发送配置加载事件
             if self._event_service:
-                self._event_service.emit("config_loaded", {
-                    "config_path": str(self.config_path),
-                    "timestamp": datetime.now().isoformat()
-                }, EventPriority.NORMAL)
+                self._event_service.emit(
+                    "config_loaded",
+                    {
+                        "config_path": str(self.config_path),
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    EventPriority.NORMAL,
+                )
 
         return success
 
@@ -163,16 +182,18 @@ class RefactoredConfigService(IConfigService):
         if key is None:
             # 重置所有配置
             from .config_defaults import get_default_config
+
             config = get_default_config()
             self._reader._config = config
             self._writer.set_config(config)
             self.save_config()
 
             if self._event_service:
-                self._event_service.emit("config_reset", {
-                    "type": "full",
-                    "timestamp": datetime.now().isoformat()
-                }, EventPriority.HIGH)
+                self._event_service.emit(
+                    "config_reset",
+                    {"type": "full", "timestamp": datetime.now().isoformat()},
+                    EventPriority.HIGH,
+                )
 
             app_logger.log_audio_event("Configuration reset to defaults", {})
         else:
@@ -183,13 +204,17 @@ class RefactoredConfigService(IConfigService):
                 self.set_setting(key, default_value)
 
                 if self._event_service:
-                    self._event_service.emit("config_reset", {
-                        "type": "single",
-                        "key": key,
-                        "old_value": old_value,
-                        "new_value": default_value,
-                        "timestamp": datetime.now().isoformat()
-                    }, EventPriority.NORMAL)
+                    self._event_service.emit(
+                        "config_reset",
+                        {
+                            "type": "single",
+                            "key": key,
+                            "old_value": old_value,
+                            "new_value": default_value,
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        EventPriority.NORMAL,
+                    )
 
     def validate_config(self) -> Dict[str, Any]:
         """验证配置完整性
@@ -240,17 +265,23 @@ class RefactoredConfigService(IConfigService):
         if imported_config is not None:
             # 合并配置
             old_config = self._reader._config.copy()
-            merged_config = self._reader._merge_configs(self._reader._config, imported_config)
+            merged_config = self._reader._merge_configs(
+                self._reader._config, imported_config
+            )
 
             self._reader._config = merged_config
             self._writer.set_config(merged_config)
 
             if self.save_config():
                 if self._event_service:
-                    self._event_service.emit("config_imported", {
-                        "source_path": str(source_path),
-                        "timestamp": datetime.now().isoformat()
-                    }, EventPriority.HIGH)
+                    self._event_service.emit(
+                        "config_imported",
+                        {
+                            "source_path": str(source_path),
+                            "timestamp": datetime.now().isoformat(),
+                        },
+                        EventPriority.HIGH,
+                    )
                 return True
             else:
                 # 恢复原配置
@@ -300,7 +331,9 @@ class RefactoredConfigService(IConfigService):
         Returns:
             是否修复成功
         """
-        config, repaired = self._validator.validate_and_repair_structure(self._reader._config)
+        config, repaired = self._validator.validate_and_repair_structure(
+            self._reader._config
+        )
 
         if repaired:
             self._reader._config = config
@@ -312,13 +345,21 @@ class RefactoredConfigService(IConfigService):
     def _send_config_saved_event(self) -> None:
         """发送配置保存事件"""
         if self._event_service:
-            self._event_service.emit("config_saved", {
-                "config_path": str(self.config_path),
-                "timestamp": datetime.now().isoformat()
-            }, EventPriority.NORMAL)
+            self._event_service.emit(
+                "config_saved",
+                {
+                    "config_path": str(self.config_path),
+                    "timestamp": datetime.now().isoformat(),
+                },
+                EventPriority.NORMAL,
+            )
 
             # 发送配置变更事件（用于热重载）
-            self._event_service.emit("config.changed", {
-                "config": self._reader._config.copy(),
-                "timestamp": datetime.now().isoformat()
-            }, EventPriority.HIGH)
+            self._event_service.emit(
+                "config.changed",
+                {
+                    "config": self._reader._config.copy(),
+                    "timestamp": datetime.now().isoformat(),
+                },
+                EventPriority.HIGH,
+            )

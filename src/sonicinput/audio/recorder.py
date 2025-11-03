@@ -12,7 +12,13 @@ from ..core.interfaces import IAudioService
 class AudioRecorder(IAudioService):
     """音频录制引擎"""
 
-    def __init__(self, sample_rate: int = 16000, channels: int = 1, chunk_size: int = 1024, config_service=None):
+    def __init__(
+        self,
+        sample_rate: int = 16000,
+        channels: int = 1,
+        chunk_size: int = 1024,
+        config_service=None,
+    ):
         self._sample_rate = sample_rate
         self.channels = channels
         self.chunk_size = chunk_size
@@ -32,7 +38,9 @@ class AudioRecorder(IAudioService):
 
         # 流式转录块大小（从配置读取，默认30秒）
         if config_service:
-            self.chunk_duration = config_service.get_setting("audio.streaming.chunk_duration", 30.0)
+            self.chunk_duration = config_service.get_setting(
+                "audio.streaming.chunk_duration", 30.0
+            )
         else:
             self.chunk_duration = 30.0
         self.chunk_callback = None  # 外部回调，用于流式转录块
@@ -42,19 +50,22 @@ class AudioRecorder(IAudioService):
         # 启动时验证配置的设备
         if config_service:
             self._validate_configured_device()
-    
+
     def _initialize_audio(self) -> None:
         """初始化PyAudio with proper resource management"""
         try:
             self._audio = pyaudio.PyAudio()
-            app_logger.log_audio_event("Audio system initialized", {
-                "sample_rate": self._sample_rate,
-                "channels": self.channels,
-                "chunk_size": self.chunk_size
-            })
+            app_logger.log_audio_event(
+                "Audio system initialized",
+                {
+                    "sample_rate": self._sample_rate,
+                    "channels": self.channels,
+                    "chunk_size": self.chunk_size,
+                },
+            )
         except Exception as e:
             # 确保PyAudio资源正确清理
-            if hasattr(self, '_audio') and self._audio is not None:
+            if hasattr(self, "_audio") and self._audio is not None:
                 try:
                     self._audio.terminate()
                 except:
@@ -77,64 +88,67 @@ class AudioRecorder(IAudioService):
 
             # 验证设备是否存在
             if not self.validate_device(device_id):
-                app_logger.log_audio_event("Configured audio device no longer available, resetting to default", {
-                    "invalid_device_id": device_id
-                })
+                app_logger.log_audio_event(
+                    "Configured audio device no longer available, resetting to default",
+                    {"invalid_device_id": device_id},
+                )
 
                 # 清除无效的设备配置，下次使用默认设备
                 self._config_service.set_setting("audio.device_id", None)
             else:
-                app_logger.log_audio_event("Configured audio device validated", {
-                    "device_id": device_id
-                })
+                app_logger.log_audio_event(
+                    "Configured audio device validated", {"device_id": device_id}
+                )
 
         except Exception as e:
             app_logger.log_error(e, "validate_configured_device")
-    
+
     def get_audio_devices(self) -> list:
         """获取可用的音频设备"""
         devices = []
         try:
             if not self._audio:
                 self._initialize_audio()
-                
+
             for i in range(self._audio.get_device_count()):
                 try:
                     info = self._audio.get_device_info_by_index(i)
-                    if info['maxInputChannels'] > 0:
-                        devices.append({
-                            'index': i,
-                            'name': info['name'],
-                            'channels': info['maxInputChannels'],
-                            'sample_rate': info['defaultSampleRate']
-                        })
+                    if info["maxInputChannels"] > 0:
+                        devices.append(
+                            {
+                                "index": i,
+                                "name": info["name"],
+                                "channels": info["maxInputChannels"],
+                                "sample_rate": info["defaultSampleRate"],
+                            }
+                        )
                 except Exception as e:
                     app_logger.log_error(e, f"get_device_info_{i}")
                     continue
         except Exception as e:
             app_logger.log_error(e, "get_audio_devices")
         return devices
-    
+
     def validate_device(self, device_id: int) -> bool:
         """验证音频设备是否可用"""
         try:
             if device_id is None:
                 return True  # Use default device
-                
+
             if not self._audio:
                 self._initialize_audio()
-                
+
             # Check if device exists and has input channels
             device_info = self._audio.get_device_info_by_index(device_id)
-            return device_info['maxInputChannels'] > 0
+            return device_info["maxInputChannels"] > 0
         except Exception as e:
             app_logger.log_error(e, f"validate_device_{device_id}")
             return False
-    
+
     def set_callback(self, callback: Callable[[np.ndarray], None]) -> None:
         """设置实时音频数据回调"""
         self._callback = callback
-    
+
     def start_recording(self, device_id: Optional[int] = None) -> bool:
         """开始录音
 
@@ -164,10 +178,12 @@ class AudioRecorder(IAudioService):
                     rate=self._sample_rate,
                     input=True,
                     input_device_index=device_id,
-                    frames_per_buffer=self.chunk_size
+                    frames_per_buffer=self.chunk_size,
                 )
                 attempted_devices.append(f"Device {device_id} (specified)")
-                app_logger.log_audio_event("Opened specified audio device", {"device_id": device_id})
+                app_logger.log_audio_event(
+                    "Opened specified audio device", {"device_id": device_id}
+                )
 
                 # 成功，继续启动录音
                 self._device_id = device_id
@@ -177,10 +193,10 @@ class AudioRecorder(IAudioService):
             except Exception as e:
                 last_error = e
                 attempted_devices.append(f"Device {device_id} (failed: {str(e)})")
-                app_logger.log_audio_event("Failed to open specified device, trying fallback", {
-                    "device_id": device_id,
-                    "error": str(e)
-                })
+                app_logger.log_audio_event(
+                    "Failed to open specified device, trying fallback",
+                    {"device_id": device_id, "error": str(e)},
+                )
 
         # 尝试2：Fallback到系统默认设备
         try:
@@ -190,12 +206,13 @@ class AudioRecorder(IAudioService):
                 rate=self._sample_rate,
                 input=True,
                 input_device_index=None,  # None = 系统默认设备
-                frames_per_buffer=self.chunk_size
+                frames_per_buffer=self.chunk_size,
             )
             attempted_devices.append("System Default (fallback)")
-            app_logger.log_audio_event("Fallback to system default device succeeded", {
-                "attempted_devices": attempted_devices
-            })
+            app_logger.log_audio_event(
+                "Fallback to system default device succeeded",
+                {"attempted_devices": attempted_devices},
+            )
 
             # 成功，继续启动录音
             self._device_id = None
@@ -224,12 +241,15 @@ class AudioRecorder(IAudioService):
         self._record_thread.daemon = True
         self._record_thread.start()
 
-        app_logger.log_audio_event("Recording started", {
-            "device_id": self._device_id,
-            "sample_rate": self._sample_rate,
-            "streaming_mode_enabled": True
-        })
-    
+        app_logger.log_audio_event(
+            "Recording started",
+            {
+                "device_id": self._device_id,
+                "sample_rate": self._sample_rate,
+                "streaming_mode_enabled": True,
+            },
+        )
+
     def _record_audio(self) -> None:
         """录音线程函数
 
@@ -245,14 +265,18 @@ class AudioRecorder(IAudioService):
 
                 # 只保护可能抛出 IOError 的音频流读取
                 try:
-                    data = self._stream.read(self.chunk_size, exception_on_overflow=False)
+                    data = self._stream.read(
+                        self.chunk_size, exception_on_overflow=False
+                    )
                 except (OSError, IOError) as stream_error:
                     app_logger.log_error(stream_error, "_record_audio_stream_read")
                     break
 
                 chunk_read_time = time.time()
 
-                audio_chunk = np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
+                audio_chunk = (
+                    np.frombuffer(data, dtype=np.int16).astype(np.float32) / 32768.0
+                )
 
                 # 保存音频数据（线程安全）
                 with self._data_lock:
@@ -261,12 +285,18 @@ class AudioRecorder(IAudioService):
 
                 # 每隔1秒记录一次详细的块处理信息
                 if chunk_read_time - last_log_time >= 1.0:
-                    app_logger.log_audio_event("Recording chunk batch processed", {
-                        "chunks_processed": chunk_count,
-                        "last_chunk_read_time_ms": (chunk_read_time - chunk_start_time) * 1000,
-                        "recording_still_active": self._recording,
-                        "timestamp": chunk_read_time
-                    })
+                    app_logger.log_audio_event(
+                        "Recording chunk batch processed",
+                        {
+                            "chunks_processed": chunk_count,
+                            "last_chunk_read_time_ms": (
+                                chunk_read_time - chunk_start_time
+                            )
+                            * 1000,
+                            "recording_still_active": self._recording,
+                            "timestamp": chunk_read_time,
+                        },
+                    )
                     last_log_time = chunk_read_time
 
                 # 每隔指定时间提取音频块进行流式转录
@@ -288,12 +318,15 @@ class AudioRecorder(IAudioService):
 
         # 记录录音线程结束
         final_time = time.time()
-        app_logger.log_audio_event("Recording thread ended", {
-            "total_chunks_captured": chunk_count,
-            "recording_flag": self._recording,
-            "final_timestamp": final_time
-        })
-    
+        app_logger.log_audio_event(
+            "Recording thread ended",
+            {
+                "total_chunks_captured": chunk_count,
+                "recording_flag": self._recording,
+                "final_timestamp": final_time,
+            },
+        )
+
     def stop_recording(self) -> np.ndarray:
         """停止录音并返回音频数据"""
         stop_time_start = time.time()
@@ -302,12 +335,15 @@ class AudioRecorder(IAudioService):
             app_logger.log_audio_event("No recording in progress", {})
             return np.array([])
 
-        app_logger.log_audio_event("Recording stop initiated", {
-            "timestamp": stop_time_start,
-            "chunk_size": self.chunk_size,
-            "sample_rate": self._sample_rate,
-            "potential_delay_ms": (self.chunk_size / self._sample_rate) * 1000
-        })
+        app_logger.log_audio_event(
+            "Recording stop initiated",
+            {
+                "timestamp": stop_time_start,
+                "chunk_size": self.chunk_size,
+                "sample_rate": self._sample_rate,
+                "potential_delay_ms": (self.chunk_size / self._sample_rate) * 1000,
+            },
+        )
 
         self._recording = False
         stop_flag_set_time = time.time()
@@ -318,10 +354,13 @@ class AudioRecorder(IAudioService):
             self._record_thread.join(timeout=1.0)
             thread_join_end = time.time()
 
-            app_logger.log_audio_event("Recording thread joined", {
-                "join_duration_ms": (thread_join_end - thread_join_start) * 1000,
-                "thread_was_alive": True
-            })
+            app_logger.log_audio_event(
+                "Recording thread joined",
+                {
+                    "join_duration_ms": (thread_join_end - thread_join_start) * 1000,
+                    "thread_was_alive": True,
+                },
+            )
 
         # 关闭音频流
         if self._stream:
@@ -346,15 +385,19 @@ class AudioRecorder(IAudioService):
         total_stop_duration = stop_time_end - stop_time_start
         flag_to_stream_close = stream_close_end - stop_flag_set_time
 
-        app_logger.log_audio_event("Recording stopped with timing analysis", {
-            "audio_duration_seconds": len(audio_array) / self._sample_rate,
-            "audio_samples": len(audio_array),
-            "chunks_recorded": chunks_count,
-            "stop_process_duration_ms": total_stop_duration * 1000,
-            "flag_to_stream_close_ms": flag_to_stream_close * 1000,
-            "theoretical_chunk_delay_ms": (self.chunk_size / self._sample_rate) * 1000,
-            "last_chunk_timestamp": stop_time_start
-        })
+        app_logger.log_audio_event(
+            "Recording stopped with timing analysis",
+            {
+                "audio_duration_seconds": len(audio_array) / self._sample_rate,
+                "audio_samples": len(audio_array),
+                "chunks_recorded": chunks_count,
+                "stop_process_duration_ms": total_stop_duration * 1000,
+                "flag_to_stream_close_ms": flag_to_stream_close * 1000,
+                "theoretical_chunk_delay_ms": (self.chunk_size / self._sample_rate)
+                * 1000,
+                "last_chunk_timestamp": stop_time_start,
+            },
+        )
         return audio_array
 
     def _on_chunk_ready(self) -> None:
@@ -373,11 +416,14 @@ class AudioRecorder(IAudioService):
             else:
                 return
 
-        app_logger.log_audio_event(f"Streaming chunk ready ({self.chunk_duration}s)", {
-            "chunk_samples": len(chunk_audio),
-            "chunk_duration_seconds": len(chunk_audio) / self._sample_rate,
-            "configured_duration": self.chunk_duration
-        })
+        app_logger.log_audio_event(
+            f"Streaming chunk ready ({self.chunk_duration}s)",
+            {
+                "chunk_samples": len(chunk_audio),
+                "chunk_duration_seconds": len(chunk_audio) / self._sample_rate,
+                "configured_duration": self.chunk_duration,
+            },
+        )
 
         # 调用外部回调（异步转录）- 保护录音线程
         if self.chunk_callback:
@@ -393,12 +439,12 @@ class AudioRecorder(IAudioService):
             if self._audio_data:
                 return np.concatenate(self._audio_data)
             return np.array([])
-    
+
     @property
     def is_recording(self) -> bool:
         """检查是否正在录音"""
         return self._recording
-    
+
     def get_audio_level(self) -> float:
         """获取当前音频音量级别"""
         with self._data_lock:
@@ -406,7 +452,11 @@ class AudioRecorder(IAudioService):
                 return 0.0
 
             # 取最后几个音频块来计算音量
-            recent_chunks = self._audio_data[-5:] if len(self._audio_data) >= 5 else self._audio_data
+            recent_chunks = (
+                self._audio_data[-5:]
+                if len(self._audio_data) >= 5
+                else self._audio_data
+            )
             if recent_chunks:
                 recent_audio = np.concatenate(recent_chunks)
                 return float(np.sqrt(np.mean(recent_audio**2)))
@@ -433,10 +483,12 @@ class AudioRecorder(IAudioService):
         try:
             # 验证设备是否存在
             devices = self.get_audio_devices()
-            device_exists = any(device['index'] == device_id for device in devices)
+            device_exists = any(device["index"] == device_id for device in devices)
 
             if not device_exists:
-                app_logger.log_audio_event("Invalid audio device ID", {"device_id": device_id})
+                app_logger.log_audio_event(
+                    "Invalid audio device ID", {"device_id": device_id}
+                )
                 return False
 
             # 如果正在录音，需要重新启动
@@ -460,12 +512,12 @@ class AudioRecorder(IAudioService):
     @property
     def current_device_id(self) -> Optional[int]:
         """当前使用的音频设备ID"""
-        return getattr(self, '_device_id', None)
+        return getattr(self, "_device_id", None)
 
     @property
     def sample_rate(self) -> int:
         """采样率"""
-        return self._sample_rate if hasattr(self, '_sample_rate') else 16000
+        return self._sample_rate if hasattr(self, "_sample_rate") else 16000
 
     def cleanup(self) -> None:
         """清理资源 - enhanced resource management"""
@@ -473,11 +525,13 @@ class AudioRecorder(IAudioService):
             self.stop_recording()
 
         # 确保录音线程正确结束
-        if hasattr(self, '_record_thread') and self._record_thread:
+        if hasattr(self, "_record_thread") and self._record_thread:
             try:
                 self._record_thread.join(timeout=2.0)  # 增加超时时间
                 if self._record_thread.is_alive():
-                    app_logger.log_warning("Recording thread did not terminate cleanly", {})
+                    app_logger.log_warning(
+                        "Recording thread did not terminate cleanly", {}
+                    )
             except Exception as e:
                 app_logger.log_error(e, "cleanup_thread_join")
 
@@ -493,6 +547,6 @@ class AudioRecorder(IAudioService):
 
         # 清理音频数据缓冲区
         with self._data_lock:
-            if hasattr(self, '_audio_data'):
+            if hasattr(self, "_audio_data"):
                 self._audio_data.clear()
                 self._audio_data = []

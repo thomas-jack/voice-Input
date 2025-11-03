@@ -8,7 +8,9 @@ from typing import Any, Type, Union, List, Callable
 from .validators import ValidationResult
 
 
-def validate_type(value: Any, expected_type: Type, field_name: str = "Value") -> ValidationResult:
+def validate_type(
+    value: Any, expected_type: Type, field_name: str = "Value"
+) -> ValidationResult:
     """Validate that a value is of the expected type
 
     Args:
@@ -20,9 +22,15 @@ def validate_type(value: Any, expected_type: Type, field_name: str = "Value") ->
         ValidationResult indicating if validation passed
     """
     if not isinstance(value, expected_type):
-        type_name = expected_type.__name__ if hasattr(expected_type, '__name__') else str(expected_type)
+        type_name = (
+            expected_type.__name__
+            if hasattr(expected_type, "__name__")
+            else str(expected_type)
+        )
         actual_type = type(value).__name__
-        return ValidationResult.error(f"{field_name} must be {type_name}, got {actual_type}")
+        return ValidationResult.error(
+            f"{field_name} must be {type_name}, got {actual_type}"
+        )
 
     return ValidationResult.success(value, f"{field_name} type is valid")
 
@@ -60,8 +68,12 @@ def validate_dict_structure(value: Any, field_name: str = "Value") -> Validation
     return ValidationResult.success(value, f"{field_name} is a valid dictionary")
 
 
-def validate_range(value: Union[int, float], min_val: Union[int, float], max_val: Union[int, float],
-                  field_name: str = "Value") -> ValidationResult:
+def validate_range(
+    value: Union[int, float],
+    min_val: Union[int, float],
+    max_val: Union[int, float],
+    field_name: str = "Value",
+) -> ValidationResult:
     """Validate that a numeric value is within a specified range
 
     Args:
@@ -79,12 +91,16 @@ def validate_range(value: Union[int, float], min_val: Union[int, float], max_val
         return type_result
 
     if value < min_val or value > max_val:
-        return ValidationResult.error(f"{field_name} must be between {min_val} and {max_val}, got {value}")
+        return ValidationResult.error(
+            f"{field_name} must be between {min_val} and {max_val}, got {value}"
+        )
 
     return ValidationResult.success(value, f"{field_name} is within valid range")
 
 
-def validate_in_choices(value: Any, choices: List[Any], field_name: str = "Value") -> ValidationResult:
+def validate_in_choices(
+    value: Any, choices: List[Any], field_name: str = "Value"
+) -> ValidationResult:
     """Validate that a value is in a list of allowed choices
 
     Args:
@@ -97,7 +113,9 @@ def validate_in_choices(value: Any, choices: List[Any], field_name: str = "Value
     """
     if value not in choices:
         choices_str = ", ".join(str(c) for c in choices)
-        return ValidationResult.error(f"{field_name} must be one of: {choices_str}, got {value}")
+        return ValidationResult.error(
+            f"{field_name} must be one of: {choices_str}, got {value}"
+        )
 
     return ValidationResult.success(value, f"{field_name} is a valid choice")
 
@@ -119,8 +137,9 @@ def validate_chain(*validators: Callable[[], ValidationResult]) -> ValidationRes
     return ValidationResult.success(None, "All validations passed")
 
 
-def validate_config_structure(config: Any, required_keys: List[str],
-                            field_name: str = "Configuration") -> ValidationResult:
+def validate_config_structure(
+    config: Any, required_keys: List[str], field_name: str = "Configuration"
+) -> ValidationResult:
     """Validate that a configuration has required keys and proper structure
 
     Args:
@@ -138,9 +157,9 @@ def validate_config_structure(config: Any, required_keys: List[str],
 
     missing_keys = []
     for key in required_keys:
-        if '.' in key:
+        if "." in key:
             # Handle nested keys
-            keys = key.split('.')
+            keys = key.split(".")
             current = config
             try:
                 for k in keys:
@@ -156,7 +175,9 @@ def validate_config_structure(config: Any, required_keys: List[str],
                 missing_keys.append(key)
 
     if missing_keys:
-        return ValidationResult.error(f"{field_name} missing required keys: {missing_keys}")
+        return ValidationResult.error(
+            f"{field_name} missing required keys: {missing_keys}"
+        )
 
     return ValidationResult.success(config, f"{field_name} structure is valid")
 
@@ -169,20 +190,26 @@ class ConfigValidator:
         self.section_name = section_name
         self.errors = []
 
-    def require_key(self, key: str, expected_type: Type = None) -> 'ConfigValidator':
+    def require_key(self, key: str, expected_type: Type = None) -> "ConfigValidator":
         """Require a key to exist, optionally with a specific type"""
         if key not in self.config:
             self.errors.append(f"Missing required key: {key}")
             return self
 
         if expected_type and not isinstance(self.config[key], expected_type):
-            type_name = expected_type.__name__ if hasattr(expected_type, '__name__') else str(expected_type)
+            type_name = (
+                expected_type.__name__
+                if hasattr(expected_type, "__name__")
+                else str(expected_type)
+            )
             actual_type = type(self.config[key]).__name__
             self.errors.append(f"Key '{key}' must be {type_name}, got {actual_type}")
 
         return self
 
-    def validate_range_key(self, key: str, min_val: Union[int, float], max_val: Union[int, float]) -> 'ConfigValidator':
+    def validate_range_key(
+        self, key: str, min_val: Union[int, float], max_val: Union[int, float]
+    ) -> "ConfigValidator":
         """Validate that a key's value is within a range"""
         if key not in self.config:
             return self
@@ -193,11 +220,13 @@ class ConfigValidator:
             return self
 
         if value < min_val or value > max_val:
-            self.errors.append(f"Key '{key}' must be between {min_val} and {max_val}, got {value}")
+            self.errors.append(
+                f"Key '{key}' must be between {min_val} and {max_val}, got {value}"
+            )
 
         return self
 
-    def validate_choices_key(self, key: str, choices: List[Any]) -> 'ConfigValidator':
+    def validate_choices_key(self, key: str, choices: List[Any]) -> "ConfigValidator":
         """Validate that a key's value is in allowed choices"""
         if key not in self.config:
             return self
@@ -205,14 +234,20 @@ class ConfigValidator:
         value = self.config[key]
         if value not in choices:
             choices_str = ", ".join(str(c) for c in choices)
-            self.errors.append(f"Key '{key}' must be one of: {choices_str}, got {value}")
+            self.errors.append(
+                f"Key '{key}' must be one of: {choices_str}, got {value}"
+            )
 
         return self
 
     def get_result(self) -> ValidationResult:
         """Get the final validation result"""
         if self.errors:
-            error_message = f"{self.section_name} validation failed: " + "; ".join(self.errors)
+            error_message = f"{self.section_name} validation failed: " + "; ".join(
+                self.errors
+            )
             return ValidationResult.error(error_message)
 
-        return ValidationResult.success(self.config, f"{self.section_name} validation passed")
+        return ValidationResult.success(
+            self.config, f"{self.section_name} validation passed"
+        )
