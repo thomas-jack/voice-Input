@@ -1,4 +1,4 @@
-"""Doubao (ByteDance) Speech Recognition Engine
+"""Doubao (ByteDance) Speech Recognition Engine - Simplified version
 
 Cloud-based speech recognition service powered by ByteDance's Doubao large model.
 Uses async task submission and polling for audio transcription.
@@ -12,22 +12,28 @@ import wave
 import io
 import uuid
 import base64
+import json
 from typing import Optional, Dict, Any, List
 from ..utils import app_logger
-from ..core.interfaces import ISpeechService
+from .cloud_base import CloudTranscriptionBase
 
 
-class DoubaoEngine(ISpeechService):
-    """Doubao large model audio transcription engine
+class DoubaoEngine(CloudTranscriptionBase):
+    """Doubao large model audio transcription engine - simplified version
 
     Features:
     - High accuracy powered by Doubao large model
-    - Support for both standard and fast models
-    - Async task-based transcription
+    - Async task-based transcription (different from direct HTTP)
     - Intelligent text normalization
     - Punctuation restoration
     - Zero GPU dependency: Pure cloud service
     """
+
+    # Provider metadata
+    provider_id = "doubao"
+    display_name = "Doubao ASR"
+    description = "ByteDance cloud transcription with Chinese dialect support"
+    api_endpoint = "https://openspeech.bytedance.com/api/v1/auc/submit"  # Submit endpoint
 
     # Doubao API endpoints
     BASE_URL = "https://openspeech.bytedance.com"
@@ -40,269 +46,166 @@ class DoubaoEngine(ISpeechService):
 
     def __init__(
         self,
-        api_key: str,
+        api_key: str = "",
         app_id: Optional[str] = None,
         token: Optional[str] = None,
         cluster: Optional[str] = None,
         model_type: str = "standard",
         base_url: Optional[str] = None,
     ):
-        """Initialize Doubao engine
+        """初始化Doubao引擎
 
         Args:
-            api_key: Doubao API key (used as Bearer token)
-            app_id: App ID (numeric string)
-            token: API token (alias for api_key for compatibility)
-            cluster: Cluster for model selection (different for standard vs fast)
-            model_type: Model type ("standard" or "fast")
-            base_url: Optional custom API endpoint (for proxies or compatible services)
+            api_key: API密钥 (default: empty, must be set via initialize)
+            app_id: 应用ID (可选，某些API需要)
+            token: 访问令牌 (可选)
+            cluster: 集群名称 (可选，用于极速版)
+            model_type: 模型类型 ("standard" 或 "fast")
+            base_url: 自定义API端点 (可选)
         """
-        # Use token as primary auth, fallback to api_key
-        self.api_key = token or api_key
-        self.app_id = app_id or "388808087185088"  # Default numeric app ID from demo
-        self.cluster = cluster or ("common" if model_type == "fast" else "volc_asr_public")
+        # Note: Doubao doesn't use super().__init__() because it has different auth
+        self.api_key = api_key
+        self.app_id = app_id
+        self.token = token
+        self.cluster = cluster
         self.model_type = model_type
         self.base_url = base_url if base_url else self.BASE_URL
         self._is_model_loaded = False
-        self.device = "cloud"  # Cloud service
+        self.device = "cloud"
+        self.use_gpu = False
 
-        # Request session for connection reuse
+        # Thread safety for requests
         self._session = None
         self._session_lock = threading.RLock()
 
-        # Performance statistics
+        # Performance tracking
         self._request_count = 0
         self._total_request_time = 0.0
         self._error_count = 0
-
-        app_logger.log_audio_event(
-            "Doubao engine initialized",
-            {
-                "api_endpoint": f"{self.base_url}{self.QUERY_ENDPOINT}",
-                "custom_base_url": base_url is not None,
-                "app_id": self.app_id,
-                "cluster": self.cluster,
-                "model_type": self.model_type,
-            },
-        )
 
     def _get_session(self) -> requests.Session:
         """Get or create HTTP session"""
         with self._session_lock:
             if self._session is None:
                 self._session = requests.Session()
-                self._session.headers.update(
-                    {
-                        "Authorization": f"Bearer; {self.api_key}",
-                        "Content-Type": "application/json",
-                        "User-Agent": "SonicInput/1.4",
-                    }
-                )
+                self._session.headers.update({
+                    "User-Agent": "SonicInput/1.4",
+                    "Content-Type": "application/json",
+                })
             return self._session
 
-    def _numpy_to_base64_wav(
-        self, audio_data: np.ndarray, sample_rate: int = 16000
-    ) -> str:
-        """Convert numpy audio data to base64-encoded WAV
+    def prepare_request_data(self, **kwargs) -> Dict[str, Any]:
+        """准备Doubao特有的请求数据（异步任务模式）
 
         Args:
-            audio_data: Audio data (numpy array)
-            sample_rate: Sample rate, default 16000Hz
+            **kwargs: 转录参数
 
         Returns:
-            Base64-encoded WAV data
+            Doubao API请求参数
         """
-        # Ensure audio is float32 format
-        if audio_data.dtype != np.float32:
-            audio_data = audio_data.astype(np.float32)
-
-        # Convert to 16-bit integer
-        audio_int16 = (audio_data * 32767).astype(np.int16)
-
-        # Create WAV file in memory
-        with io.BytesIO() as wav_buffer:
-            with wave.open(wav_buffer, "wb") as wav_file:
-                wav_file.setnchannels(1)  # Mono
-                wav_file.setsampwidth(2)  # 16-bit
-                wav_file.setframerate(sample_rate)
-                wav_file.writeframes(audio_int16.tobytes())
-
-            wav_bytes = wav_buffer.getvalue()
-            return base64.b64encode(wav_bytes).decode('utf-8')
-
-    def _submit_task(
-        self,
-        audio_data: np.ndarray,
-        language: Optional[str] = None,
-    ) -> Optional[str]:
-        """Submit transcription task and get task ID
-
-        Args:
-            audio_data: Audio data (numpy array)
-            language: Language code (zh-CN, en-US, etc.)
-
-        Returns:
-            Task ID if successful, None otherwise
-        """
-        try:
-            # Convert audio to base64 WAV
-            audio_base64 = self._numpy_to_base64_wav(audio_data)
-
-            # Prepare request
-            session = self._get_session()
-            url = f"{self.base_url}{self.SUBMIT_ENDPOINT}"
-
-            # Build request according to demo format
-            request_payload = {
-                "app": {
-                    "appid": self.app_id,
-                    "token": self.api_key,
-                    "cluster": self.cluster
-                },
-                "user": {
-                    "uid": "sonicinput_user"
-                },
-                "audio": {
-                    "format": "wav",
-                    "data": audio_base64  # Use base64 data instead of URL
-                },
-                "additions": {
-                    "with_speaker_info": "False",
-                    "enable_itn": "True",  # Intelligent text normalization
-                    "enable_punc": "True",  # Punctuation
-                }
+        # Doubao使用异步任务模式，这里准备submit请求的数据
+        request_data = {
+            "app": {
+                "appid": self.app_id,
+                "token": self.token,
+                "cluster": self.cluster,
+            },
+            "user": {
+                "uid": "sonicinput_user",
+            },
+            "audio": {
+                "format": "wav",
+                "rate": 16000,
+                "bits": 16,
+                "channel": 1,
+            },
+            "request": {
+                "reqid": str(uuid.uuid4()),
+                "nbest": 1,
+                "continuous": True,
             }
+        }
 
-            app_logger.log_audio_event(
-                "Submitting transcription task",
-                {
-                    "audio_length": len(audio_data),
-                    "language": language or "zh-CN",
-                    "cluster": self.cluster,
-                    "model_type": self.model_type,
-                },
-            )
+        # Add language if specified
+        language = kwargs.get("language")
+        if language and language != "auto":
+            # Convert language codes to Doubao format if needed
+            if language == "zh":
+                language = "zh-CN"
+            elif language == "en":
+                language = "en-US"
+            request_data["request"]["language"] = language
 
-            response = session.post(url, data=json.dumps(request_payload), timeout=10)
+        return request_data
 
-            if response.status_code == 200:
-                result = response.json()
-                # Check response structure from demo: resp.id
-                task_id = result.get("resp", {}).get("id")
+    def parse_response(self, response_data: Dict[str, Any]) -> Dict[str, Any]:
+        """解析Doubao API响应为标准格式
 
-                if task_id:
-                    app_logger.log_audio_event(
-                        "Task submitted successfully",
-                        {"task_id": task_id, "cluster": self.cluster},
-                    )
-                    return task_id
-                else:
-                    app_logger.log_audio_event(
-                        "Task submission failed: no task_id in response",
-                        {"response": result},
-                    )
-                    return None
-            else:
-                app_logger.log_audio_event(
-                    "Task submission failed",
-                    {
-                        "status_code": response.status_code,
-                        "response": response.text,
-                    },
-                )
-                return None
-
-        except Exception as e:
-            app_logger.log_error(e, "doubao_submit_task")
-            return None
-
-    def _query_result(
-        self,
-        task_id: str,
-        max_polls: int = 30,
-        poll_interval: float = 2.0,
-    ) -> Optional[Dict[str, Any]]:
-        """Query transcription result by task ID
+        Note: This is called after async task completion
 
         Args:
-            task_id: Task ID from submit
-            max_polls: Maximum number of polling attempts
-            poll_interval: Interval between polls (seconds)
+            response_data: 原始API响应数据
 
         Returns:
-            Transcription result dict if successful, None otherwise
+            标准转录结果格式
         """
-        try:
-            session = self._get_session()
-            url = f"{self.base_url}{self.QUERY_ENDPOINT}"
+        # Doubao response format after task completion
+        text = ""
+        confidence = 0.0
+        segments = []
 
-            for poll_count in range(max_polls):
-                # Build query request according to demo format
-                query_payload = {
-                    "appid": self.app_id,
-                    "token": self.api_key,
-                    "id": task_id,
-                    "cluster": self.cluster
-                }
+        if "data" in response_data:
+            data = response_data["data"]
 
-                response = session.post(url, data=json.dumps(query_payload), timeout=10)
+            # Extract text from segments
+            if "segments" in data:
+                for i, seg in enumerate(data["segments"]):
+                    seg_text = seg.get("text", "")
+                    seg_start = seg.get("start_time", 0.0) / 1000.0  # Convert ms to seconds
+                    seg_end = seg.get("end_time", 0.0) / 1000.0
 
-                if response.status_code == 200:
-                    result = response.json()
+                    if seg_text:
+                        text += seg_text
+                        segments.append({
+                            "id": i,
+                            "start": seg_start,
+                            "end": seg_end,
+                            "text": seg_text,
+                            "avg_logprob": 0.0,  # Doubao doesn't provide this
+                            "no_speech_prob": 0.0,  # Doubao doesn't provide this
+                        })
 
-                    # Check response status according to demo
-                    resp_code = result.get("resp", {}).get("code")
+            # Get overall confidence if available
+            if "confidence" in data:
+                confidence = data["confidence"] / 100.0  # Convert percentage to 0-1
+            else:
+                # Default high confidence for Doubao
+                confidence = 0.9
 
-                    if resp_code == 1000:  # Task finished successfully
-                        return result
-                    elif resp_code < 2000:  # Task failed
-                        app_logger.log_audio_event(
-                            "Task failed",
-                            {"task_id": task_id, "resp_code": resp_code, "result": result},
-                        )
-                        return None
-                    elif resp_code == 0 or resp_code == 1:  # Still processing
-                        # Still processing, continue polling
-                        app_logger.log_audio_event(
-                            "Task still processing",
-                            {
-                                "task_id": task_id,
-                                "poll_count": poll_count + 1,
-                                "max_polls": max_polls,
-                                "resp_code": resp_code,
-                            },
-                        )
-                        time.sleep(poll_interval)
-                        continue
-                    else:
-                        # Unknown status
-                        app_logger.log_audio_event(
-                            "Unknown task status",
-                            {"task_id": task_id, "resp_code": resp_code, "result": result},
-                        )
-                        time.sleep(poll_interval)
-                        continue
-                else:
-                    app_logger.log_audio_event(
-                        "Query failed",
-                        {
-                            "task_id": task_id,
-                            "status_code": response.status_code,
-                            "response": response.text,
-                        },
-                    )
-                    return None
+        # Detect language from text or use default
+        language = "zh"  # Default to Chinese for Doubao
+        if text and any(ord(char) > 127 for char in text[:10]):
+            language = "zh"
+        else:
+            language = "en"
 
-            # Max polls exceeded
-            app_logger.log_audio_event(
-                "Query timeout: max polls exceeded",
-                {"task_id": task_id, "max_polls": max_polls},
-            )
-            return None
+        return {
+            "text": text.strip(),
+            "language": language,
+            "confidence": confidence,
+            "segments": segments,
+        }
 
-        except Exception as e:
-            app_logger.log_error(e, "doubao_query_result")
-            return None
+    def get_auth_headers(self) -> Dict[str, str]:
+        """获取Doubao特有的认证头
+
+        Returns:
+            认证头字典
+        """
+        headers = {}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        return headers
 
     def transcribe(
         self,
@@ -311,261 +214,253 @@ class DoubaoEngine(ISpeechService):
         temperature: float = 0.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
+        **kwargs
     ) -> Dict[str, Any]:
-        """Transcribe audio data using async task mechanism
+        """转录音频数据（异步任务模式）
 
         Args:
-            audio_data: Audio data (numpy array)
-            language: Language code (zh-CN, en-US, etc.)
-            temperature: Not used for cloud API (for interface compatibility)
-            max_retries: Maximum number of retries
-            retry_delay: Retry delay (seconds)
+            audio_data: 音频数据
+            language: 语言代码
+            temperature: 采样温度（Doubao不使用）
+            max_retries: 最大重试次数
+            retry_delay: 重试延迟
+            **kwargs: 其他参数
 
         Returns:
-            Transcription result dict with text, language, etc.
+            转录结果
         """
         start_time = time.time()
 
-        # Validate data
+        # Validate input
         if audio_data is None or len(audio_data) == 0:
-            app_logger.log_audio_event("Empty audio data provided")
             return {
                 "text": "",
-                "language": "unknown",
-                "confidence": 0.0,
-                "provider": "doubao",
                 "error": "Empty audio data",
+                "provider": self.provider_id,
             }
 
-        last_error = None
-        retry_count = 0
+        try:
+            # Convert audio to base64 (Doubao's format)
+            wav_bytes = self._numpy_to_wav_bytes(audio_data)
+            audio_base64 = base64.b64encode(wav_bytes).decode('utf-8')
 
-        while retry_count <= max_retries:
-            try:
-                # Submit task
-                task_id = self._submit_task(audio_data, language)
+            # Prepare request data
+            request_data = self.prepare_request_data(language=language, **kwargs)
+            request_data["audio"]["data"] = audio_base64
 
-                if not task_id:
-                    last_error = "Failed to submit task"
-                    if retry_count < max_retries:
-                        retry_count += 1
-                        app_logger.log_audio_event(
-                            "Retrying task submission",
-                            {"retry_count": retry_count, "max_retries": max_retries},
-                        )
-                        time.sleep(retry_delay * (2 ** (retry_count - 1)))
-                        continue
-                    else:
-                        break
+            # Submit task
+            submit_url = f"{self.base_url}{self.SUBMIT_ENDPOINT}"
+            response = self._get_session().post(
+                submit_url,
+                json=request_data,
+                timeout=30,
+            )
 
-                # Query result
-                result = self._query_result(task_id, max_polls=30, poll_interval=2.0)
+            self._request_count += 1
 
-                if result:
-                    # Extract transcription text from demo response format
-                    text = ""
-                    if "data" in result and "result" in result["data"]:
-                        # Demo format: data.result[0].text
-                        results = result["data"].get("result", [])
-                        if results and len(results) > 0:
-                            text = results[0].get("text", "")
-                    elif "resp" in result and "data" in result["resp"]:
-                        # Alternative format
-                        results = result["resp"]["data"].get("result", [])
-                        if results and len(results) > 0:
-                            text = results[0].get("text", "")
+            if response.status_code != 200:
+                self._error_count += 1
+                return {
+                    "text": "",
+                    "error": f"Submit failed: {response.text}",
+                    "provider": self.provider_id,
+                }
 
-                    # Calculate performance metrics
-                    request_time = time.time() - start_time
-                    audio_duration = len(audio_data) / 16000  # Assuming 16kHz
-                    real_time_factor = (
-                        request_time / audio_duration if audio_duration > 0 else 0
-                    )
+            submit_result = response.json()
+            if submit_result.get("code") != 0:
+                self._error_count += 1
+                return {
+                    "text": "",
+                    "error": f"Submit failed: {submit_result.get('message', 'Unknown error')}",
+                    "provider": self.provider_id,
+                }
 
-                    # Update statistics
-                    self._request_count += 1
-                    self._total_request_time += request_time
+            task_id = submit_result.get("data", {}).get("taskid")
+            if not task_id:
+                return {
+                    "text": "",
+                    "error": "No task ID returned",
+                    "provider": self.provider_id,
+                }
 
-                    app_logger.log_transcription(
-                        audio_length=audio_duration,
-                        text=text,
-                        confidence=0.95,  # Doubao doesn't provide confidence, use default
-                    )
+            # Poll for result
+            query_url = f"{self.base_url}{self.QUERY_ENDPOINT}"
+            max_wait_time = 120  # Maximum wait time in seconds
+            poll_interval = 1.0
 
-                    app_logger.log_audio_event(
-                        "Transcription completed",
-                        {
-                            "provider": "doubao",
-                            "model_type": self.model_type,
-                            "cluster": self.cluster,
-                            "request_time": request_time,
-                            "audio_duration": audio_duration,
-                            "real_time_factor": real_time_factor,
-                            "text_length": len(text),
-                            "retry_count": retry_count,
-                        },
-                    )
+            while time.time() - start_time < max_wait_time:
+                query_response = self._get_session().post(
+                    query_url,
+                    json={"taskid": task_id},
+                    timeout=10,
+                )
 
-                    return {
-                        "text": text.strip(),
-                        "language": language or "zh-CN",
-                        "confidence": 0.95,
-                        "transcription_time": request_time,
-                        "real_time_factor": real_time_factor,
-                        "provider": "doubao",
-                        "model_type": self.model_type,
-                        "retry_count": retry_count,
-                    }
-                else:
-                    last_error = "Failed to query result"
-                    if retry_count < max_retries:
-                        retry_count += 1
-                        app_logger.log_audio_event(
-                            "Retrying transcription",
-                            {"retry_count": retry_count, "max_retries": max_retries},
-                        )
-                        time.sleep(retry_delay * (2 ** (retry_count - 1)))
-                        continue
-                    else:
-                        break
+                if query_response.status_code == 200:
+                    query_result = query_response.json()
 
-            except Exception as e:
-                last_error = f"Unexpected error: {e}"
-                app_logger.log_error(e, "doubao_transcribe")
+                    if query_result.get("code") == 0:
+                        data = query_result.get("data", {})
+                        status = data.get("status", "")
 
-                if retry_count < max_retries:
-                    retry_count += 1
-                    time.sleep(retry_delay * (2 ** (retry_count - 1)))
-                    continue
-                else:
-                    break
+                        if status == "success":
+                            # Parse successful result
+                            processing_time = time.time() - start_time
+                            audio_duration = len(audio_data) / 16000.0
 
-        # All retries failed
-        self._error_count += 1
-        return {
-            "text": "",
-            "error": last_error or "Unknown error",
-            "error_code": "MAX_RETRIES_EXCEEDED",
-            "provider": "doubao",
-            "model_type": self.model_type,
-            "retry_count": retry_count,
-        }
+                            parsed_result = self.parse_response(query_result)
+                            parsed_result.update({
+                                "processing_time": processing_time,
+                                "duration": audio_duration,
+                                "real_time_factor": processing_time / audio_duration if audio_duration > 0 else 0,
+                                "provider": self.provider_id,
+                            })
+
+                            self._total_request_time += processing_time
+                            return parsed_result
+                        elif status == "failed":
+                            self._error_count += 1
+                            return {
+                                "text": "",
+                                "error": f"Task failed: {data.get('message', 'Unknown error')}",
+                                "provider": self.provider_id,
+                            }
+                        elif status in ["running", "pending"]:
+                            # Continue polling
+                            time.sleep(poll_interval)
+                            continue
+
+                time.sleep(poll_interval)
+
+            # Timeout
+            self._error_count += 1
+            return {
+                "text": "",
+                "error": "Transcription timeout",
+                "provider": self.provider_id,
+            }
+
+        except Exception as e:
+            self._error_count += 1
+            app_logger.log_error(e, "doubao_transcribe")
+            return {
+                "text": "",
+                "error": f"Transcription failed: {str(e)}",
+                "provider": self.provider_id,
+            }
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
-        """Load model (cloud service, just mark as loaded)
+        """加载模型（云端服务，标记为已加载即可）
 
         Args:
-            model_name: Not used for Doubao (for interface compatibility)
+            model_name: 模型名称（Doubao不需要）
 
         Returns:
             True if successful
         """
-        # Cloud service doesn't need preloading
         self._is_model_loaded = True
         app_logger.log_audio_event(
-            "Model marked as loaded (cloud service)",
-            {
-                "provider": "doubao",
-                "note": "API will be validated on first transcription request"
-            },
+            "Doubao service marked as loaded",
+            {"model_type": self.model_type, "provider": "doubao"}
         )
         return True
 
-    def unload_model(self) -> None:
-        """Unload model (cloud service doesn't need unloading)"""
-        self._is_model_loaded = False
+    def test_connection(self) -> Dict[str, Any]:
+        """测试API连接
 
-        # Clean up session
+        Returns:
+            Connection test result
+        """
+        if not self.token or self.token.strip() == "":
+            return {
+                "success": False,
+                "message": "Doubao token not configured",
+                "provider": self.provider_id,
+            }
+
+        # For Doubao, we can test with a very short audio
+        test_audio = np.zeros(800, dtype=np.float32)  # 0.05 seconds
+
+        try:
+            result = self.transcribe(
+                test_audio,
+                language="zh",
+                max_retries=1,
+            )
+
+            if "error" in result and result["error"]:
+                return {
+                    "success": False,
+                    "message": f"API test failed: {result['error']}",
+                    "provider": self.provider_id,
+                }
+
+            return {
+                "success": True,
+                "message": "Connection successful",
+                "provider": self.provider_id,
+                "details": {
+                    "model_type": self.model_type,
+                    "base_url": self.base_url,
+                },
+            }
+
+        except Exception as e:
+            app_logger.log_error(e, "doubao_test_connection")
+            return {
+                "success": False,
+                "message": f"Connection test error: {str(e)}",
+                "provider": self.provider_id,
+            }
+
+    def initialize(self, config: Dict[str, Any]) -> None:
+        """使用配置初始化Doubao引擎
+
+        Args:
+            config: 配置字典
+
+        Raises:
+            ValueError: 无效配置
+            RuntimeError: 初始化失败
+        """
+        # Extract configuration
+        self.api_key = config.get("api_key", "")
+        self.app_id = config.get("app_id", "")
+        self.token = config.get("token", "")
+        self.cluster = config.get("cluster", "")
+        self.model_type = config.get("model_type", "standard")
+        self.base_url = config.get("base_url", self.BASE_URL)
+
+        # Validate required fields
+        if not self.token or self.token.strip() == "":
+            raise ValueError("Doubao token is required")
+
+        if not self.app_id or self.app_id.strip() == "":
+            raise ValueError("Doubao app_id is required")
+
+        # Mark as loaded
+        self._is_model_loaded = True
+
+        app_logger.log_model_loading_step(
+            "Doubao provider initialized",
+            {
+                "model_type": self.model_type,
+                "base_url": self.base_url,
+                "has_cluster": bool(self.cluster),
+            }
+        )
+
+    def cleanup(self) -> None:
+        """清理资源"""
         with self._session_lock:
             if self._session:
                 self._session.close()
                 self._session = None
 
-        app_logger.log_audio_event(
-            "Model unloaded", {"provider": "doubao"}
-        )
-
-    def get_available_models(self) -> List[str]:
-        """Get list of available models
-
-        Returns:
-            List of model names
-        """
-        return ["doubao-standard", "doubao-fast"]  # Support both standard and fast models
-
-    @property
-    def is_model_loaded(self) -> bool:
-        """Check if model is loaded"""
-        return self._is_model_loaded
-
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get usage statistics
-
-        Returns:
-            Statistics dict
-        """
-        avg_request_time = (
-            self._total_request_time / self._request_count
-            if self._request_count > 0
-            else 0
-        )
-
-        return {
-            "request_count": self._request_count,
-            "error_count": self._error_count,
-            "average_request_time": avg_request_time,
-            "total_request_time": self._total_request_time,
-            "success_rate": (self._request_count - self._error_count)
-            / self._request_count
-            if self._request_count > 0
-            else 0,
-            "provider": "doubao",
-        }
-
-    def test_connection(self) -> bool:
-        """Test API connection (using real transcription request)
-
-        Returns:
-            True if connection successful
-        """
-        try:
-            # Generate 0.1 second of silence for testing
-            test_audio = np.zeros(1600, dtype=np.float32)  # 0.1s @ 16kHz
-
-            app_logger.log_audio_event(
-                "Testing connection with real transcription",
-                {"provider": "doubao"},
-            )
-
-            # Execute real transcription request (shorter timeout)
-            result = self.transcribe(
-                test_audio,
-                language="zh-CN",
-                temperature=0.0,
-                max_retries=1,
-                retry_delay=1.0
-            )
-
-            # Check if successful
-            success = "error" not in result or not result["error"]
-
-            app_logger.log_audio_event(
-                "Connection test",
-                {
-                    "success": success,
-                    "provider": "doubao",
-                    "error": result.get("error") if not success else None,
-                },
-            )
-
-            return success
-        except Exception as e:
-            app_logger.log_error(e, "doubao_connection_test")
-            return False
+        self._is_model_loaded = False
 
     def __del__(self):
-        """Destructor, clean up resources"""
+        """析构函数"""
         try:
-            self.unload_model()
+            self.cleanup()
         except Exception:
-            pass  # Ignore errors during cleanup
+            pass

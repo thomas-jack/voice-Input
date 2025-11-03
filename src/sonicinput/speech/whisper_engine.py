@@ -3,7 +3,7 @@
 import numpy as np
 import time
 import threading
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from .gpu_manager import GPUManager
 from ..utils import WhisperLoadError, app_logger
 from ..core.interfaces import ISpeechService
@@ -85,6 +85,11 @@ def preload_whisper_module():
 
 class WhisperEngine(ISpeechService):
     """Whisper model management and inference engine - faster-whisper version"""
+
+    # Provider metadata
+    provider_id = "local"
+    display_name = "Local Whisper"
+    description = "Local Whisper model with GPU acceleration"
 
     def __init__(
         self, model_name: str = "large-v3-turbo", use_gpu: Optional[bool] = None
@@ -758,3 +763,52 @@ class WhisperEngine(ISpeechService):
         except Exception as e:
             app_logger.debug(f"CUDA context validation failed: {e}")
             return False
+
+    # Simple test connection method
+    def test_connection(self) -> Dict[str, Any]:
+        """Test model loading and basic functionality
+
+        Returns:
+            Connection test result
+        """
+        try:
+            # Check if model is loaded
+            if not self.is_model_loaded:
+                return {
+                    "success": False,
+                    "message": "Model not loaded",
+                    "provider": self.provider_id,
+                }
+
+            # Generate 0.1 second test audio
+            test_audio = np.zeros(1600, dtype=np.float32)  # 0.1s @ 16kHz
+
+            # Try transcription
+            result = self.transcribe(test_audio, language=None, temperature=0.0)
+
+            # Check result
+            if "error" in result:
+                return {
+                    "success": False,
+                    "message": f"Transcription test failed: {result['error']}",
+                    "provider": self.provider_id,
+                }
+
+            return {
+                "success": True,
+                "message": "Model loaded and ready",
+                "provider": self.provider_id,
+                "details": {
+                    "model": self.model_name,
+                    "device": self.device,
+                    "gpu_available": self.use_gpu,
+                },
+            }
+
+        except Exception as e:
+            app_logger.log_error(e, "whisper_test_connection")
+            return {
+                "success": False,
+                "message": f"Connection test error: {str(e)}",
+                "provider": self.provider_id,
+            }
