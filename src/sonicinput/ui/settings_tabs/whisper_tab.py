@@ -38,7 +38,7 @@ class WhisperTab(BaseSettingsTab):
         provider_layout = QFormLayout(provider_group)
 
         self.transcription_provider_combo = QComboBox()
-        self.transcription_provider_combo.addItems(["local", "groq", "siliconflow"])
+        self.transcription_provider_combo.addItems(["local", "groq", "siliconflow", "doubao"])
         self.transcription_provider_combo.currentTextChanged.connect(
             self._on_provider_changed
         )
@@ -197,6 +197,47 @@ class WhisperTab(BaseSettingsTab):
         layout.addWidget(siliconflow_group)
         self.siliconflow_group = siliconflow_group
 
+        # Doubao API 配置组
+        doubao_group = QGroupBox("Doubao (ByteDance) Cloud API Configuration")
+        doubao_layout = QFormLayout(doubao_group)
+
+        # API Key
+        self.doubao_api_key_edit = QLineEdit()
+        self.doubao_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.doubao_api_key_edit.setPlaceholderText("Enter Doubao API key (x-api-key)")
+        self.doubao_api_key_edit.textChanged.connect(
+            self._on_doubao_api_key_changed
+        )
+        doubao_layout.addRow("API Key:", self.doubao_api_key_edit)
+
+        # App ID
+        self.doubao_app_id_edit = QLineEdit()
+        self.doubao_app_id_edit.setPlaceholderText("App ID (optional, default: sonicinput)")
+        doubao_layout.addRow("App ID:", self.doubao_app_id_edit)
+
+        # Base URL
+        self.doubao_base_url_edit = QLineEdit()
+        self.doubao_base_url_edit.setPlaceholderText(
+            "Leave empty to restore default"
+        )
+        doubao_layout.addRow("Base URL:", self.doubao_base_url_edit)
+
+        # 超时设置
+        self.doubao_timeout_spinbox = QSpinBox()
+        self.doubao_timeout_spinbox.setRange(10, 180)
+        self.doubao_timeout_spinbox.setValue(30)
+        self.doubao_timeout_spinbox.setSuffix("s")
+        doubao_layout.addRow("Timeout:", self.doubao_timeout_spinbox)
+
+        # 重试设置
+        self.doubao_max_retries_spinbox = QSpinBox()
+        self.doubao_max_retries_spinbox.setRange(0, 10)
+        self.doubao_max_retries_spinbox.setValue(3)
+        doubao_layout.addRow("Max Retries:", self.doubao_max_retries_spinbox)
+
+        layout.addWidget(doubao_group)
+        self.doubao_group = doubao_group
+
         # GPU信息组
         gpu_group = QGroupBox("GPU Information (Local Only)")
         gpu_layout = QFormLayout(gpu_group)
@@ -231,6 +272,11 @@ class WhisperTab(BaseSettingsTab):
             "siliconflow_model": self.siliconflow_model_combo,
             "siliconflow_timeout": self.siliconflow_timeout_spinbox,
             "siliconflow_max_retries": self.siliconflow_max_retries_spinbox,
+            "doubao_api_key": self.doubao_api_key_edit,
+            "doubao_app_id": self.doubao_app_id_edit,
+            "doubao_base_url": self.doubao_base_url_edit,
+            "doubao_timeout": self.doubao_timeout_spinbox,
+            "doubao_max_retries": self.doubao_max_retries_spinbox,
             "model_status": self.model_status_label,
             "gpu_status": self.gpu_status_label,
             "gpu_memory": self.gpu_memory_label,
@@ -306,6 +352,16 @@ class WhisperTab(BaseSettingsTab):
             siliconflow_config.get("max_retries", 3)
         )
 
+        # Doubao settings
+        doubao_config = transcription_config.get("doubao", {})
+        self.doubao_api_key_edit.setText(doubao_config.get("api_key", ""))
+        self.doubao_app_id_edit.setText(doubao_config.get("app_id", "sonicinput"))
+        self.doubao_base_url_edit.setText(
+            doubao_config.get("base_url", "https://openspeech.bytedance.com")
+        )
+        self.doubao_timeout_spinbox.setValue(doubao_config.get("timeout", 30))
+        self.doubao_max_retries_spinbox.setValue(doubao_config.get("max_retries", 3))
+
         # Update visibility based on provider
         self._on_provider_changed(provider)
 
@@ -340,6 +396,15 @@ class WhisperTab(BaseSettingsTab):
                     "model": self.siliconflow_model_combo.currentText(),
                     "timeout": self.siliconflow_timeout_spinbox.value(),
                     "max_retries": self.siliconflow_max_retries_spinbox.value(),
+                },
+                "doubao": {
+                    "api_key": self.doubao_api_key_edit.text(),
+                    "app_id": self.doubao_app_id_edit.text().strip()
+                    or "sonicinput",
+                    "base_url": self.doubao_base_url_edit.text().strip()
+                    or "https://openspeech.bytedance.com",
+                    "timeout": self.doubao_timeout_spinbox.value(),
+                    "max_retries": self.doubao_max_retries_spinbox.value(),
                 },
             },
             # Keep old whisper config for backward compatibility
@@ -379,6 +444,9 @@ class WhisperTab(BaseSettingsTab):
         elif provider == "siliconflow":
             # SiliconFlow 模式：测试 API 连接
             self._test_siliconflow_api()
+        elif provider == "doubao":
+            # Doubao 模式：测试 API 连接
+            self._test_doubao_api()
 
     def _test_groq_api(self) -> None:
         """测试 Groq API 连接（异步，不阻塞UI）"""
@@ -667,11 +735,12 @@ class WhisperTab(BaseSettingsTab):
         """当转录提供商改变时更新UI显示
 
         Args:
-            provider: 提供商名称 ("local", "groq", 或 "siliconflow")
+            provider: 提供商名称 ("local", "groq", "siliconflow", 或 "doubao")
         """
         is_local = provider == "local"
         is_groq = provider == "groq"
         is_siliconflow = provider == "siliconflow"
+        is_doubao = provider == "doubao"
 
         # 显示/隐藏 Local Whisper 配置
         self.model_group.setVisible(is_local)
@@ -682,6 +751,9 @@ class WhisperTab(BaseSettingsTab):
 
         # 显示/隐藏 SiliconFlow 配置
         self.siliconflow_group.setVisible(is_siliconflow)
+
+        # 显示/隐藏 Doubao 配置
+        self.doubao_group.setVisible(is_doubao)
 
         # 调整 Model Management 区域
         if is_local:
@@ -717,6 +789,17 @@ class WhisperTab(BaseSettingsTab):
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
             self.test_model_button.setText("Test API Connection")
+        elif is_doubao:
+            # Doubao 模式：显示 API 测试
+            self.management_group.setTitle("API Connection Test")
+            self.model_status_label.setText(
+                "API key configured"
+                if self.doubao_api_key_edit.text().strip()
+                else "API key not configured"
+            )
+            self.load_model_button.setVisible(False)
+            self.unload_model_button.setVisible(False)
+            self.test_model_button.setText("Test API Connection")
 
     def _on_groq_api_key_changed(self, text: str) -> None:
         """当 Groq API key 改变时更新状态
@@ -741,6 +824,20 @@ class WhisperTab(BaseSettingsTab):
         # 只在 SiliconFlow 模式下更新状态
         provider = self.transcription_provider_combo.currentText()
         if provider == "siliconflow":
+            if text.strip():
+                self.model_status_label.setText("API key configured")
+            else:
+                self.model_status_label.setText("API key not configured")
+
+    def _on_doubao_api_key_changed(self, text: str) -> None:
+        """当 Doubao API key 改变时更新状态
+
+        Args:
+            text: API key 文本
+        """
+        # 只在 Doubao 模式下更新状态
+        provider = self.transcription_provider_combo.currentText()
+        if provider == "doubao":
             if text.strip():
                 self.model_status_label.setText("API key configured")
             else:

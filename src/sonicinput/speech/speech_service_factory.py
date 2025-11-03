@@ -40,15 +40,17 @@ class SpeechServiceFactory:
         model: str = "large-v3-turbo",
         use_gpu: Optional[bool] = None,
         base_url: Optional[str] = None,
+        app_id: Optional[str] = None,
     ) -> ISpeechService:
         """Create speech service instance
 
         Args:
-            provider: Provider name ("local", "groq", "siliconflow")
+            provider: Provider name ("local", "groq", "siliconflow", "doubao")
             api_key: API key (for cloud providers)
             model: Model name
             use_gpu: Use GPU for local provider (None = auto-detect)
             base_url: Custom base URL for cloud providers (optional)
+            app_id: App ID for Doubao provider (optional)
 
         Returns:
             ISpeechService: Speech service instance
@@ -81,6 +83,15 @@ class SpeechServiceFactory:
                     raise ValueError("SiliconFlow provider requires API key")
                 return SiliconFlowEngine(
                     api_key=api_key, model_name=model, base_url=base_url
+                )
+
+            elif provider_lower == "doubao":
+                from .doubao_engine import DoubaoEngine
+
+                if not api_key:
+                    raise ValueError("Doubao provider requires API key")
+                return DoubaoEngine(
+                    api_key=api_key, app_id=app_id, base_url=base_url
                 )
 
             else:
@@ -195,6 +206,38 @@ class SpeechServiceFactory:
                         provider="siliconflow",
                         api_key=api_key,
                         model=model,
+                        base_url=base_url,
+                    )
+
+            elif provider == "doubao":
+                # Read Doubao configuration
+                api_key = config.get_setting("transcription.doubao.api_key", "")
+                app_id = config.get_setting("transcription.doubao.app_id", "sonicinput")
+                base_url = config.get_setting(
+                    "transcription.doubao.base_url",
+                    "https://openspeech.bytedance.com",
+                )
+
+                if not api_key:
+                    app_logger.log_audio_event(
+                        "Doubao provider selected but no API key configured",
+                        {"suggestion": "Configure API key in settings"},
+                    )
+                    return None
+
+                # Only pass base_url if it's not the default (to use engine's default)
+                if base_url == "https://openspeech.bytedance.com":
+                    return SpeechServiceFactory.create_service(
+                        provider="doubao",
+                        api_key=api_key,
+                        app_id=app_id,
+                        base_url=None,
+                    )
+                else:
+                    return SpeechServiceFactory.create_service(
+                        provider="doubao",
+                        api_key=api_key,
+                        app_id=app_id,
                         base_url=base_url,
                     )
 

@@ -36,6 +36,13 @@ def get_default_config() -> Dict[str, Any]:
                 "timeout": 30,
                 "max_retries": 3,
             },
+            "doubao": {
+                "api_key": "",
+                "app_id": "sonicinput",
+                "base_url": "https://openspeech.bytedance.com",
+                "timeout": 30,
+                "max_retries": 3,
+            },
         },
         "whisper": {
             "model": "large-v3-turbo",
