@@ -36,15 +36,13 @@ def get_default_config() -> Dict[str, Any]:
                 "timeout": 30,
                 "max_retries": 3,
             },
-            "doubao": {
+            "qwen": {
                 "api_key": "",
-                "app_id": "388808087185088",
-                "token": "",
-                "cluster": "volc_asr_public",
-                "model_type": "standard",
-                "base_url": "https://openspeech.bytedance.com",
+                "model": "qwen3-asr-flash",
+                "base_url": "https://dashscope.aliyuncs.com",
                 "timeout": 30,
                 "max_retries": 3,
+                "enable_itn": True,
             },
         },
         "whisper": {

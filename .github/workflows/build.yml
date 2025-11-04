@@ -1,6 +1,6 @@
-name: Build Application
+name: Code Quality Check
 
-# 只在特定条件下触发构建，节省CI资源
+# 只在特定条件下触发，节省CI资源
 on:
   push:
     branches: [ main, develop ]
@@ -12,47 +12,12 @@ on:
 # 环境变量
 env:
   PYTHON_VERSION: "3.10"
-  BUILD_MODE: "cloud"  # 云模式构建，不包含本地Whisper依赖
 
 jobs:
-  # 构建条件检查
-  build-check:
-    name: Check Build Conditions
+  # 代码质量检查
+  quality-check:
+    name: Code Quality Analysis
     runs-on: ubuntu-latest
-    outputs:
-      should-build: ${{ steps.changes.outputs.should-build }}
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 2
-
-    - name: Check for relevant changes
-      id: changes
-      run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          echo "should-build=true" >> $GITHUB_OUTPUT
-        elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
-          echo "should-build=true" >> $GITHUB_OUTPUT
-        elif [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/heads/main || "${{ github.ref }}" == refs/heads/develop ]]; then
-          echo "should-build=true" >> $GITHUB_OUTPUT
-        elif [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "should-build=true" >> $GITHUB_OUTPUT
-        else
-          echo "should-build=false" >> $GITHUB_OUTPUT
-        fi
-
-  # Windows构建
-  build-windows:
-    name: Build Windows Executable
-    runs-on: windows-latest
-    needs: build-check
-    if: needs.build-check.outputs.should-build == 'true'
-
-    strategy:
-      matrix:
-        mode: [cloud]  # 只构建云模式，减少构建时间
 
     steps:
     - name: Checkout code
@@ -76,151 +41,30 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-uv-
 
-    - name: Install dependencies (cloud mode only)
+    - name: Install dependencies
       run: |
-        uv sync --extra cloud --dev
-        # 移除本地Whisper依赖以减小构建大小
-        uv remove faster-whisper --dev
-        uv remove nvidia-cudnn-cu12 nvidia-cublas-cu12 --dev
+        uv sync --extra dev
 
-    - name: Verify icon file exists
+    - name: Run ruff linting
       run: |
-        if (Test-Path "src/sonicinput/resources/icons/app_icon.ico") {
-          Write-Host "Icon file found"
-        } else {
-          Write-Host "Icon file not found, generating..."
-          python scripts/generate_icons.py
-        }
+        uv run ruff check src/ --output-format=github
 
-    - name: Extract version from pyproject.toml
-      id: version
+    - name: Run ruff formatting check
       run: |
-        $content = Get-Content "pyproject.toml" -Raw
-        if ($content -match 'version\s*=\s*["'']([^"'']+)["'']') {
-          $version = $matches[1]
-          echo "version=$version" >> $env:GITHUB_OUTPUT
-          echo "Found version: $version"
-        } else {
-          echo "ERROR: Could not extract version from pyproject.toml"
-          exit 1
-        }
+        uv run ruff format --check src/
 
-    - name: Build with Nuitka
+    - name: Run mypy type checking
       run: |
-        $version = "${{ steps.version.outputs.version }}"
-        uv run nuitka `
-          --standalone `
-          --onefile `
-          --windows-console-mode=disable `
-          --enable-plugin=pyside6 `
-          --include-package=sonicinput `
-          --nofollow-import-to=pytest `
-          --nofollow-import-to=mypy `
-          --nofollow-import-to=faster_whisper `
-          --windows-icon-from-ico=src/sonicinput/resources/icons/app_icon.ico `
-          --output-dir=dist `
-          --company-name=SonicInput `
-          --product-name=SonicInput `
-          --file-version=$version `
-          --product-version=$version `
-          --file-description="Windows Voice Input Tool" `
-          --copyright="Copyright (C) 2025" `
-          --output-filename=SonicInput-v$version-win64.exe `
-          app.py
+        uv run mypy src/ --ignore-missing-imports
 
-    - name: Verify build output
+    - name: Run bandit security scan
       run: |
-        $version = "${{ steps.version.outputs.version }}"
-        $exeName = "SonicInput-v$version-win64.exe"
-        if (Test-Path "dist/$exeName") {
-          $size = (Get-Item "dist/$exeName").Length / 1MB
-          Write-Host "Build successful! Executable: $exeName"
-          Write-Host "Executable size: $([math]::Round($size, 2)) MB"
-        } else {
-          Write-Error "Build failed - executable not found"
-          Get-ChildItem dist/ -Recurse
-          exit 1
-        }
+        uv run bandit -r src/ -f json -o bandit-report.json || true
 
-    - name: Test executable (basic smoke test)
-      run: |
-        $version = "${{ steps.version.outputs.version }}"
-        $exeName = "SonicInput-v$version-win64.exe"
-        # 测试可执行文件是否能启动（非GUI模式）
-        Start-Process -FilePath "dist/$exeName" -ArgumentList "--test" -Wait -PassThru
-
-    - name: Upload build artifacts
+    - name: Upload security scan results
       uses: actions/upload-artifact@v4
+      if: always()
       with:
-        name: sonicinput-windows-${{ matrix.mode }}-v${{ steps.version.outputs.version }}-${{ github.run_number }}
-        path: dist/
+        name: bandit-security-report
+        path: bandit-report.json
         retention-days: 30
-
-    - name: Generate release info
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        $version = "${{ steps.version.outputs.version }}"
-        $exeName = "SonicInput-v$version-win64.exe"
-        $tag = "${{ github.ref_name }}"
-        $size = (Get-Item "dist/$exeName").Length / 1MB
-        echo "## 🎉 SonicInput $version" > release-info.md
-        echo "" >> release-info.md
-        echo "### ✨ 新增功能" >> release-info.md
-        echo "- 🚀 **硅基流动(SiliconFlow)集成**: 新增国内领先的AI云转录服务支持" >> release-info.md
-        echo "- 🎯 **智能服务选择**: 自动选择最优转录服务，确保高精度和低延迟" >> release-info.md
-        echo "- 🔧 **专业可执行文件**: 采用新的命名格式 SonicInput-v$version-win64.exe" >> release-info.md
-        echo "- 🛠️ **完整CI/CD流程**: 自动化测试、构建和发布流程" >> release-info.md
-        echo "" >> release-info.md
-        echo "### 📦 构建信息" >> release-info.md
-        echo "- **版本**: $version" >> release-info.md
-        echo "- **标签**: $tag" >> release-info.md
-        echo "- **构建模式**: ${{ matrix.mode }}" >> release-info.md
-        echo "- **可执行文件**: $exeName" >> release-info.md
-        echo "- **文件大小**: $([math]::Round($size, 2)) MB" >> release-info.md
-        echo "- **Python版本**: ${{ env.PYTHON_VERSION }}" >> release-info.md
-        echo "" >> release-info.md
-        echo "### 🌟 硅基流动服务特点" >> release-info.md
-        echo "- 🇨🇳 **国内优化**: 专为中文用户优化的AI转录服务" >> release-info.md
-        echo "- ⚡ **超低延迟**: 毫秒级响应，实时语音转文字" >> release-info.md
-        echo "- 🎯 **高精度**: 业界领先的语音识别准确率" >> release-info.md
-        echo "- 🔒 **数据安全**: 企业级数据加密和隐私保护" >> release-info.md
-
-    - name: Upload release info
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-info-${{ matrix.mode }}
-        path: release-info.md
-
-  # 创建GitHub Release
-  create-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: [build-check, build-windows]
-    if: startsWith(github.ref, 'refs/tags/') && needs.build-check.outputs.should-build == 'true'
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Download artifacts
-      uses: actions/download-artifact@v3
-      with:
-        path: artifacts/
-
-    - name: Extract release info
-      run: |
-        cat artifacts/release-info-cloud/release-info.md >> release-body.md
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ github.ref_name }}
-        name: SonicInput ${{ github.ref_name }}
-        body_path: release-body.md
-        files: |
-          artifacts/sonicinput-windows-cloud-v*-${{ github.run_number }}/*.exe
-        draft: false
-        prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

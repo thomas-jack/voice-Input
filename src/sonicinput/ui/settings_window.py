@@ -567,6 +567,10 @@ class SettingsWindow(QMainWindow):
                 except Exception as setting_error:
                     app_logger.log_error(setting_error, f"Failed to set config: {key}")
 
+            # 立即保存配置并触发config.changed事件
+            if hasattr(self.ui_settings_service, 'save_config'):
+                self.ui_settings_service.save_config()
+
             # 实时应用日志配置（无需重启）
             app_logger._logger.set_log_level(new_config["logging"]["level"])
             app_logger._logger.set_console_output(
@@ -696,45 +700,16 @@ class SettingsWindow(QMainWindow):
     def _check_initial_model_status(self) -> None:
         """检查模型初始状态（如果SettingsWindow创建晚于模型加载）"""
         try:
-            if not self.voice_app:
+            if not self.ui_model_service:
                 return
 
-            # 获取转录服务
-            speech_service = None
-            if hasattr(self.voice_app, "_speech_service"):
-                speech_service = self.voice_app._speech_service
-            elif hasattr(self.voice_app, "transcription_service"):
-                speech_service = self.voice_app.transcription_service
+            # 使用 UI 模型服务检查模型状态
+            if self.ui_model_service.is_model_loaded():
+                # 模型已加载，获取信息并更新UI
+                model_info = self.ui_model_service.get_model_info()
 
-            if speech_service and hasattr(speech_service, "_is_model_loaded"):
-                if speech_service._is_model_loaded:
-                    # 模型已加载，获取信息并更新UI
-                    model_name = speech_service.whisper_engine.model_name
-                    device = speech_service.whisper_engine.device
-
-                    # 构造事件数据
-                    event_data = {
-                        "model_name": model_name,
-                        "device": device,
-                        "load_time": 0,  # 未知
-                    }
-
-                    # 尝试获取GPU信息
-                    try:
-                        import torch
-
-                        if torch.cuda.is_available():
-                            event_data["allocated_gb"] = (
-                                torch.cuda.memory_allocated() / (1024**3)
-                            )
-                            event_data["total_gb"] = torch.cuda.get_device_properties(
-                                0
-                            ).total_memory / (1024**3)
-                    except Exception:
-                        pass
-
-                    # 调用事件处理器更新UI
-                    self._on_model_loaded(event_data)
+                # 调用事件处理器更新UI
+                self._on_model_loaded(model_info)
 
         except Exception as e:
             from ..utils import app_logger
@@ -997,41 +972,22 @@ class SettingsWindow(QMainWindow):
             self.transcription_tab.model_status_label.setText("Checking model status...")
             self.transcription_tab.model_status_label.setStyleSheet("color: blue;")
 
-            # 检查是否有 voice_app 引用
-            if not self.voice_app or not hasattr(self.voice_app, "whisper_engine"):
-                self.transcription_tab.model_status_label.setText("Voice app not available")
+            # 使用 UI 模型服务获取模型信息
+            if not self.ui_model_service:
+                self.transcription_tab.model_status_label.setText("Model service not available")
                 self.transcription_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
-            # 获取 whisper engine
-            speech_service = self.voice_app.whisper_engine
-
-            # 获取模型信息 - 优先使用 get_model_info 方法
-            if hasattr(speech_service, "get_model_info"):
-                model_info = speech_service.get_model_info()
-                self._update_model_display_from_info(model_info)
-            else:
-                # Fallback for engines without get_model_info
-                # 统一使用 is_model_loaded 属性，不检查内部 model 对象以避免不同步
-                if speech_service.is_model_loaded:
-                    model_name = getattr(speech_service, "model_name", "Unknown")
-                    device = getattr(speech_service, "device", "Unknown")
-                    self.transcription_tab.model_status_label.setText(
-                        f"Model loaded: {model_name} ({device})"
-                    )
-                    self.transcription_tab.model_status_label.setStyleSheet(
-                        "color: #4CAF50;"
-                    )  # Material Green
-                else:
-                    self.transcription_tab.model_status_label.setText("Model not loaded")
-                    self.transcription_tab.model_status_label.setStyleSheet("color: red;")
+            # 获取模型信息并更新显示
+            model_info = self.ui_model_service.get_model_info()
+            self._update_model_display_from_info(model_info)
 
             app_logger.log_audio_event("Model status refreshed", {})
 
         except Exception as e:
             app_logger.log_error(e, "refresh_model_status")
             self.transcription_tab.model_status_label.setText(
-                "❌ Error checking model status"
+                "Error checking model status"
             )
             self.transcription_tab.model_status_label.setStyleSheet("color: red;")
 

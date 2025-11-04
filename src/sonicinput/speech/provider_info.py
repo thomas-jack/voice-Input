@@ -188,25 +188,6 @@ def _auto_register_providers() -> None:
         app_logger.log_error(e, "Failed to register Groq")
 
     try:
-        # Doubao (ByteDance) service
-        from .doubao_engine import DoubaoEngine
-        register_provider(ProviderInfo(
-            provider_id="doubao",
-            display_name="Doubao ASR",
-            description="ByteDance cloud transcription with Chinese dialect support",
-            provider_type="cloud",
-            provider_class=DoubaoEngine,
-            supports_gpu=False,
-            supports_streaming=False,
-            supports_language_detection=True,
-            supported_languages=["zh", "en", "ja", "ko"],
-            max_audio_duration=300,  # 5 minutes
-        ))
-    except Exception as e:
-        from ..utils import app_logger
-        app_logger.log_error(e, "Failed to register Doubao")
-
-    try:
         # SiliconFlow service
         from .siliconflow_engine import SiliconFlowEngine
         register_provider(ProviderInfo(
@@ -224,6 +205,25 @@ def _auto_register_providers() -> None:
     except Exception as e:
         from ..utils import app_logger
         app_logger.log_error(e, "Failed to register SiliconFlow")
+
+    try:
+        # Qwen ASR service
+        from .qwen_engine import QwenEngine
+        register_provider(ProviderInfo(
+            provider_id="qwen",
+            display_name="Qwen ASR",
+            description="Alibaba Cloud Qwen ASR with emotion and language detection",
+            provider_type="cloud",
+            provider_class=QwenEngine,
+            supports_gpu=False,
+            supports_streaming=False,
+            supports_language_detection=True,
+            supported_languages=None,  # Multi-language support
+            max_audio_duration=None,  # Check Qwen docs for limits
+        ))
+    except Exception as e:
+        from ..utils import app_logger
+        app_logger.log_error(e, "Failed to register Qwen ASR")
 
     from ..utils import app_logger
     app_logger.log_audio_event(

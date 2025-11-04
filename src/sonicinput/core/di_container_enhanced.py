@@ -27,6 +27,11 @@ from .interfaces.hotkey import IHotkeyService
 from .interfaces.input import IInputService
 from .interfaces.speech import ISpeechService
 from .interfaces.state import IStateManager
+# UI 服务接口
+from .interfaces.ui_main_service import (
+    IUIMainService, IUISettingsService, IUIModelService,
+    IUIAudioService, IUIGPUService
+)
 
 T = TypeVar("T")
 
@@ -751,15 +756,60 @@ def create_container() -> "EnhancedDIContainer":
         config = container.get(IConfigService)
         event_service = container.get(IEventService)
 
+        # 智能检测：如果配置是 local 但环境不支持，自动切换到云服务
+        provider = config.get_setting("transcription.provider", "local")
+
+        if provider == "local":
+            try:
+                # 检测 faster-whisper 是否可用
+                import faster_whisper  # noqa: F401
+            except ImportError:
+                # faster-whisper 不可用，自动切换到云服务
+                from ..utils import app_logger
+
+                # 查找第一个配置了 API key 的云服务
+                cloud_providers = ["qwen", "groq", "siliconflow"]
+                switched_to = None
+
+                for cloud_provider in cloud_providers:
+                    api_key = config.get_setting(
+                        f"transcription.{cloud_provider}.api_key", ""
+                    )
+                    if api_key and api_key.strip():
+                        switched_to = cloud_provider
+                        config.set_setting("transcription.provider", cloud_provider)
+                        break
+
+                if switched_to:
+                    app_logger.log_audio_event(
+                        "Auto-switched from local to cloud provider",
+                        {
+                            "original_provider": "local",
+                            "new_provider": switched_to,
+                            "reason": "faster-whisper not installed",
+                            "suggestion": "Install faster-whisper for local transcription"
+                        }
+                    )
+                else:
+                    app_logger.log_audio_event(
+                        "Local provider unavailable and no cloud provider configured",
+                        {
+                            "original_provider": "local",
+                            "reason": "faster-whisper not installed",
+                            "action": "Will use stub service",
+                            "suggestion": "Configure a cloud provider API key or install faster-whisper"
+                        }
+                    )
+
         # 使用 SpeechServiceFactory 从配置创建服务
         from ..speech import SpeechServiceFactory
 
         # 创建 SpeechService 工厂函数
         def speech_service_factory():
-            # 使用工厂从配置创建服务（自动选择 local 或 groq）
+            # 使用工厂从配置创建服务（自动选择 local 或 cloud）
             service = SpeechServiceFactory.create_from_config(config)
             if service is None:
-                # Fallback 到默认的 WhisperEngine
+                # Fallback 到默认的 WhisperEngine（仅在本地模式）
                 return WhisperEngine("large-v3-turbo", use_gpu=None)
             return service
 
@@ -840,6 +890,71 @@ def create_container() -> "EnhancedDIContainer":
 
     container.register_factory(
         IUIEventBridge, create_ui_event_bridge, ServiceLifetime.SINGLETON
+    )
+
+    # ========================================================================
+    # UI 服务 - 为UI层提供专门的服务接口（不依赖VoiceInputApp）
+    # ========================================================================
+
+    # UI主窗口服务 - 单例
+    def create_ui_main_service(container):
+        config = container.get(IConfigService)
+        events = container.get(IEventService)
+        state = container.get(IStateManager)
+
+        from .services.ui_services import UIMainService
+        return UIMainService(
+            config_service=config,
+            event_service=events,
+            state_manager=state
+        )
+
+    container.register_factory(
+        IUIMainService, create_ui_main_service, ServiceLifetime.SINGLETON
+    )
+
+    # UI设置服务 - 单例
+    def create_ui_settings_service(container):
+        config = container.get(IConfigService)
+        events = container.get(IEventService)
+
+        from .services.ui_services import UISettingsService
+        return UISettingsService(
+            config_service=config,
+            event_service=events
+        )
+
+    container.register_factory(
+        IUISettingsService, create_ui_settings_service, ServiceLifetime.SINGLETON
+    )
+
+    # UI模型管理服务 - 单例
+    def create_ui_model_service(container):
+        speech = container.get(ISpeechService)
+
+        from .services.ui_services import UIModelService
+        return UIModelService(speech_service=speech)
+
+    container.register_factory(
+        IUIModelService, create_ui_model_service, ServiceLifetime.SINGLETON
+    )
+
+    # UI音频服务 - 单例（无依赖）
+    def create_ui_audio_service(container):
+        from .services.ui_services import UIAudioService
+        return UIAudioService()
+
+    container.register_factory(
+        IUIAudioService, create_ui_audio_service, ServiceLifetime.SINGLETON
+    )
+
+    # UI GPU服务 - 单例（无依赖）
+    def create_ui_gpu_service(container):
+        from .services.ui_services import UIGPUService
+        return UIGPUService()
+
+    container.register_factory(
+        IUIGPUService, create_ui_gpu_service, ServiceLifetime.SINGLETON
     )
 
     return container

@@ -606,9 +606,20 @@ def run_gui():
         _container_instance = container
         _qt_app_instance = qt_app
 
-        # Create main window and keep reference to prevent garbage collection
-        main_window = MainWindow()
-        main_window.set_controller(voice_app)
+        # Get UI services from container (Pure DI - no VoiceInputApp dependency)
+        from sonicinput.core.interfaces import (
+            IUIMainService, IUISettingsService, IUIModelService
+        )
+        ui_main_service = container.get(IUIMainService)
+        ui_settings_service = container.get(IUISettingsService)
+        ui_model_service = container.get(IUIModelService)
+
+        # Create main window with dependency injection
+        main_window = MainWindow(
+            ui_main_service=ui_main_service,
+            ui_settings_service=ui_settings_service,
+            ui_model_service=ui_model_service
+        )
         # Store as qt_app attribute to prevent garbage collection
         qt_app.main_window = main_window
 

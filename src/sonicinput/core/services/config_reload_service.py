@@ -121,7 +121,10 @@ class ConfigReloadService:
             # 4. 处理 Whisper GPU 配置变更
             self._reload_whisper_gpu_config(new_config)
 
-            # 5. 调用注册的回调函数
+            # 5. 处理转录提供商配置变更
+            self._reload_transcription_provider(new_config)
+
+            # 6. 调用注册的回调函数
             self._notify_callbacks(new_config)
 
             app_logger.log_audio_event("Config hot reload completed", {})
@@ -268,6 +271,69 @@ class ConfigReloadService:
             )
         else:
             app_logger.log_audio_event("Speech service does not support hot reload", {})
+
+    def _reload_transcription_provider(self, config: Dict[str, Any]) -> None:
+        """重新加载转录提供商配置
+
+        Args:
+            config: 新的配置字典
+        """
+        if "transcription" in config:
+            transcription_config = config["transcription"]
+
+            # 检查 provider 配置是否变更
+            if "provider" in transcription_config:
+                new_provider = transcription_config["provider"]
+
+                # 获取当前 provider
+                current_provider = self.config.get_setting("transcription.provider", "local")
+
+                # 只有在配置真正改变时才重载
+                if new_provider != current_provider:
+                    app_logger.log_audio_event(
+                        "Transcription provider changed, reloading service...",
+                        {
+                            "old_provider": current_provider,
+                            "new_provider": new_provider,
+                        },
+                    )
+
+                    # 只有在未录音且未处理时才重载
+                    if (
+                        not self.state.is_recording()
+                        and not self.state.is_processing()
+                    ):
+                        self._reload_transcription_service(new_provider)
+                    else:
+                        app_logger.log_audio_event(
+                            "Cannot reload transcription service during recording/processing",
+                            {
+                                "is_recording": self.state.is_recording(),
+                                "is_processing": self.state.is_processing(),
+                            },
+                        )
+
+    def _reload_transcription_service(self, provider: str) -> None:
+        """重新加载转录服务
+
+        Args:
+            provider: 新的转录提供商
+        """
+        if self._speech_service and hasattr(self._speech_service, "reload_service"):
+            try:
+                # 调用转录服务的重载方法
+                self._speech_service.reload_service()
+                app_logger.log_audio_event(
+                    "Transcription service reloaded",
+                    {"provider": provider},
+                )
+            except Exception as e:
+                app_logger.log_error(e, "reload_transcription_service")
+        else:
+            app_logger.log_audio_event(
+                "Transcription service reload not supported, please restart application",
+                {"provider": provider},
+            )
 
     def _notify_callbacks(self, config: Dict[str, Any]) -> None:
         """通知所有注册的回调函数"""

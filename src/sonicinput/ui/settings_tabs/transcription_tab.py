@@ -13,6 +13,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QProgressBar,
     QLineEdit,
+    QMessageBox,
+    QApplication,
 )
 from typing import Dict, Any, Optional
 from .base_tab import BaseSettingsTab
@@ -22,9 +24,9 @@ class TranscriptionTab(BaseSettingsTab):
     """Transcription设置标签页
 
     包含：
-    - 转录提供商选择（Local Whisper / Groq / SiliconFlow / Doubao）
+    - 转录提供商选择（Local Whisper / Groq / SiliconFlow / Qwen）
     - Local Whisper 模型配置
-    - 云服务 API 配置（Groq / SiliconFlow / Doubao）
+    - 云服务 API 配置（Groq / SiliconFlow / Qwen）
     - 模型管理（加载/卸载/测试）
     - GPU信息显示（仅本地模式）
     """
@@ -38,7 +40,7 @@ class TranscriptionTab(BaseSettingsTab):
         provider_layout = QFormLayout(provider_group)
 
         self.transcription_provider_combo = QComboBox()
-        self.transcription_provider_combo.addItems(["local", "groq", "siliconflow", "doubao"])
+        self.transcription_provider_combo.addItems(["local", "groq", "siliconflow", "qwen"])
         self.transcription_provider_combo.currentTextChanged.connect(
             self._on_provider_changed
         )
@@ -197,58 +199,58 @@ class TranscriptionTab(BaseSettingsTab):
         layout.addWidget(siliconflow_group)
         self.siliconflow_group = siliconflow_group
 
-        # Doubao API 配置组
-        doubao_group = QGroupBox("Doubao (ByteDance) Cloud API Configuration")
-        doubao_layout = QFormLayout(doubao_group)
+        # Qwen API 配置组
+        qwen_group = QGroupBox("Qwen ASR (Alibaba Cloud) API Configuration")
+        qwen_layout = QFormLayout(qwen_group)
 
-        # API Key / Token
-        self.doubao_api_key_edit = QLineEdit()
-        self.doubao_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
-        self.doubao_api_key_edit.setPlaceholderText("Enter Doubao API key or token")
-        self.doubao_api_key_edit.textChanged.connect(
-            self._on_doubao_api_key_changed
+        # API Key
+        self.qwen_api_key_edit = QLineEdit()
+        self.qwen_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
+        self.qwen_api_key_edit.setPlaceholderText("Enter DashScope API key")
+        self.qwen_api_key_edit.textChanged.connect(
+            self._on_qwen_api_key_changed
         )
-        doubao_layout.addRow("API Key/Token:", self.doubao_api_key_edit)
+        qwen_layout.addRow("API Key:", self.qwen_api_key_edit)
 
-        # App ID
-        self.doubao_app_id_edit = QLineEdit()
-        self.doubao_app_id_edit.setPlaceholderText("App ID (numeric, default: 388808087185088)")
-        doubao_layout.addRow("App ID:", self.doubao_app_id_edit)
-
-        # Model Type
-        self.doubao_model_type_combo = QComboBox()
-        self.doubao_model_type_combo.addItems(["standard", "fast"])
-        self.doubao_model_type_combo.setToolTip("Standard: Higher accuracy, slower. Fast: Lower accuracy, faster.")
-        doubao_layout.addRow("Model Type:", self.doubao_model_type_combo)
-
-        # Cluster (auto-filled based on model type)
-        self.doubao_cluster_edit = QLineEdit()
-        self.doubao_cluster_edit.setPlaceholderText("Auto-filled based on model type")
-        self.doubao_cluster_edit.setReadOnly(True)
-        doubao_layout.addRow("Cluster:", self.doubao_cluster_edit)
+        # Model
+        self.qwen_model_combo = QComboBox()
+        self.qwen_model_combo.addItems(["qwen3-asr-flash"])
+        self.qwen_model_combo.setToolTip("Qwen ASR model with emotion and language detection")
+        qwen_layout.addRow("Model:", self.qwen_model_combo)
 
         # Base URL
-        self.doubao_base_url_edit = QLineEdit()
-        self.doubao_base_url_edit.setPlaceholderText(
-            "Leave empty to restore default"
+        self.qwen_base_url_edit = QLineEdit()
+        self.qwen_base_url_edit.setPlaceholderText(
+            "Leave empty to use default (https://dashscope.aliyuncs.com)"
         )
-        doubao_layout.addRow("Base URL:", self.doubao_base_url_edit)
+        qwen_layout.addRow("Base URL:", self.qwen_base_url_edit)
 
-        # 超时设置
-        self.doubao_timeout_spinbox = QSpinBox()
-        self.doubao_timeout_spinbox.setRange(10, 180)
-        self.doubao_timeout_spinbox.setValue(30)
-        self.doubao_timeout_spinbox.setSuffix("s")
-        doubao_layout.addRow("Timeout:", self.doubao_timeout_spinbox)
+        # Enable ITN (Inverse Text Normalization)
+        self.qwen_enable_itn_checkbox = QCheckBox("Enable Inverse Text Normalization")
+        self.qwen_enable_itn_checkbox.setToolTip("Convert spoken numbers to digits (e.g., '一千' -> '1000')")
+        self.qwen_enable_itn_checkbox.setChecked(True)
+        qwen_layout.addRow("ITN:", self.qwen_enable_itn_checkbox)
 
-        # 重试设置
-        self.doubao_max_retries_spinbox = QSpinBox()
-        self.doubao_max_retries_spinbox.setRange(0, 10)
-        self.doubao_max_retries_spinbox.setValue(3)
-        doubao_layout.addRow("Max Retries:", self.doubao_max_retries_spinbox)
+        # Timeout
+        self.qwen_timeout_spinbox = QSpinBox()
+        self.qwen_timeout_spinbox.setRange(10, 180)
+        self.qwen_timeout_spinbox.setValue(30)
+        self.qwen_timeout_spinbox.setSuffix("s")
+        qwen_layout.addRow("Timeout:", self.qwen_timeout_spinbox)
 
-        layout.addWidget(doubao_group)
-        self.doubao_group = doubao_group
+        # Max Retries
+        self.qwen_max_retries_spinbox = QSpinBox()
+        self.qwen_max_retries_spinbox.setRange(0, 10)
+        self.qwen_max_retries_spinbox.setValue(3)
+        qwen_layout.addRow("Max Retries:", self.qwen_max_retries_spinbox)
+
+        # Test button
+        test_qwen_button = QPushButton("Test Qwen API Connection")
+        test_qwen_button.clicked.connect(self._test_qwen_api)
+        qwen_layout.addRow("", test_qwen_button)
+
+        layout.addWidget(qwen_group)
+        self.qwen_group = qwen_group
 
         # GPU信息组
         gpu_group = QGroupBox("GPU Information (Local Only)")
@@ -284,13 +286,12 @@ class TranscriptionTab(BaseSettingsTab):
             "siliconflow_model": self.siliconflow_model_combo,
             "siliconflow_timeout": self.siliconflow_timeout_spinbox,
             "siliconflow_max_retries": self.siliconflow_max_retries_spinbox,
-            "doubao_api_key": self.doubao_api_key_edit,
-            "doubao_app_id": self.doubao_app_id_edit,
-            "doubao_model_type": self.doubao_model_type_combo,
-            "doubao_cluster": self.doubao_cluster_edit,
-            "doubao_base_url": self.doubao_base_url_edit,
-            "doubao_timeout": self.doubao_timeout_spinbox,
-            "doubao_max_retries": self.doubao_max_retries_spinbox,
+            "qwen_api_key": self.qwen_api_key_edit,
+            "qwen_model": self.qwen_model_combo,
+            "qwen_base_url": self.qwen_base_url_edit,
+            "qwen_enable_itn": self.qwen_enable_itn_checkbox,
+            "qwen_timeout": self.qwen_timeout_spinbox,
+            "qwen_max_retries": self.qwen_max_retries_spinbox,
             "model_status": self.model_status_label,
             "gpu_status": self.gpu_status_label,
             "gpu_memory": self.gpu_memory_label,
@@ -307,12 +308,6 @@ class TranscriptionTab(BaseSettingsTab):
         self.parent_window.model_status_label = self.model_status_label
         self.parent_window.gpu_status_label = self.gpu_status_label
         self.parent_window.gpu_memory_label = self.gpu_memory_label
-
-        # Connect Doubao model type change signal
-        self.doubao_model_type_combo.currentTextChanged.connect(self._on_doubao_model_type_changed)
-
-        # Initialize cluster display
-        self._update_doubao_cluster_display()
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -372,20 +367,16 @@ class TranscriptionTab(BaseSettingsTab):
             siliconflow_config.get("max_retries", 3)
         )
 
-        # Doubao settings
-        doubao_config = transcription_config.get("doubao", {})
-        self.doubao_api_key_edit.setText(doubao_config.get("api_key", ""))
-        self.doubao_app_id_edit.setText(doubao_config.get("app_id", "388808087185088"))
-        self.doubao_model_type_combo.setCurrentText(doubao_config.get("model_type", "standard"))
-        self.doubao_cluster_edit.setText(doubao_config.get("cluster", "volc_asr_public"))
-        self.doubao_base_url_edit.setText(
-            doubao_config.get("base_url", "https://openspeech.bytedance.com")
+        # Qwen settings
+        qwen_config = transcription_config.get("qwen", {})
+        self.qwen_api_key_edit.setText(qwen_config.get("api_key", ""))
+        self.qwen_model_combo.setCurrentText(qwen_config.get("model", "qwen3-asr-flash"))
+        self.qwen_base_url_edit.setText(
+            qwen_config.get("base_url", "https://dashscope.aliyuncs.com")
         )
-        self.doubao_timeout_spinbox.setValue(doubao_config.get("timeout", 30))
-        self.doubao_max_retries_spinbox.setValue(doubao_config.get("max_retries", 3))
-
-        # Update cluster display based on model type
-        self._update_doubao_cluster_display()
+        self.qwen_enable_itn_checkbox.setChecked(qwen_config.get("enable_itn", True))
+        self.qwen_timeout_spinbox.setValue(qwen_config.get("timeout", 30))
+        self.qwen_max_retries_spinbox.setValue(qwen_config.get("max_retries", 3))
 
         # Update visibility based on provider
         self._on_provider_changed(provider)
@@ -422,18 +413,14 @@ class TranscriptionTab(BaseSettingsTab):
                     "timeout": self.siliconflow_timeout_spinbox.value(),
                     "max_retries": self.siliconflow_max_retries_spinbox.value(),
                 },
-                "doubao": {
-                    "api_key": self.doubao_api_key_edit.text(),
-                    "app_id": self.doubao_app_id_edit.text().strip()
-                    or "388808087185088",
-                    "token": self.doubao_api_key_edit.text(),  # Same as api_key for compatibility
-                    "model_type": self.doubao_model_type_combo.currentText(),
-                    "cluster": self.doubao_cluster_edit.text().strip()
-                    or ("common" if self.doubao_model_type_combo.currentText() == "fast" else "volc_asr_public"),
-                    "base_url": self.doubao_base_url_edit.text().strip()
-                    or "https://openspeech.bytedance.com",
-                    "timeout": self.doubao_timeout_spinbox.value(),
-                    "max_retries": self.doubao_max_retries_spinbox.value(),
+                "qwen": {
+                    "api_key": self.qwen_api_key_edit.text(),
+                    "model": self.qwen_model_combo.currentText(),
+                    "base_url": self.qwen_base_url_edit.text().strip()
+                    or "https://dashscope.aliyuncs.com",
+                    "enable_itn": self.qwen_enable_itn_checkbox.isChecked(),
+                    "timeout": self.qwen_timeout_spinbox.value(),
+                    "max_retries": self.qwen_max_retries_spinbox.value(),
                 },
             },
             # Keep old whisper config for backward compatibility
@@ -473,13 +460,12 @@ class TranscriptionTab(BaseSettingsTab):
         elif provider == "siliconflow":
             # SiliconFlow 模式：测试 API 连接
             self._test_siliconflow_api()
-        elif provider == "doubao":
-            # Doubao 模式：测试 API 连接
-            self._test_doubao_api()
+        elif provider == "qwen":
+            # Qwen 模式：测试 API 连接
+            self._test_qwen_api()
 
     def _test_groq_api(self) -> None:
         """测试 Groq API 连接（异步，不阻塞UI）"""
-        from PySide6.QtWidgets import QMessageBox, QApplication
         from PySide6.QtCore import QTimer
         import threading
         import time
@@ -543,7 +529,6 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _check_groq_test_status(self) -> None:
         """检查 Groq API 测试状态"""
-        from PySide6.QtWidgets import QMessageBox
         import time
 
         try:
@@ -599,7 +584,6 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _test_siliconflow_api(self) -> None:
         """测试 SiliconFlow API 连接（异步，不阻塞UI）"""
-        from PySide6.QtWidgets import QMessageBox, QApplication
         from PySide6.QtCore import QTimer
         import threading
         import time
@@ -663,7 +647,6 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _check_siliconflow_test_status(self) -> None:
         """检查 SiliconFlow API 测试状态"""
-        from PySide6.QtWidgets import QMessageBox
         import time
 
         try:
@@ -764,12 +747,12 @@ class TranscriptionTab(BaseSettingsTab):
         """当转录提供商改变时更新UI显示
 
         Args:
-            provider: 提供商名称 ("local", "groq", "siliconflow", 或 "doubao")
+            provider: 提供商名称 ("local", "groq", "siliconflow", 或 "qwen")
         """
         is_local = provider == "local"
         is_groq = provider == "groq"
         is_siliconflow = provider == "siliconflow"
-        is_doubao = provider == "doubao"
+        is_qwen = provider == "qwen"
 
         # 显示/隐藏 Local Whisper 配置
         self.model_group.setVisible(is_local)
@@ -781,8 +764,8 @@ class TranscriptionTab(BaseSettingsTab):
         # 显示/隐藏 SiliconFlow 配置
         self.siliconflow_group.setVisible(is_siliconflow)
 
-        # 显示/隐藏 Doubao 配置
-        self.doubao_group.setVisible(is_doubao)
+        # 显示/隐藏 Qwen 配置
+        self.qwen_group.setVisible(is_qwen)
 
         # 调整 Model Management 区域
         if is_local:
@@ -818,12 +801,12 @@ class TranscriptionTab(BaseSettingsTab):
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
             self.test_model_button.setText("Test API Connection")
-        elif is_doubao:
-            # Doubao 模式：显示 API 测试
+        elif is_qwen:
+            # Qwen 模式：显示 API 测试
             self.management_group.setTitle("API Connection Test")
             self.model_status_label.setText(
                 "API key configured"
-                if self.doubao_api_key_edit.text().strip()
+                if self.qwen_api_key_edit.text().strip()
                 else "API key not configured"
             )
             self.load_model_button.setVisible(False)
@@ -858,135 +841,146 @@ class TranscriptionTab(BaseSettingsTab):
             else:
                 self.model_status_label.setText("API key not configured")
 
-    def _on_doubao_api_key_changed(self, text: str) -> None:
-        """当 Doubao API key 改变时更新状态
+    # ==================== Qwen API Methods ====================
+
+    def _on_qwen_api_key_changed(self, text: str) -> None:
+        """当 Qwen API key 改变时更新状态
 
         Args:
             text: API key 文本
         """
-        # 只在 Doubao 模式下更新状态
+        # 只在 Qwen 模式下更新状态
         provider = self.transcription_provider_combo.currentText()
-        if provider == "doubao":
+        if provider == "qwen":
             if text.strip():
                 self.model_status_label.setText("API key configured")
             else:
                 self.model_status_label.setText("API key not configured")
 
-    def _on_doubao_model_type_changed(self, model_type: str) -> None:
-        """当 Doubao 模型类型改变时更新集群显示
-
-        Args:
-            model_type: 模型类型 ("standard" 或 "fast")
-        """
-        self._update_doubao_cluster_display()
-
-    def _update_doubao_cluster_display(self) -> None:
-        """更新 Doubao 集群显示（基于模型类型）"""
-        model_type = self.doubao_model_type_combo.currentText()
-        cluster = "common" if model_type == "fast" else "volc_asr_public"
-        self.doubao_cluster_edit.setText(cluster)
-
-    def _test_doubao_api(self) -> None:
-        """测试 Doubao API 连接（异步，不阻塞UI）"""
-        from PySide6.QtWidgets import QMessageBox, QApplication
+    def _test_qwen_api(self) -> None:
+        """测试 Qwen API 连接（异步，不阻塞UI）"""
         from PySide6.QtCore import QTimer
         import threading
         import time
 
         # 检查 API key
-        api_key = self.doubao_api_key_edit.text().strip()
+        api_key = self.qwen_api_key_edit.text().strip()
         if not api_key:
             QMessageBox.warning(
                 self.parent_window,
                 "API Key Missing",
-                "Please enter your Doubao API key first.",
+                "Please enter your Qwen (DashScope) API key first.",
             )
             return
 
         # 显示测试中对话框
-        model_type = self.doubao_model_type_combo.currentText()
+        model = self.qwen_model_combo.currentText()
         progress_dialog = QMessageBox(self.parent_window)
-        progress_dialog.setWindowTitle("Testing API Connection")
-        progress_dialog.setText(f"Testing Doubao ({model_type}) API connection...\n\nThis may take a moment.")
+        progress_dialog.setWindowTitle("Testing Qwen API")
+        progress_dialog.setText(
+            f"Testing Qwen ASR API connection...\n\nModel: {model}\n\nThis may take a few seconds."
+        )
         progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
         progress_dialog.show()
 
-        # 启动后台测试线程
-        def test_api():
+        # 处理事件以显示对话框
+        QApplication.processEvents()
+
+        # 创建后台线程运行测试
+        result_container = {"success": False, "error": ""}
+
+        def test_connection_thread():
             try:
                 from ...speech.speech_service_factory import SpeechServiceFactory
 
-                # 创建 Doubao 服务实例
+                # 创建 Qwen 服务实例
                 service = SpeechServiceFactory.create_service(
-                    provider="doubao",
+                    provider="qwen",
                     api_key=api_key,
-                    app_id=self.doubao_app_id_edit.text().strip() or "388808087185088",
-                    model_type=model_type,
-                    base_url=self.doubao_base_url_edit.text().strip()
-                    or "https://openspeech.bytedance.com",
+                    model=model,
+                    base_url=self.qwen_base_url_edit.text().strip()
+                    or "https://dashscope.aliyuncs.com",
+                    enable_itn=self.qwen_enable_itn_checkbox.isChecked(),
                 )
 
                 # 执行连接测试
                 success = service.test_connection()
+                result_container["success"] = success
 
-                # 更新UI（必须在主线程中执行）
-                QTimer.singleShot(0, lambda: self._check_doubao_test_status(success, model_type))
+                if not success:
+                    result_container["error"] = "Connection test failed"
 
             except Exception as e:
-                error_msg = str(e)
-                QTimer.singleShot(0, lambda: self._check_doubao_test_status(None, model_type, error_msg))
+                result_container["success"] = False
+                result_container["error"] = str(e)
 
-        # 启动线程
-        test_thread = threading.Thread(target=test_api, daemon=True)
+        # 启动测试线程
+        test_thread = threading.Thread(target=test_connection_thread, daemon=True)
         test_thread.start()
 
-        # 设置定时器检查是否取消
-        self._doubao_progress_dialog = progress_dialog
-        self._doubao_test_timer = QTimer()
-        self._doubao_test_timer.timeout.connect(
-            lambda: self._check_doubao_test_cancelled()
-        )
-        self._doubao_test_timer.start(500)  # 每500ms检查一次
+        # 保存测试状态
+        self._qwen_test_thread = test_thread
+        self._qwen_test_result = result_container
+        self._qwen_progress_dialog = progress_dialog
+        self._qwen_test_start_time = time.time()
+        self._qwen_test_model = model
 
-    def _check_doubao_test_cancelled(self) -> None:
-        """检查用户是否取消了 Doubao API 测试"""
-        if (
-            hasattr(self, "_doubao_progress_dialog")
-            and self._doubao_progress_dialog.result() == QMessageBox.StandardButton.Cancel
-        ):
-            self._doubao_test_timer.stop()
-            self._doubao_progress_dialog.close()
-            self.model_status_label.setText("API test cancelled")
+        # 创建定时器轮询测试状态
+        self._qwen_test_timer = QTimer()
+        self._qwen_test_timer.timeout.connect(self._check_qwen_test_status)
+        self._qwen_test_timer.start(100)  # 每100ms检查一次
 
-    def _check_doubao_test_status(self, success: Optional[bool], model_type: str, error_msg: Optional[str] = None) -> None:
-        """检查 Doubao API 测试结果并显示相应消息
+    def _check_qwen_test_status(self) -> None:
+        """检查 Qwen API 测试状态"""
+        import time
 
-        Args:
-            success: 测试是否成功
-            model_type: 模型类型
-            error_msg: 错误消息（如果有）
-        """
-        from PySide6.QtWidgets import QMessageBox
+        try:
+            thread_alive = self._qwen_test_thread.is_alive()
+            elapsed_time = time.time() - self._qwen_test_start_time
 
-        # 停止检查定时器并关闭进度对话框
-        if hasattr(self, "_doubao_test_timer"):
-            self._doubao_test_timer.stop()
-        if hasattr(self, "_doubao_progress_dialog"):
-            self._doubao_progress_dialog.close()
+            # 检查测试线程是否完成
+            if not thread_alive:
+                # 测试完成，停止定时器
+                self._qwen_test_timer.stop()
+                self._qwen_progress_dialog.close()
 
-        if success:
-            # 测试成功
-            self.model_status_label.setText(f"API connection successful ({model_type})")
-            QMessageBox.information(
-                self.parent_window,
-                "API Test Successful",
-                f"Doubao ({model_type}) API connection test successful!\n\nThe service is ready to use.",
-            )
-        else:
-            # 测试失败
-            self.model_status_label.setText("API connection failed")
+                # 显示结果
+                if self._qwen_test_result["success"]:
+                    self.model_status_label.setText("API connection successful")
+                    QMessageBox.information(
+                        self.parent_window,
+                        "API Test Successful",
+                        f"Successfully connected to Qwen ASR API!\n\nModel: {self._qwen_test_model}\n\nYou can now use cloud transcription.",
+                    )
+                else:
+                    error_msg = self._qwen_test_result["error"] or "Unknown error"
+                    self.model_status_label.setText("API connection failed")
+                    QMessageBox.critical(
+                        self.parent_window,
+                        "API Test Failed",
+                        f"Failed to connect to Qwen ASR API.\n\nError: {error_msg}\n\nPlease check:\n- DashScope API key is valid\n- Internet connection\n- Qwen service status",
+                    )
+                return
+
+            # 检查用户是否点击了取消
+            if (
+                hasattr(self, "_qwen_progress_dialog")
+                and self._qwen_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+            ):
+                self._qwen_test_timer.stop()
+                self._qwen_progress_dialog.close()
+                self.model_status_label.setText("API test cancelled")
+                return
+
+            # 不强制超时，由底层 API 的 timeout 配置控制
+            # 用户可以在配置中设置 qwen.timeout
+
+        except Exception as e:
+            self._qwen_test_timer.stop()
+            self._qwen_progress_dialog.close()
+            self.model_status_label.setText("API test error")
             QMessageBox.critical(
                 self.parent_window,
-                "API Test Failed",
-                f"Failed to connect to Doubao ({model_type}) API.\n\nError: {error_msg or 'Unknown error'}\n\nPlease check:\n- API key/token is valid\n- App ID is correct\n- Model type and cluster match\n- Internet connection\n- Doubao service status",
+                "API Test Error",
+                f"Error during API test: {str(e)}",
             )

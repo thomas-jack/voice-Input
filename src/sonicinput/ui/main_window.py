@@ -135,14 +135,37 @@ class MainWindow(QMainWindow):
     # 信号定义
     window_closing = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(
+        self,
+        ui_main_service: Optional[IUIMainService] = None,
+        ui_settings_service: Optional[IUISettingsService] = None,
+        ui_model_service: Optional[IUIModelService] = None,
+        parent=None
+    ):
+        """初始化主窗口
+
+        Args:
+            ui_main_service: UI主窗口服务（可选，推荐通过构造函数注入）
+            ui_settings_service: UI设置服务（可选，推荐通过构造函数注入）
+            ui_model_service: UI模型服务（可选，推荐通过构造函数注入）
+            parent: 父窗口
+        """
         super().__init__(parent)
-        self.ui_main_service: Optional[IUIMainService] = None
-        self.ui_settings_service: Optional[IUISettingsService] = None
-        self.ui_model_service: Optional[IUIModelService] = None
+        self.ui_main_service = ui_main_service
+        self.ui_settings_service = ui_settings_service
+        self.ui_model_service = ui_model_service
+
         self.setup_window()
         self.setup_ui()
-        app_logger.log_audio_event("MainWindow initialized with DI", {})
+
+        # 如果服务已经注入，连接事件
+        if self.ui_main_service:
+            self._connect_service_events()
+
+        app_logger.log_audio_event(
+            "MainWindow initialized",
+            {"services_injected": ui_main_service is not None}
+        )
 
     def setup_window(self) -> None:
         """配置窗口基本属性"""
