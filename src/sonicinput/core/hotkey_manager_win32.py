@@ -156,7 +156,6 @@ class Win32HotkeyManager(IHotkeyService):
         """
         self.callback = callback
         self.registered_hotkeys: Dict[str, Dict] = {}  # hotkey_str -> {id, action, modifiers, vk}
-        self._hwnd: Optional[int] = None
         self._is_listening_flag = False
         self._message_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -257,46 +256,6 @@ class Win32HotkeyManager(IHotkeyService):
 
         return result
 
-    def _wndproc(self, hwnd, msg, wparam, lparam):
-        """Window procedure for message-only window
-
-        Handles WM_HOTKEY messages from RegisterHotKey
-        """
-        if msg == win32con.WM_HOTKEY:
-            hotkey_id = wparam
-
-            # Find hotkey by ID
-            for hotkey_str, info in self.registered_hotkeys.items():
-                if info['id'] == hotkey_id:
-                    action = info['action']
-
-                    app_logger.log_audio_event(
-                        "Win32 hotkey triggered",
-                        {
-                            "hotkey": hotkey_str,
-                            "action": action,
-                            "id": hotkey_id
-                        },
-                    )
-
-                    app_logger.log_hotkey_event(hotkey_str, action)
-
-                    # Execute callback in separate thread to avoid blocking message loop
-                    threading.Thread(
-                        target=self._execute_callback,
-                        args=(action,),
-                        daemon=True
-                    ).start()
-
-                    break
-
-        elif msg == win32con.WM_CLOSE:
-            win32gui.DestroyWindow(hwnd)
-        elif msg == win32con.WM_DESTROY:
-            win32gui.PostQuitMessage(0)
-
-        return win32gui.DefWindowProc(hwnd, msg, wparam, lparam)
-
     def _execute_callback(self, action: str):
         """Execute hotkey callback
 
@@ -313,41 +272,19 @@ class Win32HotkeyManager(IHotkeyService):
             app_logger.log_error(e, f"win32_hotkey_callback_{action}")
 
     def _message_loop(self):
-        """Message loop thread for receiving WM_HOTKEY messages"""
+        """Message loop thread for receiving WM_HOTKEY messages
+
+        Uses thread-level hotkeys (NULL window handle) instead of window-based hotkeys.
+        This avoids thread affinity issues with RegisterHotKey.
+        """
         try:
-            # Register window class
-            wc = win32gui.WNDCLASS()
-            wc.lpfnWndProc = self._wndproc
-            wc.lpszClassName = "SonicInputHotkeyWindow"
-            wc.hInstance = win32api.GetModuleHandle(None)
-
-            try:
-                class_atom = win32gui.RegisterClass(wc)
-            except Exception as e:
-                # Class might already be registered
-                class_atom = win32gui.WNDCLASS()
-                app_logger.log_audio_event(
-                    "Window class already registered (expected)", {}
-                )
-
-            # Create message-only window
-            self._hwnd = win32gui.CreateWindow(
-                wc.lpszClassName,
-                "SonicInput Hotkey Window",
-                0, 0, 0, 0, 0,
-                win32con.HWND_MESSAGE,  # Message-only window
-                0,
-                wc.hInstance,
-                None
-            )
+            # Signal that message loop is ready
+            # We don't create a window - RegisterHotKey with NULL binds to the thread
+            self._is_listening_flag = True
 
             app_logger.log_audio_event(
-                "Win32 message window created",
-                {"hwnd": self._hwnd}
+                "Win32 message loop started (thread-level hotkeys)", {}
             )
-
-            # Signal that window is ready
-            self._is_listening_flag = True
 
             # Process queued registration commands
             while not self._command_queue.empty():
@@ -361,15 +298,65 @@ class Win32HotkeyManager(IHotkeyService):
                     app_logger.log_error(e, "command_queue_execution")
                     # Don't break - continue processing other commands
 
-            # Message loop
+            # Message loop - process thread messages
+            import ctypes
+            msg = ctypes.wintypes.MSG()
+
             while not self._stop_event.is_set():
                 try:
-                    # Process Windows messages with timeout
-                    msg = win32gui.GetMessage(self._hwnd, 0, 0)
-                    if msg[1][1] == win32con.WM_QUIT:
+                    # GetMessage returns:
+                    # > 0: message retrieved (not WM_QUIT)
+                    # 0: WM_QUIT received
+                    # -1: error
+                    result = ctypes.windll.user32.GetMessageW(
+                        ctypes.byref(msg),
+                        None,  # NULL window handle - get thread messages
+                        0,     # min message filter
+                        0      # max message filter
+                    )
+
+                    if result == 0:  # WM_QUIT
                         break
-                    win32gui.TranslateMessage(msg[1])
-                    win32gui.DispatchMessage(msg[1])
+                    elif result < 0:  # Error
+                        app_logger.log_error(
+                            Exception("GetMessage failed"),
+                            "win32_message_loop"
+                        )
+                        break
+
+                    # Handle WM_HOTKEY messages
+                    if msg.message == win32con.WM_HOTKEY:
+                        hotkey_id = msg.wParam
+
+                        # Find hotkey by ID
+                        for hotkey_str, info in self.registered_hotkeys.items():
+                            if info['id'] == hotkey_id:
+                                action = info['action']
+
+                                app_logger.log_audio_event(
+                                    "Win32 hotkey triggered",
+                                    {
+                                        "hotkey": hotkey_str,
+                                        "action": action,
+                                        "id": hotkey_id
+                                    },
+                                )
+
+                                app_logger.log_hotkey_event(hotkey_str, action)
+
+                                # Execute callback in separate thread to avoid blocking message loop
+                                threading.Thread(
+                                    target=self._execute_callback,
+                                    args=(action,),
+                                    daemon=True
+                                ).start()
+
+                                break
+
+                    # Process other messages
+                    ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
+                    ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
+
                 except Exception as e:
                     if not self._stop_event.is_set():
                         app_logger.log_error(e, "win32_message_loop")
@@ -379,12 +366,6 @@ class Win32HotkeyManager(IHotkeyService):
             app_logger.log_error(e, "win32_message_loop_init")
         finally:
             self._is_listening_flag = False
-            if self._hwnd:
-                try:
-                    win32gui.DestroyWindow(self._hwnd)
-                except:
-                    pass
-                self._hwnd = None
 
     def register_hotkey(self, hotkey: str, action: str = "toggle_recording") -> bool:
         """Register global hotkey using RegisterHotKey API
@@ -426,16 +407,44 @@ class Win32HotkeyManager(IHotkeyService):
             def register_command():
                 nonlocal registration_error
                 try:
-                    success = win32gui.RegisterHotKey(
-                        self._hwnd,
+                    import ctypes
+                    # Use NULL window handle - binds hotkey to the thread
+                    success = ctypes.windll.user32.RegisterHotKey(
+                        None,      # NULL window handle - bind to thread
                         hotkey_id,
                         modifiers,
                         vk
                     )
 
+                    error_code = ctypes.windll.kernel32.GetLastError() if not success else 0
+
+                    # Log RegisterHotKey result
+                    app_logger.log_audio_event(
+                        "RegisterHotKey called",
+                        {
+                            "hotkey": normalized_hotkey,
+                            "id": hotkey_id,
+                            "modifiers": modifiers,
+                            "vk": vk,
+                            "success": bool(success),
+                            "error_code": error_code
+                        }
+                    )
+
                     if not success:
-                        error_code = win32api.GetLastError()
+                        # Create conflict error with detailed info
                         registration_error = HotkeyConflictError(normalized_hotkey, error_code)
+
+                        # Log conflict details
+                        app_logger.log_audio_event(
+                            "Win32 hotkey conflict detected",
+                            {
+                                "hotkey": normalized_hotkey,
+                                "error_code": error_code,
+                                "error_message": "Hotkey already registered by another application",
+                                "suggestions": registration_error.suggestions
+                            }
+                        )
                         return
 
                     # Store registration info
@@ -463,22 +472,35 @@ class Win32HotkeyManager(IHotkeyService):
                 finally:
                     registration_complete.set()
 
-            if self._hwnd:
-                # Window already exists, register immediately
-                register_command()
-                # Check if there was an error
+            # Always queue command to ensure it runs in message loop thread
+            self._command_queue.put(register_command)
+
+            # If message loop is running, wake it up
+            if self._is_listening_flag and self._message_thread:
+                import ctypes
+                thread_id = ctypes.windll.kernel32.GetThreadId(
+                    self._message_thread.native_id if hasattr(self._message_thread, 'native_id')
+                    else self._message_thread.ident
+                )
+                # Post a dummy message to wake up GetMessage
+                ctypes.windll.user32.PostThreadMessageW(thread_id, win32con.WM_NULL, 0, 0)
+
+            # Wait for completion (with timeout)
+            if registration_complete.wait(timeout=2.0):
                 if registration_error:
                     raise registration_error
+
+                # Verify hotkey is actually registered
+                if normalized_hotkey not in self.registered_hotkeys:
+                    raise HotkeyRegistrationError(
+                        f"Hotkey '{normalized_hotkey}' registration failed silently"
+                    )
             else:
-                # Queue command for when window is created
-                self._command_queue.put(register_command)
-                # Wait for completion (with timeout)
-                if registration_complete.wait(timeout=1.0):
-                    if registration_error:
-                        raise registration_error
-                else:
-                    # Timeout - will be registered when message loop starts
-                    pass
+                # Timeout - should not happen in normal operation
+                app_logger.log_audio_event(
+                    "Hotkey registration queued (message loop not ready yet)",
+                    {"hotkey": normalized_hotkey}
+                )
 
             return True
 
@@ -504,8 +526,9 @@ class Win32HotkeyManager(IHotkeyService):
         hotkey_id = info['id']
 
         try:
-            if self._hwnd:
-                win32gui.UnregisterHotKey(self._hwnd, hotkey_id)
+            import ctypes
+            # Use NULL window handle (thread-level hotkey)
+            ctypes.windll.user32.UnregisterHotKey(None, hotkey_id)
 
             del self.registered_hotkeys[normalized_hotkey]
 
@@ -578,10 +601,16 @@ class Win32HotkeyManager(IHotkeyService):
             # Signal stop
             self._stop_event.set()
 
-            # Post quit message
-            if self._hwnd:
+            # Post quit message to message loop thread
+            if self._message_thread and self._message_thread.is_alive():
+                import ctypes
                 try:
-                    win32gui.PostMessage(self._hwnd, win32con.WM_QUIT, 0, 0)
+                    thread_id = ctypes.windll.kernel32.GetThreadId(
+                        self._message_thread.native_id if hasattr(self._message_thread, 'native_id')
+                        else self._message_thread.ident
+                    )
+                    # Post WM_QUIT to the thread
+                    ctypes.windll.user32.PostThreadMessageW(thread_id, win32con.WM_QUIT, 0, 0)
                 except:
                     pass
 

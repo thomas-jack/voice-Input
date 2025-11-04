@@ -47,6 +47,8 @@ class PynputHotkeyManager(IHotkeyService):
         ] = {}  # hotkey_string -> {hotkey_obj, action, keys}
         self._listener: Optional[keyboard.Listener] = None
         self._is_listening_flag = False
+        # 跟踪被 win32_event_filter 抑制的键（VK 码），用于避免双重调用
+        self._suppressed_vk_keys: Set[int] = set()
 
         app_logger.log_audio_event(
             "Pynput hotkey manager initialized (win32_event_filter)", {}
@@ -293,13 +295,24 @@ class PynputHotkeyManager(IHotkeyService):
         if self._listener and self._is_listening_flag:
             self._listener.stop()
 
-            # 等待 listener 线程完全退出，避免进程泄漏
+            # ⭐ 改进：等待 listener 线程完全退出，避免进程泄漏
             import time
 
-            for _ in range(10):  # 最多等待 1 秒
-                if not self._listener.is_alive():
+            timeout = 2.0  # 超时时间增加到 2 秒
+            start_time = time.time()
+
+            while self._listener.is_alive():
+                elapsed = time.time() - start_time
+                if elapsed > timeout:
+                    app_logger.log_audio_event(
+                        "Listener thread stop timeout",
+                        {
+                            "timeout_seconds": timeout,
+                            "still_alive": self._listener.is_alive()
+                        }
+                    )
                     break
-                time.sleep(0.1)
+                time.sleep(0.05)  # 检查间隔改为 50ms
 
             self._is_listening_flag = False
 
@@ -320,8 +333,8 @@ class PynputHotkeyManager(IHotkeyService):
         # 跟踪当前按下的键 (VK 码 -> 按下时间戳)
         # 修复 Alt+H 误触发：添加时间窗口检查，确保组合键在 500ms 内按下
         current_vk_keys: Dict[int, float] = {}
-        # 跟踪被抑制的键（确保press和release成对抑制）
-        suppressed_vk_keys: Set[int] = set()
+        # 清空被抑制键的跟踪（使用实例变量，让 on_press/on_release 可以访问）
+        self._suppressed_vk_keys.clear()
 
         # win32 事件过滤器 - 在 Windows 消息循环中最早执行
         def win32_event_filter(msg, data):
@@ -371,7 +384,7 @@ class PynputHotkeyManager(IHotkeyService):
                                     for k, v in current_vk_keys.items()
                                 },
                                 "suppressed_vk_keys": [
-                                    hex(k) for k in suppressed_vk_keys
+                                    hex(k) for k in self._suppressed_vk_keys
                                 ],
                                 "registered_hotkeys_count": len(
                                     self.registered_hotkeys
@@ -470,10 +483,11 @@ class PynputHotkeyManager(IHotkeyService):
                                     )
 
                                 continue  # 跳过此快捷键，不触发
-                            # 匹配！抑制此事件并手动通知 HotKey
-                            suppressed_vk_keys.add(vk_code)
 
-                            hotkey_obj = hotkey_info["hotkey_obj"]
+                            # ⭐ 修复双重调用问题：匹配后将所有组合键标记为已抑制
+                            # 这样 on_press 会跳过这些键，避免与 win32_event_filter 冲突
+                            for vk in current_vk_keys.keys():
+                                self._suppressed_vk_keys.add(vk)
 
                             # 调试日志：热键匹配成功（DEBUG级别）
                             if app_logger.is_debug_enabled():
@@ -485,40 +499,23 @@ class PynputHotkeyManager(IHotkeyService):
                                         ),
                                         "normalized_current": str(normalized_current),
                                         "hotkey_keys": str(hotkey_keys),
-                                        "hotkey_state_before": str(hotkey_obj._state),
                                         "action": hotkey_info.get("action", "unknown"),
+                                        "suppressed_vk_keys": [hex(vk) for vk in self._suppressed_vk_keys],
                                     },
                                 )
 
-                            # 重建完整的按键状态（修复组合键触发问题）
-                            # 清空旧状态并重新添加所有当前按下的键
+                            # ⭐ 关键修复：直接调用回调函数，不通过 HotKey 对象
+                            # 避免操作 HotKey._state 导致与 on_press 的双重调用冲突
+                            hotkey_callback = hotkey_info["hotkey_obj"]._on_activate
+                            try:
+                                hotkey_callback()
+                            except Exception as e:
+                                app_logger.log_error(e, "hotkey_callback_in_filter")
+
+                            # ⭐ 清空跟踪状态，准备下次检测
                             if app_logger.is_debug_enabled():
                                 app_logger.log_audio_event(
-                                    "Rebuilding hotkey state",
-                                    {
-                                        "old_state": str(hotkey_obj._state),
-                                        "current_keys": str(normalized_current),
-                                        "vk_code": vk_code,
-                                    },
-                                )
-                            hotkey_obj._state.clear()
-
-                            # 逐个添加当前所有按下的键到 _state
-                            for pk in current_pynput_keys:
-                                hotkey_obj.press(pk)
-
-                            # 调试日志：press 后的状态（DEBUG级别）
-                            if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                                app_logger.log_audio_event(
-                                    "F12 after press()",
-                                    {"hotkey_state_after": str(hotkey_obj._state)},
-                                )
-
-                            # ⭐ 修复误触发：快捷键触发后立即清空所有跟踪状态
-                            # 防止修饰键（Alt/Ctrl/Shift）状态残留导致后续打字误触发
-                            if app_logger.is_debug_enabled():
-                                app_logger.log_audio_event(
-                                    "Clearing all key states after hotkey trigger",
+                                    "Clearing key states after hotkey trigger",
                                     {
                                         "hotkey": hotkey_info.get(
                                             "normalized", "unknown"
@@ -526,20 +523,13 @@ class PynputHotkeyManager(IHotkeyService):
                                         "cleared_vk_keys": [
                                             hex(vk) for vk in current_vk_keys.keys()
                                         ],
-                                        "cleared_suppressed_keys": [
-                                            hex(vk) for vk in suppressed_vk_keys
-                                        ],
                                     },
                                 )
 
                             current_vk_keys.clear()
-                            suppressed_vk_keys.clear()
+                            # 注意：不清空 suppressed_vk_keys，等待释放事件时清除
 
-                            # 同时清空所有 HotKey 对象的状态，确保完全归零
-                            for info in self.registered_hotkeys.values():
-                                info["hotkey_obj"]._state.clear()
-
-                            return False  # 抑制事件
+                            return False  # 抑制事件，阻止传播到活动窗口
 
                     # 不匹配，允许传播到 on_press
                     return True
@@ -548,49 +538,26 @@ class PynputHotkeyManager(IHotkeyService):
                     # 按键释放
                     vk_code = data.vkCode
 
-                    # 调试日志：F12 释放（DEBUG级别）
-                    if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
+                    # 调试日志（DEBUG级别）
+                    if app_logger.is_debug_enabled():
                         app_logger.log_audio_event(
-                            "F12 KeyUp detected",
+                            f"KeyUp detected (VK={hex(vk_code)})",
                             {
                                 "vk_code": vk_code,
-                                "in_suppressed": vk_code in suppressed_vk_keys,
-                                "current_vk_keys": list(current_vk_keys.keys()),
+                                "in_suppressed": vk_code in self._suppressed_vk_keys,
+                                "current_vk_keys": [hex(k) for k in current_vk_keys.keys()],
                             },
                         )
 
+                    # 从跟踪中移除
                     if vk_code in current_vk_keys:
                         del current_vk_keys[vk_code]
 
-                    pynput_key = self._vk_to_pynput_key(vk_code)
-                    if pynput_key is None:
-                        return True
-
-                    # 如果这个键的 press 被抑制了，release 也要抑制
-                    if vk_code in suppressed_vk_keys:
-                        suppressed_vk_keys.discard(vk_code)
-
-                        # 手动通知 HotKey 对象
-                        for info in self.registered_hotkeys.values():
-                            hotkey_obj = info["hotkey_obj"]
-
-                            # 调试日志：release 前的状态（DEBUG级别）
-                            if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                                app_logger.log_audio_event(
-                                    "F12 before release()",
-                                    {"hotkey_state_before": str(hotkey_obj._state)},
-                                )
-
-                            hotkey_obj.release(pynput_key)
-
-                            # 调试日志：release 后的状态（DEBUG级别）
-                            if app_logger.is_debug_enabled() and vk_code == 0x7B:  # F12
-                                app_logger.log_audio_event(
-                                    "F12 after release()",
-                                    {"hotkey_state_after": str(hotkey_obj._state)},
-                                )
-
-                        return False  # 抑制事件
+                    # ⭐ 修复双重调用：如果这个键被抑制了，清除标记并抑制传播
+                    # 不调用 hotkey.release()，让 on_release 处理（但会被跳过）
+                    if vk_code in self._suppressed_vk_keys:
+                        self._suppressed_vk_keys.discard(vk_code)
+                        return False  # 抑制事件，阻止传播到 on_release
 
                     # 否则允许传播到 on_release
                     return True
@@ -601,16 +568,16 @@ class PynputHotkeyManager(IHotkeyService):
 
             return True
 
-        # on_press/on_release 只处理未被抑制的事件
+        # ⭐ 修复双重调用：on_press/on_release 不再使用
+        # 所有热键检测由 win32_event_filter 处理，避免与 HotKey 对象的状态管理冲突
         def on_press(key):
-            # 通知所有 HotKey 对象（对于未被 win32_event_filter 抑制的键）
-            for hotkey_info in self.registered_hotkeys.values():
-                hotkey_info["hotkey_obj"].press(key)
+            # 不做任何处理 - win32_event_filter 已经处理了所有热键
+            # 这个函数保留是因为 pynput.Listener 需要 on_press 参数
+            pass
 
         def on_release(key):
-            # 通知所有 HotKey 对象（对于未被 win32_event_filter 抑制的键）
-            for hotkey_info in self.registered_hotkeys.values():
-                hotkey_info["hotkey_obj"].release(key)
+            # 不做任何处理 - win32_event_filter 已经处理了所有热键
+            pass
 
         # 创建 listener，使用 win32_event_filter
         self._listener = keyboard.Listener(
