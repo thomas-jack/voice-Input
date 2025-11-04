@@ -95,6 +95,11 @@ class Events:
     APP_ERROR = "app_error"
     CONFIG_CHANGED = "config_changed"
 
+    # 快捷键相关
+    HOTKEY_CONFLICT = "hotkey_conflict"
+    HOTKEY_REGISTRATION_ERROR = "hotkey_registration_error"
+    HOTKEY_REGISTERED = "hotkey_registered"
+
     # 错误恢复相关
     ERROR_OCCURRED = "error_occurred"
     ERROR_AUTO_RESOLVED = "error_auto_resolved"

@@ -10,7 +10,10 @@ def get_default_config() -> Dict[str, Any]:
         默认配置字典
     """
     return {
-        "hotkeys": ["ctrl+shift+v"],
+        "hotkeys": {
+            "keys": ["ctrl+shift+v"],
+            "backend": "auto",  # "auto", "win32", or "pynput"
+        },
         "transcription": {
             "provider": "local",
             "local": {

@@ -98,12 +98,22 @@ class VoiceInputApp:
             self._speech_service = self.container.get(ISpeechService)
             self._input_service = self.container.get(IInputService)
 
-            # 初始化快捷键服务（仅使用久经测试的 legacy 实现）
-            # 注意：GlobalHotkeys 新实现已被禁用，确保稳定性
-            from .hotkey_manager import HotkeyManager
+            # 初始化快捷键服务（支持win32和pynput后端）
+            from .hotkey_manager import create_hotkey_manager
+            from .hotkey_config_helper import get_hotkeys_from_config
 
-            self._hotkey_service = HotkeyManager(self._on_hotkey_triggered)
-            app_logger.log_audio_event("Using legacy HotkeyManager (stable)", {})
+            # 读取配置确定后端
+            _, backend = get_hotkeys_from_config(self.config)
+
+            self._hotkey_service = create_hotkey_manager(
+                self._on_hotkey_triggered,
+                backend=backend,
+                config=self.config
+            )
+            app_logger.log_audio_event(
+                "Hotkey service created with backend",
+                {"backend": backend}
+            )
 
             # 初始化控制器
             self._init_controllers()
@@ -210,25 +220,59 @@ class VoiceInputApp:
                 # 注销所有旧快捷键
                 self._hotkey_service.unregister_all_hotkeys()
 
-                # 从配置读取新快捷键列表
-                hotkeys = self.config.get_setting("hotkeys", None)
-                if hotkeys is None:  # 向后兼容单个hotkey
-                    single_hotkey = self.config.get_setting("hotkey", "ctrl+shift+v")
-                    hotkeys = [single_hotkey]
+                # 从配置读取新快捷键列表（支持新旧格式）
+                from .hotkey_config_helper import get_hotkeys_from_config
+                from .hotkey_manager_win32 import HotkeyConflictError
+                from ..utils import HotkeyRegistrationError
 
-                # 注册所有新快捷键
+                hotkeys, backend = get_hotkeys_from_config(self.config)
+
+                # 注册所有新快捷键，处理冲突
                 registered_count = 0
+                failed_hotkeys = []
+
                 for hotkey in hotkeys:
                     if hotkey and hotkey.strip():
-                        self._hotkey_service.register_hotkey(
-                            hotkey.strip(), "toggle_recording"
-                        )
-                        registered_count += 1
+                        try:
+                            self._hotkey_service.register_hotkey(
+                                hotkey.strip(), "toggle_recording"
+                            )
+                            registered_count += 1
+                        except HotkeyConflictError as e:
+                            # 记录冲突但继续处理其他快捷键
+                            failed_hotkeys.append(hotkey.strip())
+                            app_logger.log_audio_event(
+                                "Hotkey conflict during reload",
+                                {"hotkey": hotkey.strip(), "suggestions": e.suggestions}
+                            )
+                            # 发送事件通知UI
+                            self.events.emit("HOTKEY_CONFLICT", {
+                                "hotkey": e.hotkey,
+                                "suggestions": e.suggestions,
+                                "error_code": e.error_code,
+                            })
+                        except HotkeyRegistrationError as e:
+                            failed_hotkeys.append(hotkey.strip())
+                            app_logger.log_error(e, f"hotkey_registration_{hotkey}")
+                            self.events.emit("HOTKEY_REGISTRATION_ERROR", {
+                                "hotkey": hotkey.strip(),
+                                "error": str(e),
+                            })
+                        except Exception as e:
+                            failed_hotkeys.append(hotkey.strip())
+                            app_logger.log_error(e, f"hotkey_unexpected_error_{hotkey}")
 
                 app_logger.log_audio_event(
-                    "Hotkeys reloaded", {"hotkeys": hotkeys, "count": registered_count}
+                    "Hotkeys reloaded",
+                    {
+                        "hotkeys": hotkeys,
+                        "registered": registered_count,
+                        "failed": len(failed_hotkeys),
+                        "failed_hotkeys": failed_hotkeys,
+                        "backend": backend,
+                    }
                 )
-                return True
+                return registered_count > 0
             return False
 
         except Exception as e:

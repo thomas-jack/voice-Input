@@ -705,7 +705,7 @@ def create_container() -> "EnhancedDIContainer":
     from ..speech import WhisperEngine
     from ..ai import AIClientFactory
     from ..input import SmartTextInput
-    from .hotkey_manager import HotkeyManager
+    from .hotkey_manager import create_hotkey_manager
 
     # 事件服务 - 单例（最先创建，因为其他服务依赖它）
     container.register_singleton(IEventService, DynamicEventSystem)
@@ -859,7 +859,19 @@ def create_container() -> "EnhancedDIContainer":
         def dummy_callback(action: str):
             pass
 
-        return HotkeyManager(dummy_callback)
+        # 读取配置以确定使用哪个后端
+        config = container.get(IConfigService)
+
+        # 支持新格式 {"keys": [...], "backend": "auto"} 和旧格式 ["key1", "key2"]
+        hotkeys_config = config.get_setting("hotkeys", {"keys": ["ctrl+shift+v"], "backend": "auto"})
+        if isinstance(hotkeys_config, list):
+            # 旧格式，使用默认后端
+            backend = "auto"
+        else:
+            # 新格式
+            backend = hotkeys_config.get("backend", "auto")
+
+        return create_hotkey_manager(dummy_callback, backend=backend, config=config)
 
     container.register_factory(
         IHotkeyService, create_hotkey_service, ServiceLifetime.TRANSIENT

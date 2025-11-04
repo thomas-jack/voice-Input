@@ -264,6 +264,10 @@ class MainWindow(QMainWindow):
         events.on(Events.RECORDING_STARTED, self._on_recording_started)
         events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
 
+        # 快捷键事件
+        events.on(Events.HOTKEY_CONFLICT, self._on_hotkey_conflict)
+        events.on(Events.HOTKEY_REGISTRATION_ERROR, self._on_hotkey_registration_error)
+
     def _on_recording_started(self, data: Any = None) -> None:
         """录音开始事件"""
         self.recording_button.setText("Stop Recording")
@@ -273,6 +277,39 @@ class MainWindow(QMainWindow):
         """录音停止事件"""
         self.recording_button.setText("Start Recording")
         self.status_label.setText("Ready")
+
+    def _on_hotkey_conflict(self, data: dict) -> None:
+        """快捷键冲突事件"""
+        from .utils import show_hotkey_conflict_error
+
+        hotkey = data.get("hotkey", "Unknown")
+        suggestions = data.get("suggestions", [])
+
+        # 显示友好的错误对话框
+        should_open_settings = show_hotkey_conflict_error(
+            self, hotkey, suggestions
+        )
+
+        # 如果用户选择打开设置
+        if should_open_settings:
+            self.show_settings()
+
+    def _on_hotkey_registration_error(self, data: dict) -> None:
+        """快捷键注册错误事件"""
+        from .utils import show_hotkey_registration_error
+
+        hotkey = data.get("hotkey", "Unknown")
+        error = data.get("error", "Unknown error")
+
+        show_hotkey_registration_error(
+            self,
+            f"Failed to register hotkey '{hotkey}': {error}",
+            recovery_suggestions=[
+                "Try a different hotkey combination",
+                "Check the hotkey format (e.g., 'ctrl+shift+v')",
+                "Restart the application",
+            ]
+        )
 
     def toggle_recording(self) -> None:
         """切换录音状态"""

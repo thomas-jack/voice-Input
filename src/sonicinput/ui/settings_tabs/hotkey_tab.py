@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QLabel,
     QMessageBox,
+    QComboBox,
 )
 from PySide6.QtCore import QTimer
 from typing import Dict, Any
@@ -57,6 +58,30 @@ class HotkeyTab(BaseSettingsTab):
         hotkey_list_layout.addLayout(list_buttons_layout)
 
         layout.addWidget(hotkey_list_group)
+
+        # Hotkey Backend Selection
+        backend_group = QGroupBox("Hotkey Backend")
+        backend_layout = QVBoxLayout(backend_group)
+
+        backend_selector_layout = QHBoxLayout()
+        backend_label = QLabel("Backend:")
+        backend_selector_layout.addWidget(backend_label)
+
+        self.backend_combo = QComboBox()
+        self.backend_combo.addItem("Auto (Recommended)", "auto")
+        self.backend_combo.addItem("Win32 RegisterHotKey (No admin needed)", "win32")
+        self.backend_combo.addItem("Pynput (Admin recommended)", "pynput")
+        self.backend_combo.currentIndexChanged.connect(self._on_backend_changed)
+        backend_selector_layout.addWidget(self.backend_combo)
+        backend_layout.addLayout(backend_selector_layout)
+
+        # Backend info label
+        self.backend_info_label = QLabel()
+        self.backend_info_label.setWordWrap(True)
+        self.backend_info_label.setStyleSheet("color: #888; font-size: 10px; padding: 5px;")
+        backend_layout.addWidget(self.backend_info_label)
+
+        layout.addWidget(backend_group)
 
         # 保留单个热键输入（向后兼容/临时输入）
         hotkey_input_group = QGroupBox("Quick Add")
@@ -124,14 +149,38 @@ class HotkeyTab(BaseSettingsTab):
         """
         # 快捷键列表（支持多个）
         self.hotkeys_list.clear()
-        hotkeys = config.get("hotkeys", None)
-        if hotkeys is None:  # 向后兼容单个hotkey
+        hotkeys_config = config.get("hotkeys", None)
+
+        # 支持新旧格式
+        if isinstance(hotkeys_config, dict):
+            # 新格式: {"keys": [...], "backend": "auto"}
+            hotkeys = hotkeys_config.get("keys", ["ctrl+shift+v"])
+            backend = hotkeys_config.get("backend", "auto")
+        elif isinstance(hotkeys_config, list):
+            # 旧格式: ["ctrl+shift+v", "f12"]
+            hotkeys = hotkeys_config
+            backend = "auto"
+        elif hotkeys_config is None:
+            # 向后兼容单个hotkey
             single_hotkey = config.get("hotkey", "ctrl+shift+v")
             hotkeys = [single_hotkey]
+            backend = "auto"
+        else:
+            hotkeys = ["ctrl+shift+v"]
+            backend = "auto"
 
+        # 加载快捷键到列表
         for hotkey in hotkeys:
             if hotkey and hotkey.strip():
                 self.hotkeys_list.addItem(hotkey.strip())
+
+        # 加载后端设置
+        backend_index = self.backend_combo.findData(backend)
+        if backend_index >= 0:
+            self.backend_combo.setCurrentIndex(backend_index)
+
+        # 更新后端信息显示
+        self._update_backend_info(backend)
 
     def save_config(self) -> Dict[str, Any]:
         """保存UI状态到配置
@@ -148,10 +197,15 @@ class HotkeyTab(BaseSettingsTab):
             ):  # 跳过未编辑的新项
                 hotkeys_list.append(hotkey_text)
 
+        # 获取后端设置
+        backend = self.backend_combo.currentData()
+
+        # 使用新格式保存：{"keys": [...], "backend": "..."}
         config = {
-            "hotkeys": hotkeys_list
-            if hotkeys_list
-            else ["ctrl+shift+v"]  # 至少保留一个默认值
+            "hotkeys": {
+                "keys": hotkeys_list if hotkeys_list else ["ctrl+shift+v"],
+                "backend": backend if backend else "auto"
+            }
         }
 
         return config
@@ -211,6 +265,36 @@ class HotkeyTab(BaseSettingsTab):
                 )
             else:
                 item.setText(new_text.strip())
+
+    def _on_backend_changed(self) -> None:
+        """Handle backend selection change"""
+        backend = self.backend_combo.currentData()
+        self._update_backend_info(backend)
+        app_logger.log_audio_event(
+            "Hotkey backend changed",
+            {"backend": backend}
+        )
+
+    def _update_backend_info(self, backend: str) -> None:
+        """Update backend information label"""
+        info_map = {
+            "auto": (
+                "Automatically selects the best backend (currently: Win32).\n"
+                "No admin privileges required. Works reliably across all windows."
+            ),
+            "win32": (
+                "Uses Windows RegisterHotKey API.\n"
+                "Pros: No admin privileges required, works across privilege boundaries.\n"
+                "Cons: Cannot suppress hotkey events (they still reach active window)."
+            ),
+            "pynput": (
+                "Uses low-level keyboard hooks (SetWindowsHookEx).\n"
+                "Pros: Can suppress hotkey events.\n"
+                "Cons: Requires admin privileges for reliable operation, may not work across elevated windows."
+            ),
+        }
+        info_text = info_map.get(backend, "")
+        self.backend_info_label.setText(info_text)
 
     def _on_suggestion_clicked(self, item) -> None:
         """点击快捷键建议"""
