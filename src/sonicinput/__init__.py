@@ -4,7 +4,7 @@
 """
 
 __version__ = "0.1.3"
-__author__ = "Oxidane"
+__author__ = "Oxidane-bot"
 __description__ = "SonicInput"
 
 from .core.voice_input_app import VoiceInputApp
