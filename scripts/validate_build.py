@@ -133,7 +133,7 @@ def validate_ci_tests() -> Tuple[bool, str]:
         os.chdir("tests/ci")
         result = subprocess.run([
             'uv', 'run', 'python', 'run_ci_tests.py', '--quick'
-        ], capture_output=True, text=True, timeout=60, shell=True)
+        ], capture_output=True, text=True, timeout=60)
         os.chdir("../..")
 
         if result.returncode == 0:

@@ -594,10 +594,14 @@ class PynputHotkeyManager(IHotkeyService):
             {"registered_count": len(self.registered_hotkeys)},
         )
 
-    def unregister_hotkey(self, hotkey: str) -> None:
-        """注销快捷键"""
+    def unregister_hotkey(self, hotkey: str) -> bool:
+        """注销快捷键
+
+        Returns:
+            是否注销成功
+        """
         if hotkey not in self.registered_hotkeys:
-            return
+            return False
 
         try:
             del self.registered_hotkeys[hotkey]
@@ -612,9 +616,11 @@ class PynputHotkeyManager(IHotkeyService):
                     self._is_listening_flag = False
 
             app_logger.log_audio_event("Hotkey unregistered", {"hotkey": hotkey})
+            return True
 
         except Exception as e:
             app_logger.log_error(e, f"unregister_hotkey_{hotkey}")
+            return False
 
     def unregister_all_hotkeys(self) -> None:
         """注销所有快捷键 - pynput版本不会阻塞"""
@@ -649,9 +655,13 @@ class PynputHotkeyManager(IHotkeyService):
         return hotkey in self.registered_hotkeys
 
     def get_registered_hotkeys(self) -> Dict[str, str]:
-        """获取所有已注册的快捷键"""
+        """获取所有已注册的快捷键
+
+        Returns:
+            快捷键映射，键为快捷键组合，值为动作名称
+        """
         return {
-            hotkey: info["normalized"]
+            hotkey: info["action"]
             for hotkey, info in self.registered_hotkeys.items()
         }
 
