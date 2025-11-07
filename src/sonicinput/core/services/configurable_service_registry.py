@@ -334,12 +334,13 @@ class ConfigurableServiceRegistry:
 
     def _create_ui_settings_service(self, container):
         """创建UI设置服务工厂"""
-        from ..interfaces import IConfigService, IEventService
+        from ..interfaces import IConfigService, IEventService, IHistoryStorageService
         from ..services.ui_service_adapter import UISettingsServiceAdapter
 
         config = container.get(IConfigService)
         events = container.get(IEventService)
-        return UISettingsServiceAdapter(config, events)
+        history = container.get(IHistoryStorageService)
+        return UISettingsServiceAdapter(config, events, history)
 
     def _create_ui_model_service(self, container):
         """创建UI模型服务工厂"""

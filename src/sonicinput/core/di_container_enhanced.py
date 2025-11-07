@@ -27,6 +27,7 @@ from .interfaces.hotkey import IHotkeyService
 from .interfaces.input import IInputService
 from .interfaces.speech import ISpeechService
 from .interfaces.state import IStateManager
+from .interfaces.history import IHistoryStorageService
 # UI 服务接口
 from .interfaces.ui_main_service import (
     IUIMainService, IUISettingsService, IUIModelService,
@@ -733,6 +734,18 @@ def create_container() -> "EnhancedDIContainer":
         IConfigReloadService, create_config_reload_service, ServiceLifetime.SINGLETON
     )
 
+    # 历史记录服务 - 单例
+    def create_history_service(container):
+        config = container.get(IConfigService)
+        from .services.storage import HistoryStorageService
+        service = HistoryStorageService(config)
+        service.initialize({})  # 初始化服务
+        return service
+
+    container.register_factory(
+        IHistoryStorageService, create_history_service, ServiceLifetime.SINGLETON
+    )
+
     # 音频服务 - 瞬态
     def create_audio_service(container):
         config = container.get(IConfigService)
@@ -929,11 +942,13 @@ def create_container() -> "EnhancedDIContainer":
     def create_ui_settings_service(container):
         config = container.get(IConfigService)
         events = container.get(IEventService)
+        history = container.get(IHistoryStorageService)
 
         from .services.ui_services import UISettingsService
         return UISettingsService(
             config_service=config,
-            event_service=events
+            event_service=events,
+            history_service=history
         )
 
     container.register_factory(

@@ -13,6 +13,7 @@ from .hotkey import IHotkeyService
 from .event import IEventService
 from .ui import IUIComponent, IOverlayComponent, ITrayComponent
 from .storage import IStorageService, ICacheService
+from .history import IHistoryStorageService, HistoryRecord
 from .lifecycle import ILifecycleManaged, ILifecycleManager
 from .state import IStateManager
 from .config_reload_service import IConfigReloadService
@@ -59,6 +60,9 @@ __all__ = [
     # 数据存储接口
     "IStorageService",
     "ICacheService",
+    # 历史记录接口
+    "IHistoryStorageService",
+    "HistoryRecord",
     # 生命周期管理接口
     "ILifecycleManaged",
     "ILifecycleManager",

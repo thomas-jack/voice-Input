@@ -107,10 +107,28 @@ class UIEventBridge(IUIEventBridge):
         self._execute_custom_handler("text_input_completed", text)
 
     def handle_error(self, error_msg: str) -> None:
-        """处理错误事件"""
+        """处理错误事件
+
+        区分AI错误和其他错误：
+        - AI错误：显示警告状态（橙色），流程会继续，使用原始转录文本
+        - 其他错误：显示错误状态（红色），流程可能中断
+        """
         if self._overlay:
-            # 显示完成状态，然后快速隐藏（1秒后）
-            self._overlay.show_completed(delay_ms=1000)
+            # 检查是否是AI相关的错误（但流程会继续）
+            if "AI" in error_msg or "processing" in error_msg.lower():
+                # AI错误：显示警告色（橙色），延迟1.5秒隐藏
+                self._overlay.show_warning(delay_ms=1500)
+                app_logger.log_audio_event(
+                    "AI error handled - showing warning state",
+                    {"error_msg": error_msg}
+                )
+            else:
+                # 其他错误：显示错误色（红色），延迟2秒隐藏
+                self._overlay.show_error(delay_ms=2000)
+                app_logger.log_audio_event(
+                    "Critical error handled - showing error state",
+                    {"error_msg": error_msg}
+                )
 
         # 执行自定义处理器
         self._execute_custom_handler("error", error_msg)

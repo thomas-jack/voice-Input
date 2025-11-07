@@ -12,6 +12,7 @@ from ..interfaces import (
     IConfigService,
     IEventService,
     IStateManager,
+    IHistoryStorageService,
 )
 from ..services.event_bus import Events
 from ...utils import app_logger, OpenRouterAPIError
@@ -33,13 +34,18 @@ class AIProcessingController(IAIProcessingController):
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
+        history_service: IHistoryStorageService,
     ):
         self._config = config_service
         self._events = event_service
         self._state = state_manager
+        self._history_service = history_service
 
         # TPS追踪（用于性能日志）
         self._last_ai_tps: float = 0.0
+
+        # 当前处理的记录ID
+        self._current_record_id: Optional[str] = None
 
         # 监听转录完成事件
         self._events.on(
@@ -55,6 +61,7 @@ class AIProcessingController(IAIProcessingController):
             data: 转录结果数据
         """
         text = data.get("text", "")
+        self._current_record_id = data.get("record_id")
 
         # 如果启用AI且有文本，则进行优化
         if self.is_ai_enabled() and text.strip():
@@ -74,6 +81,15 @@ class AIProcessingController(IAIProcessingController):
                 },
             )
         else:
+            # AI未启用，更新历史记录为"skipped"
+            if self._current_record_id:
+                self._update_ai_status(
+                    ai_text=None,
+                    status="skipped",
+                    error=None,
+                    final_text=text
+                )
+
             # 不使用AI，直接发送原文本
             # 创建data副本并移除会冲突的键
             data_copy = {k: v for k, v in data.items() if k != "text"}
@@ -116,6 +132,15 @@ class AIProcessingController(IAIProcessingController):
             # 保存TPS到实例变量
             self._last_ai_tps = getattr(ai_service, "_last_tps", 0.0)
 
+            # 更新历史记录（AI成功）
+            if self._current_record_id:
+                self._update_ai_status(
+                    ai_text=refined_text,
+                    status="success",
+                    error=None,
+                    final_text=refined_text
+                )
+
             # 发送AI处理完成事件
             self._events.emit(
                 Events.AI_PROCESSING_COMPLETED,
@@ -140,6 +165,16 @@ class AIProcessingController(IAIProcessingController):
                 {"error": str(e), "provider": provider},
             )
             app_logger.log_error(e, "process_with_ai")
+
+            # 更新历史记录（AI失败）
+            if self._current_record_id:
+                self._update_ai_status(
+                    ai_text=None,
+                    status="failed",
+                    error=error_msg,
+                    final_text=text
+                )
+
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text  # 回退到原文本
 
@@ -150,6 +185,16 @@ class AIProcessingController(IAIProcessingController):
                 {"error": str(e), "provider": provider},
             )
             app_logger.log_error(e, "process_with_ai")
+
+            # 更新历史记录（AI失败）
+            if self._current_record_id:
+                self._update_ai_status(
+                    ai_text=None,
+                    status="failed",
+                    error=error_msg,
+                    final_text=text
+                )
+
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text
 
@@ -170,6 +215,16 @@ class AIProcessingController(IAIProcessingController):
                 {"error": str(e), "provider": provider},
             )
             app_logger.log_error(e, "process_with_ai")
+
+            # 更新历史记录（AI失败）
+            if self._current_record_id:
+                self._update_ai_status(
+                    ai_text=None,
+                    status="failed",
+                    error=error_msg,
+                    final_text=text
+                )
+
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text
 
@@ -180,6 +235,16 @@ class AIProcessingController(IAIProcessingController):
                 {"error": str(e), "provider": provider},
             )
             app_logger.log_error(e, "process_with_ai")
+
+            # 更新历史记录（AI失败）
+            if self._current_record_id:
+                self._update_ai_status(
+                    ai_text=None,
+                    status="failed",
+                    error=error_msg,
+                    final_text=text
+                )
+
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
             return text
 
@@ -200,3 +265,59 @@ class AIProcessingController(IAIProcessingController):
         except Exception as e:
             app_logger.log_error(e, "_get_current_ai_service")
             return None
+
+    def _update_ai_status(
+        self,
+        ai_text: Optional[str],
+        status: str,
+        error: Optional[str],
+        final_text: str
+    ) -> None:
+        """更新历史记录的AI处理状态
+
+        Args:
+            ai_text: AI优化后的文本（成功时）
+            status: AI状态 ("success" | "failed" | "skipped")
+            error: 错误信息（失败时）
+            final_text: 最终文本（成功时为AI文本，失败/跳过时为转录文本）
+        """
+        try:
+            # 获取现有记录
+            record = self._history_service.get_record_by_id(self._current_record_id)
+            if not record:
+                app_logger.log_audio_event(
+                    "Cannot update AI status - record not found",
+                    {"record_id": self._current_record_id}
+                )
+                return
+
+            # 获取AI提供商
+            provider = self._config.get_setting("ai.provider", "openrouter")
+
+            # 更新AI相关字段
+            record.ai_optimized_text = ai_text
+            record.ai_provider = provider if status == "success" else None
+            record.ai_status = status
+            record.ai_error = error
+            record.final_text = final_text
+
+            # 更新现有记录（使用 UPDATE 而不是 INSERT）
+            update_success = self._history_service.update_record(record)
+
+            if update_success:
+                app_logger.log_audio_event(
+                    "AI status updated in history",
+                    {
+                        "record_id": self._current_record_id,
+                        "status": status,
+                        "ai_text_length": len(ai_text) if ai_text else 0,
+                    }
+                )
+            else:
+                app_logger.log_audio_event(
+                    "Failed to update AI status in history",
+                    {"record_id": self._current_record_id}
+                )
+
+        except Exception as e:
+            app_logger.log_error(e, "_update_ai_status")

@@ -23,7 +23,7 @@ class HotkeyTab(BaseSettingsTab):
     包含：
     - 快捷键列表管理
     - 快捷键捕获功能
-    - 建议的快捷键
+    - 快捷键后端选择
     """
 
     def _setup_ui(self) -> None:
@@ -102,30 +102,6 @@ class HotkeyTab(BaseSettingsTab):
         self.hotkey_status_label.setWordWrap(True)
         self.hotkey_status_label.setStyleSheet("color: gray; font-style: italic;")
         layout.addWidget(self.hotkey_status_label)
-
-        # 建议的快捷键
-        suggestions_group = QGroupBox("Suggested Hotkeys")
-        suggestions_layout = QVBoxLayout(suggestions_group)
-
-        self.hotkey_suggestions = QListWidget()
-        suggested_keys = [
-            "ctrl+shift+v",
-            "ctrl+alt+v",
-            "ctrl+shift+space",
-            "alt+shift+v",
-            "win+shift+v",
-            "f12",
-            "ctrl+f12",
-            "shift+f12",
-        ]
-
-        for key in suggested_keys:
-            self.hotkey_suggestions.addItem(key)
-
-        self.hotkey_suggestions.itemClicked.connect(self._on_suggestion_clicked)
-        suggestions_layout.addWidget(self.hotkey_suggestions)
-
-        layout.addWidget(suggestions_group)
 
         layout.addStretch()
 
@@ -295,10 +271,6 @@ class HotkeyTab(BaseSettingsTab):
         }
         info_text = info_map.get(backend, "")
         self.backend_info_label.setText(info_text)
-
-    def _on_suggestion_clicked(self, item) -> None:
-        """点击快捷键建议"""
-        self.hotkey_input.setText(item.text())
 
     def _capture_hotkey(self) -> None:
         """捕获用户按下的快捷键组合 - 使用pynput"""

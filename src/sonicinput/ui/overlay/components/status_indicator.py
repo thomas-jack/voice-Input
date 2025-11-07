@@ -6,13 +6,15 @@ from PySide6.QtCore import Qt
 
 
 class StatusIndicator(QWidget):
-    """真正的圆形红点状态指示器，带圆角矩形背景框（支持4种状态）"""
+    """真正的圆形红点状态指示器，带圆角矩形背景框（支持6种状态）"""
 
     # 状态常量
     STATE_IDLE = 0  # 待机（暗红色）
     STATE_RECORDING = 1  # 录音中（鲜红色）
     STATE_PROCESSING = 2  # AI处理中（黄色）
     STATE_COMPLETED = 3  # 完成（绿色）
+    STATE_WARNING = 4  # 警告（橙色 - AI失败但流程继续）
+    STATE_ERROR = 5  # 错误（深红色 - 致命错误）
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,6 +46,12 @@ class StatusIndicator(QWidget):
         elif self.state == self.STATE_COMPLETED:
             # 完成：Material Green 500
             dot_color = QColor(76, 175, 80, 255)  # #4CAF50
+        elif self.state == self.STATE_WARNING:
+            # 警告：Material Orange 500
+            dot_color = QColor(255, 152, 0, 255)  # #FF9800
+        elif self.state == self.STATE_ERROR:
+            # 错误：Material Deep Red 700
+            dot_color = QColor(211, 47, 47, 255)  # #D32F2F
         else:
             # 待机：暗红色
             dot_color = QColor(150, 50, 50, 120)

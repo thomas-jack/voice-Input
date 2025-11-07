@@ -28,6 +28,8 @@ class RecordingOverlay(QWidget):
     hide_recording_requested = Signal()
     show_processing_requested = Signal()  # 显示处理状态
     show_completed_requested = Signal(int)  # 显示完成状态（参数：延迟毫秒）
+    show_warning_requested = Signal(int)  # 显示警告状态（参数：延迟毫秒）
+    show_error_requested = Signal(int)  # 显示错误状态（参数：延迟毫秒）
     set_status_requested = Signal(str)
     update_waveform_requested = Signal(object)
     update_audio_level_requested = Signal(float)  # 音频级别更新
@@ -196,6 +198,8 @@ class RecordingOverlay(QWidget):
             self.hide_recording_requested.connect(self._hide_recording_impl)
             self.show_processing_requested.connect(self._show_processing_impl)
             self.show_completed_requested.connect(self._show_completed_impl)
+            self.show_warning_requested.connect(self._show_warning_impl)
+            self.show_error_requested.connect(self._show_error_impl)
             self.set_status_requested.connect(self._set_status_text_impl)
             self.update_waveform_requested.connect(self._update_waveform_impl)
             self.update_audio_level_requested.connect(self._update_audio_level_impl)
@@ -404,6 +408,8 @@ class RecordingOverlay(QWidget):
                 (self.hide_recording_requested, self._hide_recording_impl),
                 (self.show_processing_requested, self._show_processing_impl),
                 (self.show_completed_requested, self._show_completed_impl),
+                (self.show_warning_requested, self._show_warning_impl),
+                (self.show_error_requested, self._show_error_impl),
                 (self.set_status_requested, self._set_status_text_impl),
                 (self.update_waveform_requested, self._update_waveform_impl),
                 (self.update_audio_level_requested, self._update_audio_level_impl),
@@ -561,6 +567,56 @@ class RecordingOverlay(QWidget):
             self.delayed_hide_timer.start(delay_ms)
         except Exception as e:
             app_logger.log_error(e, "_show_completed_impl")
+
+    def show_warning(self, delay_ms: int = 1500) -> None:
+        """显示警告状态，然后延迟隐藏 - Thread-safe public interface
+
+        用于AI优化失败但流程继续的情况
+
+        Args:
+            delay_ms: 延迟隐藏的毫秒数，默认1500ms（1.5秒）
+        """
+        self.show_warning_requested.emit(delay_ms)
+
+    def _show_warning_impl(self, delay_ms: int) -> None:
+        """显示警告状态的内部实现 - Internal implementation (Qt main thread only)"""
+        try:
+            # 切换到警告状态（橙色）
+            self.status_indicator.set_state(StatusIndicator.STATE_WARNING)
+
+            # 取消旧的延迟隐藏定时器（避免多个定时器冲突）
+            if self.delayed_hide_timer.isActive():
+                self.delayed_hide_timer.stop()
+
+            # 启动新的延迟隐藏定时器
+            self.delayed_hide_timer.start(delay_ms)
+        except Exception as e:
+            app_logger.log_error(e, "_show_warning_impl")
+
+    def show_error(self, delay_ms: int = 2000) -> None:
+        """显示错误状态，然后延迟隐藏 - Thread-safe public interface
+
+        用于致命错误的情况
+
+        Args:
+            delay_ms: 延迟隐藏的毫秒数，默认2000ms（2秒）
+        """
+        self.show_error_requested.emit(delay_ms)
+
+    def _show_error_impl(self, delay_ms: int) -> None:
+        """显示错误状态的内部实现 - Internal implementation (Qt main thread only)"""
+        try:
+            # 切换到错误状态（深红色）
+            self.status_indicator.set_state(StatusIndicator.STATE_ERROR)
+
+            # 取消旧的延迟隐藏定时器（避免多个定时器冲突）
+            if self.delayed_hide_timer.isActive():
+                self.delayed_hide_timer.stop()
+
+            # 启动新的延迟隐藏定时器
+            self.delayed_hide_timer.start(delay_ms)
+        except Exception as e:
+            app_logger.log_error(e, "_show_error_impl")
 
     def show_processing(self) -> None:
         """显示AI处理状态（黄色）- Thread-safe public interface"""

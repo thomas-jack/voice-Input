@@ -4,6 +4,7 @@
 """
 
 import time
+import uuid
 from typing import Optional
 import numpy as np
 
@@ -14,6 +15,7 @@ from ..interfaces import (
     IEventService,
     IStateManager,
     ISpeechService,
+    IHistoryStorageService,
 )
 from ..interfaces.state import RecordingState, AppState
 from ..services.event_bus import Events
@@ -37,12 +39,14 @@ class RecordingController(IRecordingController):
         event_service: IEventService,
         state_manager: IStateManager,
         speech_service: ISpeechService,
+        history_service: IHistoryStorageService,
     ):
         self._audio_service = audio_service
         self._config = config_service
         self._events = event_service
         self._state = state_manager
         self._speech_service = speech_service
+        self._history_service = history_service
 
         # 录音时长追踪（用于性能统计）
         self._recording_start_time: Optional[float] = None
@@ -184,12 +188,50 @@ class RecordingController(IRecordingController):
                     "Cannot add final chunk - streaming not available", {}
                 )
 
+            # 保存音频文件到历史记录
+            record_id = str(uuid.uuid4())
+            audio_file_path = None
+
+            try:
+                # 生成音频文件路径
+                audio_file_path = self._history_service.generate_audio_file_path()
+
+                # 保存音频文件
+                if hasattr(self._audio_service, "save_to_file"):
+                    save_success = self._audio_service.save_to_file(audio_file_path)
+                    if save_success:
+                        app_logger.log_audio_event(
+                            "Audio file saved to history",
+                            {
+                                "record_id": record_id,
+                                "file_path": audio_file_path,
+                                "duration": f"{self._last_audio_duration:.1f}s",
+                            }
+                        )
+                    else:
+                        app_logger.log_audio_event(
+                            "Failed to save audio file",
+                            {"record_id": record_id}
+                        )
+                        audio_file_path = None
+                else:
+                    app_logger.log_audio_event(
+                        "AudioService does not support save_to_file",
+                        {}
+                    )
+                    audio_file_path = None
+            except Exception as e:
+                app_logger.log_error(e, "save_audio_file_to_history")
+                audio_file_path = None
+
             # 发送转录请求事件（由 TranscriptionController 监听）
             self._events.emit(
                 "transcription_request",
                 {
                     "audio_duration": self._last_audio_duration,
                     "recording_stop_time": self._recording_stop_time,
+                    "record_id": record_id,
+                    "audio_file_path": audio_file_path,
                 },
             )
 

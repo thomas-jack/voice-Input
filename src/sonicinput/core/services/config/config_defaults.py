@@ -105,6 +105,11 @@ def get_default_config() -> Dict[str, Any]:
             "clipboard_restore_delay": 2.0,
             "typing_delay": 0.01,
         },
+        "history": {
+            "storage_path": "auto",
+            "max_records": 1000,
+            "auto_cleanup_days": 0,
+        },
         "logging": {
             "level": "INFO",
             "console_output": True,

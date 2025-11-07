@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 from ..interfaces import (
     IUIMainService, IUISettingsService, IUIModelService,
     IUIAudioService, IUIGPUService, IEventService, IConfigService,
-    IStateManager, ISpeechService
+    IStateManager, ISpeechService, IHistoryStorageService
 )
 from ...utils import app_logger
 
@@ -108,15 +108,17 @@ class UISettingsService:
     封装配置服务，提供UI友好的接口。
     """
 
-    def __init__(self, config_service: IConfigService, event_service: IEventService):
+    def __init__(self, config_service: IConfigService, event_service: IEventService, history_service: IHistoryStorageService):
         """初始化UI设置服务
 
         Args:
             config_service: 配置服务
             event_service: 事件服务
+            history_service: 历史记录存储服务
         """
         self.config_service = config_service
         self.event_service = event_service
+        self.history_service = history_service
         app_logger.log_audio_event("UISettingsService initialized", {})
 
     def get_all_settings(self) -> Dict[str, Any]:
@@ -160,6 +162,10 @@ class UISettingsService:
     def get_event_service(self) -> IEventService:
         """获取事件服务"""
         return self.event_service
+
+    def get_history_service(self) -> IHistoryStorageService:
+        """获取历史记录存储服务"""
+        return self.history_service
 
 
 class UIModelService:

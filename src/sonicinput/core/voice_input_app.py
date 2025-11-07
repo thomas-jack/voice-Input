@@ -26,6 +26,7 @@ from .interfaces import (
     IConfigReloadService,
     IApplicationOrchestrator,
     IUIEventBridge,
+    IHistoryStorageService,
 )
 from .services.event_bus import Events
 from ..utils import app_logger, logger, VoiceInputError
@@ -62,6 +63,7 @@ class VoiceInputApp:
         self._speech_service: Optional[ISpeechService] = None
         self._input_service: Optional[IInputService] = None
         self._hotkey_service: Optional[IHotkeyService] = None
+        self._history_service: Optional[IHistoryStorageService] = None
 
         # 控制器（延迟初始化）
         self._recording_controller: Optional[RecordingController] = None
@@ -97,6 +99,7 @@ class VoiceInputApp:
             self._audio_service = self.container.get(IAudioService)
             self._speech_service = self.container.get(ISpeechService)
             self._input_service = self.container.get(IInputService)
+            self._history_service = self.container.get(IHistoryStorageService)
 
             # 初始化快捷键服务（支持win32和pynput后端）
             from .hotkey_manager import create_hotkey_manager
@@ -165,6 +168,7 @@ class VoiceInputApp:
             event_service=self.events,
             state_manager=self.state,
             speech_service=self._speech_service,
+            history_service=self._history_service,
         )
 
         # 转录控制器
@@ -173,6 +177,7 @@ class VoiceInputApp:
             config_service=self.config,
             event_service=self.events,
             state_manager=self.state,
+            history_service=self._history_service,
         )
 
         # AI处理控制器
@@ -180,6 +185,7 @@ class VoiceInputApp:
             config_service=self.config,
             event_service=self.events,
             state_manager=self.state,
+            history_service=self._history_service,
         )
 
         # 输入控制器

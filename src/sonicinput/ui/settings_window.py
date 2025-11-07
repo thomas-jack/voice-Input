@@ -22,13 +22,12 @@ import time
 from ..utils import app_logger
 from ..core.interfaces import IUISettingsService, IUIModelService, IUIAudioService, IUIGPUService
 from .settings_tabs import (
-    GeneralTab,
+    ApplicationTab,
     HotkeyTab,
     TranscriptionTab,
     AITab,
-    AudioTab,
-    InputTab,
-    UITab,
+    AudioInputTab,
+    HistoryTab,
 )
 
 
@@ -82,13 +81,12 @@ class SettingsWindow(QMainWindow):
         self.wheel_filter = WheelEventFilter(self)
 
         # 创建标签页实例
-        self.general_tab = GeneralTab(self.ui_settings_service, self)
+        self.application_tab = ApplicationTab(self.ui_settings_service, self)
         self.hotkey_tab = HotkeyTab(self.ui_settings_service, self)
         self.transcription_tab = TranscriptionTab(self.ui_settings_service, self)
         self.ai_tab = AITab(self.ui_settings_service, self)
-        self.audio_tab = AudioTab(self.ui_settings_service, self)
-        self.input_tab = InputTab(self.ui_settings_service, self)
-        self.ui_tab = UITab(self.ui_settings_service, self)
+        self.audio_input_tab = AudioInputTab(self.ui_settings_service, self)
+        self.history_tab = HistoryTab(self.ui_settings_service, self)
 
         # 初始化UI
         self.setup_ui()
@@ -124,13 +122,12 @@ class SettingsWindow(QMainWindow):
         self.tab_widget = QTabWidget()
 
         # 使用独立的标签页模块
-        self._create_scrollable_tab(self.general_tab.create(), "General")
-        self._create_scrollable_tab(self.hotkey_tab.create(), "Hotkey")
+        self._create_scrollable_tab(self.application_tab.create(), "Application")
+        self._create_scrollable_tab(self.hotkey_tab.create(), "Hotkeys")
         self._create_scrollable_tab(self.transcription_tab.create(), "Transcription")
-        self._create_scrollable_tab(self.ai_tab.create(), "AI Optimization")
-        self._create_scrollable_tab(self.audio_tab.create(), "Audio")
-        self._create_scrollable_tab(self.input_tab.create(), "Input")
-        self._create_scrollable_tab(self.ui_tab.create(), "UI Settings")
+        self._create_scrollable_tab(self.ai_tab.create(), "AI Processing")
+        self._create_scrollable_tab(self.audio_input_tab.create(), "Audio and Input")
+        self._create_scrollable_tab(self.history_tab.create(), "History")
 
         main_layout.addWidget(self.tab_widget)
 
@@ -219,13 +216,12 @@ class SettingsWindow(QMainWindow):
     def update_ui_from_config(self) -> None:
         """从配置更新UI"""
         # 使用各标签页的 load_config 方法
-        self.general_tab.load_config(self.current_config)
+        self.application_tab.load_config(self.current_config)
         self.hotkey_tab.load_config(self.current_config)
         self.transcription_tab.load_config(self.current_config)
         self.ai_tab.load_config(self.current_config)
-        self.audio_tab.load_config(self.current_config)
-        self.input_tab.load_config(self.current_config)
-        self.ui_tab.load_config(self.current_config)
+        self.audio_input_tab.load_config(self.current_config)
+        self.history_tab.load_config(self.current_config)
 
     def test_hotkey(self) -> None:
         """测试快捷键"""
@@ -600,13 +596,12 @@ class SettingsWindow(QMainWindow):
 
         # 从各标签页收集配置
         for tab_config in [
-            self.general_tab.save_config(),
+            self.application_tab.save_config(),
             self.hotkey_tab.save_config(),
             self.transcription_tab.save_config(),
             self.ai_tab.save_config(),
-            self.audio_tab.save_config(),
-            self.input_tab.save_config(),
-            self.ui_tab.save_config(),
+            self.audio_input_tab.save_config(),
+            self.history_tab.save_config(),
         ]:
             # 深度合并配置
             for key, value in tab_config.items():
@@ -1150,14 +1145,12 @@ class SettingsWindow(QMainWindow):
             # 获取当前标签页索引和名称
             current_index = self.tab_widget.currentIndex()
             tab_names = [
-                "General",
+                "Application",
                 "Hotkeys",
-                "Whisper",
-                "AI Settings",
-                "Audio",
-                "Text Input",
-                "UI Settings",
-                "Advanced",
+                "Transcription",
+                "AI Processing",
+                "Audio and Input",
+                "History",
             ]
 
             if current_index < 0 or current_index >= len(tab_names):
@@ -1186,20 +1179,18 @@ class SettingsWindow(QMainWindow):
             default_config = self.ui_settings_service.get_default_config()
 
             # 根据标签页重置相应设置
-            if current_index == 0:  # General
-                self._reset_general_tab(default_config)
+            if current_index == 0:  # Application
+                self._reset_application_tab(default_config)
             elif current_index == 1:  # Hotkeys
                 self._reset_hotkey_tab(default_config)
             elif current_index == 2:  # Transcription
                 self._reset_transcription_tab(default_config)
-            elif current_index == 3:  # AI Settings
+            elif current_index == 3:  # AI Processing
                 self._reset_ai_tab(default_config)
-            elif current_index == 4:  # Audio
-                self._reset_audio_tab(default_config)
-            elif current_index == 5:  # Text Input
-                self._reset_input_tab(default_config)
-            elif current_index == 6:  # UI Settings
-                self._reset_ui_tab(default_config)
+            elif current_index == 4:  # Audio and Input
+                self._reset_audio_input_tab(default_config)
+            elif current_index == 5:  # History
+                self._reset_history_tab(default_config)
 
             # 显示成功消息
             QMessageBox.information(
@@ -1219,10 +1210,58 @@ class SettingsWindow(QMainWindow):
                 "Please try again or check the application logs.",
             )
 
-    def _reset_general_tab(self, default_config) -> None:
-        """重置通用标签页"""
-        # 重置通用设置到UI
-        pass  # General tab doesn't have specific settings in current implementation
+    def _reset_application_tab(self, default_config) -> None:
+        """重置应用设置标签页 (Application Tab - merged General + UI)"""
+        ui_config = default_config.get("ui", {})
+        logging_config = default_config.get("logging", {})
+
+        # 重置UI设置
+        self.config_manager.set_setting(
+            "ui.start_minimized", ui_config.get("start_minimized", True)
+        )
+        self.config_manager.set_setting(
+            "ui.tray_notifications", ui_config.get("tray_notifications", True)
+        )
+        self.config_manager.set_setting(
+            "ui.show_overlay", ui_config.get("show_overlay", True)
+        )
+        self.config_manager.set_setting(
+            "ui.overlay_always_on_top", ui_config.get("overlay_always_on_top", True)
+        )
+        self.config_manager.set_setting(
+            "ui.theme_color", ui_config.get("theme_color", "cyan")
+        )
+
+        # 重置overlay_position
+        default_overlay_position = ui_config.get(
+            "overlay_position",
+            {
+                "mode": "preset",
+                "preset": "center",
+                "custom": {"x": 0, "y": 0},
+                "last_screen": {
+                    "index": 0,
+                    "name": "",
+                    "geometry": "",
+                    "device_pixel_ratio": 1.0,
+                },
+                "auto_save": True,
+            },
+        )
+        self.config_manager.set_setting("ui.overlay_position", default_overlay_position)
+
+        # 重置日志设置
+        self.config_manager.set_setting(
+            "logging.level", logging_config.get("level", "INFO")
+        )
+        self.config_manager.set_setting(
+            "logging.console_output", logging_config.get("console_output", False)
+        )
+        self.config_manager.set_setting(
+            "logging.max_log_size_mb", logging_config.get("max_log_size_mb", 10)
+        )
+
+        self.update_ui_from_config()
 
     def _reset_hotkey_tab(self, default_config) -> None:
         """重置热键标签页"""
@@ -1289,14 +1328,15 @@ class SettingsWindow(QMainWindow):
         self.config_manager.set_setting("ai.openrouter.model_id", model_id)
         self.config_manager.set_setting("ai.prompt", prompt)
 
-    def _reset_audio_tab(self, default_config) -> None:
-        """重置音频标签页"""
+    def _reset_audio_input_tab(self, default_config) -> None:
+        """重置音频和输入设置标签页 (Audio and Input Tab - merged Audio + Input)"""
         audio_config = default_config.get("audio", {})
+        input_config = default_config.get("input", {})
 
         # 重置音频设备为默认
         self.audio_device_combo.setCurrentIndex(0)  # 通常第一个是默认设备
 
-        # 重置其他音频设置
+        # 重置音频设置
         self.config_manager.set_setting(
             "audio.sample_rate", audio_config.get("sample_rate", 16000)
         )
@@ -1306,10 +1346,6 @@ class SettingsWindow(QMainWindow):
         self.config_manager.set_setting(
             "audio.chunk_size", audio_config.get("chunk_size", 1024)
         )
-
-    def _reset_input_tab(self, default_config) -> None:
-        """重置文本输入标签页"""
-        input_config = default_config.get("input", {})
 
         # 重置输入方法设置
         self.config_manager.set_setting(
@@ -1332,6 +1368,11 @@ class SettingsWindow(QMainWindow):
             "input.typing_delay", input_config.get("typing_delay", 0.01)
         )
         self.update_ui_from_config()
+
+    def _reset_history_tab(self, default_config) -> None:
+        """重置历史记录标签页"""
+        # History tab doesn't have configuration settings - it only displays data
+        pass
 
     def _reset_ui_tab(self, default_config) -> None:
         """重置UI设置标签页"""

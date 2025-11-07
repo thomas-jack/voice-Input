@@ -440,6 +440,56 @@ class AudioRecorder(IAudioService):
                 return np.concatenate(self._audio_data)
             return np.array([])
 
+    def save_to_file(self, file_path: str, audio_data: Optional[np.ndarray] = None) -> bool:
+        """保存音频数据到WAV文件
+
+        Args:
+            file_path: 目标文件路径
+            audio_data: 音频数据（如果为None，则使用当前录音数据）
+
+        Returns:
+            保存是否成功
+        """
+        import wave
+
+        try:
+            # 如果没有提供音频数据，使用当前录音数据
+            if audio_data is None:
+                audio_data = self.get_audio_data()
+
+            # 检查是否有音频数据
+            if audio_data is None or len(audio_data) == 0:
+                app_logger.log_error(
+                    Exception("No audio data to save"),
+                    "save_to_file"
+                )
+                return False
+
+            # 将音频数据转换为int16格式
+            audio_int16 = (audio_data * 32767).astype(np.int16)
+
+            # 保存为WAV文件
+            with wave.open(file_path, 'wb') as wav_file:
+                wav_file.setnchannels(self.channels)
+                wav_file.setsampwidth(2)  # 16-bit = 2 bytes
+                wav_file.setframerate(self._sample_rate)
+                wav_file.writeframes(audio_int16.tobytes())
+
+            app_logger.log_audio_event(
+                "Audio saved to file",
+                {
+                    "file_path": file_path,
+                    "duration": len(audio_data) / self._sample_rate,
+                    "sample_rate": self._sample_rate
+                }
+            )
+
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "save_to_file")
+            return False
+
     @property
     def is_recording(self) -> bool:
         """检查是否正在录音"""

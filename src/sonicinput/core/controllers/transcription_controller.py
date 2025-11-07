@@ -5,6 +5,8 @@
 
 import time
 import numpy as np
+from datetime import datetime
+from typing import Optional
 
 from ..interfaces import (
     ITranscriptionController,
@@ -12,6 +14,8 @@ from ..interfaces import (
     IConfigService,
     IEventService,
     IStateManager,
+    IHistoryStorageService,
+    HistoryRecord,
 )
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
@@ -33,6 +37,7 @@ class TranscriptionController(ITranscriptionController):
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
+        history_service: IHistoryStorageService,
         audio_service=None,
     ):
         self._speech_service = speech_service
@@ -40,10 +45,15 @@ class TranscriptionController(ITranscriptionController):
         self._events = event_service
         self._state = state_manager
         self._audio_service = audio_service  # 添加音频服务引用，用于fallback
+        self._history_service = history_service
 
         # 性能追踪数据（从 RecordingController 接收）
         self._audio_duration: float = 0.0
         self._recording_stop_time: float = 0.0
+
+        # 历史记录追踪数据（从 RecordingController 接收）
+        self._current_record_id: Optional[str] = None
+        self._current_audio_file_path: Optional[str] = None
 
         # 监听转录请求事件
         self._events.on("transcription_request", self._on_transcription_request)
@@ -54,10 +64,21 @@ class TranscriptionController(ITranscriptionController):
         """处理转录请求事件
 
         Args:
-            data: 包含 audio_duration 和 recording_stop_time
+            data: 包含 audio_duration, recording_stop_time, record_id, audio_file_path
         """
         self._audio_duration = data.get("audio_duration", 0.0)
         self._recording_stop_time = data.get("recording_stop_time", time.time())
+        self._current_record_id = data.get("record_id")
+        self._current_audio_file_path = data.get("audio_file_path")
+
+        app_logger.log_audio_event(
+            "Transcription request received",
+            {
+                "record_id": self._current_record_id,
+                "audio_file_path": self._current_audio_file_path,
+                "audio_duration": self._audio_duration,
+            }
+        )
 
         # 启动流式转录处理
         self.process_streaming_transcription()
@@ -142,6 +163,14 @@ class TranscriptionController(ITranscriptionController):
                 },
             )
 
+            # 保存历史记录（转录阶段）
+            if self._current_record_id and self._current_audio_file_path:
+                self._save_transcription_record(
+                    text=text,
+                    status="success",
+                    error=None
+                )
+
             # 发送转录完成事件
             self._events.emit(
                 Events.TRANSCRIPTION_COMPLETED,
@@ -150,6 +179,7 @@ class TranscriptionController(ITranscriptionController):
                     "audio_duration": self._audio_duration,
                     "transcribe_duration": transcribe_duration,
                     "recording_stop_time": self._recording_stop_time,
+                    "record_id": self._current_record_id,
                 },
             )
 
@@ -158,6 +188,15 @@ class TranscriptionController(ITranscriptionController):
 
         except Exception as e:
             app_logger.log_error(e, "process_streaming_transcription")
+
+            # 保存失败的历史记录
+            if self._current_record_id and self._current_audio_file_path:
+                self._save_transcription_record(
+                    text="",
+                    status="failed",
+                    error=str(e)
+                )
+
             # 转换为用户友好消息
             error_info = ErrorMessageTranslator.translate(e, "transcription")
             self._events.emit(Events.TRANSCRIPTION_ERROR, error_info["user_message"])
@@ -207,3 +246,55 @@ class TranscriptionController(ITranscriptionController):
         if hasattr(self._speech_service, "start_streaming_mode"):
             self._speech_service.start_streaming_mode()
             app_logger.log_audio_event("Streaming mode started", {})
+
+    def _save_transcription_record(
+        self, text: str, status: str, error: Optional[str]
+    ) -> None:
+        """保存转录记录到历史数据库
+
+        Args:
+            text: 转录文本
+            status: 转录状态 ("success" | "failed")
+            error: 错误信息（如果有）
+        """
+        try:
+            # 获取转录提供商
+            provider = self._config.get_setting("transcription.provider", "local")
+
+            # 创建历史记录
+            record = HistoryRecord(
+                id=self._current_record_id,
+                timestamp=datetime.fromtimestamp(self._recording_stop_time),
+                audio_file_path=self._current_audio_file_path,
+                duration=self._audio_duration,
+                transcription_text=text,
+                transcription_provider=provider,
+                transcription_status=status,
+                transcription_error=error,
+                ai_optimized_text=None,
+                ai_provider=None,
+                ai_status="pending",
+                ai_error=None,
+                final_text=text,  # 暂时使用转录文本，AI阶段会更新
+            )
+
+            # 保存到数据库
+            save_success = self._history_service.save_record(record)
+
+            if save_success:
+                app_logger.log_audio_event(
+                    "Transcription record saved",
+                    {
+                        "record_id": self._current_record_id,
+                        "status": status,
+                        "text_length": len(text),
+                    }
+                )
+            else:
+                app_logger.log_audio_event(
+                    "Failed to save transcription record",
+                    {"record_id": self._current_record_id}
+                )
+
+        except Exception as e:
+            app_logger.log_error(e, "_save_transcription_record")
