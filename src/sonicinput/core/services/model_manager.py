@@ -120,7 +120,7 @@ class ModelManager:
             # 检查加载结果
             if not load_success:
                 with self._state_lock:
-                    self._model_state = ModelState.FAILED
+                    self._model_state = ModelState.ERROR
                 raise Exception("Model load_model() returned False")
 
             # 更新状态

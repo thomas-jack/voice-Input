@@ -14,7 +14,7 @@ from PySide6.QtGui import QFont, QColor
 
 from ...utils import app_logger
 from ..overlay import StatusIndicator, CloseButton
-from ..recording_overlay_utils.position_manager import PositionManager
+from .position_manager import PositionManager
 
 
 class OverlayUIBuilder:

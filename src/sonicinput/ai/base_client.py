@@ -312,7 +312,7 @@ class BaseAIClient(IAIService):
         Args:
             api_key: 新的 API 密钥
         """
-        self.api_key = api_key
+        self._raw_api_key = api_key
         self._update_headers()
         app_logger.log_audio_event(
             f"API key updated for {self.get_provider_name()}",
@@ -660,7 +660,7 @@ class BaseAIClient(IAIService):
         provider = self.get_provider_name()
 
         # API key 验证
-        if self.api_key and not self.api_key.strip():
+        if not self.api_key or not self.api_key.strip():
             error_msg = f"API key not set for {provider}"
             app_logger.log_error(self._create_api_error(error_msg), "test_connection")
             return False, error_msg

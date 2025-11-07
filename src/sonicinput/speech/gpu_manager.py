@@ -260,7 +260,7 @@ class GPUManager:
 
         return available_gb >= required_gb
 
-    def get_device_info(self) -> Dict[str, any]:
+    def get_device_info(self) -> Dict[str, Any]:
         """Get device information"""
         info = {
             "cuda_available": self.is_gpu_available(),

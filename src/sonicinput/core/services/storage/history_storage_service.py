@@ -373,10 +373,12 @@ class HistoryStorageService(LifecycleComponent):
 
     def delete_record(self, record_id: str) -> bool:
         """删除记录（包括音频文件）"""
-        if not self._conn:
-            return False
-
         try:
+            # 获取数据库连接
+            conn = self._get_connection()
+            if not conn:
+                return False
+
             # 先获取记录以找到音频文件路径
             record = self.get_record_by_id(record_id)
             if not record:
@@ -392,9 +394,9 @@ class HistoryStorageService(LifecycleComponent):
                 )
 
             # 删除数据库记录
-            cursor = self._conn.cursor()
+            cursor = conn.cursor()
             cursor.execute("DELETE FROM history_records WHERE id = ?", (record_id,))
-            self._conn.commit()
+            conn.commit()
 
             app_logger.log_audio_event(
                 "History record deleted",

@@ -425,5 +425,5 @@ class HybridSpeechService(ISpeechService):
         """析构函数"""
         try:
             self.unload_model()
-        except:
+        except Exception:
             pass

@@ -320,6 +320,71 @@ C:\Users\<用户名>\AppData\Roaming\SonicInput\logs\app.log
 
 ---
 
+## 📁 数据存储位置
+
+SonicInput 会在用户目录下创建数据文件夹，所有配置和录音历史都存储在这里。**用户对这些文件拥有完全控制权**，可以自由备份、迁移或删除。
+
+### Windows 默认路径
+
+```
+C:\Users\<用户名>\AppData\Roaming\SonicInput\
+```
+
+### 目录结构
+
+```
+SonicInput/
+├── config.json              # 应用配置文件（设置、API密钥等）
+├── logs/                     # 日志文件夹
+│   └── app.log              # 应用日志（可调整日志级别）
+└── history/                  # 历史记录文件夹
+    ├── history.db           # SQLite数据库（转录历史、元数据）
+    └── recordings/          # 录音文件存储
+        └── *.wav            # WAV格式录音文件
+```
+
+### 文件说明
+
+| 文件/文件夹 | 内容 | 可否删除 | 说明 |
+|------------|------|---------|------|
+| `config.json` | 应用配置 | ⚠️ 谨慎 | 删除后配置重置为默认值 |
+| `logs/app.log` | 运行日志 | ✅ 可以 | 自动轮转，可定期清理 |
+| `history/history.db` | 历史记录元数据 | ⚠️ 谨慎 | 删除后丢失所有历史记录 |
+| `history/recordings/*.wav` | 录音文件 | ✅ 可以 | 按需保留，可手动清理旧文件 |
+
+### 打开数据文件夹
+
+**方法 1**: 使用Windows资源管理器
+```
+Win+R → 输入：%APPDATA%\SonicInput → 回车
+```
+
+**方法 2**: 使用命令行
+```bash
+explorer %APPDATA%\SonicInput
+```
+
+### 数据管理建议
+
+**备份配置**：
+```bash
+# 复制配置文件到安全位置
+copy "%APPDATA%\SonicInput\config.json" "D:\Backup\SonicInput_config_backup.json"
+```
+
+**清理历史记录**：
+- 通过应用内"History"标签页删除单条记录
+- 或直接删除 `history/recordings/` 下的旧WAV文件（数据库会自动清理无效引用）
+
+**完全卸载**：
+1. 卸载/删除应用程序
+2. 手动删除数据文件夹：
+   ```bash
+   rmdir /s "%APPDATA%\SonicInput"
+   ```
+
+---
+
 ## 📄 许可证
 
 MIT License - 详见 [LICENSE](LICENSE)
