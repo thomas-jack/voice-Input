@@ -1216,19 +1216,19 @@ class SettingsWindow(QMainWindow):
         logging_config = default_config.get("logging", {})
 
         # 重置UI设置
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "ui.start_minimized", ui_config.get("start_minimized", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "ui.tray_notifications", ui_config.get("tray_notifications", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "ui.show_overlay", ui_config.get("show_overlay", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "ui.overlay_always_on_top", ui_config.get("overlay_always_on_top", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "ui.theme_color", ui_config.get("theme_color", "cyan")
         )
 
@@ -1248,16 +1248,16 @@ class SettingsWindow(QMainWindow):
                 "auto_save": True,
             },
         )
-        self.config_manager.set_setting("ui.overlay_position", default_overlay_position)
+        self.ui_settings_service.set_setting("ui.overlay_position", default_overlay_position)
 
         # 重置日志设置
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "logging.level", logging_config.get("level", "INFO")
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "logging.console_output", logging_config.get("console_output", False)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "logging.max_log_size_mb", logging_config.get("max_log_size_mb", 10)
         )
 
@@ -1283,14 +1283,14 @@ class SettingsWindow(QMainWindow):
             self.whisper_model_combo.setCurrentIndex(index)
 
         # 重置其他设置
-        self.config_manager.set_setting("whisper.model", model)
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting("whisper.model", model)
+        self.ui_settings_service.set_setting(
             "whisper.language", whisper_config.get("language", "auto")
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "whisper.use_gpu", whisper_config.get("use_gpu", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "whisper.temperature", whisper_config.get("temperature", 0.0)
         )
 
@@ -1325,8 +1325,8 @@ class SettingsWindow(QMainWindow):
         self.prompt_text_edit.setPlainText(prompt)
 
         # 保存到配置（新路径）
-        self.config_manager.set_setting("ai.openrouter.model_id", model_id)
-        self.config_manager.set_setting("ai.prompt", prompt)
+        self.ui_settings_service.set_setting("ai.openrouter.model_id", model_id)
+        self.ui_settings_service.set_setting("ai.prompt", prompt)
 
     def _reset_audio_input_tab(self, default_config) -> None:
         """重置音频和输入设置标签页 (Audio and Input Tab - merged Audio + Input)"""
@@ -1337,34 +1337,34 @@ class SettingsWindow(QMainWindow):
         self.audio_device_combo.setCurrentIndex(0)  # 通常第一个是默认设备
 
         # 重置音频设置
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "audio.sample_rate", audio_config.get("sample_rate", 16000)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "audio.channels", audio_config.get("channels", 1)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "audio.chunk_size", audio_config.get("chunk_size", 1024)
         )
 
         # 重置输入方法设置
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "input.preferred_method", input_config.get("preferred_method", "clipboard")
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "input.fallback_enabled", input_config.get("fallback_enabled", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "input.auto_detect_terminal", input_config.get("auto_detect_terminal", True)
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "input.method", input_config.get("method", "smart")
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "input.clipboard_restore_delay",
             input_config.get("clipboard_restore_delay", 2.0),
         )
-        self.config_manager.set_setting(
+        self.ui_settings_service.set_setting(
             "input.typing_delay", input_config.get("typing_delay", 0.01)
         )
         self.update_ui_from_config()
@@ -1373,36 +1373,3 @@ class SettingsWindow(QMainWindow):
         """重置历史记录标签页"""
         # History tab doesn't have configuration settings - it only displays data
         pass
-
-    def _reset_ui_tab(self, default_config) -> None:
-        """重置UI设置标签页"""
-        ui_config = default_config.get("ui", {})
-
-        # 重置UI设置 - 修复字段名称和复杂结构处理
-        self.config_manager.set_setting(
-            "ui.start_minimized", ui_config.get("start_minimized", True)
-        )
-        self.config_manager.set_setting(
-            "ui.show_overlay", ui_config.get("show_overlay", True)
-        )
-        self.config_manager.set_setting(
-            "ui.overlay_always_on_top", ui_config.get("overlay_always_on_top", True)
-        )
-
-        # 正确处理复杂的overlay_position结构
-        default_overlay_position = ui_config.get(
-            "overlay_position",
-            {
-                "mode": "preset",
-                "preset": "center",
-                "custom": {"x": 0, "y": 0},
-                "last_screen": {
-                    "index": 0,
-                    "name": "",
-                    "geometry": "",
-                    "device_pixel_ratio": 1.0,
-                },
-                "auto_save": True,
-            },
-        )
-        self.config_manager.set_setting("ui.overlay_position", default_overlay_position)

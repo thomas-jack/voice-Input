@@ -271,15 +271,27 @@ class AudioInputTab(BaseSettingsTab):
         """更新设备列表
 
         Args:
-            devices: 设备名称列表
+            devices: 设备字典列表，每个字典包含 'name' 和 'index' 键
         """
-        current_index = self.audio_device_combo.currentIndex()
-        self.audio_device_combo.clear()
-        self.audio_device_combo.addItems(devices)
+        # 保存当前选中的设备 ID（不是索引）
+        current_device_id = self.audio_device_combo.currentData()
 
-        # 尝试恢复之前选中的设备
-        if current_index >= 0 and current_index < len(devices):
-            self.audio_device_combo.setCurrentIndex(current_index)
+        self.audio_device_combo.clear()
+
+        # 添加默认选项
+        self.audio_device_combo.addItem("System Default", None)
+
+        # 添加设备，使用 itemData 存储真实的设备 ID
+        for device in devices:
+            device_name = f"{device['name']} (ID: {device['index']})"
+            self.audio_device_combo.addItem(device_name, device["index"])
+
+        # 尝试恢复之前选中的设备（通过 device ID 而非索引）
+        if current_device_id is not None:
+            for i in range(self.audio_device_combo.count()):
+                if self.audio_device_combo.itemData(i) == current_device_id:
+                    self.audio_device_combo.setCurrentIndex(i)
+                    break
 
     def _test_clipboard(self) -> None:
         """测试剪贴板方法 - 调用父窗口的方法"""

@@ -314,8 +314,13 @@ class HistoryTab(BaseSettingsTab):
                 # 通过config_manager的get_history_service方法获取
                 if hasattr(self.config_manager, 'get_history_service'):
                     self.history_service = self.config_manager.get_history_service()
+                    if self.history_service is None:
+                        # 记录警告但不抛出异常，让调用者处理
+                        from ...utils import app_logger
+                        app_logger.warning("HistoryStorageService not available from config_manager")
             except Exception as e:
-                print(f"Failed to get HistoryStorageService: {e}")
+                from ...utils import app_logger
+                app_logger.log_error(e, "Failed to get HistoryStorageService")
                 return None
 
         return self.history_service
