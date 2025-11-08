@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Voice Input Software - Application Entry Point
+Sonic Input - Application Entry Point
 
 Unified entry point providing:
 - CUDA library path setup for GPU acceleration
@@ -712,7 +712,7 @@ def run_gui():
                 component="main"
             )
 
-        print(f"[RUNNING] Voice Input Software is running! (Startup: {startup_duration:.2f}s)")
+        print(f"[RUNNING] Sonic Input is running! (Startup: {startup_duration:.2f}s)")
         hotkey = config.get_setting("hotkey", "ctrl+shift+v")
         print(f"[HOTKEY] Press {hotkey} to start voice recording")
 
@@ -822,7 +822,7 @@ def run_diagnostics():
 
 def main():
     """Main application entry point"""
-    parser = argparse.ArgumentParser(description="Voice Input Software")
+    parser = argparse.ArgumentParser(description="Sonic Input")
     parser.add_argument("--gui", action="store_true", help="Launch with GUI")
     parser.add_argument("--test", action="store_true", help="Run all tests (auto-loads model)")
     parser.add_argument("--diagnostics", action="store_true", help="Run comprehensive diagnostics")
@@ -834,7 +834,7 @@ def main():
     signal.signal(signal.SIGINT, handle_shutdown)
     signal.signal(signal.SIGTERM, handle_shutdown)
 
-    print("=== Voice Input Software ===")
+    print("=== Sonic Input ===")
 
     if args.test:
         run_tests()

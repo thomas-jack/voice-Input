@@ -72,7 +72,7 @@ class SettingsWindow(QMainWindow):
         self.current_config = {}
 
         # 设置窗口属性
-        self.setWindowTitle("Voice Input Software - Settings")
+        self.setWindowTitle("Sonic Input - Settings")
         self.setMinimumSize(800, 600)  # 最小尺寸
         self.resize(800, 600)  # 默认大小，但允许用户调整
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint)
@@ -1078,7 +1078,7 @@ class SettingsWindow(QMainWindow):
                 original_content = ""
 
             # Test writing to clipboard
-            test_text = "Voice Input Software Test"
+            test_text = "Sonic Input Test"
             pyperclip.copy(test_text)
 
             # Test reading from clipboard
@@ -1152,7 +1152,7 @@ class SettingsWindow(QMainWindow):
             import win32con
             import time
 
-            test_text = "Voice Input Software SendInput Test"
+            test_text = "Sonic Input SendInput Test"
 
             for char in test_text:
                 # Send key down event

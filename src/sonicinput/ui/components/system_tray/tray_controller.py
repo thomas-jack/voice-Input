@@ -428,11 +428,11 @@ class TrayController(LifecycleComponent):
 
         # Update tooltip
         if recording:
-            tooltip = "Voice Input Software - Recording\\nRight-click for menu, Double-click for settings"
+            tooltip = "Sonic Input - Recording\\nRight-click for menu, Double-click for settings"
             self._tray_widget.update_status_text("Recording...")
             self._tray_widget.update_recording_action_text("Stop Recording")
         else:
-            tooltip = "Voice Input Software - Ready\\nRight-click for menu, Double-click for settings"
+            tooltip = "Sonic Input - Ready\\nRight-click for menu, Double-click for settings"
             self._tray_widget.update_status_text("Ready")
             self._tray_widget.update_recording_action_text("Start Recording")
 
@@ -471,7 +471,7 @@ class TrayController(LifecycleComponent):
         """Show startup notification"""
         if self._tray_widget and self._notifications_enabled:
             self._tray_widget.show_message(
-                "Voice Input Software",
+                "Sonic Input",
                 "Application is running! Right-click the tray icon (green dot) to access features, or double-click to open settings.",
                 QSystemTrayIcon.MessageIcon.Information,
                 8000,  # 8 seconds
@@ -481,9 +481,9 @@ class TrayController(LifecycleComponent):
         """Show about dialog"""
         QMessageBox.about(
             None,
-            "About Voice Input Software",
+            "About Sonic Input",
             """
-            <h3>Voice Input Software v0.1.0</h3>
+            <h3>Sonic Input v0.1.0</h3>
             <p>An AI-powered voice-to-text input solution for Windows.</p>
             <p><b>Features:</b></p>
             <ul>

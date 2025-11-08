@@ -9,11 +9,11 @@
 class AppInfo:
     """应用程序基本信息"""
 
-    NAME = "Voice Input Software"
+    NAME = "Sonic Input"
     VERSION = "1.0.0"
     DESCRIPTION = "AI-powered voice input software with speech recognition"
-    AUTHOR = "Voice Input Team"
-    COPYRIGHT = "© 2024 Voice Input Software"
+    AUTHOR = "Sonic Input Team"
+    COPYRIGHT = "© 2024 Sonic Input"
 
 
 # ==================== 文件路径 ====================

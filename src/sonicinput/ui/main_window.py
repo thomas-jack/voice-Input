@@ -171,7 +171,7 @@ class MainWindow(QMainWindow):
         """配置窗口基本属性"""
         from .utils import create_app_icon
 
-        self.setWindowTitle("Voice Input Software")
+        self.setWindowTitle("Sonic Input")
         self.setWindowIcon(create_app_icon())
         self.setFixedSize(400, 300)  # 固定小尺寸
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint)
@@ -189,7 +189,7 @@ class MainWindow(QMainWindow):
         layout.setSpacing(15)
 
         # 状态显示
-        self.status_label = QLabel("Voice Input Software")
+        self.status_label = QLabel("Sonic Input")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet("font-size: 16px; font-weight: bold;")
         layout.addWidget(self.status_label)
@@ -498,7 +498,7 @@ class MainWindow(QMainWindow):
         # 可选：显示托盘通知
         if hasattr(self, "system_tray") and self.system_tray:
             self.system_tray.showMessage(
-                "Voice Input Software",
+                "Sonic Input",
                 "Application minimized to tray",
                 QSystemTrayIcon.MessageIcon.Information,
                 2000,

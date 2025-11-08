@@ -1,4 +1,4 @@
-"""Voice Input Software - Windows语音输入软件
+"""Sonic Input - Windows语音输入软件
 
 一个基于Whisper和AI优化的Windows语音转文本输入解决方案
 """

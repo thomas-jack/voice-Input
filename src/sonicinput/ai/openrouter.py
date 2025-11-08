@@ -34,8 +34,8 @@ class OpenRouterClient(BaseAIClient):
     def get_extra_headers(self) -> Dict[str, str]:
         """返回 OpenRouter 特定的请求头"""
         return {
-            "HTTP-Referer": "https://github.com/user/voice-input-software",
-            "X-Title": "Voice Input Software",
+            "HTTP-Referer": "https://github.com/user/sonic-input",
+            "X-Title": "Sonic Input",
         }
 
     # ========== OpenRouter 独特功能 ==========

@@ -1,6 +1,6 @@
 """统一日志系统 - 单一接口，智能路由，性能监控集成
 
-这是Voice Input Software的统一日志系统，提供：
+这是Sonic Input的统一日志系统，提供：
 - 单一清晰的API接口
 - 智能输出路由（控制台 + 文件）
 - 内置性能监控和追踪
@@ -716,12 +716,12 @@ class LegacyLoggerAdapter:
 
     def log_startup(self) -> None:
         self._logger.info(
-            "Voice Input Software starting up", LogCategory.STARTUP, component="startup"
+            "Sonic Input starting up", LogCategory.STARTUP, component="startup"
         )
 
     def log_shutdown(self) -> None:
         self._logger.info(
-            "Voice Input Software shutting down",
+            "Sonic Input shutting down",
             LogCategory.STARTUP,
             component="shutdown",
         )

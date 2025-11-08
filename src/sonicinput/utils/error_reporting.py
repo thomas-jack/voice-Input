@@ -1,7 +1,7 @@
 """Consistent error reporting mechanisms
 
 Provides unified error reporting, handling, and recovery patterns
-across the Voice Input Software codebase.
+across the Sonic Input codebase.
 """
 
 import traceback

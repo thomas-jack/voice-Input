@@ -1,4 +1,4 @@
-"""Enhanced exception hierarchy for Voice Input Software
+"""Enhanced exception hierarchy for Sonic Input
 
 Provides structured error handling with context information,
 error codes, and recovery suggestions.
@@ -35,7 +35,7 @@ class ErrorCategory(Enum):
 
 
 class VoiceInputError(Exception):
-    """Enhanced base exception for Voice Input Software
+    """Enhanced base exception for Sonic Input
 
     Provides structured error information including:
     - Error codes for programmatic handling
