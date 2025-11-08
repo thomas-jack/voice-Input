@@ -1,11 +1,17 @@
-"""动态事件系统 - 支持运行时事件注册和插件扩展
+"""简化的动态事件系统
 
-主要改进：
-1. 动态事件类型注册 - 支持运行时注册新事件类型
-2. 事件验证器 - 支持事件数据验证
-3. 事件插件系统 - 支持插件扩展事件功能
-4. 事件命名空间 - 避免事件名称冲突
-5. 事件元数据 - 支持事件描述、版本等元信息
+核心功能：
+1. 事件发布/订阅（emit/subscribe）
+2. 优先级支持（HIGH > NORMAL > LOW）
+3. 一次性监听器（once）
+4. 动态事件类型注册
+5. 线程安全保证
+
+简化说明：
+- 移除了未使用的插件系统
+- 移除了未使用的验证系统
+- 简化了统计和命名空间系统
+- 保留了所有核心功能，减少了代码复杂度
 """
 
 import threading
@@ -46,47 +52,6 @@ class EventMetadata:
 
 
 @dataclass
-class EventSchema:
-    """事件数据模式"""
-
-    required_fields: List[str] = field(default_factory=list)
-    optional_fields: List[str] = field(default_factory=list)
-    field_types: Dict[str, type] = field(default_factory=dict)
-    validators: Dict[str, Callable] = field(default_factory=dict)
-
-    def validate(self, data: Any) -> tuple[bool, List[str]]:
-        """验证事件数据"""
-        errors = []
-
-        if not isinstance(data, dict):
-            errors.append(f"Event data must be a dictionary, got {type(data)}")
-            return False, errors
-
-        # 检查必需字段
-        for field in self.required_fields:
-            if field not in data:
-                errors.append(f"Required field '{field}' is missing")
-
-        # 检查字段类型
-        for field, expected_type in self.field_types.items():
-            if field in data and not isinstance(data[field], expected_type):
-                errors.append(
-                    f"Field '{field}' must be of type {expected_type.__name__}"
-                )
-
-        # 运行自定义验证器
-        for field, validator in self.validators.items():
-            if field in data:
-                try:
-                    if not validator(data[field]):
-                        errors.append(f"Field '{field}' failed custom validation")
-                except Exception as e:
-                    errors.append(f"Field '{field}' validation error: {e}")
-
-        return len(errors) == 0, errors
-
-
-@dataclass
 class EventListener:
     """事件监听器信息"""
 
@@ -101,84 +66,17 @@ class EventListener:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-@dataclass
-class EventStats:
-    """事件统计信息"""
-
-    name: str
-    namespace: str = "default"
-    emit_count: int = 0
-    listener_count: int = 0
-    last_emitted: float = 0.0
-    total_processing_time: float = 0.0
-    error_count: int = 0
-
-
-class EventPlugin(ABC):
-    """事件插件基类"""
-
-    @abstractmethod
-    def get_name(self) -> str:
-        """获取插件名称"""
-        pass
-
-    @abstractmethod
-    def get_version(self) -> str:
-        """获取插件版本"""
-        pass
-
-    def initialize(self, event_system: "DynamicEventSystem") -> None:
-        """插件初始化"""
-        pass
-
-    def cleanup(self) -> None:
-        """插件清理"""
-        pass
-
-    def on_event_registered(self, event_name: str, metadata: EventMetadata) -> None:
-        """事件注册时回调"""
-        pass
-
-    def on_event_emitted(self, event_name: str, data: Any) -> None:
-        """事件发出时回调"""
-        pass
-
-    def on_listener_added(self, event_name: str, listener: EventListener) -> None:
-        """监听器添加时回调"""
-        pass
-
-
-class EventValidator:
-    """事件验证器"""
-
-    def __init__(self):
-        self._schemas: Dict[str, EventSchema] = {}
-
-    def register_schema(self, event_name: str, schema: EventSchema) -> None:
-        """注册事件模式"""
-        self._schemas[event_name] = schema
-
-    def validate_event(self, event_name: str, data: Any) -> tuple[bool, List[str]]:
-        """验证事件数据"""
-        schema = self._schemas.get(event_name)
-        if not schema:
-            return True, []  # 没有模式则跳过验证
-
-        return schema.validate(data)
-
-
 class DynamicEventSystem(IEventService):
-    """动态事件系统
+    """简化的动态事件系统
 
-    支持运行时注册事件类型、插件扩展和事件验证。
-    完全兼容原有的EventBus接口。
+    提供高性能的事件发布/订阅机制，支持优先级、线程安全等核心功能。
+    完全兼容原有的EventBus接口，移除了未使用的高级特性以提高性能和可维护性。
     """
 
     def __init__(self):
         """初始化动态事件系统"""
         # 基础数据结构
         self._listeners: Dict[str, List[EventListener]] = defaultdict(list)
-        self._stats: Dict[str, EventStats] = defaultdict(lambda: EventStats(""))
         self._lock = threading.RLock()
         self._enabled = True
 
@@ -186,13 +84,6 @@ class DynamicEventSystem(IEventService):
         self._event_metadata: Dict[str, EventMetadata] = {}
         self._event_namespaces: Dict[str, Set[str]] = defaultdict(set)
         self._registered_events: Set[str] = set()
-
-        # 插件系统
-        self._plugins: Dict[str, EventPlugin] = {}
-        self._plugin_lock = threading.RLock()
-
-        # 验证器
-        self._validator = EventValidator()
 
         # 性能优化：缓存机制
         self._sorted_listeners_cache: Dict[str, List[EventListener]] = {}
@@ -412,14 +303,12 @@ class DynamicEventSystem(IEventService):
         self,
         event_name: str,
         metadata: Optional[EventMetadata] = None,
-        schema: Optional[EventSchema] = None,
     ) -> None:
         """注册事件类型
 
         Args:
             event_name: 事件名称
             metadata: 事件元数据
-            schema: 事件数据模式
         """
         with self._lock:
             if event_name in self._registered_events:
@@ -437,14 +326,6 @@ class DynamicEventSystem(IEventService):
             self._event_namespaces[metadata.namespace].add(event_name)
             self._registered_events.add(event_name)
 
-            # 注册验证模式
-            if schema:
-                self._validator.register_schema(event_name, schema)
-
-            # 初始化统计
-            if event_name not in self._stats:
-                self._stats[event_name] = EventStats(event_name, metadata.namespace)
-
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
 
@@ -457,9 +338,6 @@ class DynamicEventSystem(IEventService):
                         "description": metadata.description,
                     },
                 )
-
-            # 通知插件
-            self._notify_plugins_event_registered(event_name, metadata)
 
     def unregister_event_type(self, event_name: str) -> None:
         """注销事件类型
@@ -489,14 +367,6 @@ class DynamicEventSystem(IEventService):
 
             self._registered_events.discard(event_name)
 
-            # 移除统计
-            if event_name in self._stats:
-                del self._stats[event_name]
-
-            # 移除验证模式
-            if event_name in self._validator._schemas:
-                del self._validator._schemas[event_name]
-
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
 
@@ -504,66 +374,6 @@ class DynamicEventSystem(IEventService):
                 self.logger.log_audio_event(
                     "Event type unregistered", {"event_name": event_name}
                 )
-
-    def add_plugin(self, plugin: EventPlugin) -> None:
-        """添加事件插件
-
-        Args:
-            plugin: 事件插件
-        """
-        with self._plugin_lock:
-            plugin_name = plugin.get_name()
-
-            if plugin_name in self._plugins:
-                if self.logger:
-                    self.logger.warning(f"Plugin '{plugin_name}' already registered")
-                return
-
-            try:
-                plugin.initialize(self)
-                self._plugins[plugin_name] = plugin
-
-                if self.logger:
-                    self.logger.log_audio_event(
-                        "Event plugin added",
-                        {
-                            "plugin_name": plugin_name,
-                            "plugin_version": plugin.get_version(),
-                        },
-                    )
-
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(
-                        f"Failed to initialize plugin '{plugin_name}': {e}"
-                    )
-                raise
-
-    def remove_plugin(self, plugin_name: str) -> None:
-        """移除事件插件
-
-        Args:
-            plugin_name: 插件名称
-        """
-        with self._plugin_lock:
-            plugin = self._plugins.get(plugin_name)
-            if not plugin:
-                if self.logger:
-                    self.logger.warning(f"Plugin '{plugin_name}' not found")
-                return
-
-            try:
-                plugin.cleanup()
-                del self._plugins[plugin_name]
-
-                if self.logger:
-                    self.logger.log_audio_event(
-                        "Event plugin removed", {"plugin_name": plugin_name}
-                    )
-
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(f"Error cleaning up plugin '{plugin_name}': {e}")
 
     def emit(
         self,
@@ -591,20 +401,6 @@ class DynamicEventSystem(IEventService):
             if self.logger:
                 self.logger.debug(f"Auto-registered event '{event_name}'")
 
-        # 验证事件数据
-        is_valid, errors = self._validator.validate_event(event_name, data)
-        if not is_valid:
-            if self.logger:
-                self.logger.error(
-                    f"Event data validation failed for '{event_name}': {errors}"
-                )
-            # 不阻止事件发出，但记录错误
-
-        # 更新统计
-        stats = self._stats[event_name]
-        stats.emit_count += 1
-        stats.last_emitted = time.time()
-
         try:
             # 获取监听器
             listeners = self._get_sorted_listeners(event_name)
@@ -615,8 +411,6 @@ class DynamicEventSystem(IEventService):
             # 执行监听器
             for listener in listeners:
                 try:
-                    listener_start = time.time()
-
                     # 执行回调
                     listener.callback(data)
 
@@ -628,13 +422,7 @@ class DynamicEventSystem(IEventService):
                     if listener.is_once:
                         self._remove_listener(event_name, listener.id)
 
-                    # 更新处理时间统计
-                    processing_time = time.time() - listener_start
-                    stats.total_processing_time += processing_time
-
                 except Exception as e:
-                    stats.error_count += 1
-
                     if self.logger:
                         self.logger.error(
                             f"Error in event listener for '{event_name}': {e}"
@@ -642,12 +430,7 @@ class DynamicEventSystem(IEventService):
 
                     # 继续处理其他监听器
 
-            # 通知插件
-            self._notify_plugins_event_emitted(event_name, data)
-
         except Exception as e:
-            stats.error_count += 1
-
             if self.logger:
                 self.logger.error(f"Error emitting event '{event_name}': {e}")
 
@@ -692,16 +475,8 @@ class DynamicEventSystem(IEventService):
 
             self._listeners[event_name].append(listener)
 
-            # 更新统计 - 确保stats对象存在并更新listener_count
-            if event_name not in self._stats:
-                self._stats[event_name] = EventStats(event_name)
-            self._stats[event_name].listener_count = len(self._listeners[event_name])
-
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
-
-            # 通知插件
-            self._notify_plugins_listener_added(event_name, listener)
 
             if self.logger:
                 self.logger.log_audio_event(
@@ -745,12 +520,6 @@ class DynamicEventSystem(IEventService):
         removed = len(self._listeners[event_name]) < original_count
 
         if removed:
-            # 更新统计
-            if event_name in self._stats:
-                self._stats[event_name].listener_count = len(
-                    self._listeners[event_name]
-                )
-
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
 
@@ -776,10 +545,6 @@ class DynamicEventSystem(IEventService):
 
             count = len(self._listeners[event_name])
             self._listeners[event_name].clear()
-
-            # 更新统计
-            if event_name in self._stats:
-                self._stats[event_name].listener_count = 0
 
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
@@ -853,39 +618,14 @@ class DynamicEventSystem(IEventService):
         """
         return self._event_metadata.get(event_name)
 
-    def get_event_stats(
-        self, event_name: Optional[str] = None
-    ) -> Union[EventStats, Dict[str, EventStats]]:
-        """获取事件统计
-
-        Args:
-            event_name: 事件名称，None表示获取所有事件统计
-
-        Returns:
-            事件统计信息
-        """
+    def get_event_stats(self) -> Dict[str, Any]:
+        """获取事件统计（简化版）"""
         with self._lock:
-            if event_name:
-                return self._stats.get(event_name, EventStats(event_name))
-            return dict(self._stats)
-
-    def get_namespaces(self) -> List[str]:
-        """获取所有命名空间
-
-        Returns:
-            命名空间列表
-        """
-        with self._lock:
-            return list(self._event_namespaces.keys())
-
-    def get_plugins(self) -> List[str]:
-        """获取已注册的插件列表
-
-        Returns:
-            插件名称列表
-        """
-        with self._plugin_lock:
-            return list(self._plugins.keys())
+            return {
+                "total_events": len(self._registered_events),
+                "total_listeners": sum(len(listeners) for listeners in self._listeners.values()),
+                "events_with_listeners": len([e for e in self._listeners if self._listeners[e]]),
+            }
 
     def enable(self) -> None:
         """启用事件系统"""
@@ -962,11 +702,6 @@ class DynamicEventSystem(IEventService):
 
     def cleanup(self) -> None:
         """清理资源"""
-        # 移除所有插件
-        with self._plugin_lock:
-            for plugin_name in list(self._plugins.keys()):
-                self.remove_plugin(plugin_name)
-
         # 清除所有监听器
         self.clear_all_listeners()
 
@@ -975,43 +710,11 @@ class DynamicEventSystem(IEventService):
             self._event_metadata.clear()
             self._event_namespaces.clear()
             self._registered_events.clear()
-            self._stats.clear()
             self._sorted_listeners_cache.clear()
             self._listener_version.clear()
 
         if self.logger:
             self.logger.log_audio_event("DynamicEventSystem cleaned up", {})
-
-    def _notify_plugins_event_registered(
-        self, event_name: str, metadata: EventMetadata
-    ) -> None:
-        """通知插件事件已注册"""
-        for plugin in self._plugins.values():
-            try:
-                plugin.on_event_registered(event_name, metadata)
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(f"Plugin error in on_event_registered: {e}")
-
-    def _notify_plugins_event_emitted(self, event_name: str, data: Any) -> None:
-        """通知插件事件已发出"""
-        for plugin in self._plugins.values():
-            try:
-                plugin.on_event_emitted(event_name, data)
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(f"Plugin error in on_event_emitted: {e}")
-
-    def _notify_plugins_listener_added(
-        self, event_name: str, listener: EventListener
-    ) -> None:
-        """通知插件监听器已添加"""
-        for plugin in self._plugins.values():
-            try:
-                plugin.on_listener_added(event_name, listener)
-            except Exception as e:
-                if self.logger:
-                    self.logger.error(f"Plugin error in on_listener_added: {e}")
 
 
 # 兼容性：提供原有的事件名称枚举

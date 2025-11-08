@@ -42,9 +42,6 @@ event_bus.add_plugin(MyEventPlugin())
 from .dynamic_event_system import (
     DynamicEventSystem,
     EventMetadata,
-    EventSchema,
-    EventPlugin,
-    EventValidator,
 )
 
 # 主要API - 直接使用动态事件系统
