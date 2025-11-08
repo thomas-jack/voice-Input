@@ -944,11 +944,23 @@ def create_container() -> "EnhancedDIContainer":
         events = container.get(IEventService)
         history = container.get(IHistoryStorageService)
 
+        # 尝试获取转录服务和AI控制器(可能还未注册)
+        transcription_service = None
+        ai_processing_controller = None
+        try:
+            transcription_service = container.get(ISpeechService)
+        except:
+            pass  # Service not yet registered
+
+        # AI controller在这个阶段可能还未注册,留空
+
         from .services.ui_services import UISettingsService
         return UISettingsService(
             config_service=config,
             event_service=events,
-            history_service=history
+            history_service=history,
+            transcription_service=transcription_service,
+            ai_processing_controller=ai_processing_controller
         )
 
     container.register_factory(

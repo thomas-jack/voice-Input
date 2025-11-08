@@ -80,13 +80,40 @@ class SettingsWindow(QMainWindow):
         # 创建滚轮事件过滤器（防止误触）
         self.wheel_filter = WheelEventFilter(self)
 
+        # 获取转录服务和AI处理控制器（用于HistoryTab的重处理功能）
+        transcription_service = None
+        ai_processing_controller = None
+        if hasattr(self.ui_settings_service, 'get_transcription_service'):
+            transcription_service = self.ui_settings_service.get_transcription_service()
+            app_logger.log_audio_event(
+                "SettingsWindow got transcription service",
+                {
+                    "is_none": transcription_service is None,
+                    "service_type": type(transcription_service).__name__ if transcription_service else "None"
+                }
+            )
+        if hasattr(self.ui_settings_service, 'get_ai_processing_controller'):
+            ai_processing_controller = self.ui_settings_service.get_ai_processing_controller()
+            app_logger.log_audio_event(
+                "SettingsWindow got AI processing controller",
+                {
+                    "is_none": ai_processing_controller is None,
+                    "controller_type": type(ai_processing_controller).__name__ if ai_processing_controller else "None"
+                }
+            )
+
         # 创建标签页实例
         self.application_tab = ApplicationTab(self.ui_settings_service, self)
         self.hotkey_tab = HotkeyTab(self.ui_settings_service, self)
         self.transcription_tab = TranscriptionTab(self.ui_settings_service, self)
         self.ai_tab = AITab(self.ui_settings_service, self)
         self.audio_input_tab = AudioInputTab(self.ui_settings_service, self)
-        self.history_tab = HistoryTab(self.ui_settings_service, self)
+        self.history_tab = HistoryTab(
+            self.ui_settings_service,
+            self,
+            transcription_service=transcription_service,
+            ai_processing_controller=ai_processing_controller,
+        )
 
         # 初始化UI
         self.setup_ui()

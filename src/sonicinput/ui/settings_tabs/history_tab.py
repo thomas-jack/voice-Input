@@ -15,22 +15,229 @@ from PySide6.QtWidgets import (
     QDialog,
     QTextEdit,
     QDialogButtonBox,
+    QProgressDialog,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QFont
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from .base_tab import BaseSettingsTab
+import numpy as np
+
+
+class ReprocessingWorker(QThread):
+    """重新处理录音的后台工作线程"""
+
+    # 信号定义
+    progress_updated = Signal(str)  # 进度更新信号
+    reprocessing_completed = Signal(dict)  # 重处理完成信号
+    reprocessing_failed = Signal(str)  # 重处理失败信号
+
+    def __init__(
+        self,
+        record,
+        transcription_service,
+        ai_processing_controller,
+        config_service,
+        history_service,
+    ):
+        super().__init__()
+        self.record = record
+        self.transcription_service = transcription_service
+        self.ai_processing_controller = ai_processing_controller
+        self.config_service = config_service
+        self.history_service = history_service
+        self.should_stop = False
+
+    def run(self):
+        """后台线程执行重处理流程"""
+        try:
+            from ...audio.recorder import AudioRecorder
+            from ...utils import app_logger
+
+            # 1. 加载音频文件
+            self.progress_updated.emit("Loading audio file...")
+            audio_file_path = self.record.audio_file_path
+
+            if not audio_file_path:
+                self.reprocessing_failed.emit("Audio file path not found in record")
+                return
+
+            try:
+                audio_data = AudioRecorder.load_audio_from_file(audio_file_path)
+                if audio_data is None or len(audio_data) == 0:
+                    self.reprocessing_failed.emit("Failed to load audio data from file")
+                    return
+            except FileNotFoundError:
+                self.reprocessing_failed.emit(f"Audio file not found: {audio_file_path}")
+                return
+            except Exception as e:
+                self.reprocessing_failed.emit(f"Error loading audio file: {str(e)}")
+                return
+
+            if self.should_stop:
+                return
+
+            # 2. 重新转录
+            self.progress_updated.emit("Transcribing audio...")
+
+            try:
+                # 获取当前转录配置
+                transcription_provider = self.config_service.get_setting("transcription.provider", "local")
+                language = self.config_service.get_setting(f"transcription.{transcription_provider}.language", "auto")
+                temperature = self.config_service.get_setting("transcription.temperature", 0.0)
+
+                # 调用转录服务
+                transcription_result = self.transcription_service.transcribe_sync(
+                    audio_data=audio_data,
+                    language=language if language != "auto" else None,
+                    temperature=temperature,
+                )
+
+                if not transcription_result.get("success", True):
+                    error_msg = transcription_result.get("error", "Unknown transcription error")
+                    self.reprocessing_failed.emit(f"Transcription failed: {error_msg}")
+
+                    # 更新历史记录为失败状态
+                    self.record.transcription_status = "failed"
+                    self.record.transcription_error = error_msg
+                    self.record.transcription_provider = transcription_provider
+                    self.history_service.update_record(self.record)
+                    return
+
+                transcription_text = transcription_result.get("text", "")
+
+                if not transcription_text.strip():
+                    self.reprocessing_failed.emit("Transcription returned empty text")
+                    return
+
+            except Exception as e:
+                app_logger.log_error(e, "reprocessing_transcription")
+                self.reprocessing_failed.emit(f"Transcription error: {str(e)}")
+                return
+
+            if self.should_stop:
+                return
+
+            # 3. 重新AI优化（如果启用）
+            ai_enabled = self.config_service.get_setting("ai.enabled", False)
+            ai_optimized_text = None
+            ai_provider = None
+            ai_status = "skipped"
+            ai_error = None
+
+            if ai_enabled and transcription_text.strip():
+                self.progress_updated.emit("Optimizing with AI...")
+
+                # 检查AI控制器是否可用
+                if not self.ai_processing_controller:
+                    ai_status = "skipped"
+                    ai_error = "AI processing controller not available"
+                    ai_optimized_text = ""
+                    app_logger.log_audio_event(
+                        "Retry processing: AI controller not available, skipping AI optimization",
+                        {"ai_enabled": ai_enabled}
+                    )
+                else:
+                    try:
+                        # 设置当前记录ID供AI控制器使用
+                        self.ai_processing_controller._current_record_id = self.record.id
+
+                        # 调用AI处理
+                        ai_optimized_text = self.ai_processing_controller.process_with_ai(
+                            transcription_text
+                        )
+
+                        # 获取AI提供商信息
+                        ai_provider = self.config_service.get_setting("ai.provider", "groq")
+
+                        if ai_optimized_text and ai_optimized_text.strip():
+                            ai_status = "success"
+                        else:
+                            ai_status = "failed"
+                            ai_error = "AI returned empty text"
+
+                    except Exception as e:
+                        app_logger.log_error(e, "reprocessing_ai_optimization")
+                        ai_status = "failed"
+                        ai_error = str(e)
+                        ai_optimized_text = None
+
+            if self.should_stop:
+                return
+
+            # 4. 更新历史记录
+            self.progress_updated.emit("Updating history record...")
+
+            # 确定最终文本
+            if ai_status == "success" and ai_optimized_text:
+                final_text = ai_optimized_text
+            else:
+                final_text = transcription_text
+
+            # 更新记录对象
+            self.record.transcription_text = transcription_text
+            self.record.transcription_provider = transcription_provider
+            self.record.transcription_status = "success"
+            self.record.transcription_error = None
+            self.record.ai_optimized_text = ai_optimized_text
+            self.record.ai_provider = ai_provider
+            self.record.ai_status = ai_status
+            self.record.ai_error = ai_error
+            self.record.final_text = final_text
+
+            # 保存到数据库
+            try:
+                self.history_service.update_record(self.record)
+            except Exception as e:
+                app_logger.log_error(e, "reprocessing_update_record")
+                self.reprocessing_failed.emit(f"Failed to update history record: {str(e)}")
+                return
+
+            # 5. 完成
+            result = {
+                "transcription_text": transcription_text,
+                "ai_optimized_text": ai_optimized_text,
+                "final_text": final_text,
+                "ai_status": ai_status,
+                "transcription_provider": transcription_provider,
+            }
+
+            self.reprocessing_completed.emit(result)
+
+        except Exception as e:
+            from ...utils import app_logger
+
+            app_logger.log_error(e, "reprocessing_worker")
+            self.reprocessing_failed.emit(f"Unexpected error: {str(e)}")
+
+    def stop(self):
+        """请求停止处理"""
+        self.should_stop = True
 
 
 class HistoryDetailDialog(QDialog):
     """历史记录详情对话框"""
 
-    def __init__(self, record, parent_window, history_service, parent=None):
+    def __init__(
+        self,
+        record,
+        parent_window,
+        history_service,
+        transcription_service=None,
+        ai_processing_controller=None,
+        config_service=None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.record = record
         self.parent_window = parent_window
         self.history_service = history_service
+        self.transcription_service = transcription_service
+        self.ai_processing_controller = ai_processing_controller
+        self.config_service = config_service
+        self.reprocessing_worker = None
+        self.progress_dialog = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -143,12 +350,36 @@ class HistoryDetailDialog(QDialog):
 
     def _retry_processing(self):
         """重新处理录音（使用当前配置）"""
+        from ...utils import app_logger
+
+        app_logger.log_audio_event(
+            "Retry processing requested",
+            {
+                "has_transcription_service": self.transcription_service is not None,
+                "has_config_service": self.config_service is not None,
+                "has_ai_controller": self.ai_processing_controller is not None,
+                "transcription_service_type": type(self.transcription_service).__name__ if self.transcription_service else "None"
+            }
+        )
+
+        # 检查是否有必要的服务
+        if not self.transcription_service or not self.config_service:
+            QMessageBox.warning(
+                self,
+                "Service Unavailable",
+                "Retry processing requires transcription service.\n\n"
+                "This feature may not be available in this context."
+            )
+            return
+
+        # 确认对话框
         reply = QMessageBox.question(
             self,
             "Retry Processing",
             "This will reprocess the recording using current configuration.\n\n"
             "- Transcription will use current provider/model\n"
             "- AI optimization will use current settings\n\n"
+            "The original record will be updated with new results.\n\n"
             "Continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
@@ -157,21 +388,117 @@ class HistoryDetailDialog(QDialog):
         if reply != QMessageBox.StandardButton.Yes:
             return
 
-        # TODO: 实现完整的重新处理逻辑
-        # 1. 读取音频文件
-        # 2. 用当前配置重新转录
-        # 3. 用当前配置重新 AI 优化
-        # 4. 更新数据库记录
-        # 5. 刷新对话框显示
+        # 创建进度对话框
+        self.progress_dialog = QProgressDialog(
+            "Initializing reprocessing...",
+            "Cancel",
+            0,
+            0,  # 不确定进度的模式
+            self
+        )
+        self.progress_dialog.setWindowTitle("Reprocessing Recording")
+        self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.progress_dialog.setMinimumDuration(0)
+        self.progress_dialog.setValue(0)
+        self.progress_dialog.show()
+
+        # 创建并启动后台工作线程
+        self.reprocessing_worker = ReprocessingWorker(
+            record=self.record,
+            transcription_service=self.transcription_service,
+            ai_processing_controller=self.ai_processing_controller,
+            config_service=self.config_service,
+            history_service=self.history_service,
+        )
+
+        # 连接信号
+        self.reprocessing_worker.progress_updated.connect(self._on_progress_updated)
+        self.reprocessing_worker.reprocessing_completed.connect(self._on_reprocessing_completed)
+        self.reprocessing_worker.reprocessing_failed.connect(self._on_reprocessing_failed)
+        self.progress_dialog.canceled.connect(self._on_reprocessing_canceled)
+
+        # 启动工作线程
+        self.reprocessing_worker.start()
+
+    def _on_progress_updated(self, message: str):
+        """更新进度对话框"""
+        if self.progress_dialog:
+            self.progress_dialog.setLabelText(message)
+
+    def _on_reprocessing_completed(self, result: dict):
+        """重处理完成"""
+        # 关闭进度对话框 (先断开信号避免触发canceled)
+        if self.progress_dialog:
+            self.progress_dialog.canceled.disconnect(self._on_reprocessing_canceled)
+            self.progress_dialog.close()
+            self.progress_dialog = None
+
+        # 更新UI显示
+        transcription_text = result.get("transcription_text", "")
+        ai_optimized_text = result.get("ai_optimized_text", "")
+        final_text = result.get("final_text", "")
+        ai_status = result.get("ai_status", "skipped")
+
+        # 更新转录文本框
+        self.trans_text_edit.setPlainText(transcription_text or "(empty)")
+
+        # 更新优化后的文本框
+        if ai_status == "success" and ai_optimized_text:
+            display_text = ai_optimized_text
+        else:
+            display_text = f"{transcription_text}\n\n(Using original transcription - AI {ai_status})"
+
+        self.optimized_text_edit.setPlainText(display_text or "(empty)")
+
+        # 清理worker
+        self.reprocessing_worker = None
+
+        # 显示成功消息
+        QMessageBox.information(
+            self,
+            "Reprocessing Complete",
+            "Recording has been successfully reprocessed!\n\n"
+            f"Transcription Provider: {result.get('transcription_provider', 'N/A')}\n"
+            f"AI Status: {ai_status}\n\n"
+            "The record has been updated in the history."
+        )
+
+    def _on_reprocessing_failed(self, error_message: str):
+        """重处理失败"""
+        # 关闭进度对话框 (先断开信号避免触发canceled)
+        if self.progress_dialog:
+            self.progress_dialog.canceled.disconnect(self._on_reprocessing_canceled)
+            self.progress_dialog.close()
+            self.progress_dialog = None
+
+        # 清理worker
+        self.reprocessing_worker = None
+
+        # 显示错误消息
+        QMessageBox.critical(
+            self,
+            "Reprocessing Failed",
+            f"Failed to reprocess the recording:\n\n{error_message}\n\n"
+            "Please check the logs for more details."
+        )
+
+    def _on_reprocessing_canceled(self):
+        """用户取消重处理"""
+        if self.reprocessing_worker:
+            self.reprocessing_worker.stop()
+            self.reprocessing_worker.wait(2000)  # 等待最多2秒
+
+            # 强制终止（如果还在运行）
+            if self.reprocessing_worker.isRunning():
+                self.reprocessing_worker.terminate()
+                self.reprocessing_worker.wait()
+
+            self.reprocessing_worker = None
 
         QMessageBox.information(
             self,
-            "Feature In Progress",
-            "Retry processing feature is coming soon!\n\n"
-            "This will reprocess the recording with current settings:\n"
-            "- Current transcription provider\n"
-            "- Current AI model\n"
-            "- Current optimization settings"
+            "Reprocessing Canceled",
+            "Reprocessing operation has been canceled."
         )
 
     def _delete_record(self):
@@ -223,12 +550,32 @@ class HistoryTab(BaseSettingsTab):
     - 删除记录
     - 搜索过滤
     - 刷新列表
+    - 重新处理录音
     """
 
-    def __init__(self, config_manager, parent_window):
+    def __init__(
+        self,
+        config_manager,
+        parent_window,
+        transcription_service=None,
+        ai_processing_controller=None,
+    ):
         super().__init__(config_manager, parent_window)
         self.history_service = None  # 延迟初始化
+        self.transcription_service = transcription_service
+        self.ai_processing_controller = ai_processing_controller
         self.current_records: List[Any] = []  # 当前显示的记录列表
+
+        from ...utils import app_logger
+        app_logger.log_audio_event(
+            "HistoryTab initialized with services",
+            {
+                "has_transcription_service": self.transcription_service is not None,
+                "has_ai_processing_controller": self.ai_processing_controller is not None,
+                "transcription_service_type": type(self.transcription_service).__name__ if self.transcription_service else "None",
+                "ai_controller_type": type(self.ai_processing_controller).__name__ if self.ai_processing_controller else "None"
+            }
+        )
 
     def _setup_ui(self) -> None:
         """设置UI"""
@@ -417,16 +764,48 @@ class HistoryTab(BaseSettingsTab):
             )
             return
 
+        # 延迟获取服务：如果在初始化时没有获取到，现在从config_manager尝试获取
+        transcription_service = self.transcription_service
+        ai_processing_controller = self.ai_processing_controller
+
+        if not transcription_service or not ai_processing_controller:
+            from ...utils import app_logger
+            app_logger.log_audio_event(
+                "Attempting lazy service loading in HistoryTab",
+                {
+                    "has_transcription_service": transcription_service is not None,
+                    "has_ai_controller": ai_processing_controller is not None
+                }
+            )
+
+            # 尝试从config_manager (UISettingsServiceAdapter) 获取服务
+            if hasattr(self.config_manager, 'transcription_service') and not transcription_service:
+                transcription_service = self.config_manager.transcription_service
+                app_logger.log_audio_event(
+                    "Got transcription service from config_manager",
+                    {"service_type": type(transcription_service).__name__ if transcription_service else "None"}
+                )
+
+            if hasattr(self.config_manager, 'ai_processing_controller') and not ai_processing_controller:
+                ai_processing_controller = self.config_manager.ai_processing_controller
+                app_logger.log_audio_event(
+                    "Got AI controller from config_manager",
+                    {"controller_type": type(ai_processing_controller).__name__ if ai_processing_controller else "None"}
+                )
+
         dialog = HistoryDetailDialog(
             record=record,
             parent_window=self.parent_window,
             history_service=service,
+            transcription_service=transcription_service,
+            ai_processing_controller=ai_processing_controller,
+            config_service=self.config_manager,
             parent=self.parent_window
         )
 
         result = dialog.exec()
 
-        # 如果删除了记录，刷新列表
+        # 如果删除了记录或者进行了重处理，刷新列表
         if result == QDialog.DialogCode.Accepted:
             self._load_history()
 

@@ -614,6 +614,25 @@ def run_gui():
         ui_settings_service = container.get(IUISettingsService)
         ui_model_service = container.get(IUIModelService)
 
+        # CRITICAL FIX: Update UISettingsService with AI controller after VoiceInputApp initialization
+        # AI controller is created in voice_app._init_controllers() but UISettingsService was
+        # already created by DI container before voice_app existed. We need to inject it now.
+        if hasattr(voice_app, '_ai_controller') and voice_app._ai_controller:
+            if hasattr(ui_settings_service, 'ai_processing_controller'):
+                ui_settings_service.ai_processing_controller = voice_app._ai_controller
+                app_logger.log_audio_event(
+                    "AI controller injected into UISettingsService",
+                    {
+                        "controller_type": type(voice_app._ai_controller).__name__,
+                        "controller_id": id(voice_app._ai_controller)
+                    }
+                )
+            else:
+                app_logger.log_audio_event(
+                    "Warning: UISettingsService doesn't have ai_processing_controller attribute",
+                    {}
+                )
+
         # Create main window with dependency injection
         main_window = MainWindow(
             ui_main_service=ui_main_service,

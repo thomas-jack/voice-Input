@@ -82,17 +82,28 @@ class UISettingsServiceAdapter:
     适配配置服务的功能，使其符合IUISettingsService接口。
     """
 
-    def __init__(self, config_service: IConfigService, event_service: IEventService, history_service: IHistoryStorageService):
+    def __init__(
+        self,
+        config_service: IConfigService,
+        event_service: IEventService,
+        history_service: IHistoryStorageService,
+        transcription_service=None,
+        ai_processing_controller=None,
+    ):
         """初始化UI设置服务适配器
 
         Args:
             config_service: 配置服务
             event_service: 事件服务
             history_service: 历史记录存储服务
+            transcription_service: 转录服务（可选）
+            ai_processing_controller: AI处理控制器（可选）
         """
         self.config_service = config_service
         self.event_service = event_service
         self.history_service = history_service
+        self.transcription_service = transcription_service
+        self.ai_processing_controller = ai_processing_controller
         app_logger.log_audio_event("UISettingsServiceAdapter initialized", {})
 
     def get_all_settings(self) -> Dict[str, Any]:
@@ -140,6 +151,14 @@ class UISettingsServiceAdapter:
     def get_history_service(self) -> IHistoryStorageService:
         """获取历史记录存储服务"""
         return self.history_service
+
+    def get_transcription_service(self):
+        """获取转录服务"""
+        return self.transcription_service
+
+    def get_ai_processing_controller(self):
+        """获取AI处理控制器"""
+        return self.ai_processing_controller
 
 
 class UIModelServiceAdapter:

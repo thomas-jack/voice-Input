@@ -4,6 +4,7 @@ import pyaudio
 import numpy as np
 import threading
 import time
+import wave
 from typing import Optional, Callable
 from ..utils import AudioRecordingError, app_logger
 from ..core.interfaces import IAudioService
@@ -450,8 +451,6 @@ class AudioRecorder(IAudioService):
         Returns:
             保存是否成功
         """
-        import wave
-
         try:
             # 如果没有提供音频数据，使用当前录音数据
             if audio_data is None:
@@ -489,6 +488,82 @@ class AudioRecorder(IAudioService):
         except Exception as e:
             app_logger.log_error(e, "save_to_file")
             return False
+
+    @staticmethod
+    def load_audio_from_file(file_path: str) -> Optional[np.ndarray]:
+        """从WAV文件加载音频数据
+
+        Args:
+            file_path: WAV文件路径
+
+        Returns:
+            音频数据的numpy数组（float32格式，范围[-1.0, 1.0]），如果失败则返回None
+
+        Raises:
+            FileNotFoundError: 文件不存在
+            ValueError: 文件格式不支持
+        """
+        import os
+
+        try:
+            # 检查文件是否存在
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Audio file not found: {file_path}")
+
+            # 打开WAV文件
+            with wave.open(file_path, 'rb') as wav_file:
+                # 获取音频参数
+                channels = wav_file.getnchannels()
+                sample_width = wav_file.getsampwidth()
+                framerate = wav_file.getframerate()
+                n_frames = wav_file.getnframes()
+
+                # 读取音频数据
+                audio_bytes = wav_file.readframes(n_frames)
+
+                # 根据采样宽度转换为numpy数组
+                if sample_width == 2:  # 16-bit
+                    audio_int16 = np.frombuffer(audio_bytes, dtype=np.int16)
+                    # 转换为float32格式 [-1.0, 1.0]
+                    audio_data = audio_int16.astype(np.float32) / 32768.0
+                elif sample_width == 4:  # 32-bit
+                    audio_int32 = np.frombuffer(audio_bytes, dtype=np.int32)
+                    audio_data = audio_int32.astype(np.float32) / 2147483648.0
+                else:
+                    raise ValueError(
+                        f"Unsupported sample width: {sample_width} bytes. "
+                        f"Only 16-bit and 32-bit WAV files are supported."
+                    )
+
+                # 如果是立体声，转换为单声道（取平均）
+                if channels == 2:
+                    audio_data = audio_data.reshape(-1, 2).mean(axis=1)
+                elif channels > 2:
+                    # 多声道取第一个声道
+                    audio_data = audio_data.reshape(-1, channels)[:, 0]
+
+                app_logger.log_audio_event(
+                    "Audio loaded from file",
+                    {
+                        "file_path": file_path,
+                        "duration": len(audio_data) / framerate,
+                        "sample_rate": framerate,
+                        "channels": channels,
+                        "sample_width": sample_width
+                    }
+                )
+
+                return audio_data
+
+        except FileNotFoundError:
+            app_logger.log_error(
+                FileNotFoundError(f"Audio file not found: {file_path}"),
+                "load_audio_from_file"
+            )
+            raise
+        except Exception as e:
+            app_logger.log_error(e, "load_audio_from_file")
+            raise ValueError(f"Failed to load audio file: {str(e)}")
 
     @property
     def is_recording(self) -> bool:

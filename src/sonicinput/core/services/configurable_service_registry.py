@@ -340,7 +340,71 @@ class ConfigurableServiceRegistry:
         config = container.get(IConfigService)
         events = container.get(IEventService)
         history = container.get(IHistoryStorageService)
-        return UISettingsServiceAdapter(config, events, history)
+
+        # 获取转录服务和AI处理控制器（从VoiceInputApp实例获取）
+        transcription_service = None
+        ai_processing_controller = None
+
+        try:
+            # 尝试从容器获取VoiceInputApp实例
+            voice_app = container.get(None)
+            app_logger.log_audio_event(
+                "DEBUG: Got voice_app from container",
+                {"has_voice_input_app_attr": hasattr(voice_app, 'voice_input_app') if voice_app else False}
+            )
+
+            if hasattr(voice_app, 'voice_input_app'):
+                voice_app = voice_app.voice_input_app
+                app_logger.log_audio_event("DEBUG: Unwrapped voice_input_app", {})
+
+            # 从ApplicationOrchestrator获取服务
+            if hasattr(voice_app, 'orchestrator'):
+                orchestrator = voice_app.orchestrator
+                app_logger.log_audio_event(
+                    "DEBUG: Got orchestrator",
+                    {
+                        "has_speech_service": hasattr(orchestrator, '_speech_service'),
+                        "has_controllers": hasattr(orchestrator, '_controllers')
+                    }
+                )
+
+                # 获取转录服务 - 使用正确的属性名 _speech_service
+                if hasattr(orchestrator, '_speech_service'):
+                    transcription_service = orchestrator._speech_service
+                    app_logger.log_audio_event(
+                        "Got transcription service from orchestrator for UI settings",
+                        {"service_type": type(transcription_service).__name__ if transcription_service else "None"}
+                    )
+                else:
+                    app_logger.log_audio_event("DEBUG: orchestrator has no _speech_service attr", {})
+
+                # 获取AI处理控制器 - 从 _controllers 字典获取
+                if hasattr(orchestrator, '_controllers'):
+                    ai_processing_controller = orchestrator._controllers.get('ai')
+                    if ai_processing_controller:
+                        app_logger.log_audio_event(
+                            "Got AI processing controller from orchestrator for UI settings",
+                            {"controller_type": type(ai_processing_controller).__name__}
+                        )
+                    else:
+                        app_logger.log_audio_event("DEBUG: orchestrator._controllers['ai'] is None", {})
+                else:
+                    app_logger.log_audio_event("DEBUG: orchestrator has no _controllers attr", {})
+            else:
+                app_logger.log_audio_event("DEBUG: voice_app has no orchestrator attr", {})
+        except Exception as e:
+            app_logger.log_audio_event(
+                "Warning: Could not get services from orchestrator for UI settings",
+                {"error": str(e)}
+            )
+
+        return UISettingsServiceAdapter(
+            config,
+            events,
+            history,
+            transcription_service=transcription_service,
+            ai_processing_controller=ai_processing_controller,
+        )
 
     def _create_ui_model_service(self, container):
         """创建UI模型服务工厂"""
