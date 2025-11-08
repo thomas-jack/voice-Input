@@ -20,6 +20,7 @@ from ..interfaces import (
 from ..interfaces.state import RecordingState, AppState
 from ..services.event_bus import Events
 from ...utils import app_logger, ErrorMessageTranslator
+from .logging_helper import ControllerLogging
 
 
 class RecordingController(IRecordingController):
@@ -53,7 +54,7 @@ class RecordingController(IRecordingController):
         self._recording_stop_time: Optional[float] = None
         self._last_audio_duration: float = 0.0
 
-        app_logger.log_audio_event("RecordingController initialized", {})
+        ControllerLogging.log_initialization("RecordingController")
 
     def start_recording(self, device_id: Optional[int] = None) -> None:
         """开始录音"""
@@ -68,7 +69,20 @@ class RecordingController(IRecordingController):
                 },
             )
             # 强制重置状态
+            ControllerLogging.log_state_change(
+                "app",
+                AppState.PROCESSING,
+                AppState.IDLE,
+                {"reason": "detected_stuck_state"},
+                is_forced=True
+            )
             self._state.set_app_state(AppState.IDLE)
+            ControllerLogging.log_state_change(
+                "recording",
+                self._state.get_recording_state(),
+                RecordingState.IDLE,
+                is_forced=True
+            )
             self._state.set_recording_state(RecordingState.IDLE)
 
         # 再次检查状态
@@ -131,6 +145,12 @@ class RecordingController(IRecordingController):
             self._recording_start_time = time.time()
 
             # 更新状态
+            ControllerLogging.log_state_change(
+                "recording",
+                RecordingState.IDLE,
+                RecordingState.RECORDING,
+                {"device_id": device_id}
+            )
             self._state.set_recording_state(RecordingState.RECORDING)
 
             # 发送事件
@@ -165,6 +185,12 @@ class RecordingController(IRecordingController):
             )
 
             # 更新状态
+            ControllerLogging.log_state_change(
+                "recording",
+                RecordingState.RECORDING,
+                RecordingState.IDLE,
+                {"duration": f"{self._last_audio_duration:.1f}s"}
+            )
             self._state.set_recording_state(RecordingState.IDLE)
 
             # 发送录音停止事件
@@ -244,6 +270,13 @@ class RecordingController(IRecordingController):
             )
 
         except Exception as e:
+            ControllerLogging.log_state_change(
+                "recording",
+                RecordingState.RECORDING,
+                RecordingState.IDLE,
+                {"reason": "error_recovery"},
+                is_forced=True
+            )
             self._state.set_recording_state(RecordingState.IDLE)
             app_logger.log_error(e, "stop_recording")
             self._events.emit(Events.RECORDING_ERROR, str(e))

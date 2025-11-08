@@ -10,6 +10,7 @@ import requests
 import time
 import re
 from ..utils import app_logger
+from ..utils.request_error_handler import RequestErrorHandler
 from ..core.interfaces import IAIService
 from .http_client_manager import HTTPClientManager
 from .performance_monitor import AIPerformanceMonitor
@@ -405,8 +406,13 @@ class BaseAIClient(IAIService):
         )
 
         if attempt < self.max_retries - 1:
-            # 智能等待时间：指数退避，但有最大限制
-            wait_time = min(self.retry_delay * (2**attempt), 60.0)  # 最大等待60秒
+            # Use RequestErrorHandler for consistent retry delays
+            wait_time = RequestErrorHandler.calculate_retry_delay(
+                attempt,
+                self.retry_delay,
+                RequestErrorHandler.RETRY_DELAY_MAX,
+                is_timeout=False
+            )
 
             # 如果等待时间过长，提前放弃
             if wait_time > 30.0:
@@ -443,8 +449,13 @@ class BaseAIClient(IAIService):
         app_logger.log_api_call(provider, self.timeout, False, error_msg)
 
         if attempt < self.max_retries - 1:
-            # 超时重试的等待时间相对较短
-            wait_time = min(self.retry_delay * (1.5**attempt), 10.0)  # 最大等待10秒
+            # Use RequestErrorHandler with timeout-specific settings
+            wait_time = RequestErrorHandler.calculate_retry_delay(
+                attempt,
+                self.retry_delay,
+                RequestErrorHandler.TIMEOUT_RETRY_MAX,
+                is_timeout=True  # Use shorter delays for timeouts
+            )
 
             app_logger.log_audio_event(
                 f"{provider} timeout, retrying {attempt + 2}/{self.max_retries}",
@@ -478,7 +489,12 @@ class BaseAIClient(IAIService):
         )
 
         if attempt < self.max_retries - 1:
-            wait_time = self.retry_delay * (2**attempt)
+            # Use RequestErrorHandler for consistent retry delays
+            wait_time = RequestErrorHandler.calculate_retry_delay(
+                attempt,
+                self.retry_delay,
+                is_timeout=False
+            )
             app_logger.log_audio_event(
                 f"{provider} network error, retrying {attempt + 2}/{self.max_retries}",
                 {"wait_time": wait_time, "error": error_msg},

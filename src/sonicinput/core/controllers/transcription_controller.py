@@ -20,9 +20,11 @@ from ..interfaces import (
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
 from ...utils import app_logger, ErrorMessageTranslator
+from .base_controller import BaseController
+from .logging_helper import ControllerLogging
 
 
-class TranscriptionController(ITranscriptionController):
+class TranscriptionController(BaseController, ITranscriptionController):
     """转录控制器实现
 
     职责：
@@ -40,10 +42,11 @@ class TranscriptionController(ITranscriptionController):
         history_service: IHistoryStorageService,
         audio_service=None,
     ):
+        # Initialize base controller with common services
+        super().__init__(config_service, event_service, state_manager)
+
+        # Controller-specific services
         self._speech_service = speech_service
-        self._config = config_service
-        self._events = event_service
-        self._state = state_manager
         self._audio_service = audio_service  # 添加音频服务引用，用于fallback
         self._history_service = history_service
 
@@ -55,10 +58,13 @@ class TranscriptionController(ITranscriptionController):
         self._current_record_id: Optional[str] = None
         self._current_audio_file_path: Optional[str] = None
 
-        # 监听转录请求事件
-        self._events.on("transcription_request", self._on_transcription_request)
+        # Register event listeners and log initialization
+        self._register_event_listeners()
+        self._log_initialization()
 
-        app_logger.log_audio_event("TranscriptionController initialized", {})
+    def _register_event_listeners(self) -> None:
+        """Register event listeners for transcription events"""
+        self._events.on("transcription_request", self._on_transcription_request)
 
     def _on_transcription_request(self, data: dict) -> None:
         """处理转录请求事件
@@ -90,6 +96,12 @@ class TranscriptionController(ITranscriptionController):
             audio_data: 音频数据
         """
         try:
+            ControllerLogging.log_state_change(
+                "app",
+                AppState.IDLE,
+                AppState.PROCESSING,
+                {"mode": "sync_transcription"}
+            )
             self._state.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
 
@@ -120,11 +132,24 @@ class TranscriptionController(ITranscriptionController):
             self._events.emit(Events.TRANSCRIPTION_ERROR, error_info["user_message"])
 
             # 错误时也要重置状态，否则无法进行下一次录音
+            ControllerLogging.log_state_change(
+                "app",
+                AppState.PROCESSING,
+                AppState.IDLE,
+                {"reason": "transcription_error"},
+                is_forced=True
+            )
             self._state.set_app_state(AppState.IDLE)
 
     def process_streaming_transcription(self) -> None:
         """处理流式转录（使用新的TranscriptionService API）"""
         try:
+            ControllerLogging.log_state_change(
+                "app",
+                AppState.IDLE,
+                AppState.PROCESSING,
+                {"mode": "streaming_transcription"}
+            )
             self._state.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
 
@@ -184,6 +209,12 @@ class TranscriptionController(ITranscriptionController):
             )
 
             # 重置状态
+            ControllerLogging.log_state_change(
+                "app",
+                AppState.PROCESSING,
+                AppState.IDLE,
+                {"duration": f"{transcribe_duration:.3f}s"}
+            )
             self._state.set_app_state(AppState.IDLE)
 
         except Exception as e:
@@ -202,6 +233,13 @@ class TranscriptionController(ITranscriptionController):
             self._events.emit(Events.TRANSCRIPTION_ERROR, error_info["user_message"])
 
             # 错误时也要重置状态，否则无法进行下一次录音
+            ControllerLogging.log_state_change(
+                "app",
+                AppState.PROCESSING,
+                AppState.IDLE,
+                {"reason": "streaming_transcription_error"},
+                is_forced=True
+            )
             self._state.set_app_state(AppState.IDLE)
 
     def _sync_transcribe_last_audio(self) -> str:

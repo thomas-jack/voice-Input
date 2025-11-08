@@ -17,9 +17,11 @@ from ..interfaces import (
 from ..services.event_bus import Events
 from ...utils import app_logger, OpenRouterAPIError
 from ...ai import AIClientFactory
+from .base_controller import BaseController
+from .logging_helper import ControllerLogging
 
 
-class AIProcessingController(IAIProcessingController):
+class AIProcessingController(BaseController, IAIProcessingController):
     """AI处理控制器实现
 
     职责：
@@ -36,9 +38,10 @@ class AIProcessingController(IAIProcessingController):
         state_manager: IStateManager,
         history_service: IHistoryStorageService,
     ):
-        self._config = config_service
-        self._events = event_service
-        self._state = state_manager
+        # Initialize base controller
+        super().__init__(config_service, event_service, state_manager)
+
+        # Controller-specific services
         self._history_service = history_service
 
         # TPS追踪（用于性能日志）
@@ -47,12 +50,15 @@ class AIProcessingController(IAIProcessingController):
         # 当前处理的记录ID
         self._current_record_id: Optional[str] = None
 
-        # 监听转录完成事件
+        # Register event listeners and log initialization
+        self._register_event_listeners()
+        self._log_initialization()
+
+    def _register_event_listeners(self) -> None:
+        """Register event listeners for AI processing events"""
         self._events.on(
             Events.TRANSCRIPTION_COMPLETED, self._on_transcription_completed
         )
-
-        app_logger.log_audio_event("AIProcessingController initialized", {})
 
     def _on_transcription_completed(self, data: dict) -> None:
         """处理转录完成事件

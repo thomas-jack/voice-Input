@@ -15,9 +15,11 @@ from ..interfaces import (
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
 from ...utils import app_logger, logger
+from .base_controller import BaseController
+from .logging_helper import ControllerLogging
 
 
-class InputController(IInputController):
+class InputController(BaseController, IInputController):
     """输入控制器实现
 
     职责：
@@ -34,15 +36,19 @@ class InputController(IInputController):
         event_service: IEventService,
         state_manager: IStateManager,
     ):
+        # Initialize base controller
+        super().__init__(config_service, event_service, state_manager)
+
+        # Controller-specific services
         self._input_service = input_service
-        self._config = config_service
-        self._events = event_service
-        self._state = state_manager
 
-        # 监听AI处理完成事件（或转录完成事件）
+        # Register event listeners and log initialization
+        self._register_event_listeners()
+        self._log_initialization()
+
+    def _register_event_listeners(self) -> None:
+        """Register event listeners for input events"""
         self._events.on("ai_processed_text", self._on_text_ready_for_input)
-
-        app_logger.log_audio_event("InputController initialized", {})
 
     def _on_text_ready_for_input(self, data: dict) -> None:
         """处理准备好输入的文本事件
