@@ -483,7 +483,7 @@ class TrayController(LifecycleComponent):
             None,
             "About Sonic Input",
             """
-            <h3>Sonic Input v0.1.0</h3>
+            <h3>Sonic Input v0.2.0</h3>
             <p>An AI-powered voice-to-text input solution for Windows.</p>
             <p><b>Features:</b></p>
             <ul>

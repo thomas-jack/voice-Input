@@ -3,7 +3,7 @@
 一个基于Whisper和AI优化的Windows语音转文本输入解决方案
 """
 
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 __author__ = "Oxidane-bot"
 __description__ = "SonicInput"
 
