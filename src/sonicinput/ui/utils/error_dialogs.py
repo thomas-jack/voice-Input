@@ -5,7 +5,6 @@ Provides user-friendly error dialogs with actionable suggestions
 
 from typing import Optional, List
 from PySide6.QtWidgets import QMessageBox, QWidget
-from PySide6.QtCore import Qt
 
 
 def show_hotkey_conflict_error(

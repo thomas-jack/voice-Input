@@ -6,8 +6,7 @@
 
 from typing import Dict, Any, Optional
 from ..interfaces import (
-    IUIMainService, IUISettingsService, IUIModelService,
-    IUIAudioService, IUIGPUService, IEventService, IConfigService,
+    IEventService, IConfigService,
     IStateManager, ISpeechService, IHistoryStorageService
 )
 from ...utils import app_logger

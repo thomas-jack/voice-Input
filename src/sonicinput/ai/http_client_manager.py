@@ -4,7 +4,7 @@
 从BaseAIClient中提取出来以提高代码的内聚性。
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict
 import requests
 from ..utils import app_logger
 

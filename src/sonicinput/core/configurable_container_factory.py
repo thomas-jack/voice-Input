@@ -9,7 +9,6 @@
 import os
 from typing import Optional
 from .di_container_enhanced import EnhancedDIContainer
-from .interfaces import IServiceRegistryConfig
 from .services.service_registry_config import ServiceRegistryConfig
 from .services.configurable_service_registry import ConfigurableServiceRegistry
 from ..utils import app_logger

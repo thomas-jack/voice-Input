@@ -17,10 +17,9 @@
 import threading
 import time
 import uuid
-from typing import Callable, Dict, List, Any, Optional, Set, Union
+from typing import Callable, Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
 from collections import defaultdict
-from abc import ABC, abstractmethod
 
 from ..interfaces.event import IEventService, EventPriority
 

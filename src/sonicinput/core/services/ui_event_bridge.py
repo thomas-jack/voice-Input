@@ -7,7 +7,7 @@
 - UI与应用逻辑解耦
 """
 
-from typing import Dict, Callable, Any, Optional
+from typing import Dict, Callable, Any
 from ..interfaces import IUIEventBridge, IEventService
 from ...utils import app_logger
 

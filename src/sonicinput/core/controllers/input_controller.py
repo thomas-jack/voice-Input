@@ -16,7 +16,6 @@ from ..interfaces.state import AppState
 from ..services.event_bus import Events
 from ...utils import app_logger, logger
 from .base_controller import BaseController
-from .logging_helper import ControllerLogging
 
 
 class InputController(BaseController, IInputController):

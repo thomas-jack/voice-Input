@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QApplication,
 )
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from .base_tab import BaseSettingsTab
 
 

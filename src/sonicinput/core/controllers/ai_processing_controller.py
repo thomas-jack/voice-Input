@@ -18,7 +18,6 @@ from ..services.event_bus import Events
 from ...utils import app_logger, OpenRouterAPIError
 from ...ai import AIClientFactory
 from .base_controller import BaseController
-from .logging_helper import ControllerLogging
 
 
 class AIProcessingController(BaseController, IAIProcessingController):

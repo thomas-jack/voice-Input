@@ -6,8 +6,7 @@ UI组件通过此适配器访问业务逻辑，不直接依赖具体的业务实
 
 from typing import Dict, Any, Optional
 from ..interfaces import (
-    IUIMainService, IUISettingsService, IUIModelService,
-    IUIAudioService, IUIGPUService, IEventService, IConfigService,
+    IEventService, IConfigService,
     IHistoryStorageService
 )
 from ...utils import app_logger

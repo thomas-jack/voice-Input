@@ -7,7 +7,7 @@
 - 初始化阶段控制
 """
 
-from typing import Protocol, Optional
+from typing import Protocol
 
 
 class IApplicationOrchestrator(Protocol):

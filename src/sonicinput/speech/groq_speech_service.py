@@ -1,6 +1,5 @@
 """Groq Cloud Speech Service - Simplified implementation"""
 
-import time
 from typing import Optional, Dict, Any, List
 from ..utils import app_logger
 from .cloud_base import CloudTranscriptionBase

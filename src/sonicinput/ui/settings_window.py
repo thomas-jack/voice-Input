@@ -20,7 +20,7 @@ from PySide6.QtCore import Qt, Signal, QObject, QEvent
 from typing import Dict, Any, Optional
 import time
 from ..utils import app_logger
-from ..core.interfaces import IUISettingsService, IUIModelService, IUIAudioService, IUIGPUService
+from ..core.interfaces import IUISettingsService, IUIModelService
 from .settings_tabs import (
     ApplicationTab,
     HotkeyTab,

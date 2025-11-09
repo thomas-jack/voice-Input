@@ -5,7 +5,7 @@
 """
 
 from typing import Protocol, Dict, Any, List, Optional, Type
-from abc import ABC, abstractmethod
+from abc import ABC
 from enum import Enum
 
 

@@ -49,6 +49,7 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-timeout>=2.4.0",
     "pytest-html>=4.1.0",
+    "pytest-qt>=4.4.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
@@ -70,10 +71,12 @@ ci = [
 sonicinput = "sonicinput.main:main"
 
 [tool.pytest.ini_options]
+qt_api = "pyside6"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "gpu: marks tests that require GPU/CUDA support",
     "gui: marks tests that require GUI/Qt environment (use '-m \"not gui\"' to skip)",
+    "e2e: marks end-to-end workflow tests",
 ]
 addopts = "-v"
 

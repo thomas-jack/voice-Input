@@ -13,9 +13,7 @@ Trade-offs:
 - Can conflict with other applications' hotkeys
 """
 
-import win32gui
 import win32con
-import win32api
 from typing import Callable, Dict, Optional
 import threading
 import queue

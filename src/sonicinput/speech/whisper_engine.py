@@ -3,7 +3,7 @@
 import numpy as np
 import time
 import threading
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from .gpu_manager import GPUManager
 from ..utils import WhisperLoadError, app_logger
 from ..core.interfaces import ISpeechService
