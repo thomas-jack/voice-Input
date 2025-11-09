@@ -222,7 +222,12 @@ class SendInputMethod:
                     next_char = text[index + 1]
                     return 0xDC00 <= ord(next_char) <= 0xDFFF
             return False
-        except:
+        except Exception as e:
+            app_logger.log_error(
+                e,
+                "surrogate_pair_check_failed",
+                {"context": "Failed to check Unicode surrogate pair", "char": repr(char), "index": index}
+            )
             return False
 
     def _get_input_method_state(self) -> dict:

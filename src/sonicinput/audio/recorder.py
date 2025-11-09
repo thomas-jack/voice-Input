@@ -5,7 +5,7 @@ import numpy as np
 import threading
 import time
 import wave
-from typing import Optional, Callable
+from typing import Optional, Callable, List, Dict, Any
 from ..utils import AudioRecordingError, app_logger
 from ..core.interfaces import IAudioService
 
@@ -64,15 +64,29 @@ class AudioRecorder(IAudioService):
                     "chunk_size": self.chunk_size,
                 },
             )
-        except Exception as e:
+        except Exception as init_error:
             # 确保PyAudio资源正确清理
+            cleanup_error = None
+
             if hasattr(self, "_audio") and self._audio is not None:
                 try:
                     self._audio.terminate()
-                except:
-                    pass  # 忽略清理时的错误
-                self._audio = None
-            raise AudioRecordingError(f"Failed to initialize audio system: {e}")
+                except Exception as e:
+                    cleanup_error = e
+                    app_logger.log_error(
+                        e,
+                        "audio_initialization_cleanup_failed",
+                        {"context": "Failed to terminate PyAudio during cleanup", "init_error": str(init_error)}
+                    )
+                finally:
+                    self._audio = None
+
+            # Report both errors if cleanup also failed
+            error_msg = f"Failed to initialize audio system: {init_error}"
+            if cleanup_error:
+                error_msg += f". Cleanup also failed: {cleanup_error}"
+
+            raise AudioRecordingError(error_msg) from init_error
 
     def _validate_configured_device(self) -> None:
         """验证配置中保存的设备 ID 是否仍然有效
@@ -104,8 +118,12 @@ class AudioRecorder(IAudioService):
         except Exception as e:
             app_logger.log_error(e, "validate_configured_device")
 
-    def get_audio_devices(self) -> list:
-        """获取可用的音频设备"""
+    def get_audio_devices(self) -> List[Dict[str, Any]]:
+        """Get available audio input devices
+
+        Returns:
+            List of device dictionaries with keys: index, name, channels, sample_rate
+        """
         devices = []
         try:
             if not self._audio:
@@ -329,7 +347,43 @@ class AudioRecorder(IAudioService):
         )
 
     def stop_recording(self) -> np.ndarray:
-        """停止录音并返回音频数据"""
+        """Stop audio recording and return captured audio data
+
+        Performs graceful shutdown of recording thread and audio stream,
+        then concatenates all captured audio chunks into a single array.
+
+        Returns:
+            Numpy array of audio samples (float32, range [-1.0, 1.0])
+            Empty array if no recording was in progress
+
+        Timing Analysis:
+            Logs detailed timing metrics to identify any delays:
+            - Flag set to thread join duration
+            - Thread join to stream close duration
+            - Total stop process duration
+            - Theoretical chunk delay (based on chunk_size/sample_rate)
+
+        Performance Notes:
+            - Waits up to 1.0 second for recording thread to exit
+            - Thread-safe: Uses _data_lock for audio_data access
+            - Last chunk may have up to chunk_size/sample_rate ms latency
+
+        Side Effects:
+            - Sets _recording flag to False
+            - Closes audio stream
+            - Waits for _record_thread to exit
+            - Does NOT clear _audio_data (preserved for final return)
+
+        Example:
+            >>> recorder.start_recording()
+            >>> time.sleep(3.0)
+            >>> audio = recorder.stop_recording()
+            >>> print(f"Recorded {len(audio) / 16000:.2f} seconds")
+
+        Thread Safety:
+            Multiple calls are safe - first call stops recording, subsequent
+            calls return empty array.
+        """
         stop_time_start = time.time()
 
         if not self._recording:

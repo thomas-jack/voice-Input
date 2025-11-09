@@ -152,7 +152,50 @@ class AudioProcessor:
         min_silence_duration: float = 0.5,
         sample_rate: int = 16000,
     ) -> np.ndarray:
-        """移除静音部分"""
+        """Remove silence segments from audio using energy-based VAD
+
+        Implements simple Voice Activity Detection (VAD) using frame-level
+        RMS energy thresholding. Segments below threshold for more than
+        min_silence_duration are removed.
+
+        Args:
+            audio_data: Input audio samples (float32, range [-1.0, 1.0])
+            threshold: RMS energy threshold for silence (default: 0.01 = very quiet)
+            min_silence_duration: Minimum silence length to remove in seconds (default: 0.5s)
+            sample_rate: Audio sample rate in Hz (default: 16000)
+
+        Returns:
+            Trimmed audio with silence removed. Returns original audio if:
+            - Input is empty
+            - No voice segments detected
+            - Error during processing
+
+        Algorithm:
+            1. Split audio into 25ms frames with 10ms hop (50% overlap)
+            2. Calculate RMS energy for each frame: sqrt(mean(frame^2))
+            3. Mark frames above threshold as "voice"
+            4. Find contiguous voice segments
+            5. Merge segments and remove gaps >min_silence_duration
+            6. Concatenate voice segments into output
+
+        Performance:
+            - O(n) time complexity where n = audio samples
+            - Frame processing: (len(audio) / hop_length) iterations
+            - Memory: O(n) for storing frames and segments
+
+        Example:
+            >>> # Remove silence longer than 0.5 seconds
+            >>> audio = np.random.randn(48000).astype(np.float32)
+            >>> trimmed = processor.remove_silence(audio, threshold=0.01)
+            >>> reduction = 100 * (1 - len(trimmed) / len(audio))
+            >>> print(f"Reduced audio by {reduction:.1f}%")
+
+        Note:
+            This is a simple energy-based VAD. For better results, consider
+            using WebRTC VAD or other ML-based voice detection methods.
+            The algorithm may fail to detect very quiet speech or remove
+            breathing sounds if threshold is too high.
+        """
         try:
             if len(audio_data) == 0:
                 return audio_data

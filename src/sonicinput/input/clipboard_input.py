@@ -179,7 +179,12 @@ class ClipboardInput:
         """检查当前进程是否以管理员权限运行"""
         try:
             return ctypes.windll.shell32.IsUserAnAdmin()
-        except:
+        except Exception as e:
+            app_logger.log_error(
+                e,
+                "check_elevated_privileges",
+                {"context": "Failed to check if running as administrator"}
+            )
             return False
 
     def _check_clipboard_access_level(self) -> bool:
@@ -193,8 +198,12 @@ class ClipboardInput:
             # 清理测试内容
             try:
                 pyperclip.copy("")  # 清空剪贴板
-            except:
-                pass
+            except Exception as e:
+                app_logger.log_error(
+                    e,
+                    "clipboard_cleanup_failed",
+                    {"context": "Failed to clear clipboard after test"}
+                )
 
             return retrieved == test_content
         except Exception as e:

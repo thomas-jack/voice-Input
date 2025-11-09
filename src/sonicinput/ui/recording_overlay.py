@@ -972,8 +972,12 @@ class RecordingOverlay(QWidget):
             # 断开所有信号连接
             try:
                 self.disconnect()
-            except:
-                pass
+            except Exception as e:
+                app_logger.log_error(
+                    e,
+                    "overlay_disconnect_signals_failed",
+                    {"context": "Failed to disconnect RecordingOverlay signals during cleanup"}
+                )
 
             app_logger.log_audio_event(
                 "RecordingOverlay resources cleaned up successfully", {}

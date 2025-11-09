@@ -469,9 +469,22 @@ class EnhancedDIContainer:
             context.add_created(descriptor.interface, instance)
 
         except Exception as e:
+            duration = time.time() - start_time
             if self.logger:
-                self.logger.error(f"Failed to create {descriptor.name}: {e}")
-            raise
+                self.logger.error(
+                    f"Failed to create service '{descriptor.name}': {e}",
+                    extra={
+                        "service_name": descriptor.name,
+                        "interface": descriptor.interface.__name__,
+                        "dependencies": [dep.__name__ for dep in descriptor.dependencies],
+                        "time_elapsed": f"{duration:.2f}s",
+                        "creation_depth": context.depth,
+                    }
+                )
+            # Re-raise with enhanced context
+            raise ValueError(
+                f"Failed to create service '{descriptor.name}' (dependencies: {[dep.__name__ for dep in descriptor.dependencies]}, elapsed: {duration:.2f}s): {e}"
+            ) from e
 
         finally:
             # 清理创建状态
@@ -949,8 +962,12 @@ def create_container() -> "EnhancedDIContainer":
         ai_processing_controller = None
         try:
             transcription_service = container.get(ISpeechService)
-        except:
-            pass  # Service not yet registered
+        except Exception as e:
+            from ..utils import app_logger
+            app_logger.log_audio_event(
+                "ISpeechService not yet registered",
+                {"context": "Optional dependency for UISettingsService", "error": str(e)}
+            )
 
         # AI controller在这个阶段可能还未注册,留空
 

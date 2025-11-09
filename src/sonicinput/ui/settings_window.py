@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
     QFrame,
 )
 from PySide6.QtCore import Qt, Signal, QObject, QEvent
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 from ..utils import app_logger
 from ..core.interfaces import IUISettingsService, IUIModelService, IUIAudioService, IUIGPUService
@@ -62,7 +62,12 @@ class SettingsWindow(QMainWindow):
     model_unload_requested = Signal()
     model_test_requested = Signal()
 
-    def __init__(self, ui_settings_service: IUISettingsService, ui_model_service: IUIModelService, parent=None):
+    def __init__(
+        self,
+        ui_settings_service: IUISettingsService,
+        ui_model_service: IUIModelService,
+        parent: Optional[QWidget] = None
+    ) -> None:
         super().__init__(parent)
 
         self.ui_settings_service = ui_settings_service
@@ -263,7 +268,7 @@ class SettingsWindow(QMainWindow):
             from ..core.hotkey_manager import HotkeyManager
 
             # Create a temporary hotkey manager for testing
-            def test_callback(action):
+            def test_callback(action: str) -> None:
                 pass
 
             temp_manager = HotkeyManager(test_callback)
@@ -390,7 +395,7 @@ class SettingsWindow(QMainWindow):
 
             result_container = {"success": False, "error": ""}
 
-            def test_connection():
+            def test_connection() -> None:
                 try:
                     app_logger.log_audio_event("API test thread started", {})
                     success = test_client.test_connection()
@@ -871,7 +876,7 @@ class SettingsWindow(QMainWindow):
 
             gpu_check_result = {"info": None, "completed": False, "error": None}
 
-            def get_gpu_info():
+            def get_gpu_info() -> None:
                 try:
                     # 尝试导入GPU管理器
                     from ..speech.gpu_manager import GPUManager
@@ -895,7 +900,7 @@ class SettingsWindow(QMainWindow):
             # 设置超时检查
             timeout_seconds = 10  # 10秒超时
 
-            def check_gpu_result():
+            def check_gpu_result() -> None:
                 if gpu_check_result["completed"]:
                     # GPU检查完成
                     if gpu_check_result["error"]:

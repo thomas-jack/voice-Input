@@ -5,7 +5,8 @@ import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Generator
+from contextlib import contextmanager
 from ...base.lifecycle_component import LifecycleComponent
 from ...interfaces import IConfigService, HistoryRecord
 from ....utils import app_logger
@@ -165,6 +166,62 @@ class HistoryStorageService(LifecycleComponent):
 
         return self._local.conn
 
+    @contextmanager
+    def _transaction(self) -> Generator[sqlite3.Cursor, None, None]:
+        """Context manager for safe database transactions
+
+        Provides automatic commit/rollback handling with proper error
+        recovery. Ensures database integrity even if exceptions occur.
+
+        Yields:
+            Database cursor for executing queries
+
+        Example:
+            >>> with self._transaction() as cursor:
+            >>>     cursor.execute("INSERT INTO ...")
+            >>>     cursor.execute("UPDATE ...")
+            # Automatic commit on success, rollback on exception
+
+        Thread Safety:
+            Uses thread-local connection from _get_connection()
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+
+        try:
+            yield cursor
+            conn.commit()
+            app_logger.log_audio_event(
+                "Database transaction committed", {"thread_id": threading.get_ident()}
+            )
+        except sqlite3.IntegrityError as e:
+            conn.rollback()
+            app_logger.log_error(
+                e,
+                "database_integrity_error",
+                {"thread_id": threading.get_ident(), "error_type": "IntegrityError"},
+            )
+            raise
+        except sqlite3.OperationalError as e:
+            conn.rollback()
+            app_logger.log_error(
+                e,
+                "database_operational_error",
+                {"thread_id": threading.get_ident(), "error_type": "OperationalError"},
+            )
+            raise
+        except Exception as e:
+            conn.rollback()
+            app_logger.log_error(
+                e,
+                "database_transaction_error",
+                {
+                    "thread_id": threading.get_ident(),
+                    "error_type": type(e).__name__,
+                },
+            )
+            raise
+
     def _do_cleanup(self) -> None:
         """子类特定的清理逻辑"""
         # 关闭当前线程的数据库连接
@@ -180,90 +237,170 @@ class HistoryStorageService(LifecycleComponent):
                 app_logger.log_error(e, "close_thread_connection")
 
     def save_record(self, record: HistoryRecord) -> bool:
-        """保存历史记录（线程安全）"""
+        """Save history record with safe transaction handling
+
+        Args:
+            record: HistoryRecord object to save
+
+        Returns:
+            True if saved successfully, False otherwise
+        """
         try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                INSERT INTO history_records (
-                    id, timestamp, audio_file_path, duration,
-                    transcription_text, transcription_provider, transcription_status, transcription_error,
-                    ai_optimized_text, ai_provider, ai_status, ai_error,
-                    final_text
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                record.id,
-                record.timestamp.isoformat(),
-                record.audio_file_path,
-                record.duration,
-                record.transcription_text,
-                record.transcription_provider,
-                record.transcription_status,
-                record.transcription_error,
-                record.ai_optimized_text,
-                record.ai_provider,
-                record.ai_status,
-                record.ai_error,
-                record.final_text,
-            ))
-
-            conn.commit()
+            with self._transaction() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO history_records (
+                        id, timestamp, audio_file_path, duration,
+                        transcription_text, transcription_provider, transcription_status, transcription_error,
+                        ai_optimized_text, ai_provider, ai_status, ai_error,
+                        final_text
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        record.id,
+                        record.timestamp.isoformat(),
+                        record.audio_file_path,
+                        record.duration,
+                        record.transcription_text,
+                        record.transcription_provider,
+                        record.transcription_status,
+                        record.transcription_error,
+                        record.ai_optimized_text,
+                        record.ai_provider,
+                        record.ai_status,
+                        record.ai_error,
+                        record.final_text,
+                    ),
+                )
 
             app_logger.log_audio_event(
                 "History record saved",
-                {"record_id": record.id, "thread_id": threading.get_ident()}
+                {"record_id": record.id, "thread_id": threading.get_ident()},
             )
-
             return True
 
+        except sqlite3.IntegrityError as e:
+            # Duplicate ID or constraint violation
+            app_logger.log_error(e, "save_record_duplicate", {"record_id": record.id})
+            return False
         except Exception as e:
             app_logger.log_error(e, "save_record")
             return False
 
     def update_record(self, record: HistoryRecord) -> bool:
-        """更新现有记录（只更新AI相关字段，线程安全）"""
+        """Update existing record with safe transaction handling
+
+        Only updates AI-related fields (ai_optimized_text, ai_provider, etc.)
+
+        Args:
+            record: HistoryRecord object with updated AI fields
+
+        Returns:
+            True if updated successfully, False if record not found or error
+        """
         try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                UPDATE history_records
-                SET ai_optimized_text = ?,
-                    ai_provider = ?,
-                    ai_status = ?,
-                    ai_error = ?,
-                    final_text = ?
-                WHERE id = ?
-            """, (
-                record.ai_optimized_text,
-                record.ai_provider,
-                record.ai_status,
-                record.ai_error,
-                record.final_text,
-                record.id,
-            ))
-
-            conn.commit()
-
-            # Check if any row was actually updated
-            if cursor.rowcount == 0:
-                app_logger.log_audio_event(
-                    "History record not found for update",
-                    {"record_id": record.id, "thread_id": threading.get_ident()}
+            with self._transaction() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE history_records
+                    SET ai_optimized_text = ?,
+                        ai_provider = ?,
+                        ai_status = ?,
+                        ai_error = ?,
+                        final_text = ?
+                    WHERE id = ?
+                """,
+                    (
+                        record.ai_optimized_text,
+                        record.ai_provider,
+                        record.ai_status,
+                        record.ai_error,
+                        record.final_text,
+                        record.id,
+                    ),
                 )
-                return False
+
+                # Check if any row was actually updated
+                if cursor.rowcount == 0:
+                    app_logger.log_audio_event(
+                        "History record not found for update",
+                        {"record_id": record.id},
+                    )
+                    return False
 
             app_logger.log_audio_event(
                 "History record updated",
-                {"record_id": record.id, "thread_id": threading.get_ident()}
+                {"record_id": record.id, "thread_id": threading.get_ident()},
             )
-
             return True
 
         except Exception as e:
             app_logger.log_error(e, "update_record")
             return False
+
+    def save_records_batch(self, records: List[HistoryRecord]) -> int:
+        """Save multiple records in a single transaction
+
+        Args:
+            records: List of HistoryRecord objects to save
+
+        Returns:
+            Number of records successfully saved
+
+        Note:
+            Uses a single transaction for atomic batch insert.
+            If any record fails, entire batch is rolled back.
+        """
+        if not records:
+            return 0
+
+        try:
+            with self._transaction() as cursor:
+                saved_count = 0
+                for record in records:
+                    cursor.execute(
+                        """
+                        INSERT INTO history_records (
+                            id, timestamp, audio_file_path, duration,
+                            transcription_text, transcription_provider,
+                            transcription_status, transcription_error,
+                            ai_optimized_text, ai_provider, ai_status, ai_error,
+                            final_text
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            record.id,
+                            record.timestamp.isoformat(),
+                            record.audio_file_path,
+                            record.duration,
+                            record.transcription_text,
+                            record.transcription_provider,
+                            record.transcription_status,
+                            record.transcription_error,
+                            record.ai_optimized_text,
+                            record.ai_provider,
+                            record.ai_status,
+                            record.ai_error,
+                            record.final_text,
+                        ),
+                    )
+                    saved_count += 1
+
+            app_logger.log_audio_event(
+                "Batch records saved",
+                {
+                    "count": saved_count,
+                    "total_records": len(records),
+                    "thread_id": threading.get_ident(),
+                },
+            )
+            return saved_count
+
+        except Exception as e:
+            app_logger.log_error(
+                e, "save_records_batch", {"attempted_count": len(records)}
+            )
+            return 0
 
     def get_record_by_id(self, record_id: str) -> Optional[HistoryRecord]:
         """根据ID获取单条记录（线程安全）"""

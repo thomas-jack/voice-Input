@@ -263,7 +263,12 @@ class CloudTranscriptionBase(ISpeechService):
         try:
             error_data = response.json()
             error_message = error_data.get("error", {}).get("message", "Unknown error")
-        except:
+        except Exception as e:
+            app_logger.log_error(
+                e,
+                "cloud_error_response_parse_failed",
+                {"context": "Failed to parse error response JSON, using raw text", "status_code": response.status_code}
+            )
             error_message = f"HTTP {response.status_code}: {response.text}"
 
         return {

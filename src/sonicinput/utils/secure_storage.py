@@ -65,10 +65,15 @@ class SecureStorage:
             ]
 
             combined_id = ""
-            for source in machine_id_sources:
+            for idx, source in enumerate(machine_id_sources):
                 try:
                     combined_id += source() + "|"
-                except:
+                except Exception as e:
+                    app_logger.log_error(
+                        e,
+                        "machine_id_source_failed",
+                        {"context": f"Failed to get machine ID from source #{idx}", "source_index": idx}
+                    )
                     continue
 
             # 如果所有方法都失败，使用默认值

@@ -274,7 +274,31 @@ class PynputHotkeyManager(IHotkeyService):
         return None
 
     def _restart_listener(self) -> None:
-        """重启键盘监听器以应用热键更改"""
+        """Restart keyboard listener to apply hotkey changes
+
+        This method stops the current listener, waits for thread cleanup,
+        clears hotkey states, and creates a new listener with updated
+        win32_event_filter that includes all registered hotkeys.
+
+        Thread Safety:
+            Ensures previous listener thread exits before starting new one
+            to prevent process leaks and state conflicts.
+
+        Performance Notes:
+            - Waits up to 2 seconds for graceful thread shutdown
+            - Logs warning if thread doesn't terminate cleanly
+            - Clears all HotKey object states to prevent stale triggers
+
+        Side Effects:
+            - Stops current keyboard monitoring temporarily
+            - Clears _suppressed_vk_keys tracking
+            - Resets all HotKey._state to empty
+
+        Implementation Details:
+            - Creates closure over current_vk_keys dict for time window tracking
+            - win32_event_filter has access to current registered hotkeys
+            - 500ms time window prevents Alt+H from triggering when Alt held, then H
+        """
         # 调试日志：记录重启（DEBUG级别）
         if app_logger.is_debug_enabled():
             import inspect
@@ -338,11 +362,45 @@ class PynputHotkeyManager(IHotkeyService):
 
         # win32 事件过滤器 - 在 Windows 消息循环中最早执行
         def win32_event_filter(msg, data):
-            """在 Windows 消息级别拦截按键事件
+            """Windows message-level keyboard event filter
 
-            修复 Alt+H 误触发：添加 500ms 时间窗口检查
-            - 只有所有按键在 500ms 内按下才触发快捷键
-            - 自动清理超过 2 秒未释放的按键
+            Intercepts keyboard events at Windows message level (before pynput
+            processes them) to implement precise hotkey detection with time
+            window validation.
+
+            Args:
+                msg: Windows message type (WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP)
+                data: Message data containing vkCode and other info
+
+            Returns:
+                True: Allow event to propagate to on_press/on_release
+                False: Suppress event (hotkey was triggered)
+
+            Time Window Logic:
+                - Tracks all pressed keys with timestamps
+                - Requires all keys in combo pressed within 500ms
+                - Rejects combos with keys pressed too far apart
+                - Prevents Alt+H from triggering when Alt held, then H pressed later
+
+            State Management:
+                - current_vk_keys: Dict[vk_code -> timestamp] of currently pressed keys
+                - _suppressed_vk_keys: Set[vk_code] of keys to skip in on_press
+                - Auto-cleans keys held >2 seconds to prevent memory leaks
+
+            Example Flow:
+                1. User presses Alt -> tracked in current_vk_keys
+                2. User presses H within 500ms -> combo matches
+                3. Hotkey callback fired, current_vk_keys cleared
+                4. Both keys added to _suppressed_vk_keys
+                5. on_press/on_release skip these keys
+                6. KeyUp clears _suppressed_vk_keys
+
+            Debug Logging:
+                Set log level to DEBUG to see detailed key tracking
+
+            Implementation Note:
+                This is a closure that captures self, current_vk_keys,
+                and registered_hotkeys from _restart_listener scope.
             """
             try:
                 if msg in (WM_KEYDOWN, WM_SYSKEYDOWN):

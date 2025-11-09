@@ -431,5 +431,10 @@ class WhisperWorkerThread(QThread):
                 minor = int(version_match.group(2))
                 return (major, minor)
             return (0, 0)  # 无法解析版本的排在最后
-        except:
+        except Exception as e:
+            app_logger.log_error(
+                e,
+                "cuda_version_parse_failed",
+                {"context": "Failed to parse CUDA version from path", "path": path}
+            )
             return (0, 0)

@@ -256,7 +256,7 @@ class Win32HotkeyManager(IHotkeyService):
 
         return result
 
-    def _execute_callback(self, action: str):
+    def _execute_callback(self, action: str) -> None:
         """Execute hotkey callback
 
         Args:
@@ -271,7 +271,7 @@ class Win32HotkeyManager(IHotkeyService):
         except Exception as e:
             app_logger.log_error(e, f"win32_hotkey_callback_{action}")
 
-    def _message_loop(self):
+    def _message_loop(self) -> None:
         """Message loop thread for receiving WM_HOTKEY messages
 
         Uses thread-level hotkeys (NULL window handle) instead of window-based hotkeys.
@@ -611,8 +611,12 @@ class Win32HotkeyManager(IHotkeyService):
                     )
                     # Post WM_QUIT to the thread
                     ctypes.windll.user32.PostThreadMessageW(thread_id, win32con.WM_QUIT, 0, 0)
-                except:
-                    pass
+                except Exception as e:
+                    app_logger.log_error(
+                        e,
+                        "hotkey_listener_cleanup",
+                        {"context": "Failed to post WM_QUIT to hotkey listener thread"}
+                    )
 
             # Wait for thread
             if self._message_thread and self._message_thread.is_alive():
