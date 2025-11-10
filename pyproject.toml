@@ -34,12 +34,9 @@ dependencies = [
 # Windows GUI依赖（已包含在核心依赖中，保留此extras为向后兼容）
 windows = []
 
-# 本地转录支持（包含所有GPU依赖）
+# 本地转录支持（轻量级 sherpa-onnx）
 local = [
-    "faster-whisper>=1.0.0",
-    "ctranslate2>=4.5.0,<5.0.0",
-    "nvidia-cudnn-cu12>=9.0.0,<10.0.0",
-    "nvidia-cublas-cu12>=12.0.0",
+    "sherpa-onnx>=1.10.0",
 ]
 
 # 开发工具

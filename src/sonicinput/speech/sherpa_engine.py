@@ -1,0 +1,229 @@
+"""sherpa-onnx 语音识别引擎
+
+基于 sherpa-onnx 的轻量级本地语音识别实现
+"""
+
+import numpy as np
+from typing import Dict, Any, Optional, List
+from loguru import logger
+
+try:
+    import sherpa_onnx
+except ImportError:
+    logger.error("sherpa-onnx not installed. Please run: uv sync --extra local")
+    sherpa_onnx = None
+
+from ..core.interfaces.speech import ISpeechService
+from .sherpa_models import SherpaModelManager
+from .sherpa_streaming import SherpaStreamingSession
+
+
+class SherpaEngine(ISpeechService):
+    """sherpa-onnx 引擎实现
+
+    特性：
+    - 支持离线 Paraformer/Zipformer 模型
+    - 原生流式转录支持
+    - 无GPU依赖，CPU高效推理
+    - 轻量级模型管理
+    """
+
+    provider_id = "sherpa_onnx"
+    display_name = "Sherpa-ONNX Local"
+    description = "Lightweight offline ASR with streaming support"
+
+    def __init__(
+        self,
+        model_name: str = "paraformer",
+        language: str = "zh",
+        cache_dir: Optional[str] = None,
+    ):
+        """初始化 sherpa-onnx 引擎
+
+        Args:
+            model_name: 模型名称 (paraformer | zipformer-small)
+            language: 语言 (zh | en)
+            cache_dir: 模型缓存目录
+        """
+        if sherpa_onnx is None:
+            raise RuntimeError(
+                "sherpa-onnx is not installed. Please install with: uv sync --extra local"
+            )
+
+        self.model_name = model_name
+        self.language = language
+        self.model_manager = SherpaModelManager(cache_dir)
+        self.recognizer: Optional[sherpa_onnx.OnlineRecognizer] = None
+        self._is_loaded = False
+
+        logger.info(f"SherpaEngine initialized with model: {model_name}, language: {language}")
+
+    def load_model(self, model_name: Optional[str] = None) -> bool:
+        """加载模型
+
+        Args:
+            model_name: 模型名称，None 表示使用默认模型
+
+        Returns:
+            是否加载成功
+        """
+        if model_name:
+            self.model_name = model_name
+
+        try:
+            logger.info(f"Loading model: {self.model_name}")
+
+            # 获取模型配置
+            model_config = self.model_manager.get_model_config(self.model_name)
+
+            # 创建识别器配置
+            if model_config["model_type"] == "paraformer":
+                # Paraformer 配置
+                recognizer_config = sherpa_onnx.OnlineRecognizerConfig(
+                    model_config=sherpa_onnx.OnlineModelConfig(
+                        paraformer=sherpa_onnx.OnlineParaformerModelConfig(
+                            encoder=model_config["encoder"],
+                            decoder=model_config["decoder"],
+                        ),
+                        tokens=model_config["tokens"],
+                        num_threads=model_config["num_threads"],
+                        provider=model_config["provider"],
+                        model_type="paraformer",
+                    ),
+                    decoding_method=model_config["decoding_method"],
+                    enable_endpoint_detection=True,
+                    rule1_min_trailing_silence=2.4,
+                    rule2_min_trailing_silence=1.2,
+                    rule3_min_utterance_length=20,
+                )
+            elif model_config["model_type"] == "zipformer":
+                # Zipformer 配置
+                recognizer_config = sherpa_onnx.OnlineRecognizerConfig(
+                    model_config=sherpa_onnx.OnlineModelConfig(
+                        transducer=sherpa_onnx.OnlineTransducerModelConfig(
+                            encoder=model_config["encoder"],
+                            decoder=model_config["decoder"],
+                            joiner=model_config["joiner"],
+                        ),
+                        tokens=model_config["tokens"],
+                        num_threads=model_config["num_threads"],
+                        provider=model_config["provider"],
+                        model_type="zipformer",
+                    ),
+                    decoding_method=model_config["decoding_method"],
+                    enable_endpoint_detection=True,
+                )
+            else:
+                raise ValueError(f"Unknown model type: {model_config['model_type']}")
+
+            # 创建识别器
+            self.recognizer = sherpa_onnx.OnlineRecognizer(recognizer_config)
+
+            self._is_loaded = True
+            logger.info(f"Model {self.model_name} loaded successfully")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to load model: {e}")
+            self._is_loaded = False
+            return False
+
+    def unload_model(self) -> None:
+        """卸载当前模型"""
+        if self.recognizer:
+            # sherpa-onnx 的 Python 绑定会自动释放资源
+            self.recognizer = None
+            self._is_loaded = False
+            logger.info("Model unloaded")
+
+    def transcribe(
+        self, audio_data: np.ndarray, language: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """转录音频数据（同步模式，用于分块转录）
+
+        Args:
+            audio_data: 音频数据，应该是 float32 类型，采样率 16kHz
+            language: 语言代码（sherpa-onnx 模型通常是预训练语言，此参数被忽略）
+
+        Returns:
+            转录结果字典
+        """
+        if not self.is_model_loaded:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        try:
+            # 确保音频格式正确
+            if audio_data.dtype != np.float32:
+                audio_data = audio_data.astype(np.float32)
+
+            # 创建临时流
+            stream = self.recognizer.create_stream()
+
+            # 推送音频
+            stream.accept_waveform(16000, audio_data)
+
+            # 标记输入结束
+            stream.input_finished()
+
+            # 解码
+            while self.recognizer.is_ready(stream):
+                self.recognizer.decode_stream(stream)
+
+            # 获取结果
+            result_text = self.recognizer.get_result(stream)
+
+            logger.debug(f"Transcription result: {result_text[:50]}...")
+
+            return {
+                "text": result_text,
+                "language": self.language,
+                "segments": [],  # sherpa-onnx 不提供分段信息
+            }
+
+        except Exception as e:
+            logger.error(f"Transcription failed: {e}")
+            raise RuntimeError(f"Failed to transcribe audio: {e}")
+
+    def create_streaming_session(self) -> SherpaStreamingSession:
+        """创建流式转录会话（用于实时模式）
+
+        Returns:
+            流式转录会话对象
+
+        Raises:
+            RuntimeError: 如果模型未加载
+        """
+        if not self.is_model_loaded:
+            raise RuntimeError("Model not loaded. Call load_model() first.")
+
+        stream = self.recognizer.create_stream()
+        return SherpaStreamingSession(self.recognizer, stream)
+
+    def get_available_models(self) -> List[str]:
+        """获取可用的模型列表
+
+        Returns:
+            模型名称列表
+        """
+        return list(self.model_manager.MODELS.keys())
+
+    @property
+    def is_model_loaded(self) -> bool:
+        """模型是否已加载"""
+        return self._is_loaded and self.recognizer is not None
+
+    def get_model_info(self) -> Dict[str, Any]:
+        """获取当前模型信息
+
+        Returns:
+            模型信息字典
+        """
+        if not self.model_name:
+            return {}
+
+        return self.model_manager.get_model_info(self.model_name)
+
+    def __repr__(self) -> str:
+        """字符串表示"""
+        return f"SherpaEngine(model={self.model_name}, language={self.language}, loaded={self.is_model_loaded})"

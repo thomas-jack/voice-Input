@@ -17,13 +17,10 @@ def get_default_config() -> Dict[str, Any]:
         "transcription": {
             "provider": "local",
             "local": {
-                "model": "large-v3-turbo",
-                "language": "auto",
-                "use_gpu": True,
+                "model": "paraformer",  # sherpa-onnx 模型 (paraformer | zipformer-small)
+                "language": "zh",  # 语言 (zh | en)
                 "auto_load": True,
-                "temperature": 0.0,
-                "device": "auto",
-                "compute_type": "auto",
+                "streaming_mode": "chunked",  # 流式模式 (chunked | realtime)
             },
             "groq": {
                 "api_key": "",
@@ -48,15 +45,7 @@ def get_default_config() -> Dict[str, Any]:
                 "enable_itn": True,
             },
         },
-        "whisper": {
-            "model": "large-v3-turbo",
-            "language": "auto",
-            "use_gpu": True,
-            "auto_load": True,
-            "temperature": 0.0,
-            "device": "auto",
-            "compute_type": "auto",
-        },
+        # Legacy whisper config removed - now using sherpa-onnx under transcription.local
         "ai": {
             "provider": "openrouter",
             "enabled": True,

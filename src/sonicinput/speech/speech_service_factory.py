@@ -20,15 +20,15 @@ class SpeechServiceFactory:
 
     @staticmethod
     def _is_local_available() -> bool:
-        """Check if local transcription (faster-whisper) is available
+        """Check if local transcription (sherpa-onnx) is available
 
         Returns:
-            bool: True if faster-whisper is installed, False otherwise
+            bool: True if sherpa-onnx is installed, False otherwise
         """
         try:
             import importlib.util
 
-            spec = importlib.util.find_spec("faster_whisper")
+            spec = importlib.util.find_spec("sherpa_onnx")
             return spec is not None
         except ImportError:
             return False
@@ -63,9 +63,11 @@ class SpeechServiceFactory:
 
         try:
             if provider_lower == "local":
-                from .whisper_engine import WhisperEngine
+                from .sherpa_engine import SherpaEngine
 
-                return WhisperEngine(model_name=model, use_gpu=use_gpu)
+                # sherpa-onnx 不使用 use_gpu 参数，始终使用 CPU
+                # model 参数应该是 sherpa 模型名称 (paraformer | zipformer-small)
+                return SherpaEngine(model_name=model)
 
             elif provider_lower == "groq":
                 from .groq_speech_service import GroqSpeechService
@@ -122,17 +124,14 @@ class SpeechServiceFactory:
             provider = config.get_setting("transcription.provider", "local")
 
             if provider == "local":
-                # Read local (whisper) configuration
+                # Read local (sherpa-onnx) configuration
                 model = config.get_setting(
                     "transcription.local.model",
-                    config.get_setting("whisper.model", "large-v3-turbo"),
+                    "paraformer",  # 默认使用 paraformer 模型
                 )
-                use_gpu = config.get_setting(
-                    "transcription.local.use_gpu",
-                    config.get_setting("whisper.use_gpu", True),
-                )
+                # sherpa-onnx 不需要 use_gpu 参数，始终使用 CPU
                 return SpeechServiceFactory.create_service(
-                    provider="local", model=model, use_gpu=use_gpu
+                    provider="local", model=model
                 )
 
             elif provider == "groq":
@@ -150,7 +149,7 @@ class SpeechServiceFactory:
                         "Groq provider selected but no API key configured", {}
                     )
 
-                    # Only fallback to local if faster-whisper is available
+                    # Only fallback to local if sherpa-onnx is available
                     if SpeechServiceFactory._is_local_available():
                         app_logger.log_audio_event("Falling back to local provider", {})
                         return SpeechServiceFactory.create_from_config_local_fallback(
@@ -158,9 +157,9 @@ class SpeechServiceFactory:
                         )
                     else:
                         app_logger.log_audio_event(
-                            "Cannot fallback: faster-whisper not installed",
+                            "Cannot fallback: sherpa-onnx not installed",
                             {
-                                "suggestion": "Install with: uv sync --extra local --extra dev"
+                                "suggestion": "Install with: uv sync --extra local"
                             },
                         )
                         return None
@@ -251,7 +250,7 @@ class SpeechServiceFactory:
             else:
                 app_logger.log_audio_event("Unknown provider", {"provider": provider})
 
-                # Only fallback to local if faster-whisper is available
+                # Only fallback to local if sherpa-onnx is available
                 if SpeechServiceFactory._is_local_available():
                     app_logger.log_audio_event("Falling back to local provider", {})
                     return SpeechServiceFactory.create_from_config_local_fallback(
@@ -259,9 +258,9 @@ class SpeechServiceFactory:
                     )
                 else:
                     app_logger.log_audio_event(
-                        "Cannot fallback: faster-whisper not installed",
+                        "Cannot fallback: sherpa-onnx not installed",
                         {
-                            "suggestion": "Install with: uv sync --extra local --extra dev"
+                            "suggestion": "Install with: uv sync --extra local"
                         },
                     )
                     return None
@@ -269,7 +268,7 @@ class SpeechServiceFactory:
         except Exception as e:
             app_logger.log_error(e, "SpeechServiceFactory.create_from_config")
 
-            # Only try to fallback to local if faster-whisper is available
+            # Only try to fallback to local if sherpa-onnx is available
             if SpeechServiceFactory._is_local_available():
                 try:
                     app_logger.log_audio_event(
@@ -285,10 +284,10 @@ class SpeechServiceFactory:
                     return None
             else:
                 app_logger.log_audio_event(
-                    "Cannot fallback: faster-whisper not installed",
+                    "Cannot fallback: sherpa-onnx not installed",
                     {
                         "original_error": str(e),
-                        "suggestion": "Install with: uv sync --extra local --extra dev",
+                        "suggestion": "Install with: uv sync --extra local",
                     },
                 )
                 return None
@@ -305,11 +304,9 @@ class SpeechServiceFactory:
         """
         model = config.get_setting(
             "transcription.local.model",
-            config.get_setting("whisper.model", "large-v3-turbo"),
+            "paraformer",  # 默认使用 paraformer 模型
         )
-        use_gpu = config.get_setting(
-            "transcription.local.use_gpu", config.get_setting("whisper.use_gpu", True)
-        )
+        # sherpa-onnx 不需要 use_gpu 参数
         return SpeechServiceFactory.create_service(
-            provider="local", model=model, use_gpu=use_gpu
+            provider="local", model=model
         )

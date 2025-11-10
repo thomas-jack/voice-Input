@@ -204,7 +204,7 @@ def run_tests():
         # Test core imports
         from sonicinput.core.voice_input_app import VoiceInputApp
         from sonicinput.core.di_container import DIContainer
-        from sonicinput.speech.gpu_manager import GPUManager
+        from sonicinput.speech.sherpa_engine import SherpaEngine
         from sonicinput.core.interfaces import IConfigService, ISpeechService
 
         # Test dependency injection
@@ -218,14 +218,12 @@ def run_tests():
 
         print("SUCCESS: Core application components loaded")
 
-        # Test GPU availability
-        gpu = GPUManager()
-        gpu_available = gpu.check_cuda_availability()
-        print(f"SUCCESS: GPU available: {gpu_available}")
+        # sherpa-onnx uses CPU only, no GPU check needed
+        print("INFO: Using sherpa-onnx (CPU-only, no GPU required)")
 
         # Test configuration
         config = container.get(IConfigService)
-        model = config.get_setting('whisper.model', 'unknown')
+        model = config.get_setting('transcription.local.model', 'paraformer')
         print(f"SUCCESS: Configuration loaded: {model}")
 
         # Test EventBus core functionality

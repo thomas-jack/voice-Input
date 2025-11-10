@@ -716,7 +716,7 @@ def create_container() -> "EnhancedDIContainer":
     from .services.application_orchestrator import ApplicationOrchestrator
     from .services.ui_event_bridge import UIEventBridge
     from ..audio import AudioRecorder
-    from ..speech import WhisperEngine
+    from ..speech import SherpaEngine
     from ..ai import AIClientFactory
     from ..input import SmartTextInput
     from .hotkey_manager import create_hotkey_manager
