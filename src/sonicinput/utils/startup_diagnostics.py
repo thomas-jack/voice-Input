@@ -139,7 +139,7 @@ class StartupDiagnostics:
             "requests",
             "numpy",
             "scipy",
-            "faster_whisper",
+            "sherpa_onnx",
         ]
 
         for dep in dependencies:

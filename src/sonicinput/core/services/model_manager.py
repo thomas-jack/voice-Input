@@ -243,12 +243,13 @@ class ModelManager:
                 self.unload_model()
 
             # 2. 创建新的引擎实例
-            if model_name or use_gpu is not None:
+            if model_name:
                 # 需要重新创建引擎以应用新配置
-                from ...speech import WhisperEngine
+                from ...speech import SherpaEngine
 
                 target_model_name = model_name or self._current_model_name
-                self._whisper_engine = WhisperEngine(target_model_name, use_gpu=use_gpu)
+                # sherpa-onnx 不使用 use_gpu 参数
+                self._whisper_engine = SherpaEngine(target_model_name, language="zh")
                 self._current_model_name = target_model_name
 
             # 3. 加载新模型

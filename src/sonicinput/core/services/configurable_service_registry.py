@@ -150,9 +150,9 @@ class ConfigurableServiceRegistry:
                 "UISettingsServiceAdapter": ("..services.ui_service_adapter", "UISettingsServiceAdapter"),
                 "UIModelServiceAdapter": ("..services.ui_service_adapter", "UIModelServiceAdapter"),
                 "UIAudioServiceAdapter": ("..services.ui_service_adapter", "UIAudioServiceAdapter"),
-                "UIGPUServiceAdapter": ("..services.ui_service_adapter", "UIGPUServiceAdapter"),
+                # UIGPUServiceAdapter removed - sherpa-onnx is CPU-only
                 "AudioRecorder": ("..audio.recorder", "AudioRecorder"),
-                "WhisperEngine": ("..speech.whisper_engine", "WhisperEngine"),
+                "SherpaEngine": ("..speech.sherpa_engine", "SherpaEngine"),
                 "SmartTextInput": ("..input.smart_input", "SmartTextInput"),
                 "HotkeyManager": ("..hotkey_manager", "HotkeyManager"),
             }
@@ -245,8 +245,8 @@ class ConfigurableServiceRegistry:
         def speech_service_factory():
             service = SpeechServiceFactory.create_from_config(config)
             if service is None:
-                from ..speech.whisper_engine import WhisperEngine
-                return WhisperEngine("large-v3-turbo", use_gpu=None)
+                from ..speech.sherpa_engine import SherpaEngine
+                return SherpaEngine("paraformer", language="zh")
             return service
 
         # 使用TranscriptionService包装

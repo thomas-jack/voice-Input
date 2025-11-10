@@ -152,22 +152,22 @@ def create_provider_instance(provider_id: str, **kwargs) -> Optional[ISpeechServ
 def _auto_register_providers() -> None:
     """Auto-register all available providers"""
     try:
-        # Local Whisper engine
-        from .whisper_engine import WhisperEngine
+        # Local sherpa-onnx engine
+        from .sherpa_engine import SherpaEngine
         register_provider(ProviderInfo(
             provider_id="local",
-            display_name="Local Whisper",
-            description="Local Whisper model with GPU acceleration",
+            display_name="Local Sherpa-ONNX",
+            description="Lightweight CPU-only transcription with Paraformer/Zipformer models",
             provider_type="local",
-            provider_class=WhisperEngine,
-            supports_gpu=True,
-            supports_streaming=False,
-            supports_language_detection=True,
-            supported_languages=None,  # All languages
+            provider_class=SherpaEngine,
+            supports_gpu=False,  # CPU-only
+            supports_streaming=True,  # 支持真正的流式转录
+            supports_language_detection=False,  # 模型预训练语言
+            supported_languages=["zh", "en"],  # 中英双语
         ))
     except Exception as e:
         from ..utils import app_logger
-        app_logger.log_error(e, "Failed to register Local Whisper")
+        app_logger.log_error(e, "Failed to register Local Sherpa-ONNX")
 
     try:
         # Groq Cloud service

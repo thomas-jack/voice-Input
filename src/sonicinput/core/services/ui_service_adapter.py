@@ -276,17 +276,14 @@ class UIGPUServiceAdapter:
         app_logger.log_audio_event("UIGPUServiceAdapter initialized", {})
 
     def get_gpu_info(self) -> Dict[str, Any]:
-        """获取GPU信息"""
-        try:
-            from ...speech.gpu_manager import GPUManager
-            temp_gpu_manager = GPUManager()
-            gpu_info = temp_gpu_manager.get_device_info()
-            return gpu_info
-        except Exception as e:
-            app_logger.log_error(e, "get_gpu_info")
-            return {"error": str(e), "cuda_available": False}
+        """获取GPU信息（sherpa-onnx不使用GPU）"""
+        # sherpa-onnx 使用 CPU，不需要 GPU
+        return {
+            "cuda_available": False,
+            "message": "sherpa-onnx uses CPU-only inference (no GPU required)",
+            "device": "cpu",
+        }
 
     def check_gpu_availability(self) -> bool:
-        """检查GPU是否可用"""
-        gpu_info = self.get_gpu_info()
-        return gpu_info.get("cuda_available", False)
+        """检查GPU是否可用（sherpa-onnx不使用GPU）"""
+        return False  # sherpa-onnx 总是使用 CPU
