@@ -945,20 +945,35 @@ class SettingsWindow(QMainWindow):
     def _update_gpu_display_from_info(self, gpu_info: dict) -> None:
         """从GPU信息更新显示 - 在主线程中调用"""
         try:
-            if "error" in gpu_info:
-                self.gpu_status_label.setText("❌ Error checking GPU")
-                self.gpu_status_label.setStyleSheet("color: red;")
-                self.transcription_tab.gpu_memory_label.setText("Error")
+            # 检查标签是否存在（防止在对象销毁时访问）
+            if not hasattr(self, 'gpu_status_label') or not hasattr(self, 'transcription_tab'):
                 return
 
-            # 更新GPU状态显示
+            # sherpa-onnx 使用 CPU，显示特殊消息
+            if gpu_info.get("message") and "CPU-only" in gpu_info.get("message", ""):
+                if hasattr(self.gpu_status_label, 'setText'):
+                    self.gpu_status_label.setText("💻 CPU-only (sherpa-onnx)")
+                    self.gpu_status_label.setStyleSheet("color: blue;")
+                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
+                    self.transcription_tab.gpu_memory_label.setText("N/A (CPU mode)")
+                return
+
+            if "error" in gpu_info:
+                if hasattr(self.gpu_status_label, 'setText'):
+                    self.gpu_status_label.setText("❌ Error checking GPU")
+                    self.gpu_status_label.setStyleSheet("color: red;")
+                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
+                    self.transcription_tab.gpu_memory_label.setText("Error")
+                return
+
+            # 更新GPU状态显示（仅当使用GPU提供商时）
             if gpu_info.get("cuda_available", False):
                 device_name = gpu_info.get("device_name", "Unknown GPU")
-                self.gpu_status_label.setText(f"✅ {device_name}")
-                self.gpu_status_label.setStyleSheet("color: green;")
+                if hasattr(self.gpu_status_label, 'setText'):
+                    self.gpu_status_label.setText(f"✅ {device_name}")
+                    self.gpu_status_label.setStyleSheet("color: green;")
 
                 # 更新显存使用信息
-                # 优先使用get_memory_usage返回的字段
                 used_memory = gpu_info.get(
                     "allocated_gb", gpu_info.get("used_memory_gb", 0)
                 )
@@ -966,17 +981,20 @@ class SettingsWindow(QMainWindow):
                     "total_gb", gpu_info.get("total_memory_gb", 0)
                 )
 
-                if total_memory > 0:
-                    memory_percent = (used_memory / total_memory) * 100
-                    self.transcription_tab.gpu_memory_label.setText(
-                        f"{used_memory:.1f}GB / {total_memory:.1f}GB ({memory_percent:.1f}%)"
-                    )
-                else:
-                    self.transcription_tab.gpu_memory_label.setText("Memory info unavailable")
+                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
+                    if total_memory > 0:
+                        memory_percent = (used_memory / total_memory) * 100
+                        self.transcription_tab.gpu_memory_label.setText(
+                            f"{used_memory:.1f}GB / {total_memory:.1f}GB ({memory_percent:.1f}%)"
+                        )
+                    else:
+                        self.transcription_tab.gpu_memory_label.setText("Memory info unavailable")
             else:
-                self.gpu_status_label.setText("❌ CUDA not available")
-                self.gpu_status_label.setStyleSheet("color: red;")
-                self.transcription_tab.gpu_memory_label.setText("N/A")
+                if hasattr(self.gpu_status_label, 'setText'):
+                    self.gpu_status_label.setText("❌ CUDA not available")
+                    self.gpu_status_label.setStyleSheet("color: red;")
+                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
+                    self.transcription_tab.gpu_memory_label.setText("N/A")
 
             app_logger.log_audio_event(
                 "GPU info updated",
@@ -988,9 +1006,15 @@ class SettingsWindow(QMainWindow):
 
         except Exception as e:
             app_logger.log_error(e, "_update_gpu_display_from_info")
-            self.gpu_status_label.setText("❌ Error updating GPU display")
-            self.gpu_status_label.setStyleSheet("color: red;")
-            self.transcription_tab.gpu_memory_label.setText("Error")
+            # 安全地尝试更新错误消息
+            try:
+                if hasattr(self, 'gpu_status_label') and hasattr(self.gpu_status_label, 'setText'):
+                    self.gpu_status_label.setText("❌ Error updating GPU display")
+                    self.gpu_status_label.setStyleSheet("color: red;")
+                if hasattr(self, 'transcription_tab') and hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
+                    self.transcription_tab.gpu_memory_label.setText("Error")
+            except:
+                pass  # 忽略清理时的错误
 
     def refresh_model_status(self) -> None:
         """刷新模型状态显示"""
