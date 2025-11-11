@@ -3,7 +3,6 @@
 负责模型下载、缓存和配置管理
 """
 
-import hashlib
 import tarfile
 from pathlib import Path
 from typing import Dict, Any, Optional

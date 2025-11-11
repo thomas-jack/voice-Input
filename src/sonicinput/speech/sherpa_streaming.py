@@ -4,7 +4,7 @@
 """
 
 import numpy as np
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from loguru import logger
 
 
