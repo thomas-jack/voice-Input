@@ -763,11 +763,11 @@ class SettingsWindow(QMainWindow):
                 "QLabel { color: #4CAF50; }"
             )  # Material Green
 
-            # 如果有GPU信息，更新显存使用
+            # 如果有GPU信息，更新显存使用 (sherpa-onnx不需要，但保留兼容性)
             if "allocated_gb" in event_data:
                 allocated = event_data["allocated_gb"]
                 total = event_data.get("total_gb", 0)
-                if total > 0:
+                if total > 0 and hasattr(self.transcription_tab, 'gpu_memory_label'):
                     percent = (allocated / total) * 100
                     self.transcription_tab.gpu_memory_label.setText(
                         f"{allocated:.2f}GB / {total:.1f}GB ({percent:.1f}%)"
@@ -863,158 +863,14 @@ class SettingsWindow(QMainWindow):
             app_logger.log_error(e, "on_audio_device_changed")
 
     def refresh_gpu_info(self) -> None:
-        """刷新GPU信息显示 - 带超时的异步版本"""
-        try:
-            # 显示检查状态
-            self.gpu_status_label.setText("🔄 Checking GPU...")
-            self.gpu_status_label.setStyleSheet("color: blue;")
-            self.transcription_tab.gpu_memory_label.setText("Detecting...")
-
-            # 创建后台线程获取GPU信息，带超时控制
-            import threading
-            import time
-
-            gpu_check_result = {"info": None, "completed": False, "error": None}
-
-            def get_gpu_info() -> None:
-                try:
-                    # 尝试导入GPU管理器
-                    from ..speech.gpu_manager import GPUManager
-
-                    # 创建临时GPU管理器获取信息
-                    temp_gpu_manager = GPUManager()
-                    gpu_info = temp_gpu_manager.get_device_info()
-
-                    gpu_check_result["info"] = gpu_info
-                    gpu_check_result["completed"] = True
-
-                except Exception as e:
-                    app_logger.log_error(e, "get_gpu_info_background")
-                    gpu_check_result["error"] = str(e)
-                    gpu_check_result["completed"] = True
-
-            # 启动后台线程
-            gpu_thread = threading.Thread(target=get_gpu_info, daemon=True)
-            gpu_thread.start()
-
-            # 设置超时检查
-            timeout_seconds = 10  # 10秒超时
-
-            def check_gpu_result() -> None:
-                if gpu_check_result["completed"]:
-                    # GPU检查完成
-                    if gpu_check_result["error"]:
-                        gpu_info = {"error": gpu_check_result["error"]}
-                    else:
-                        gpu_info = gpu_check_result["info"] or {
-                            "error": "No result returned"
-                        }
-
-                    self._update_gpu_display_from_info(gpu_info)
-                else:
-                    # 检查是否超时
-                    elapsed = time.time() - start_time
-                    if elapsed > timeout_seconds:
-                        # 超时处理
-                        app_logger.log_audio_event(
-                            "GPU check timeout", {"timeout": timeout_seconds}
-                        )
-                        timeout_info = {
-                            "error": f"GPU check timed out after {timeout_seconds} seconds",
-                            "suggestion": "GPU drivers may be unresponsive",
-                        }
-                        self._update_gpu_display_from_info(timeout_info)
-                    else:
-                        # 继续等待，每500ms检查一次
-                        from PySide6.QtCore import QTimer
-
-                        QTimer.singleShot(500, check_gpu_result)
-
-            # 开始检查
-            start_time = time.time()
-            from PySide6.QtCore import QTimer
-
-            QTimer.singleShot(100, check_gpu_result)  # 100ms后开始检查
-
-        except Exception as e:
-            app_logger.log_error(e, "refresh_gpu_info")
-            self.gpu_status_label.setText("❌ Error initializing GPU check")
-            self.gpu_status_label.setStyleSheet("color: red;")
-            self.transcription_tab.gpu_memory_label.setText("Error")
+        """刷新GPU信息显示 - sherpa-onnx使用CPU，无需GPU检查"""
+        # sherpa-onnx is CPU-only, no GPU check needed
+        return
 
     def _update_gpu_display_from_info(self, gpu_info: dict) -> None:
-        """从GPU信息更新显示 - 在主线程中调用"""
-        try:
-            # 检查标签是否存在（防止在对象销毁时访问）
-            if not hasattr(self, 'gpu_status_label') or not hasattr(self, 'transcription_tab'):
-                return
-
-            # sherpa-onnx 使用 CPU，显示特殊消息
-            if gpu_info.get("message") and "CPU-only" in gpu_info.get("message", ""):
-                if hasattr(self.gpu_status_label, 'setText'):
-                    self.gpu_status_label.setText("💻 CPU-only (sherpa-onnx)")
-                    self.gpu_status_label.setStyleSheet("color: blue;")
-                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
-                    self.transcription_tab.gpu_memory_label.setText("N/A (CPU mode)")
-                return
-
-            if "error" in gpu_info:
-                if hasattr(self.gpu_status_label, 'setText'):
-                    self.gpu_status_label.setText("❌ Error checking GPU")
-                    self.gpu_status_label.setStyleSheet("color: red;")
-                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
-                    self.transcription_tab.gpu_memory_label.setText("Error")
-                return
-
-            # 更新GPU状态显示（仅当使用GPU提供商时）
-            if gpu_info.get("cuda_available", False):
-                device_name = gpu_info.get("device_name", "Unknown GPU")
-                if hasattr(self.gpu_status_label, 'setText'):
-                    self.gpu_status_label.setText(f"✅ {device_name}")
-                    self.gpu_status_label.setStyleSheet("color: green;")
-
-                # 更新显存使用信息
-                used_memory = gpu_info.get(
-                    "allocated_gb", gpu_info.get("used_memory_gb", 0)
-                )
-                total_memory = gpu_info.get(
-                    "total_gb", gpu_info.get("total_memory_gb", 0)
-                )
-
-                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
-                    if total_memory > 0:
-                        memory_percent = (used_memory / total_memory) * 100
-                        self.transcription_tab.gpu_memory_label.setText(
-                            f"{used_memory:.1f}GB / {total_memory:.1f}GB ({memory_percent:.1f}%)"
-                        )
-                    else:
-                        self.transcription_tab.gpu_memory_label.setText("Memory info unavailable")
-            else:
-                if hasattr(self.gpu_status_label, 'setText'):
-                    self.gpu_status_label.setText("❌ CUDA not available")
-                    self.gpu_status_label.setStyleSheet("color: red;")
-                if hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
-                    self.transcription_tab.gpu_memory_label.setText("N/A")
-
-            app_logger.log_audio_event(
-                "GPU info updated",
-                {
-                    "cuda_available": gpu_info.get("cuda_available", False),
-                    "device_name": gpu_info.get("device_name", "N/A"),
-                },
-            )
-
-        except Exception as e:
-            app_logger.log_error(e, "_update_gpu_display_from_info")
-            # 安全地尝试更新错误消息
-            try:
-                if hasattr(self, 'gpu_status_label') and hasattr(self.gpu_status_label, 'setText'):
-                    self.gpu_status_label.setText("❌ Error updating GPU display")
-                    self.gpu_status_label.setStyleSheet("color: red;")
-                if hasattr(self, 'transcription_tab') and hasattr(self.transcription_tab, 'gpu_memory_label') and hasattr(self.transcription_tab.gpu_memory_label, 'setText'):
-                    self.transcription_tab.gpu_memory_label.setText("Error")
-            except:
-                pass  # 忽略清理时的错误
+        """从GPU信息更新显示 - sherpa-onnx不需要GPU，已废弃"""
+        # Deprecated: sherpa-onnx is CPU-only
+        return
 
     def refresh_model_status(self) -> None:
         """刷新模型状态显示"""
