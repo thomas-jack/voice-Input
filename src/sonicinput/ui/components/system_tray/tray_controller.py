@@ -487,7 +487,7 @@ class TrayController(LifecycleComponent):
             <p>An AI-powered voice-to-text input solution for Windows.</p>
             <p><b>Features:</b></p>
             <ul>
-            <li>Local Whisper speech recognition</li>
+            <li>Local speech recognition (sherpa-onnx)</li>
             <li>AI text optimization via OpenRouter</li>
             <li>Smart text input methods</li>
             <li>Global hotkey support</li>

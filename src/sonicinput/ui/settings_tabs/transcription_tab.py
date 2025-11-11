@@ -6,7 +6,6 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QCheckBox,
     QComboBox,
-    QDoubleSpinBox,
     QSpinBox,
     QPushButton,
     QHBoxLayout,
@@ -24,11 +23,10 @@ class TranscriptionTab(BaseSettingsTab):
     """Transcription设置标签页
 
     包含：
-    - 转录提供商选择（Local Whisper / Groq / SiliconFlow / Qwen）
-    - Local Whisper 模型配置
+    - 转录提供商选择（sherpa-onnx / Groq / SiliconFlow / Qwen）
+    - sherpa-onnx 本地模型配置
     - 云服务 API 配置（Groq / SiliconFlow / Qwen）
     - 模型管理（加载/卸载/测试）
-    - GPU信息显示（仅本地模式）
     """
 
     def _setup_ui(self) -> None:
@@ -48,14 +46,14 @@ class TranscriptionTab(BaseSettingsTab):
 
         layout.addWidget(provider_group)
 
-        # Local Whisper 模型设置组
-        model_group = QGroupBox("Local Whisper Configuration")
+        # sherpa-onnx 本地模型设置组
+        model_group = QGroupBox("sherpa-onnx Configuration")
         model_layout = QFormLayout(model_group)
 
         # 模型选择
         self.whisper_model_combo = QComboBox()
         self.whisper_model_combo.addItems(
-            ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo", "turbo"]
+            ["paraformer", "zipformer"]
         )
         model_layout.addRow("Model:", self.whisper_model_combo)
 
@@ -66,20 +64,18 @@ class TranscriptionTab(BaseSettingsTab):
         )
         model_layout.addRow("Language:", self.whisper_language_combo)
 
-        # GPU使用
-        self.use_gpu_checkbox = QCheckBox("Use GPU acceleration (CUDA)")
-        model_layout.addRow("GPU:", self.use_gpu_checkbox)
+        # 流式模式选择
+        self.streaming_mode_combo = QComboBox()
+        self.streaming_mode_combo.addItems(["chunked", "realtime"])
+        self.streaming_mode_combo.setToolTip(
+            "chunked: 30s segments with AI optimization (recommended)\n"
+            "realtime: Edge-to-edge streaming with lowest latency"
+        )
+        model_layout.addRow("Streaming Mode:", self.streaming_mode_combo)
 
         # 自动加载
         self.auto_load_model_checkbox = QCheckBox("Load model on startup")
         model_layout.addRow("", self.auto_load_model_checkbox)
-
-        # Temperature
-        self.whisper_temperature_spinbox = QDoubleSpinBox()
-        self.whisper_temperature_spinbox.setRange(0.0, 1.0)
-        self.whisper_temperature_spinbox.setSingleStep(0.1)
-        self.whisper_temperature_spinbox.setDecimals(1)
-        model_layout.addRow("Temperature:", self.whisper_temperature_spinbox)
 
         layout.addWidget(model_group)
 
@@ -252,18 +248,6 @@ class TranscriptionTab(BaseSettingsTab):
         layout.addWidget(qwen_group)
         self.qwen_group = qwen_group
 
-        # GPU信息组
-        gpu_group = QGroupBox("GPU Information (Local Only)")
-        gpu_layout = QFormLayout(gpu_group)
-
-        self.gpu_status_label = QLabel("Checking...")
-        gpu_layout.addRow("Status:", self.gpu_status_label)
-
-        self.gpu_memory_label = QLabel("N/A")
-        gpu_layout.addRow("Memory Usage:", self.gpu_memory_label)
-
-        layout.addWidget(gpu_group)
-        self.gpu_group = gpu_group
         self.model_group = model_group
 
         layout.addStretch()
@@ -273,9 +257,8 @@ class TranscriptionTab(BaseSettingsTab):
             "transcription_provider": self.transcription_provider_combo,
             "whisper_model": self.whisper_model_combo,
             "whisper_language": self.whisper_language_combo,
-            "use_gpu": self.use_gpu_checkbox,
+            "streaming_mode": self.streaming_mode_combo,
             "auto_load_model": self.auto_load_model_checkbox,
-            "temperature": self.whisper_temperature_spinbox,
             "groq_api_key": self.groq_api_key_edit,
             "groq_base_url": self.groq_base_url_edit,
             "groq_model": self.groq_model_combo,
@@ -293,21 +276,14 @@ class TranscriptionTab(BaseSettingsTab):
             "qwen_timeout": self.qwen_timeout_spinbox,
             "qwen_max_retries": self.qwen_max_retries_spinbox,
             "model_status": self.model_status_label,
-            "gpu_status": self.gpu_status_label,
-            "gpu_memory": self.gpu_memory_label,
         }
 
         # 暴露控件到parent_window
         self.parent_window.whisper_model_combo = self.whisper_model_combo
         self.parent_window.whisper_language_combo = self.whisper_language_combo
-        self.parent_window.use_gpu_checkbox = self.use_gpu_checkbox
+        self.parent_window.streaming_mode_combo = self.streaming_mode_combo
         self.parent_window.auto_load_model_checkbox = self.auto_load_model_checkbox
-        self.parent_window.whisper_temperature_spinbox = (
-            self.whisper_temperature_spinbox
-        )
         self.parent_window.model_status_label = self.model_status_label
-        self.parent_window.gpu_status_label = self.gpu_status_label
-        self.parent_window.gpu_memory_label = self.gpu_memory_label
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -320,25 +296,22 @@ class TranscriptionTab(BaseSettingsTab):
         provider = transcription_config.get("provider", "local")
         self.transcription_provider_combo.setCurrentText(provider)
 
-        # Local Whisper settings
+        # sherpa-onnx local settings
         local_config = transcription_config.get("local", {})
         # Fallback to old whisper config for backward compatibility
         whisper_config = config.get("whisper", {})
 
         self.whisper_model_combo.setCurrentText(
-            local_config.get("model", whisper_config.get("model", "large-v3-turbo"))
+            local_config.get("model", whisper_config.get("model", "paraformer"))
         )
         self.whisper_language_combo.setCurrentText(
             local_config.get("language", whisper_config.get("language", "auto"))
         )
-        self.use_gpu_checkbox.setChecked(
-            local_config.get("use_gpu", whisper_config.get("use_gpu", True))
+        self.streaming_mode_combo.setCurrentText(
+            local_config.get("streaming_mode", "chunked")
         )
         self.auto_load_model_checkbox.setChecked(
             local_config.get("auto_load", whisper_config.get("auto_load", True))
-        )
-        self.whisper_temperature_spinbox.setValue(
-            local_config.get("temperature", whisper_config.get("temperature", 0.0))
         )
 
         # Groq settings
@@ -393,9 +366,8 @@ class TranscriptionTab(BaseSettingsTab):
                 "local": {
                     "model": self.whisper_model_combo.currentText(),
                     "language": self.whisper_language_combo.currentText(),
-                    "use_gpu": self.use_gpu_checkbox.isChecked(),
+                    "streaming_mode": self.streaming_mode_combo.currentText(),
                     "auto_load": self.auto_load_model_checkbox.isChecked(),
-                    "temperature": self.whisper_temperature_spinbox.value(),
                 },
                 "groq": {
                     "api_key": self.groq_api_key_edit.text(),
@@ -422,14 +394,6 @@ class TranscriptionTab(BaseSettingsTab):
                     "timeout": self.qwen_timeout_spinbox.value(),
                     "max_retries": self.qwen_max_retries_spinbox.value(),
                 },
-            },
-            # Keep old whisper config for backward compatibility
-            "whisper": {
-                "model": self.whisper_model_combo.currentText(),
-                "language": self.whisper_language_combo.currentText(),
-                "use_gpu": self.use_gpu_checkbox.isChecked(),
-                "auto_load": self.auto_load_model_checkbox.isChecked(),
-                "temperature": self.whisper_temperature_spinbox.value(),
             },
         }
 
@@ -708,22 +672,6 @@ class TranscriptionTab(BaseSettingsTab):
         """
         self.model_status_label.setText(status)
 
-    def update_gpu_status(self, status: str) -> None:
-        """更新GPU状态显示
-
-        Args:
-            status: 状态文本
-        """
-        self.gpu_status_label.setText(status)
-
-    def update_gpu_memory(self, memory: str) -> None:
-        """更新GPU内存显示
-
-        Args:
-            memory: 内存信息文本
-        """
-        self.gpu_memory_label.setText(memory)
-
     def show_progress(self, visible: bool = True) -> None:
         """显示/隐藏进度条
 
@@ -754,9 +702,8 @@ class TranscriptionTab(BaseSettingsTab):
         is_siliconflow = provider == "siliconflow"
         is_qwen = provider == "qwen"
 
-        # 显示/隐藏 Local Whisper 配置
+        # 显示/隐藏 sherpa-onnx 配置
         self.model_group.setVisible(is_local)
-        self.gpu_group.setVisible(is_local)
 
         # 显示/隐藏 Groq 配置
         self.groq_group.setVisible(is_groq)
