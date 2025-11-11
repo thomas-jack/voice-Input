@@ -36,6 +36,10 @@ class SmartTextInput(IInputService):
         self._method_failures = {}
         self._last_failure_time = {}
 
+        # 录音期间剪贴板管理（避免中途restore覆盖原始剪贴板）
+        self._recording_mode = False
+        self._original_clipboard = ""
+
     def input_text(self, text: str, force_method: Optional[str] = None) -> bool:
         """智能输入文本"""
         if not text:
@@ -193,6 +197,57 @@ class SmartTextInput(IInputService):
         self.config_service.set_setting("input.fallback_enabled", enabled)
 
         app_logger.log_audio_event("Fallback setting changed", {"enabled": enabled})
+
+    def start_recording_mode(self) -> None:
+        """开始录音模式 - 保存原始剪贴板，禁用中途restore"""
+        self._recording_mode = True
+        self._original_clipboard = self.clipboard_input.backup_clipboard()
+
+        # 通知ClipboardInput进入录音模式（禁用中途restore）
+        self.clipboard_input.set_recording_mode(True)
+
+        app_logger.log_audio_event(
+            "Recording mode started, clipboard saved",
+            {"clipboard_length": len(self._original_clipboard)}
+        )
+
+    def stop_recording_mode(self) -> None:
+        """停止录音模式 - 恢复原始剪贴板"""
+        if not self._recording_mode:
+            return
+
+        # 先禁用ClipboardInput的录音模式，恢复正常的backup/restore行为
+        self.clipboard_input.set_recording_mode(False)
+
+        # 延迟恢复剪贴板，给文本输入时间完成
+        import time
+        import threading
+
+        restore_delay = self.config_service.get_setting("input.clipboard_restore_delay", 1.0)
+
+        # 关键修复：将剪贴板内容传递给线程，而不是引用实例变量
+        # 避免主线程清空变量后，线程无法恢复
+        clipboard_to_restore = self._original_clipboard
+
+        def delayed_restore():
+            time.sleep(restore_delay)
+
+            if clipboard_to_restore:
+                try:
+                    self.clipboard_input.restore_clipboard(clipboard_to_restore)
+                    app_logger.log_audio_event(
+                        "Recording mode stopped, clipboard restored successfully",
+                        {"clipboard_length": len(clipboard_to_restore)}
+                    )
+                except Exception as e:
+                    app_logger.log_error(e, "delayed_restore_clipboard")
+
+        # 在后台线程中延迟恢复
+        restore_thread = threading.Thread(target=delayed_restore, daemon=True)
+        restore_thread.start()
+
+        self._recording_mode = False
+        self._original_clipboard = ""
 
     def set_clipboard_restore_delay(self, delay: float) -> None:
         """设置剪贴板恢复延迟"""

@@ -15,6 +15,7 @@ class ClipboardInput:
     def __init__(self):
         self.original_clipboard = ""
         self.restore_delay = 0.1  # 恢复剪贴板内容的延迟
+        self._recording_mode = False  # 录音模式标志（禁用中途restore）
 
         app_logger.log_audio_event("Clipboard input initialized", {})
 
@@ -93,6 +94,22 @@ class ClipboardInput:
         restore_delay = restore_delay or self.restore_delay
 
         try:
+            # 录音模式：跳过backup/restore，避免覆盖外层保存的原始剪贴板
+            if self._recording_mode:
+                # 直接复制文本
+                pyperclip.copy(text)
+                time.sleep(0.05)  # 短暂延迟确保复制完成
+
+                # 发送Ctrl+V
+                self.send_ctrl_v()
+
+                app_logger.log_audio_event(
+                    "Text input via clipboard (recording mode)",
+                    {"text_length": len(text), "skipped_restore": True},
+                )
+                return True
+
+            # 正常模式：保持原有逻辑（backup + restore）
             # 备份原始剪贴板内容
             original_content = self.backup_clipboard()
 
@@ -118,11 +135,12 @@ class ClipboardInput:
         except Exception as e:
             app_logger.log_error(e, "input_via_clipboard")
 
-            # 尝试恢复剪贴板
-            try:
-                self.restore_clipboard(original_content)
-            except (OSError, RuntimeError):
-                pass  # 剪贴板访问失败或已被其他程序占用
+            # 尝试恢复剪贴板（仅非录音模式）
+            if not self._recording_mode:
+                try:
+                    self.restore_clipboard(original_content)
+                except (OSError, RuntimeError):
+                    pass  # 剪贴板访问失败或已被其他程序占用
 
             return False
 
@@ -157,6 +175,18 @@ class ClipboardInput:
 
         app_logger.log_audio_event(
             "Clipboard restore delay set", {"delay": self.restore_delay}
+        )
+
+    def set_recording_mode(self, enabled: bool) -> None:
+        """设置录音模式（禁用中途restore避免覆盖原始剪贴板）
+
+        Args:
+            enabled: True=启用录音模式（跳过中途restore），False=正常模式
+        """
+        self._recording_mode = enabled
+        app_logger.log_audio_event(
+            "Recording mode changed",
+            {"enabled": enabled, "will_skip_restore": enabled}
         )
 
     def clear_clipboard(self) -> None:

@@ -4,6 +4,7 @@
 """
 
 import time
+from typing import Optional
 
 from ..interfaces import (
     IInputController,
@@ -16,6 +17,7 @@ from ..interfaces.state import AppState
 from ..services.event_bus import Events
 from ...utils import app_logger, logger
 from .base_controller import BaseController
+from .text_diff_helper import calculate_text_diff
 
 
 class InputController(BaseController, IInputController):
@@ -41,13 +43,28 @@ class InputController(BaseController, IInputController):
         # Controller-specific services
         self._input_service = input_service
 
+        # Realtime 模式状态追踪
+        self._last_realtime_text: str = ""  # 上一次输入的实时文本
+        self._is_realtime_mode: bool = False  # 是否处于 realtime 模式
+
         # Register event listeners and log initialization
         self._register_event_listeners()
         self._log_initialization()
 
     def _register_event_listeners(self) -> None:
         """Register event listeners for input events"""
+        # AI 处理完成的文本（chunked 模式）
         self._events.on("ai_processed_text", self._on_text_ready_for_input)
+
+        # 实时文本更新（realtime 模式）
+        self._events.on("realtime_text_updated", self._on_realtime_text_updated)
+
+        # 录音开始/停止事件（用于重置状态）
+        self._events.on(Events.RECORDING_STARTED, self._on_recording_started)
+        self._events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
+
+        # 转录完成事件（用于恢复剪贴板）
+        self._events.on(Events.TRANSCRIPTION_COMPLETED, self._on_transcription_completed_restore_clipboard)
 
     def _on_text_ready_for_input(self, data: dict) -> None:
         """处理准备好输入的文本事件
@@ -55,6 +72,26 @@ class InputController(BaseController, IInputController):
         Args:
             data: 包含 text 和性能统计数据
         """
+        # 关键修复：realtime模式下，文本已经在录音过程中实时输入了
+        # 不应该在录音结束后再输入一遍
+        if self._is_realtime_mode:
+            app_logger.log_audio_event(
+                "Skipping final text input in realtime mode (already input during recording)",
+                {
+                    "text_length": len(data.get("text", "")),
+                    "is_realtime_mode": self._is_realtime_mode
+                }
+            )
+
+            # 关键修复：即使跳过文本输入，也要触发完成事件和设置状态
+            # 让 RecordingOverlay 能够正常隐藏
+            self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
+            self._state.set_app_state(AppState.IDLE)
+
+            # 记录整体性能日志
+            self._log_performance(data)
+            return
+
         text = data.get("text", "")
         if text.strip():
             self.input_text(text)
@@ -158,3 +195,135 @@ class InputController(BaseController, IInputController):
 
         except Exception as e:
             app_logger.log_error(e, "_log_performance")
+
+    def _on_recording_started(self, data=None) -> None:
+        """处理录音开始事件
+
+        重置 realtime 模式状态，准备接收新的实时文本更新
+        同时启动录音模式（保存原始剪贴板）
+        """
+        self._last_realtime_text = ""
+        self._is_realtime_mode = True  # 假设开始录音时可能使用 realtime 模式
+
+        # 启动录音模式：SmartTextInput会保存原始剪贴板，并在录音期间禁用中途restore
+        try:
+            if hasattr(self._input_service, 'start_recording_mode'):
+                self._input_service.start_recording_mode()
+        except Exception as e:
+            app_logger.log_error(e, "start_recording_mode")
+
+        app_logger.log_audio_event(
+            "InputController: Recording started, reset realtime state", {}
+        )
+
+    def _on_recording_stopped(self, data=None) -> None:
+        """处理录音停止事件
+
+        只清理 realtime 模式状态，不恢复剪贴板
+        剪贴板恢复延迟到转录完成后（_on_transcription_completed_restore_clipboard）
+        """
+        self._is_realtime_mode = False
+
+        app_logger.log_audio_event(
+            "InputController: Recording stopped, clear realtime state",
+            {"last_text_length": len(self._last_realtime_text)}
+        )
+
+    def _on_realtime_text_updated(self, data: dict) -> None:
+        """处理实时文本更新事件（realtime 模式）
+
+        使用差量算法计算文本差异，智能更新输入的文本：
+        1. 计算新文本与上次文本的差异
+        2. 使用退格键删除变化的部分
+        3. 输入新的差异部分
+
+        Args:
+            data: 包含 'text' 和 'timestamp' 的字典
+        """
+        try:
+            new_text = data.get("text", "")
+
+            # 空文本或无变化则跳过
+            if not new_text or new_text == self._last_realtime_text:
+                return
+
+            app_logger.log_audio_event(
+                "Realtime text update received",
+                {
+                    "old_text": self._last_realtime_text[:30] + "..." if len(self._last_realtime_text) > 30 else self._last_realtime_text,
+                    "new_text": new_text[:30] + "..." if len(new_text) > 30 else new_text,
+                }
+            )
+
+            # 关键修复：如果新文本为空或显著变短，可能是sherpa reset导致的异常
+            # 不应该删除已输入的文本
+            if not new_text or len(new_text) < len(self._last_realtime_text) * 0.5:
+                app_logger.log_audio_event(
+                    "New text is empty or significantly shorter, likely due to stream reset",
+                    {
+                        "old_length": len(self._last_realtime_text),
+                        "new_length": len(new_text),
+                        "skipping_diff": True
+                    }
+                )
+                # 不执行差量更新，保持当前已输入的文本
+                return
+
+            # 计算文本差异（差量算法）
+            backspace_count, text_to_append = calculate_text_diff(
+                self._last_realtime_text, new_text
+            )
+
+            app_logger.log_audio_event(
+                "Calculated text diff",
+                {
+                    "backspace_count": backspace_count,
+                    "append_text": text_to_append[:30] + "..." if len(text_to_append) > 30 else text_to_append,
+                }
+            )
+
+            # 如果需要退格，先删除旧的部分
+            if backspace_count > 0:
+                # 使用退格键删除
+                backspace_text = "\b" * backspace_count
+                self._input_service.input_text(backspace_text)
+                app_logger.log_audio_event(
+                    "Sent backspace keys",
+                    {"count": backspace_count}
+                )
+
+            # 输入新的文本
+            if text_to_append:
+                self._input_service.input_text(text_to_append)
+                app_logger.log_audio_event(
+                    "Sent new text",
+                    {"text": text_to_append[:50] + "..." if len(text_to_append) > 50 else text_to_append}
+                )
+
+            # 更新追踪的文本
+            self._last_realtime_text = new_text
+
+        except Exception as e:
+            app_logger.log_error(e, "_on_realtime_text_updated")
+
+    def _on_transcription_completed_restore_clipboard(self, data: dict) -> None:
+        """处理转录完成事件 - 恢复剪贴板
+
+        在转录完成后调用，此时所有文本输入操作已完成，可以安全恢复剪贴板
+
+        Args:
+            data: 转录完成事件数据
+        """
+        try:
+            # 停止录音模式：SmartTextInput会恢复录音前保存的原始剪贴板
+            if hasattr(self._input_service, 'stop_recording_mode'):
+                self._input_service.stop_recording_mode()
+                app_logger.log_audio_event(
+                    "Clipboard restore triggered after transcription completed",
+                    {
+                        "streaming_mode": data.get("streaming_mode", "unknown"),
+                        "text_length": len(data.get("text", ""))
+                    }
+                )
+        except Exception as e:
+            app_logger.log_error(e, "_on_transcription_completed_restore_clipboard")

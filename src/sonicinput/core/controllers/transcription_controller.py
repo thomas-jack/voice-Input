@@ -165,13 +165,30 @@ class TranscriptionController(BaseController, ITranscriptionController):
             text = result.get("text", "")
             stats = result.get("stats", {})
 
+            # 获取流式模式（用于后续处理决策）
+            streaming_mode = "chunked"  # 默认值
+            if hasattr(self._speech_service, "streaming_coordinator"):
+                streaming_mode = self._speech_service.streaming_coordinator.get_streaming_mode()
+
             app_logger.log_audio_event(
                 "Streaming transcription stopped",
-                {"text_length": len(text), "stats": stats},
+                {"text_length": len(text), "stats": stats, "mode": streaming_mode},
             )
 
-            # 如果流式转录没有结果,fallback到同步转录
-            if not text and self._audio_service:
+            # 关键修复：Realtime模式下，文本已在录音过程中实时输入，清空最终文本避免重复
+            if streaming_mode == "realtime":
+                app_logger.log_audio_event(
+                    "Realtime mode: text already input during recording, clearing final text to prevent duplicate",
+                    {"original_text_length": len(text)}
+                )
+                text = ""  # 清空文本，避免重复输入
+
+                # 关键修复：realtime 模式下手动触发完成流程，让 RecordingOverlay 能够隐藏
+                self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
+                self._state.set_app_state(AppState.IDLE)
+
+            # 如果流式转录没有结果,fallback到同步转录（仅chunked模式）
+            if not text and streaming_mode == "chunked" and self._audio_service:
                 app_logger.log_audio_event(
                     "No text from streaming, falling back to sync transcription", {}
                 )
@@ -185,6 +202,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                     "text_length": len(text),
                     "duration": f"{transcribe_duration:.3f}s",
                     "text_preview": text[:50] + "..." if len(text) > 50 else text,
+                    "mode": streaming_mode,
                 },
             )
 
@@ -196,7 +214,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                     error=None
                 )
 
-            # 发送转录完成事件
+            # 发送转录完成事件（包含 streaming_mode）
             self._events.emit(
                 Events.TRANSCRIPTION_COMPLETED,
                 {
@@ -205,6 +223,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                     "transcribe_duration": transcribe_duration,
                     "recording_stop_time": self._recording_stop_time,
                     "record_id": self._current_record_id,
+                    "streaming_mode": streaming_mode,
                 },
             )
 
