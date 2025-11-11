@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/icon.png" alt="SonicInput Icon" width="128" height="128">
   <h1>SonicInput</h1>
-  <p>基于 Whisper 和 AI 的 Windows 语音转文字输入工具，支持实时识别、GPU 加速。</p>
+  <p>基于 sherpa-onnx 的超轻量级 Windows 语音转文字输入工具，支持双模式流式转录和 AI 优化。</p>
 
   <p>
     <strong>Languages:</strong>
@@ -12,25 +12,28 @@
 
 ## ✨ 核心功能
 
-- 🎤 **语音识别**: 支持本地 Whisper 或云端 Groq API 转录
-- 🚀 **流式转录**: 录音时自动分块处理，减少 70-90% 等待时间
-- ⚡ **GPU 加速**: 本地模式支持 CUDA，转录速度提升 5-10 倍
+- 🎤 **语音识别**: 支持本地 sherpa-onnx（CPU 高效）或云端 Groq/SiliconFlow/Qwen API 转录
+- 🚀 **双模式流式转录**:
+  - **chunked 模式**: 30秒分块处理，支持 AI 优化（推荐）
+  - **realtime 模式**: 边到边流式转录，最低延迟
+- ⚡ **CPU 高效推理**: sherpa-onnx RTF 0.06-0.21，性能提升 30-300 倍
+- 🪶 **超轻量级**: 安装体积仅 250MB（比 Faster Whisper 减少 90%）
 - 🤖 **AI 文本优化**: 集成 Groq/OpenRouter/NVIDIA/OpenAI 多种模型
 - 🧠 **思考过滤**: 自动过滤 AI 思考过程标签（`<think>...</think>`），只保留优化结果
 - ⌨️ **全局快捷键**: 支持自定义快捷键（默认 F12 或 Alt+H）
-- ☁️ **轻量云模式**: 无需 GPU，使用 Groq 云端 API 进行语音识别
+- ☁️ **轻量云模式**: 无需 GPU，使用云端 API 进行语音识别
 
 ## 📋 系统要求
 
-**基础要求（云模式）**:
+**基础要求**:
 - Windows 10/11
 - Python 3.10+
 - 2GB+ RAM
 
-**本地模式额外要求**:
-- 4GB+ RAM（推荐 8GB）
-- NVIDIA GPU（用于 GPU 加速）
-- CUDA 12.x+（推荐 CUDA 12.1 或更高）
+**本地模式（sherpa-onnx）**:
+- 仅需 CPU，无需 GPU
+- 推荐 4GB+ RAM
+- 安装体积约 250MB
 
 ---
 
@@ -69,8 +72,8 @@ SonicInput 提供两种部署模式：
 
 | 模式 | 优势 | 适用场景 |
 |------|------|---------|
-| **☁️ 云转录模式** | 安装简单、无需GPU、下载体积小（~200MB） | 初次体验、轻量使用、无GPU设备 |
-| **💻 本地转录模式** | 离线可用、隐私保护、无API限制 | 长期使用、隐私要求高、有GPU设备 |
+| **☁️ 云转录模式** | 安装简单、无需下载模型、体积小（~100MB） | 初次体验、轻量使用、网络稳定 |
+| **💻 本地转录模式** | 离线可用、隐私保护、无API限制、CPU高效 | 长期使用、隐私要求高、离线环境 |
 
 ---
 
@@ -113,9 +116,9 @@ uv sync  # 仅安装核心依赖（约200MB）
 
 ---
 
-### 方式二：本地转录模式（完整功能）
+### 方式二：本地转录模式（离线可用）
 
-使用本地 Whisper 模型进行离线语音识别，支持 GPU 加速。
+使用本地 sherpa-onnx 模型进行离线语音识别，CPU 高效推理。
 
 #### 1. 安装 UV 包管理器
 
@@ -132,61 +135,34 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```bash
 git clone https://github.com/Oxidane-bot/SonicInput.git
 cd SonicInput
-uv sync --extra local --extra dev  # 安装本地转录和开发依赖（约2GB+）
+uv sync --extra local --extra dev  # 安装本地转录和开发依赖（约250MB）
 ```
 
-#### 3. 配置 GPU 加速（可选）
-
-**步骤 1: 检查 NVIDIA GPU**
-
-```bash
-nvidia-smi
-```
-
-确认输出显示 GPU 信息和驱动版本。
-
-**步骤 2: 安装 CUDA Toolkit 12.x**
-
-1. **下载 CUDA Toolkit**：https://developer.nvidia.com/cuda-downloads
-   - **推荐版本**：CUDA 12.1 或更高
-   - **作用**：提供 GPU 加速的基础库（cuBLAS、cuFFT 等）
-
-2. **安装完成后验证**：
-   ```bash
-   nvcc --version
-   ```
-
-3. **确认 CUDA 路径**（通常自动设置）：
-   ```powershell
-   echo $env:CUDA_PATH
-   # 输出示例: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9
-   ```
-
-**步骤 3: 验证 GPU 配置**
-
-注意：`uv sync --extra local` 已自动安装 cuDNN 9 和 cuBLAS（通过 PyPI 的 nvidia-cudnn-cu12 和 nvidia-cublas-cu12 包）
-
-验证 GPU 设置：
+#### 3. 首次启动（自动下载模型）
 
 ```bash
 uv run python app.py --test
 ```
 
+首次启动会自动下载 Paraformer 模型（226MB）到 `%APPDATA%/SonicInput/models/`。
+
 确认输出包含：
 ```
-SUCCESS: GPU available
-SUCCESS: Model loaded successfully
-Transcription Time: ~0.6s (for 2s audio)
-RTF (Real-Time Factor): ~0.3x
+Model download completed
+Model loaded successfully
+Transcription Time: ~0.1s (for 2s audio)
+RTF (Real-Time Factor): ~0.06-0.21
 ```
 
-性能指标：GPU 加速下 RTF 通常在 0.3-0.5x（比实时快 2-3 倍）
+性能指标：sherpa-onnx CPU 推理 RTF 通常在 0.06-0.21（比实时快 5-16 倍）
 
 #### 4. 启动应用
 
 ```bash
 uv run python app.py --gui
 ```
+
+在设置中选择 **Provider** 为 `local`，即可使用本地 sherpa-onnx 转录。
 
 #### 5. （可选）配置 AI 文本优化
 
@@ -203,16 +179,16 @@ uv run python app.py --gui
 
 | 特性 | 云转录模式 | 本地转录模式 |
 |------|-----------|-------------|
-| 安装体积 | ~200MB | ~2GB+ |
-| GPU 要求 | 无 | NVIDIA GPU + CUDA |
+| 安装体积 | ~100MB | ~250MB |
+| GPU 要求 | 无 | 无（CPU 高效） |
 | 网络要求 | 需要联网 | 可离线使用 |
 | API 费用 | Groq 免费额度 | 无 |
-| 转录速度 | 取决于网络 | GPU加速快 2-3 倍 |
+| 转录速度 | 取决于网络 | CPU 快 5-16 倍 |
 | 隐私性 | 需上传音频 | 完全本地处理 |
 | 适合场景 | 初次体验、轻量使用 | 长期使用、隐私要求高 |
 
 **切换模式**：
-- 云模式 → 本地模式：运行 `uv sync --extra local --extra dev` 并安装 CUDA
+- 云模式 → 本地模式：运行 `uv sync --extra local` 并在设置中选择 `local`
 - 本地模式 → 云模式：在设置中将 Provider 改为 `groq` 并配置 API Key
 
 ---
@@ -233,19 +209,21 @@ uv run python app.py --gui
 
 | 依赖库 | 版本 | 说明 |
 |-------|------|------|
-| **faster-whisper** | ≥ 1.0.0 | Whisper 优化实现 |
-| **ctranslate2** | 4.6.0 (≥4.5.0) | GPU 加速推理引擎 |
-| **CUDA Toolkit** | 12.x (推荐 12.1+) | GPU 加速基础库 |
-| **cuDNN** | 9.5.1 | 深度学习加速库 |
+| **sherpa-onnx** | ≥ 1.10.0 | 轻量级 ONNX Runtime 语音识别 |
 
-**重要兼容性说明**（仅本地模式）：
-- CTranslate2 4.5.0+ **必须**使用 cuDNN 9（不兼容 cuDNN 8）
-- CTranslate2 4.4.0 及以下使用 cuDNN 8.9.7
-- 当前项目锁定 CTranslate2 ≥ 4.5.0，自动安装 4.6.0
+**优势**：
+- CPU 高效推理（RTF 0.06-0.21）
+- 无需 GPU/CUDA 依赖
+- 安装体积小（约 250MB）
+- 支持流式转录
+
+**模型支持**：
+- **Paraformer**: 中英双语高精度（226MB，推荐）
+- **Zipformer**: 超轻量级（112MB）
 
 **安装方式**：
-- 云模式：`uv sync`（仅核心依赖，约200MB）
-- 本地模式：`uv sync --extra local --extra dev`（完整依赖，约2GB+）
+- 云模式：`uv sync`（仅核心依赖，约 100MB）
+- 本地模式：`uv sync --extra local`（完整依赖，约 250MB）
 
 ---
 

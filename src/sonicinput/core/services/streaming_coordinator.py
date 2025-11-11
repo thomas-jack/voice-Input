@@ -1,17 +1,25 @@
-"""流式转录协调器 - 负责流式转录的协调和管理"""
+"""流式转录协调器 - 负责流式转录的协调和管理
+
+支持两种流式模式：
+- chunked: 30秒分块处理模式（带AI优化）
+- realtime: 边到边流式转录模式（利用sherpa-onnx流式API）
+"""
 
 import threading
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
 from dataclasses import dataclass
 import numpy as np
 
 from ...utils import app_logger
 
+# 流式模式类型
+StreamingMode = Literal["chunked", "realtime"]
+
 
 @dataclass
 class StreamingChunk:
-    """流式转录块"""
+    """流式转录块（仅用于chunked模式）"""
 
     chunk_id: int
     audio_data: np.ndarray
@@ -23,51 +31,79 @@ class StreamingChunk:
 class StreamingCoordinator:
     """流式转录协调器
 
-    负责管理流式转录的分块处理和结果协调。
+    支持双模式：
+    - chunked: 30秒分块处理，支持AI文本优化
+    - realtime: 边到边流式转录，最低延迟
+
     与具体的转录逻辑和模型管理解耦。
     """
 
-    def __init__(self, event_service=None):
+    def __init__(self, event_service=None, streaming_mode: StreamingMode = "chunked"):
         """初始化流式协调器
 
         Args:
             event_service: 事件服务（可选）
+            streaming_mode: 流式模式，"chunked" 或 "realtime"
         """
         self.event_service = event_service
 
-        # 流式转录状态管理
-        self._streaming_mode = False
+        # 流式模式配置
+        self._streaming_mode_type: StreamingMode = streaming_mode
+        self._streaming_active = False
         self._streaming_lock = threading.RLock()
 
-        # 流式块管理
+        # chunked 模式：流式块管理
         with self._streaming_lock:
             self._streaming_chunks: List[StreamingChunk] = []
             self._next_chunk_id = 0
 
+        # realtime 模式：流式会话管理
+        self._realtime_session = None
+        self._realtime_partial_text = ""
+        self._realtime_last_update = time.time()
+
         # 流式统计
         self._streaming_stats = {
+            "mode": streaming_mode,
             "total_chunks": 0,
             "completed_chunks": 0,
             "failed_chunks": 0,
             "total_audio_duration": 0.0,
             "average_chunk_time": 0.0,
+            "realtime_updates": 0,  # realtime 模式统计
         }
 
-        app_logger.log_audio_event("StreamingCoordinator initialized", {})
+        app_logger.log_audio_event(
+            "StreamingCoordinator initialized", {"mode": streaming_mode}
+        )
 
-    def start_streaming(self) -> None:
-        """开始流式转录模式"""
+    def start_streaming(self, streaming_session=None) -> None:
+        """开始流式转录模式
+
+        Args:
+            streaming_session: realtime模式下的流式会话对象（可选）
+        """
         with self._streaming_lock:
-            if self._streaming_mode:
+            if self._streaming_active:
                 return
 
-            self._streaming_mode = True
+            self._streaming_active = True
             self._reset_stats()
 
-            app_logger.log_audio_event("Streaming mode started", {})
+            # realtime 模式初始化
+            if self._streaming_mode_type == "realtime":
+                self._realtime_session = streaming_session
+                self._realtime_partial_text = ""
+                self._realtime_last_update = time.time()
+
+            app_logger.log_audio_event(
+                "Streaming mode started", {"mode": self._streaming_mode_type}
+            )
 
             # 发送流式开始事件
-            self._emit_streaming_event("streaming_started", {})
+            self._emit_streaming_event(
+                "streaming_started", {"mode": self._streaming_mode_type}
+            )
 
     def stop_streaming(self) -> Dict[str, Any]:
         """停止流式转录模式
@@ -76,34 +112,49 @@ class StreamingCoordinator:
             流式转录统计信息
         """
         with self._streaming_lock:
-            if not self._streaming_mode:
+            if not self._streaming_active:
                 return self._get_stats()
 
-            self._streaming_mode = False
+            self._streaming_active = False
 
-            # 处理剩余的块
-            pending_chunks = len(self._streaming_chunks)
-            if pending_chunks > 0:
-                app_logger.log_audio_event(
-                    "Cleaning up pending chunks", {"pending_count": pending_chunks}
-                )
-
-                # 标记剩余块为失败
-                for chunk in self._streaming_chunks:
-                    chunk.result_container.update(
-                        {
-                            "success": False,
-                            "error": "Streaming stopped before processing",
-                            "error_type": "streaming_stopped",
-                        }
+            # chunked 模式：处理剩余的块
+            if self._streaming_mode_type == "chunked":
+                pending_chunks = len(self._streaming_chunks)
+                if pending_chunks > 0:
+                    app_logger.log_audio_event(
+                        "Cleaning up pending chunks", {"pending_count": pending_chunks}
                     )
-                    chunk.result_event.set()
 
-                self._streaming_chunks.clear()
+                    # 标记剩余块为失败
+                    for chunk in self._streaming_chunks:
+                        chunk.result_container.update(
+                            {
+                                "success": False,
+                                "error": "Streaming stopped before processing",
+                                "error_type": "streaming_stopped",
+                            }
+                        )
+                        chunk.result_event.set()
+
+                    self._streaming_chunks.clear()
+
+            # realtime 模式：获取最终结果
+            elif self._streaming_mode_type == "realtime":
+                if self._realtime_session:
+                    try:
+                        final_text = self._realtime_session.get_final_result()
+                        self._realtime_partial_text = final_text
+                    except Exception as e:
+                        app_logger.log_error(e, "realtime_final_result")
+
+                    self._realtime_session = None
 
             stats = self._get_stats()
 
-            app_logger.log_audio_event("Streaming mode stopped", stats)
+            app_logger.log_audio_event(
+                "Streaming mode stopped",
+                {"mode": self._streaming_mode_type, "stats": stats},
+            )
 
             # 发送流式结束事件
             self._emit_streaming_event("streaming_stopped", stats)
@@ -111,16 +162,23 @@ class StreamingCoordinator:
             return stats
 
     def add_streaming_chunk(self, audio_data: np.ndarray) -> int:
-        """添加流式转录块
+        """添加流式转录块（仅chunked模式）
 
         Args:
             audio_data: 音频数据
 
         Returns:
-            块ID
+            块ID（chunked模式）或 -1（不适用）
         """
+        if self._streaming_mode_type != "chunked":
+            app_logger.log_audio_event(
+                "add_streaming_chunk called in non-chunked mode",
+                {"mode": self._streaming_mode_type},
+            )
+            return -1
+
         with self._streaming_lock:
-            if not self._streaming_mode:
+            if not self._streaming_active:
                 return -1
 
             chunk_id = self._next_chunk_id
@@ -163,6 +221,65 @@ class StreamingCoordinator:
             )
 
             return chunk_id
+
+    def add_realtime_audio(self, audio_data: np.ndarray) -> Optional[str]:
+        """添加实时音频数据（仅realtime模式）
+
+        Args:
+            audio_data: 音频数据
+
+        Returns:
+            部分转录结果（如有更新）或 None
+        """
+        if self._streaming_mode_type != "realtime":
+            app_logger.log_audio_event(
+                "add_realtime_audio called in non-realtime mode",
+                {"mode": self._streaming_mode_type},
+            )
+            return None
+
+        with self._streaming_lock:
+            if not self._streaming_active or not self._realtime_session:
+                return None
+
+            try:
+                # 向流式会话添加音频样本
+                self._realtime_session.add_samples(audio_data)
+
+                # 获取部分结果
+                partial_result = self._realtime_session.get_partial_result()
+
+                # 检查是否有更新
+                if partial_result != self._realtime_partial_text:
+                    self._realtime_partial_text = partial_result
+                    self._realtime_last_update = time.time()
+                    self._streaming_stats["realtime_updates"] += 1
+
+                    # 发送实时更新事件
+                    self._emit_streaming_event(
+                        "realtime_text_updated",
+                        {
+                            "text": partial_result,
+                            "timestamp": self._realtime_last_update,
+                        },
+                    )
+
+                    return partial_result
+
+                return None
+
+            except Exception as e:
+                app_logger.log_error(e, "add_realtime_audio")
+                return None
+
+    def get_realtime_text(self) -> str:
+        """获取当前实时转录文本（仅realtime模式）
+
+        Returns:
+            当前转录文本
+        """
+        with self._streaming_lock:
+            return self._realtime_partial_text
 
     def get_pending_chunks(self) -> List[StreamingChunk]:
         """获取所有待处理的流式块
@@ -299,7 +416,47 @@ class StreamingCoordinator:
         Returns:
             True如果在流式模式
         """
-        return self._streaming_mode
+        return self._streaming_active
+
+    def get_streaming_mode(self) -> StreamingMode:
+        """获取当前流式模式类型
+
+        Returns:
+            "chunked" 或 "realtime"
+        """
+        return self._streaming_mode_type
+
+    def set_streaming_mode(self, mode: StreamingMode) -> bool:
+        """设置流式模式类型（仅在非活动状态下可更改）
+
+        Args:
+            mode: "chunked" 或 "realtime"
+
+        Returns:
+            True 如果设置成功
+        """
+        with self._streaming_lock:
+            if self._streaming_active:
+                app_logger.log_audio_event(
+                    "Cannot change streaming mode while active",
+                    {"current_mode": self._streaming_mode_type, "requested_mode": mode},
+                )
+                return False
+
+            if mode not in ("chunked", "realtime"):
+                app_logger.log_audio_event(
+                    "Invalid streaming mode", {"requested_mode": mode}
+                )
+                return False
+
+            self._streaming_mode_type = mode
+            self._streaming_stats["mode"] = mode
+
+            app_logger.log_audio_event(
+                "Streaming mode changed", {"new_mode": mode}
+            )
+
+            return True
 
     def get_stats(self) -> Dict[str, Any]:
         """获取流式转录统计信息
@@ -331,7 +488,8 @@ class StreamingCoordinator:
         stats = self._streaming_stats.copy()
         stats.update(
             {
-                "is_streaming": self._streaming_mode,
+                "is_streaming": self._streaming_active,
+                "mode": self._streaming_mode_type,
                 "pending_chunks": len(self._streaming_chunks),
                 "next_chunk_id": self._next_chunk_id,
                 "success_rate": (
@@ -341,18 +499,37 @@ class StreamingCoordinator:
                 else 0.0,
             }
         )
+
+        # realtime 模式额外统计
+        if self._streaming_mode_type == "realtime":
+            stats.update(
+                {
+                    "current_text": self._realtime_partial_text,
+                    "text_length": len(self._realtime_partial_text),
+                    "last_update": self._realtime_last_update,
+                    "has_session": self._realtime_session is not None,
+                }
+            )
+
         return stats
 
     def _reset_stats(self) -> None:
         """重置统计信息"""
         self._streaming_stats = {
+            "mode": self._streaming_mode_type,
             "total_chunks": 0,
             "completed_chunks": 0,
             "failed_chunks": 0,
             "total_audio_duration": 0.0,
             "average_chunk_time": 0.0,
+            "realtime_updates": 0,
         }
         self._next_chunk_id = 0
+
+        # realtime 模式重置
+        if self._streaming_mode_type == "realtime":
+            self._realtime_partial_text = ""
+            self._realtime_last_update = time.time()
 
     def _update_stats(self, processing_time: float, success: bool) -> None:
         """更新统计信息
