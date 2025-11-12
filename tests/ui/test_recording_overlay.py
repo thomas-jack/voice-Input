@@ -149,6 +149,19 @@ class TestRecordingOverlayStates:
         qtbot.waitUntil(lambda: not recording_overlay.isVisible(), timeout=2000)
         assert not recording_overlay.isVisible()
 
+    def test_keyboard_space(self, qtbot, recording_overlay):
+        """测试Space键关闭overlay"""
+        # 显示overlay
+        recording_overlay.show()
+        qtbot.waitExposed(recording_overlay, timeout=1000)
+
+        # 模拟Space键按下
+        qtbot.keyPress(recording_overlay, Qt.Key.Key_Space)
+
+        # 验证overlay隐藏
+        qtbot.waitUntil(lambda: not recording_overlay.isVisible(), timeout=2000)
+        assert not recording_overlay.isVisible()
+
 
 @pytest.mark.gui
 class TestRecordingOverlayComponents:

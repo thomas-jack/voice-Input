@@ -269,3 +269,327 @@ class TestSettingsWindowLoadSave:
             qtbot.wait(100)
 
         # verify_real_config_untouched会验证真实配置未被修改
+
+
+@pytest.mark.gui
+class TestSettingsWindowCoreButtons:
+    """SettingsWindow核心按钮功能测试"""
+
+    def test_apply_button_saves_config_and_keeps_open(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试Apply按钮保存配置且窗口保持打开"""
+        # Mock QMessageBox to avoid blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+
+        # 修改一个配置(日志级别)
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+
+        # 点击Apply按钮
+        settings_window.apply_button.click()
+        qtbot.wait(200)
+
+        # 验证配置被保存
+        saved_config = settings_window.ui_settings_service.get_all_settings()
+        assert saved_config["logging"]["level"] == "DEBUG"
+
+        # 验证窗口仍然可见
+        assert settings_window.isVisible()
+
+    def test_ok_button_saves_and_closes(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试OK按钮保存配置并关闭窗口"""
+        # Mock QMessageBox to avoid blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+
+        # 修改一个配置
+        settings_window.application_tab.log_level_combo.setCurrentText("INFO")
+
+        # 点击OK按钮
+        settings_window.ok_button.click()
+        qtbot.wait(200)
+
+        # 验证配置被保存
+        saved_config = settings_window.ui_settings_service.get_all_settings()
+        assert saved_config["logging"]["level"] == "INFO"
+
+        # 验证窗口已隐藏
+        qtbot.waitUntil(lambda: not settings_window.isVisible(), timeout=2000)
+        assert not settings_window.isVisible()
+
+    def test_reset_tab_button_with_confirmation(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试Reset Tab按钮显示确认对话框并重置当前标签页"""
+        # Mock QMessageBox.question to return Yes
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+        )
+
+        # 显示窗口并切换到Application标签页
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+        settings_window.tab_widget.setCurrentIndex(0)  # Application tab is first
+
+        # 修改配置
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+        original_value = settings_window.application_tab.log_level_combo.currentText()
+        assert original_value == "DEBUG"
+
+        # 点击Reset Tab按钮
+        settings_window.reset_button.click()
+        qtbot.wait(200)
+
+        # 验证配置被重置(应该回到默认值WARNING)
+        reset_value = settings_window.application_tab.log_level_combo.currentText()
+        assert reset_value != "DEBUG"  # Should be reset to default
+
+    def test_reset_tab_button_cancel(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试取消Reset Tab操作不重置配置"""
+        # Mock QMessageBox.question to return No (cancel)
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            lambda *args, **kwargs: QMessageBox.StandardButton.No
+        )
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+        settings_window.tab_widget.setCurrentIndex(0)  # Application tab is first
+
+        # 修改配置
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+        original_value = settings_window.application_tab.log_level_combo.currentText()
+
+        # 点击Reset Tab按钮(但会取消)
+        settings_window.reset_button.click()
+        qtbot.wait(200)
+
+        # 验证配置未被重置
+        current_value = settings_window.application_tab.log_level_combo.currentText()
+        assert current_value == original_value
+
+
+@pytest.mark.gui
+class TestConfigManagement:
+    """配置管理按钮测试"""
+
+    def test_export_config_creates_file(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导出配置功能(Mock验证)"""
+        from PySide6.QtWidgets import QFileDialog
+        from unittest.mock import MagicMock
+        export_file = tmp_path / "test_export.json"
+
+        # Mock config_manager.export_config
+        mock_export = MagicMock()
+        settings_window.application_tab.config_manager.export_config = mock_export
+
+        # Mock QFileDialog.getSaveFileName to return the file path
+        def mock_get_save_filename(parent, caption, directory, filter_str):
+            return (str(export_file), filter_str)
+
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", mock_get_save_filename)
+        # Mock QMessageBox.information
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+
+        # 点击Export Settings按钮
+        settings_window.application_tab.export_config_button.click()
+        qtbot.wait(200)
+
+        # 验证export_config被调用
+        mock_export.assert_called_once_with(str(export_file))
+
+    def test_export_config_cancel(self, qtbot, settings_window, monkeypatch):
+        """测试取消导出配置操作"""
+        from PySide6.QtWidgets import QFileDialog
+
+        # Mock QFileDialog to return empty path (cancelled)
+        def mock_get_save_filename_cancel(parent, caption, directory, filter_str):
+            return ("", "")
+
+        monkeypatch.setattr(QFileDialog, "getSaveFileName", mock_get_save_filename_cancel)
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+
+        # 点击Export Settings按钮(会取消)
+        settings_window.application_tab.export_config_button.click()
+        qtbot.wait(200)
+
+        # 验证没有抛出异常,操作正常取消
+
+    def test_import_config_loads_settings(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导入配置功能(Mock验证)"""
+        from PySide6.QtWidgets import QFileDialog
+        from unittest.mock import MagicMock
+        import_file = tmp_path / "test_import.json"
+
+        # 创建假的导入文件
+        import_file.write_text("{}")
+
+        # Mock config_manager.import_config
+        mock_import = MagicMock()
+        settings_window.application_tab.config_manager.import_config = mock_import
+
+        # Mock load_current_config
+        mock_load = MagicMock()
+        settings_window.load_current_config = mock_load
+
+        # Mock QFileDialog.getOpenFileName
+        def mock_get_open_filename(parent, caption, directory, filter_str):
+            return (str(import_file), filter_str)
+
+        monkeypatch.setattr(QFileDialog, "getOpenFileName", mock_get_open_filename)
+        # Mock QMessageBox.information
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+
+        # 点击Import Settings按钮
+        settings_window.application_tab.import_config_button.click()
+        qtbot.wait(200)
+
+        # 验证import_config被调用
+        mock_import.assert_called_once_with(str(import_file))
+        # 验证load_current_config被调用以重新加载UI
+        mock_load.assert_called_once()
+
+    def test_reset_to_defaults_confirmation(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试重置到默认值功能"""
+        # Mock QMessageBox.question to return Yes
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+        )
+        # Mock QMessageBox.information
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+        # 显示窗口
+        settings_window.show()
+        qtbot.waitExposed(settings_window, timeout=1000)
+
+        # 修改配置
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+        assert settings_window.application_tab.log_level_combo.currentText() == "DEBUG"
+
+        # 点击Reset to Defaults按钮
+        settings_window.application_tab.reset_config_button.click()
+        qtbot.wait(200)
+
+        # 验证配置被重置到默认值
+        reset_level = settings_window.application_tab.log_level_combo.currentText()
+        assert reset_level != "DEBUG"  # Should be reset to default (WARNING)
+
+
+@pytest.mark.gui
+class TestAPIConnectionTests:
+    """API连接测试按钮"""
+
+    def test_ai_connection_success(self, qtbot, settings_window, monkeypatch):
+        """测试AI API连接成功"""
+        from unittest.mock import MagicMock, patch
+
+        # 创建mock AI client
+        mock_client = MagicMock()
+        mock_client.test_connection.return_value = (True, "Connection successful")
+
+        # Mock AIClientFactory.create_client
+        with patch('sonicinput.ai.factory.AIClientFactory.create_client', return_value=mock_client):
+            # 显示窗口并切换到AI标签页
+            settings_window.show()
+            qtbot.waitExposed(settings_window, timeout=1000)
+            settings_window.tab_widget.setCurrentIndex(3)  # AI tab is 4th (index 3)
+
+            # 设置API key
+            settings_window.ai_tab.openrouter_api_key_input.setText("test_api_key")
+
+            # 点击Test Connection按钮
+            settings_window.ai_tab.test_connection_button.click()
+
+            # 等待测试线程完成(使用较短的超时)
+            qtbot.wait(500)
+
+            # 验证连接测试被调用
+            # 注意:由于是异步线程,我们主要验证不抛出异常
+
+    def test_ai_connection_failure(self, qtbot, settings_window, monkeypatch):
+        """测试AI API连接失败"""
+        from unittest.mock import MagicMock, patch
+
+        # 创建mock AI client (返回失败)
+        mock_client = MagicMock()
+        mock_client.test_connection.return_value = (False, "Invalid API key")
+
+        # Mock AIClientFactory.create_client
+        with patch('sonicinput.ai.factory.AIClientFactory.create_client', return_value=mock_client):
+            # 显示窗口并切换到AI标签页
+            settings_window.show()
+            qtbot.waitExposed(settings_window, timeout=1000)
+            settings_window.tab_widget.setCurrentIndex(3)  # AI tab is 4th (index 3)
+
+            # 设置无效API key
+            settings_window.ai_tab.openrouter_api_key_input.setText("invalid_key")
+
+            # 点击Test Connection按钮
+            settings_window.ai_tab.test_connection_button.click()
+
+            # 等待测试线程完成
+            qtbot.wait(500)
+
+            # 验证不抛出异常(失败消息会显示在UI中)
+
+    def test_transcription_api_test(self, qtbot, settings_window, monkeypatch):
+        """测试Transcription API连接测试"""
+        from unittest.mock import MagicMock, patch
+
+        # Mock QMessageBox
+        mock_messages = []
+
+        def mock_information(*args, **kwargs):
+            if len(args) >= 3:
+                mock_messages.append(args[2])  # 捕获消息内容
+            return None
+
+        monkeypatch.setattr(QMessageBox, "information", mock_information)
+
+        # 创建mock transcription service
+        mock_service = MagicMock()
+        mock_service.test_api_connection.return_value = (True, "API connection successful")
+
+        # Mock service creation
+        with patch('sonicinput.speech.speech_service_factory.SpeechServiceFactory.create_service',
+                   return_value=mock_service):
+            # 显示窗口并切换到Transcription标签页
+            settings_window.show()
+            qtbot.waitExposed(settings_window, timeout=1000)
+            settings_window.tab_widget.setCurrentIndex(2)  # Transcription tab is 3rd (index 2)
+
+            # 切换到Groq提供商
+            settings_window.transcription_tab.provider_combo.setCurrentText("groq")
+            qtbot.wait(100)
+
+            # 设置API key
+            settings_window.transcription_tab.groq_api_key_input.setText("test_groq_key")
+
+            # 点击Test按钮
+            test_button = settings_window.transcription_tab.test_model_button
+            test_button.click()
+
+            # 等待测试完成
+            qtbot.wait(500)
+
+            # 验证操作完成(不抛出异常)
