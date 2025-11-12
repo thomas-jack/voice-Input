@@ -31,9 +31,10 @@
 - 2GB+ RAM
 
 **本地模式（sherpa-onnx）**:
-- 仅需 CPU，无需 GPU
-- 推荐 4GB+ RAM
-- 安装体积约 250MB
+- CPU 高效推理（RTF 0.06-0.21，比 GPU 方案更快）
+- 推荐 4GB+ RAM（8GB+ 更佳）
+- 安装体积约 250MB（比 GPU 方案减少 90%）
+- 支持 Paraformer（226MB）和 Zipformer（112MB）模型
 
 ---
 
@@ -209,21 +210,21 @@ uv run python app.py --gui
 
 | 依赖库 | 版本 | 说明 |
 |-------|------|------|
-| **sherpa-onnx** | ≥ 1.10.0 | 轻量级 ONNX Runtime 语音识别 |
+| **sherpa-onnx** | ≥ 1.10.0 | 轻量级 ONNX Runtime 语音识别引擎 |
 
-**优势**：
-- CPU 高效推理（RTF 0.06-0.21）
-- 无需 GPU/CUDA 依赖
-- 安装体积小（约 250MB）
-- 支持流式转录
+**sherpa-onnx 优势**：
+- ⚡ **CPU 高效推理**: RTF 0.06-0.21（比实时快 5-16 倍）
+- 🚫 **无 GPU 依赖**: 无需 CUDA/cuDNN，纯 CPU 运行
+- 🪶 **安装体积小**: 约 250MB（比传统 GPU 方案减少 90%）
+- 📡 **流式转录**: 支持 chunked 和 realtime 双模式
 
-**模型支持**：
-- **Paraformer**: 中英双语高精度（226MB，推荐）
-- **Zipformer**: 超轻量级（112MB）
+**支持的模型**：
+- **Paraformer**: 中英双语高精度（226MB，推荐用于准确性）
+- **Zipformer**: 超轻量级英文模型（112MB，推荐用于低内存环境）
 
 **安装方式**：
 - 云模式：`uv sync`（仅核心依赖，约 100MB）
-- 本地模式：`uv sync --extra local`（完整依赖，约 250MB）
+- 本地模式：`uv sync --extra local`（包含 sherpa-onnx，约 250MB）
 
 ---
 
@@ -246,47 +247,48 @@ uv run python app.py --gui
 
 ### 常见问题
 
-**无法录音**: 检查麦克风权限（Windows 设置 → 隐私 → 麦克风）
+**无法录音**:
+- 检查麦克风权限（Windows 设置 → 隐私 → 麦克风）
+- 确认麦克风设备已启用并设为默认设备
 
-**快捷键不工作**: 尝试管理员权限运行，或更换快捷键
+**快捷键不工作**:
+- 尝试管理员权限运行应用
+- 更换快捷键（避免与其他软件冲突）
+- 检查键盘布局和输入法状态
 
-**GPU 不可用**（仅本地模式）:
-1. 确认已安装 CUDA Toolkit 12.x：`nvidia-smi` 检查驱动，`nvcc --version` 检查 CUDA
-2. 确认依赖已安装：`uv sync --extra local`（自动安装 cuDNN 9 和 cuBLAS）
-3. 运行测试验证：`uv run python app.py --test`
-4. 检查日志中的具体错误信息
-5. 或者切换到云模式：设置中 Provider 选择 `groq` 并配置 API Key
+**模型下载失败**（仅本地模式）:
+1. **检查网络连接**，确认能访问 GitHub
+2. **手动下载模型**：
+   - 访问 [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases)
+   - 下载对应模型文件（Paraformer 或 Zipformer）
+   - 解压到 `%APPDATA%\SonicInput\models\` 目录
+3. **使用代理**: 如需代理访问，设置环境变量：
+   ```bash
+   set HTTP_PROXY=http://your-proxy:port
+   set HTTPS_PROXY=http://your-proxy:port
+   ```
+4. **检查磁盘空间**: 确保至少有 500MB 可用空间
 
-**转录慢**:
-- 本地模式：启用 GPU 加速（CPU 模式慢 5-10 倍）或使用较小模型（如 `small`）
-- 云模式：检查网络连接速度
+**转录慢/内存不足**:
+- **本地模式**:
+  - 切换到更小的 Zipformer 模型（112MB vs 226MB）
+  - 关闭其他占用内存的应用
+  - 升级到 8GB+ RAM
+- **云模式**:
+  - 检查网络连接速度和稳定性
+  - 尝试切换到其他 API 提供商
 
-**cuDNN 错误** (`Could not locate cudnn_ops64_9.dll`) - 仅本地模式:
-- **原因**: CTranslate2 4.5.0+ 需要 cuDNN 9
-- **解决**: 运行 `uv sync --extra local` 自动安装 nvidia-cudnn-cu12 包
-- **验证**: 检查 `.venv\Lib\site-packages\nvidia\cudnn\bin` 目录是否存在
-
-**cuBLAS 错误** (`Could not locate cublas64_12.dll`) - 仅本地模式:
-- **原因**: 缺少 CUDA Toolkit 或路径未配置
-- **解决步骤**:
-  1. 安装 CUDA Toolkit 12.x（https://developer.nvidia.com/cuda-downloads）
-  2. 验证安装：`nvcc --version`
-  3. 检查 CUDA 路径：`echo $env:CUDA_PATH`
-  4. 检查 DLL：`dir "$env:CUDA_PATH\bin\cublas*.dll"`
-  5. 重启应用（`app.py` 会自动添加 CUDA 路径）
-
-**Groq API 错误** - 仅云模式:
+**Groq API 错误**（仅云模式）:
 - **API Key 无效**: 检查 API Key 是否正确，访问 [Groq Console](https://console.groq.com/keys) 重新生成
 - **配额用完**: Groq 免费额度有限，检查控制台使用情况
 - **网络错误**: 检查网络连接，确认能访问 api.groq.com
+- **速率限制**: 等待几分钟后重试，或升级 API 套餐
 
-**版本兼容性问题**（仅本地模式）:
-| CTranslate2 版本 | CUDA 版本 | cuDNN 版本 |
-|-----------------|----------|-----------|
-| 4.4.0 及以下     | 12.0-12.2 | 8.9.7     |
-| 4.5.0 及以上     | 12.0+     | 9.5.1     |
-
-当前项目使用：**CTranslate2 4.6.0 + CUDA 12.x + cuDNN 9.5.1**
+**sherpa-onnx 初始化失败**（仅本地模式）:
+- 确认已安装本地依赖：`uv sync --extra local`
+- 运行诊断测试：`uv run python app.py --test`
+- 检查日志文件中的详细错误信息
+- 尝试重新下载模型文件
 
 ### 查看日志
 
@@ -371,8 +373,10 @@ MIT License - 详见 [LICENSE](LICENSE)
 
 ## 🙏 致谢
 
-- [OpenAI Whisper](https://github.com/openai/whisper) - 语音识别
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) - 优化实现
+- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) - 轻量级 ONNX 语音识别引擎
+- [Paraformer](https://github.com/modelscope/FunASR) - 高精度中英双语 ASR 模型
+- [k2-fsa](https://github.com/k2-fsa) - 开源语音识别框架
 - [PySide6](https://doc.qt.io/qtforpython-6/) - GUI 框架（Qt for Python）
+- [Groq](https://groq.com/) - 云端语音识别 API
 - [pynput](https://github.com/moses-palmer/pynput) - 全局快捷键
 

@@ -1,7 +1,7 @@
 <div align="center">
   <img src="assets/icon.png" alt="SonicInput Icon" width="128" height="128">
   <h1>SonicInput</h1>
-  <p>Windows voice-to-text input tool based on Whisper and AI, with real-time recognition and GPU acceleration.</p>
+  <p>Ultra-lightweight Windows voice-to-text input tool based on sherpa-onnx, supporting dual-mode streaming transcription and AI optimization.</p>
 
   <p>
     <strong>Languages:</strong>
@@ -12,25 +12,29 @@
 
 ## ✨ Key Features
 
-- 🎤 **Speech Recognition**: Supports local Whisper or cloud Groq API transcription
-- 🚀 **Streaming Transcription**: Automatic chunk processing during recording, reducing wait time by 70-90%
-- ⚡ **GPU Acceleration**: Local mode supports CUDA, 5-10x faster transcription speed
+- 🎤 **Speech Recognition**: Supports local sherpa-onnx (CPU-efficient) or cloud Groq/SiliconFlow/Qwen API transcription
+- 🚀 **Dual-Mode Streaming Transcription**:
+  - **chunked mode**: 30-second chunk processing with AI optimization (recommended)
+  - **realtime mode**: End-to-end streaming transcription with minimal latency
+- ⚡ **CPU-Efficient Inference**: sherpa-onnx RTF 0.06-0.21, 30-300x performance boost
+- 🪶 **Ultra-Lightweight**: Installation size only 250MB (90% reduction vs Faster Whisper)
 - 🤖 **AI Text Optimization**: Integrated Groq/OpenRouter/NVIDIA/OpenAI models
 - 🧠 **Think Tag Filtering**: Automatically filters AI thinking process tags (`<think>...</think>`), keeping only optimized results
 - ⌨️ **Global Hotkeys**: Customizable hotkeys (default F12 or Alt+H)
-- ☁️ **Lightweight Cloud Mode**: No GPU required, uses Groq cloud API for speech recognition
+- ☁️ **Lightweight Cloud Mode**: No GPU required, uses cloud APIs for speech recognition
 
 ## 📋 System Requirements
 
-**Basic Requirements (Cloud Mode)**:
+**Basic Requirements**:
 - Windows 10/11
 - Python 3.10+
 - 2GB+ RAM
 
-**Additional Requirements for Local Mode**:
-- 4GB+ RAM (8GB recommended)
-- NVIDIA GPU (for GPU acceleration)
-- CUDA 12.x+ (CUDA 12.1 or higher recommended)
+**Local Mode (sherpa-onnx)**:
+- CPU-efficient inference (RTF 0.06-0.21, faster than GPU solutions)
+- Recommended 4GB+ RAM (8GB+ better)
+- Installation size ~250MB (90% reduction vs GPU solutions)
+- Supports Paraformer (226MB) and Zipformer (112MB) models
 
 ---
 
@@ -69,8 +73,8 @@ SonicInput provides two deployment modes:
 
 | Mode | Advantages | Use Cases |
 |------|-----------|-----------|
-| **☁️ Cloud Transcription Mode** | Easy installation, no GPU required, small download size (~200MB) | First-time experience, lightweight usage, no GPU device |
-| **💻 Local Transcription Mode** | Offline available, privacy protection, no API limits | Long-term use, high privacy requirements, GPU device available |
+| **☁️ Cloud Transcription Mode** | Easy installation, no model download, small size (~100MB) | First-time experience, lightweight usage, stable network |
+| **💻 Local Transcription Mode** | Offline available, privacy protection, no API limits, CPU-efficient | Long-term use, high privacy requirements, offline environments |
 
 ---
 
@@ -113,9 +117,9 @@ Press F12 to start recording, press again to stop and transcribe automatically.
 
 ---
 
-### Option 2: Local Transcription Mode (Full Features)
+### Option 2: Local Transcription Mode (Offline Available)
 
-Use local Whisper model for offline speech recognition with GPU acceleration support.
+Use local sherpa-onnx models for offline speech recognition with CPU-efficient inference.
 
 #### 1. Install UV Package Manager
 
@@ -132,63 +136,34 @@ powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```bash
 git clone https://github.com/Oxidane-bot/SonicInput.git
 cd SonicInput
-uv sync --extra local --extra dev  # Install local transcription and dev dependencies (~2GB+)
+uv sync --extra local --extra dev  # Install local transcription and dev dependencies (~250MB)
 ```
 
-#### 3. Configure GPU Acceleration (Optional)
-
-For GPU acceleration, complete the following steps:
-
-#### Step 1: Check NVIDIA GPU
-
-```bash
-nvidia-smi
-```
-
-Confirm output shows GPU information and driver version.
-
-#### Step 2: Install CUDA Toolkit 12.x
-
-1. **Download CUDA Toolkit**: https://developer.nvidia.com/cuda-downloads
-   - **Recommended Version**: CUDA 12.1 or higher
-   - **Purpose**: Provides GPU acceleration base libraries (cuBLAS, cuFFT, etc.)
-
-2. **Verify after installation**:
-   ```bash
-   nvcc --version
-   ```
-
-3. **Confirm CUDA path** (usually set automatically):
-   ```powershell
-   echo $env:CUDA_PATH
-   # Example output: C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.9
-   ```
-
-#### Step 3: Verify GPU Configuration
-
-**Note**: `uv sync --extra local` automatically installs cuDNN 9 and cuBLAS (via nvidia-cudnn-cu12 and nvidia-cublas-cu12 packages from PyPI)
-
-**Verify GPU setup**:
+#### 3. First Launch (Automatic Model Download)
 
 ```bash
 uv run python app.py --test
 ```
 
-**Confirm output includes**:
+First launch will automatically download Paraformer model (226MB) to `%APPDATA%/SonicInput/models/`.
+
+Confirm output includes:
 ```
-SUCCESS: GPU available
-SUCCESS: Model loaded successfully
-Transcription Time: ~0.6s (for 2s audio)
-RTF (Real-Time Factor): ~0.3x
+Model download completed
+Model loaded successfully
+Transcription Time: ~0.1s (for 2s audio)
+RTF (Real-Time Factor): ~0.06-0.21
 ```
 
-**Performance Metrics**: With GPU acceleration, RTF is typically 0.3-0.5x (2-3x faster than real-time)
+Performance metrics: sherpa-onnx CPU inference RTF typically 0.06-0.21 (5-16x faster than real-time)
 
 #### 4. Start Application
 
 ```bash
 uv run python app.py --gui
 ```
+
+In settings, select **Provider** as `local` to use local sherpa-onnx transcription.
 
 #### 5. (Optional) Configure AI Text Optimization
 
@@ -205,16 +180,16 @@ Open settings via system tray icon to configure AI API keys for text optimizatio
 
 | Feature | Cloud Transcription Mode | Local Transcription Mode |
 |---------|-------------------------|-------------------------|
-| Installation Size | ~200MB | ~2GB+ |
-| GPU Requirement | None | NVIDIA GPU + CUDA |
+| Installation Size | ~100MB | ~250MB |
+| GPU Requirement | None | None (CPU-efficient) |
 | Network Requirement | Internet required | Offline available |
 | API Cost | Groq free tier | None |
-| Transcription Speed | Network dependent | GPU accelerated 2-3x faster |
+| Transcription Speed | Network dependent | CPU 5-16x faster |
 | Privacy | Audio uploaded | Fully local processing |
 | Use Cases | First-time experience, lightweight usage | Long-term use, high privacy requirements |
 
 **Switching Modes**:
-- Cloud → Local: Run `uv sync --extra local --extra dev` and install CUDA
+- Cloud → Local: Run `uv sync --extra local` and select `local` in settings
 - Local → Cloud: Change Provider to `groq` in settings and configure API Key
 
 ---
@@ -235,19 +210,21 @@ Open settings via system tray icon to configure AI API keys for text optimizatio
 
 | Dependency | Version | Description |
 |-----------|---------|-------------|
-| **faster-whisper** | ≥ 1.0.0 | Optimized Whisper implementation |
-| **ctranslate2** | 4.6.0 (≥4.5.0) | GPU-accelerated inference engine |
-| **CUDA Toolkit** | 12.x (12.1+ recommended) | GPU acceleration base libraries |
-| **cuDNN** | 9.5.1 | Deep learning acceleration library |
+| **sherpa-onnx** | ≥ 1.10.0 | Lightweight ONNX Runtime speech recognition engine |
 
-**Important Compatibility Notes** (Local Mode Only):
-- CTranslate2 4.5.0+ **requires** cuDNN 9 (incompatible with cuDNN 8)
-- CTranslate2 4.4.0 and below use cuDNN 8.9.7
-- Current project locks CTranslate2 ≥ 4.5.0, auto-installs 4.6.0
+**sherpa-onnx Advantages**:
+- ⚡ **CPU-Efficient Inference**: RTF 0.06-0.21 (5-16x faster than real-time)
+- 🚫 **No GPU Dependencies**: No CUDA/cuDNN required, pure CPU operation
+- 🪶 **Small Installation**: ~250MB (90% reduction vs traditional GPU solutions)
+- 📡 **Streaming Transcription**: Supports chunked and realtime dual modes
+
+**Supported Models**:
+- **Paraformer**: Bilingual Chinese-English high accuracy (226MB, recommended for accuracy)
+- **Zipformer**: Ultra-lightweight English model (112MB, recommended for low-memory environments)
 
 **Installation Methods**:
-- Cloud mode: `uv sync` (core dependencies only, ~200MB)
-- Local mode: `uv sync --extra local --extra dev` (full dependencies, ~2GB+)
+- Cloud mode: `uv sync` (core dependencies only, ~100MB)
+- Local mode: `uv sync --extra local` (includes sherpa-onnx, ~250MB)
 
 ---
 
@@ -270,47 +247,48 @@ Open settings via system tray icon to configure AI API keys for text optimizatio
 
 ### Common Issues
 
-**Cannot Record**: Check microphone permissions (Windows Settings → Privacy → Microphone)
+**Cannot Record**:
+- Check microphone permissions (Windows Settings → Privacy → Microphone)
+- Confirm microphone device is enabled and set as default
 
-**Hotkey Not Working**: Try running as administrator, or change hotkey
+**Hotkey Not Working**:
+- Try running as administrator
+- Change hotkey (avoid conflicts with other software)
+- Check keyboard layout and input method status
 
-**GPU Unavailable** (Local Mode Only):
-1. Confirm CUDA Toolkit 12.x installed: Check driver with `nvidia-smi`, check CUDA with `nvcc --version`
-2. Confirm dependencies installed: `uv sync --extra local` (automatically installs cuDNN 9 and cuBLAS)
-3. Run test to verify: `uv run python app.py --test`
-4. Check logs for specific error messages
-5. Or switch to cloud mode: Change Provider to `groq` in settings and configure API Key
+**Model Download Failed** (Local Mode Only):
+1. **Check network connection**, ensure GitHub is accessible
+2. **Manual model download**:
+   - Visit [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases)
+   - Download corresponding model files (Paraformer or Zipformer)
+   - Extract to `%APPDATA%\SonicInput\models\` directory
+3. **Use proxy**: If proxy access needed, set environment variables:
+   ```bash
+   set HTTP_PROXY=http://your-proxy:port
+   set HTTPS_PROXY=http://your-proxy:port
+   ```
+4. **Check disk space**: Ensure at least 500MB available space
 
-**Slow Transcription**:
-- Local mode: Enable GPU acceleration (CPU mode is 5-10x slower) or use smaller model (e.g., `small`)
-- Cloud mode: Check network connection speed
+**Slow Transcription / Out of Memory**:
+- **Local Mode**:
+  - Switch to smaller Zipformer model (112MB vs 226MB)
+  - Close other memory-intensive applications
+  - Upgrade to 8GB+ RAM
+- **Cloud Mode**:
+  - Check network connection speed and stability
+  - Try switching to other API providers
 
-**cuDNN Error** (`Could not locate cudnn_ops64_9.dll`) - Local Mode Only:
-- **Cause**: CTranslate2 4.5.0+ requires cuDNN 9
-- **Solution**: Run `uv sync --extra local` to auto-install nvidia-cudnn-cu12 package
-- **Verify**: Check if `.venv\Lib\site-packages\nvidia\cudnn\bin` directory exists
-
-**cuBLAS Error** (`Could not locate cublas64_12.dll`) - Local Mode Only:
-- **Cause**: Missing CUDA Toolkit or path not configured
-- **Solution Steps**:
-  1. Install CUDA Toolkit 12.x (https://developer.nvidia.com/cuda-downloads)
-  2. Verify installation: `nvcc --version`
-  3. Check CUDA path: `echo $env:CUDA_PATH`
-  4. Check DLL: `dir "$env:CUDA_PATH\bin\cublas*.dll"`
-  5. Restart app (`app.py` will automatically add CUDA path)
-
-**Groq API Error** - Cloud Mode Only:
+**Groq API Error** (Cloud Mode Only):
 - **Invalid API Key**: Check if API Key is correct, visit [Groq Console](https://console.groq.com/keys) to regenerate
 - **Quota Exhausted**: Groq free tier has limits, check console for usage
 - **Network Error**: Check network connection, ensure api.groq.com is accessible
+- **Rate Limit**: Wait a few minutes and retry, or upgrade API plan
 
-**Version Compatibility** (Local Mode Only):
-| CTranslate2 Version | CUDA Version | cuDNN Version |
-|--------------------|--------------|---------------|
-| 4.4.0 and below    | 12.0-12.2    | 8.9.7         |
-| 4.5.0 and above    | 12.0+        | 9.5.1         |
-
-Current project uses: **CTranslate2 4.6.0 + CUDA 12.x + cuDNN 9.5.1**
+**sherpa-onnx Initialization Failed** (Local Mode Only):
+- Confirm local dependencies installed: `uv sync --extra local`
+- Run diagnostic test: `uv run python app.py --test`
+- Check log files for detailed error information
+- Try re-downloading model files
 
 ### View Logs
 
@@ -322,6 +300,71 @@ Enable detailed logging: Settings → General → Log Level: DEBUG
 
 ---
 
+## 📁 Data Storage Location
+
+SonicInput creates a data folder in the user directory where all configurations and recording history are stored. **Users have full control over these files** and can freely backup, migrate, or delete them.
+
+### Windows Default Path
+
+```
+C:\Users\<username>\AppData\Roaming\SonicInput\
+```
+
+### Directory Structure
+
+```
+SonicInput/
+├── config.json              # Application configuration file (settings, API keys, etc.)
+├── logs/                     # Log folder
+│   └── app.log              # Application logs (adjustable log level)
+└── history/                  # History folder
+    ├── history.db           # SQLite database (transcription history, metadata)
+    └── recordings/          # Recording file storage
+        └── *.wav            # WAV format recording files
+```
+
+### File Description
+
+| File/Folder | Content | Deletable | Note |
+|------------|---------|-----------|------|
+| `config.json` | Application configuration | ⚠️ Caution | Configuration resets to default after deletion |
+| `logs/app.log` | Runtime logs | ✅ Yes | Auto-rotated, can be cleaned periodically |
+| `history/history.db` | History metadata | ⚠️ Caution | All history lost after deletion |
+| `history/recordings/*.wav` | Recording files | ✅ Yes | Keep as needed, can manually clean old files |
+
+### Open Data Folder
+
+**Method 1**: Using Windows Explorer
+```
+Win+R → Enter: %APPDATA%\SonicInput → Press Enter
+```
+
+**Method 2**: Using Command Line
+```bash
+explorer %APPDATA%\SonicInput
+```
+
+### Data Management Suggestions
+
+**Backup Configuration**:
+```bash
+# Copy configuration file to safe location
+copy "%APPDATA%\SonicInput\config.json" "D:\Backup\SonicInput_config_backup.json"
+```
+
+**Clean History**:
+- Delete individual records through the in-app "History" tab
+- Or directly delete old WAV files in `history/recordings/` (database will auto-clean invalid references)
+
+**Complete Uninstall**:
+1. Uninstall/delete the application
+2. Manually delete data folder:
+   ```bash
+   rmdir /s "%APPDATA%\SonicInput"
+   ```
+
+---
+
 ## 📄 License
 
 MIT License - See [LICENSE](LICENSE)
@@ -330,7 +373,9 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 🙏 Acknowledgments
 
-- [OpenAI Whisper](https://github.com/openai/whisper) - Speech recognition
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) - Optimized implementation
+- [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) - Lightweight ONNX speech recognition engine
+- [Paraformer](https://github.com/modelscope/FunASR) - High-accuracy bilingual Chinese-English ASR model
+- [k2-fsa](https://github.com/k2-fsa) - Open-source speech recognition framework
 - [PySide6](https://doc.qt.io/qtforpython-6/) - GUI framework (Qt for Python)
+- [Groq](https://groq.com/) - Cloud speech recognition API
 - [pynput](https://github.com/moses-palmer/pynput) - Global hotkeys
