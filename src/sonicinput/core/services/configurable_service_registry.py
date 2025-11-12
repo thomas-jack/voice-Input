@@ -249,8 +249,10 @@ class ConfigurableServiceRegistry:
                 return SherpaEngine("paraformer", language="zh")
             return service
 
-        # 使用TranscriptionService包装
-        transcription_service = TranscriptionService(speech_service_factory, event_service)
+        # 使用TranscriptionService包装（传递 config_service 用于流式模式配置）
+        transcription_service = TranscriptionService(
+            speech_service_factory, event_service, config_service=config
+        )
         transcription_service.start()
 
         return transcription_service

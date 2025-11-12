@@ -63,13 +63,38 @@ class AIProcessingController(BaseController, IAIProcessingController):
         """处理转录完成事件
 
         Args:
-            data: 转录结果数据
+            data: 转录结果数据（可能包含 streaming_mode）
         """
         text = data.get("text", "")
         self._current_record_id = data.get("record_id")
+        streaming_mode = data.get("streaming_mode", "chunked")
 
-        # 如果启用AI且有文本，则进行优化
-        if self.is_ai_enabled() and text.strip():
+        # 实现混合 AI 策略
+        should_use_ai = False
+
+        if streaming_mode == "realtime":
+            # Realtime 模式：永不使用 AI（优先速度）
+            app_logger.log_audio_event(
+                "Realtime mode: skipping AI processing",
+                {"text_length": len(text)}
+            )
+            should_use_ai = False
+        elif streaming_mode == "chunked":
+            # Chunked 模式：尊重 AI 开关（可选质量优化）
+            should_use_ai = self.is_ai_enabled()
+            if should_use_ai:
+                app_logger.log_audio_event(
+                    "Chunked mode: AI enabled, will optimize",
+                    {"text_length": len(text)}
+                )
+            else:
+                app_logger.log_audio_event(
+                    "Chunked mode: AI disabled, skipping",
+                    {"text_length": len(text)}
+                )
+
+        # 根据策略决定是否使用 AI
+        if should_use_ai and text.strip():
             optimized_text = self.process_with_ai(text)
 
             # 创建data副本并移除会冲突的键（避免字典键冲突）
@@ -82,11 +107,18 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     "text": optimized_text,
                     "original_text": text,
                     "ai_tps": self._last_ai_tps,
+                    "streaming_mode": streaming_mode,
                     **data_copy,  # 保留原始数据（audio_duration等）
                 },
             )
         else:
-            # AI未启用，更新历史记录为"skipped"
+            # 不使用AI：更新历史记录
+            skip_reason = (
+                "realtime_mode" if streaming_mode == "realtime"
+                else "ai_disabled" if not self.is_ai_enabled()
+                else "no_text"
+            )
+
             if self._current_record_id:
                 self._update_ai_status(
                     ai_text=None,
@@ -100,7 +132,14 @@ class AIProcessingController(BaseController, IAIProcessingController):
             data_copy = {k: v for k, v in data.items() if k != "text"}
 
             self._events.emit(
-                "ai_processed_text", {"text": text, "original_text": text, **data_copy}
+                "ai_processed_text",
+                {
+                    "text": text,
+                    "original_text": text,
+                    "streaming_mode": streaming_mode,
+                    "skip_reason": skip_reason,
+                    **data_copy
+                }
             )
 
     def process_with_ai(self, text: str) -> str:

@@ -52,6 +52,9 @@ class SherpaStreamingSession:
     def get_partial_result(self) -> str:
         """获取部分结果（实时文本）
 
+        改进：不在检测到端点时立即reset，而是累积完整句子。
+        这样可以避免在用户说话过程中截断文本。
+
         Returns:
             当前识别的部分文本
         """
@@ -59,15 +62,42 @@ class SherpaStreamingSession:
             return self._last_result
 
         try:
-            # 解码当前可用的音频
-            while self.recognizer.is_ready(self.stream):
+            # 持续解码直到所有可用帧处理完毕
+            decode_count = 0
+            max_decode_per_call = 10  # 防止无限循环
+            while self.recognizer.is_ready(self.stream) and decode_count < max_decode_per_call:
                 self.recognizer.decode_stream(self.stream)
+                decode_count += 1
 
-            # 获取部分结果
+            if decode_count > 0:
+                logger.debug(f"Decoded {decode_count} frames")
+
+            # 获取当前结果
             result = self.recognizer.get_result(self.stream)
-            self._last_result = result
 
-            return result
+            # 检查是否到达端点（句子结束）
+            is_endpoint = self.recognizer.is_endpoint(self.stream)
+
+            if is_endpoint:
+                # 端点检测：句子可能结束
+                # 关键修复：不立即reset，而是标记端点并继续累积
+                if result.strip():
+                    self._last_result = result
+                    logger.debug(
+                        f"Endpoint detected, current result: '{result[:30]}...', "
+                        f"length={len(result)}"
+                    )
+                    # 注意：这里不调用 reset()
+                    # reset()延迟到 get_final_result() 或确认无新音频时
+            else:
+                # 部分结果：句子未结束
+                if result.strip():
+                    self._last_result = result
+                    logger.debug(
+                        f"Partial result: '{result[:30]}...', length={len(result)}"
+                    )
+
+            return self._last_result
 
         except Exception as e:
             logger.error(f"Error getting partial result: {e}")

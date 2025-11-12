@@ -44,10 +44,18 @@ class TranscriptionCore:
         start_time = time.time()
 
         try:
-            # 执行转录
-            result = self.whisper_engine.transcribe(
-                audio_data, language=language, temperature=temperature
-            )
+            # 执行转录 - 根据引擎类型传递不同参数
+            # SherpaEngine 不支持 temperature 参数
+            if hasattr(self.whisper_engine, '__class__') and 'SherpaEngine' in self.whisper_engine.__class__.__name__:
+                # SherpaEngine 只需要 audio_data 和 language
+                result = self.whisper_engine.transcribe(
+                    audio_data, language=language
+                )
+            else:
+                # WhisperEngine 支持 temperature 参数
+                result = self.whisper_engine.transcribe(
+                    audio_data, language=language, temperature=temperature
+                )
 
             processing_time = time.time() - start_time
 

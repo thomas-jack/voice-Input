@@ -168,7 +168,7 @@ class SherpaModelManager:
         model_dir = self.ensure_model_available(model_name)
 
         if model_name == "paraformer":
-            # Paraformer 配置
+            # Paraformer 配置（只支持greedy_search）
             return {
                 "tokens": str(model_dir / "tokens.txt"),
                 "encoder": str(model_dir / "encoder.int8.onnx"),
@@ -179,7 +179,7 @@ class SherpaModelManager:
                 "decoding_method": "greedy_search",
             }
         elif model_name == "zipformer-small":
-            # Zipformer 配置
+            # Zipformer 配置（保守使用greedy_search以确保兼容性）
             return {
                 "tokens": str(model_dir / "tokens.txt"),
                 "encoder": str(model_dir / "encoder-epoch-99-avg-1.onnx"),

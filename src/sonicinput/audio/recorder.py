@@ -17,7 +17,7 @@ class AudioRecorder(IAudioService):
         self,
         sample_rate: int = 16000,
         channels: int = 1,
-        chunk_size: int = 1024,
+        chunk_size: int = 4096,  # 256ms @ 16kHz，提供更多上下文
         config_service=None,
     ):
         self._sample_rate = sample_rate

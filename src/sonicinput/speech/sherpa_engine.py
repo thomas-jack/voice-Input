@@ -76,48 +76,39 @@ class SherpaEngine(ISpeechService):
             # 获取模型配置
             model_config = self.model_manager.get_model_config(self.model_name)
 
-            # 创建识别器配置
+            # 使用工厂方法创建识别器（sherpa-onnx 1.12+ API）
             if model_config["model_type"] == "paraformer":
-                # Paraformer 配置
-                recognizer_config = sherpa_onnx.OnlineRecognizerConfig(
-                    model_config=sherpa_onnx.OnlineModelConfig(
-                        paraformer=sherpa_onnx.OnlineParaformerModelConfig(
-                            encoder=model_config["encoder"],
-                            decoder=model_config["decoder"],
-                        ),
-                        tokens=model_config["tokens"],
-                        num_threads=model_config["num_threads"],
-                        provider=model_config["provider"],
-                        model_type="paraformer",
-                    ),
+                # Paraformer 使用工厂方法
+                self.recognizer = sherpa_onnx.OnlineRecognizer.from_paraformer(
+                    tokens=model_config["tokens"],
+                    encoder=model_config["encoder"],
+                    decoder=model_config["decoder"],
+                    num_threads=model_config["num_threads"],
+                    sample_rate=16000,
+                    feature_dim=80,
                     decoding_method=model_config["decoding_method"],
                     enable_endpoint_detection=True,
-                    rule1_min_trailing_silence=2.4,
-                    rule2_min_trailing_silence=1.2,
-                    rule3_min_utterance_length=20,
+                    rule1_min_trailing_silence=3.6,  # 从2.4增加到3.6秒，更宽松
+                    rule2_min_trailing_silence=2.0,  # 从1.2增加到2.0秒，更宽松
+                    rule3_min_utterance_length=15,   # 从20减少到15帧，允许短句子
+                    provider=model_config["provider"],
                 )
             elif model_config["model_type"] == "zipformer":
-                # Zipformer 配置
-                recognizer_config = sherpa_onnx.OnlineRecognizerConfig(
-                    model_config=sherpa_onnx.OnlineModelConfig(
-                        transducer=sherpa_onnx.OnlineTransducerModelConfig(
-                            encoder=model_config["encoder"],
-                            decoder=model_config["decoder"],
-                            joiner=model_config["joiner"],
-                        ),
-                        tokens=model_config["tokens"],
-                        num_threads=model_config["num_threads"],
-                        provider=model_config["provider"],
-                        model_type="zipformer",
-                    ),
+                # Zipformer 使用工厂方法
+                self.recognizer = sherpa_onnx.OnlineRecognizer.from_transducer(
+                    tokens=model_config["tokens"],
+                    encoder=model_config["encoder"],
+                    decoder=model_config["decoder"],
+                    joiner=model_config["joiner"],
+                    num_threads=model_config["num_threads"],
+                    sample_rate=16000,
+                    feature_dim=80,
                     decoding_method=model_config["decoding_method"],
                     enable_endpoint_detection=True,
+                    provider=model_config["provider"],
                 )
             else:
                 raise ValueError(f"Unknown model type: {model_config['model_type']}")
-
-            # 创建识别器
-            self.recognizer = sherpa_onnx.OnlineRecognizer(recognizer_config)
 
             self._is_loaded = True
             logger.info(f"Model {self.model_name} loaded successfully")
@@ -212,6 +203,18 @@ class SherpaEngine(ISpeechService):
     def is_model_loaded(self) -> bool:
         """模型是否已加载"""
         return self._is_loaded and self.recognizer is not None
+
+    @property
+    def device(self) -> str:
+        """设备属性（兼容性）
+
+        sherpa-onnx 是纯CPU推理，此属性始终返回 'CPU'。
+        此属性用于与模型管理系统保持兼容。
+
+        Returns:
+            str: 始终返回 "CPU"
+        """
+        return "CPU"
 
     def get_model_info(self) -> Dict[str, Any]:
         """获取当前模型信息

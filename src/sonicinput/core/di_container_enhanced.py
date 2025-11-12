@@ -296,6 +296,9 @@ class EnhancedDIContainer:
         self._lock = threading.RLock()
         self._creation_context_stack: List[ServiceCreationContext] = []
 
+        # 清理优先级映射（数字越大越晚清理，与初始化顺序相反）
+        self._cleanup_priorities: Dict[Type, int] = {}
+
         # 注册默认装饰器
         self.add_decorator(PerformanceDecorator())
         self.add_decorator(ErrorHandlingDecorator())
@@ -311,6 +314,16 @@ class EnhancedDIContainer:
     def add_decorator(self, decorator: ServiceDecorator) -> None:
         """添加服务装饰器"""
         self._decorators.append(decorator)
+
+    def set_cleanup_priority(self, interface: Type, priority: int) -> None:
+        """设置服务清理优先级
+
+        Args:
+            interface: 服务接口类型
+            priority: 清理优先级（数字越大越晚清理，范围0-100）
+        """
+        with self._lock:
+            self._cleanup_priorities[interface] = priority
 
     def register_transient(
         self,
@@ -674,18 +687,29 @@ class EnhancedDIContainer:
                 self._check_circular_dependency(dep_descriptor, visited.copy())
 
     def cleanup(self) -> None:
-        """清理容器资源"""
+        """清理容器资源（按优先级顺序）"""
         with self._lock:
             # 清理所有作用域
             for scope_name in list(self._scoped_instances.keys()):
                 self.clear_scope(scope_name)
 
-            # 清理单例
-            for interface, instance in self._singletons.items():
+            # 按清理优先级排序单例（升序，数字小的先清理）
+            sorted_singletons = sorted(
+                self._singletons.items(),
+                key=lambda item: self._cleanup_priorities.get(item[0], 50)  # 默认优先级50
+            )
+
+            # 按优先级顺序清理单例
+            for interface, instance in sorted_singletons:
                 if hasattr(instance, "cleanup") and callable(
                     getattr(instance, "cleanup")
                 ):
+                    priority = self._cleanup_priorities.get(interface, 50)
                     try:
+                        if self.logger:
+                            self.logger.debug(
+                                f"Cleaning up singleton {interface.__name__} (priority: {priority})"
+                            )
                         instance.cleanup()
                     except Exception as e:
                         if self.logger:
@@ -694,6 +718,7 @@ class EnhancedDIContainer:
                             )
 
             self._singletons.clear()
+            self._cleanup_priorities.clear()
             self.registry.clear()
 
             if self.logger:
@@ -786,10 +811,10 @@ def create_container() -> "EnhancedDIContainer":
 
         if provider == "local":
             try:
-                # 检测 faster-whisper 是否可用
-                import faster_whisper  # noqa: F401
+                # 检测 sherpa-onnx 是否可用
+                import sherpa_onnx  # noqa: F401
             except ImportError:
-                # faster-whisper 不可用，自动切换到云服务
+                # sherpa-onnx 不可用，自动切换到云服务
                 from ..utils import app_logger
 
                 # 查找第一个配置了 API key 的云服务
@@ -811,8 +836,8 @@ def create_container() -> "EnhancedDIContainer":
                         {
                             "original_provider": "local",
                             "new_provider": switched_to,
-                            "reason": "faster-whisper not installed",
-                            "suggestion": "Install faster-whisper for local transcription"
+                            "reason": "sherpa-onnx not installed",
+                            "suggestion": "Install sherpa-onnx for local transcription"
                         }
                     )
                 else:
@@ -820,9 +845,9 @@ def create_container() -> "EnhancedDIContainer":
                         "Local provider unavailable and no cloud provider configured",
                         {
                             "original_provider": "local",
-                            "reason": "faster-whisper not installed",
+                            "reason": "sherpa-onnx not installed",
                             "action": "Will use stub service",
-                            "suggestion": "Configure a cloud provider API key or install faster-whisper"
+                            "suggestion": "Configure a cloud provider API key or install sherpa-onnx"
                         }
                     )
 
@@ -834,13 +859,14 @@ def create_container() -> "EnhancedDIContainer":
             # 使用工厂从配置创建服务（自动选择 local 或 cloud）
             service = SpeechServiceFactory.create_from_config(config)
             if service is None:
-                # Fallback 到默认的 WhisperEngine（仅在本地模式）
-                return WhisperEngine("large-v3-turbo", use_gpu=None)
+                # Fallback 到默认的 SherpaEngine（仅在本地模式）
+                from ..speech.sherpa_engine import SherpaEngine
+                return SherpaEngine(model_name="paraformer", language="zh")
             return service
 
-        # 使用TranscriptionService包装,提供线程隔离
+        # 使用TranscriptionService包装,提供线程隔离（传递 config 用于流式模式配置）
         transcription_service = TranscriptionService(
-            speech_service_factory, event_service
+            speech_service_factory, event_service, config_service=config
         )
 
         # 启动TranscriptionService
@@ -1011,6 +1037,35 @@ def create_container() -> "EnhancedDIContainer":
     container.register_factory(
         IUIGPUService, create_ui_gpu_service, ServiceLifetime.SINGLETON
     )
+
+    # ========================================================================
+    # 设置清理优先级（数字越大越晚清理，与初始化顺序相反）
+    # ========================================================================
+
+    # UI层 - 最早清理 (5-20)
+    container.set_cleanup_priority(IUIMainService, 5)
+    container.set_cleanup_priority(IUISettingsService, 10)
+    container.set_cleanup_priority(IUIModelService, 12)
+    container.set_cleanup_priority(IUIAudioService, 14)
+    container.set_cleanup_priority(IUIGPUService, 16)
+    container.set_cleanup_priority(IUIEventBridge, 18)
+
+    # 业务服务层 - 中等优先级 (40-60)
+    container.set_cleanup_priority(IAudioService, 40)   # 音频服务较早清理
+    container.set_cleanup_priority(IInputService, 45)   # 输入服务
+    container.set_cleanup_priority(IHotkeyService, 48)  # 快捷键服务
+    container.set_cleanup_priority(ISpeechService, 50)  # 语音服务
+    container.set_cleanup_priority(IAIService, 52)      # AI服务
+
+    # 应用编排层 - 较高优先级 (70-80)
+    container.set_cleanup_priority(IHistoryStorageService, 70)  # 历史记录服务
+    container.set_cleanup_priority(IApplicationOrchestrator, 75)  # 应用编排器
+    container.set_cleanup_priority(IConfigReloadService, 78)  # 配置重载服务
+
+    # 核心基础服务 - 最后清理 (90-100)
+    container.set_cleanup_priority(IStateManager, 90)   # 状态管理器
+    container.set_cleanup_priority(IConfigService, 95)  # 配置服务（倒数第二）
+    container.set_cleanup_priority(IEventService, 100)  # 事件服务（最后清理）
 
     return container
 

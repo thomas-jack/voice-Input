@@ -138,7 +138,7 @@ class StreamingCoordinator:
 
                     self._streaming_chunks.clear()
 
-            # realtime 模式：获取最终结果
+            # realtime 模式：获取最终结果并显式清理session
             elif self._streaming_mode_type == "realtime":
                 if self._realtime_session:
                     try:
@@ -146,6 +146,16 @@ class StreamingCoordinator:
                         self._realtime_partial_text = final_text
                     except Exception as e:
                         app_logger.log_error(e, "realtime_final_result")
+
+                    # 显式清理sherpa-onnx streaming session
+                    try:
+                        if hasattr(self._realtime_session, 'is_active') and self._realtime_session.is_active:
+                            if hasattr(self._realtime_session, 'stream') and self._realtime_session.stream:
+                                self._realtime_session.stream.input_finished()
+                            self._realtime_session.is_active = False
+                            app_logger.log_audio_event("Realtime session explicitly cleaned up", {})
+                    except Exception as e:
+                        app_logger.log_error(e, "realtime_session_cleanup")
 
                     self._realtime_session = None
 
@@ -315,7 +325,7 @@ class StreamingCoordinator:
                     return None
 
                 # 检查是否仍在流式模式
-                if not self._streaming_mode:
+                if not self._streaming_active:
                     return None
 
             # 短暂等待

@@ -148,6 +148,22 @@ class UISettingsService:
         if hasattr(self.config_service, 'save_config'):
             self.config_service.save_config()
 
+    def save_config(self) -> None:
+        """保存配置到文件（别名方法）
+
+        这个方法是为了兼容不同的调用方式而存在的。
+        settings_window.py 调用 save_config()，其他地方可能调用 save_settings()。
+        实现立即保存，不使用防抖延迟。
+        """
+        if hasattr(self.config_service, 'save_config'):
+            # 立即保存，不使用防抖延迟
+            success = self.config_service.save_config()
+            if success:
+                from ...utils import app_logger
+                app_logger.log_audio_event("Config saved immediately from UI", {})
+            return success
+        return False
+
     def export_config(self, file_path: str) -> None:
         """导出配置到文件"""
         if hasattr(self.config_service, 'export_config'):
@@ -257,8 +273,26 @@ class UIModelService:
             "device": getattr(engine, 'device', 'Unknown')
         }
 
+    def get_whisper_engine(self) -> Optional[Any]:
+        """获取语音引擎实例
+
+        此方法提供对底层语音引擎的访问，用于与需要直接引擎访问的UI代码兼容。
+
+        Returns:
+            Optional[Any]: 引擎实例（SherpaEngine或其他），如果不可用则返回None
+        """
+        return self._get_engine()
+
     def _get_engine(self) -> Optional[Any]:
         """获取底层引擎（内部方法）"""
+        # 优先检查 RefactoredTranscriptionService 的 model_manager
+        if hasattr(self.speech_service, 'model_manager'):
+            model_manager = self.speech_service.model_manager
+            if hasattr(model_manager, '_whisper_engine'):
+                return model_manager._whisper_engine
+            elif hasattr(model_manager, 'get_whisper_engine'):
+                return model_manager.get_whisper_engine()
+        # 回退到直接检查
         if hasattr(self.speech_service, 'whisper_engine'):
             return self.speech_service.whisper_engine
         elif hasattr(self.speech_service, '_engine'):

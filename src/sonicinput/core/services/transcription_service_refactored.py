@@ -32,19 +32,48 @@ class RefactoredTranscriptionService(ISpeechService):
     这个类主要负责组件间的协调和对外提供统一的API接口。
     """
 
-    def __init__(self, whisper_engine_factory, event_service=None):
+    def __init__(self, whisper_engine_factory, event_service=None, config_service=None):
         """初始化重构后的转录服务
 
         Args:
             whisper_engine_factory: Whisper引擎工厂函数
             event_service: 事件服务（可选）
+            config_service: 配置服务（可选）
         """
         self.event_service = event_service
+        self.config_service = config_service
+
+        app_logger.audio(
+            "TranscriptionService __init__ called",
+            {
+                "has_config_service": config_service is not None,
+                "config_service_type": type(config_service).__name__ if config_service else "None"
+            }
+        )
+
+        # 从配置读取流式模式
+        streaming_mode = "chunked"  # 默认值
+        if config_service:
+            streaming_mode = config_service.get_setting(
+                "transcription.local.streaming_mode", "chunked"
+            )
+            app_logger.audio(
+                "Reading streaming_mode from config",
+                {
+                    "streaming_mode": streaming_mode,
+                    "config_key": "transcription.local.streaming_mode"
+                }
+            )
+        else:
+            app_logger.audio(
+                "No config_service provided, using default streaming_mode",
+                {"streaming_mode": streaming_mode}
+            )
 
         # 创建专职组件
         self.model_manager = ModelManager(whisper_engine_factory, event_service)
         self.transcription_core = None  # 将在model加载后创建
-        self.streaming_coordinator = StreamingCoordinator(event_service)
+        self.streaming_coordinator = StreamingCoordinator(event_service, streaming_mode)
         self.task_queue_manager = TaskQueueManager(
             worker_count=1, event_service=event_service
         )
@@ -57,7 +86,10 @@ class RefactoredTranscriptionService(ISpeechService):
         # 注册任务处理器
         self._register_task_handlers()
 
-        app_logger.audio("RefactoredTranscriptionService initialized", {})
+        app_logger.audio(
+            "RefactoredTranscriptionService initialized",
+            {"streaming_mode": streaming_mode}
+        )
 
     def start(self) -> None:
         """启动转录服务"""
@@ -299,85 +331,105 @@ class RefactoredTranscriptionService(ISpeechService):
         """停止流式转录模式并处理所有待处理的块
 
         Returns:
-            流式转录统计信息
+            流式转录统计信息（包含text和stats字段）
         """
-        # 获取所有待处理的块
-        pending_chunks = self.streaming_coordinator.get_pending_chunks()
+        streaming_mode = self.streaming_coordinator.get_streaming_mode()
 
-        app_logger.audio(
-            "Processing pending chunks before stopping",
-            {"pending_count": len(pending_chunks)},
-        )
-
-        # 为每个待处理的块提交转录任务,并保存块的引用
-        pending_chunk_refs = []
-        for chunk in pending_chunks:
-            task_data = {"chunk_id": chunk.chunk_id, "audio_data": chunk.audio_data}
-
-            # 提交到任务队列进行转录
-            self.task_queue_manager.submit_task(
-                task_type="process_streaming_chunk",
-                data=task_data,
-                priority=TaskPriority.HIGH,
-            )
-
-            # 保存块的完整引用(包括result_event和result_container)
-            pending_chunk_refs.append(chunk)
+        if streaming_mode == "realtime":
+            # Realtime 模式：直接获取最终文本
+            final_text = self.streaming_coordinator.get_realtime_text()
 
             app_logger.audio(
-                "Submitted pending chunk for transcription",
-                {"chunk_id": chunk.chunk_id, "audio_length": len(chunk.audio_data)},
+                "Getting realtime transcription text",
+                {"text_length": len(final_text)}
             )
 
-        # 等待所有块完成转录(最多等待30秒)
-        timeout = 30.0
-        start_time = time.time()
+            # 停止流式模式
+            stats = self.streaming_coordinator.stop_streaming()
 
-        for chunk in pending_chunk_refs:
-            remaining_time = timeout - (time.time() - start_time)
-            if remaining_time <= 0:
-                app_logger.audio(
-                    "Timeout waiting for chunk completion", {"chunk_id": chunk.chunk_id}
+            app_logger.audio("Realtime streaming stopped", stats)
+
+            return {"text": final_text, "stats": stats}
+
+        else:
+            # Chunked 模式：处理待处理的块
+            # 获取所有待处理的块
+            pending_chunks = self.streaming_coordinator.get_pending_chunks()
+
+            app_logger.audio(
+                "Processing pending chunks before stopping",
+                {"pending_count": len(pending_chunks)},
+            )
+
+            # 为每个待处理的块提交转录任务,并保存块的引用
+            pending_chunk_refs = []
+            for chunk in pending_chunks:
+                task_data = {"chunk_id": chunk.chunk_id, "audio_data": chunk.audio_data}
+
+                # 提交到任务队列进行转录
+                self.task_queue_manager.submit_task(
+                    task_type="process_streaming_chunk",
+                    data=task_data,
+                    priority=TaskPriority.HIGH,
                 )
-                break
 
-            if not chunk.result_event.wait(timeout=remaining_time):
+                # 保存块的完整引用(包括result_event和result_container)
+                pending_chunk_refs.append(chunk)
+
                 app_logger.audio(
-                    "Chunk processing timeout",
-                    {"chunk_id": chunk.chunk_id, "timeout": remaining_time},
+                    "Submitted pending chunk for transcription",
+                    {"chunk_id": chunk.chunk_id, "audio_length": len(chunk.audio_data)},
                 )
 
-        # 从保存的块引用中提取转录文本
-        text_parts = []
-        completed_count = 0
+            # 等待所有块完成转录(最多等待30秒)
+            timeout = 30.0
+            start_time = time.time()
 
-        for chunk in pending_chunk_refs:
-            result = chunk.result_container
-            if result.get("success"):
-                completed_count += 1
-                # 转录结果直接存储在顶层的 "text" 字段中
-                text = result.get("text", "")
-                if text:
-                    text_parts.append(text)
+            for chunk in pending_chunk_refs:
+                remaining_time = timeout - (time.time() - start_time)
+                if remaining_time <= 0:
+                    app_logger.audio(
+                        "Timeout waiting for chunk completion", {"chunk_id": chunk.chunk_id}
+                    )
+                    break
 
-        transcribed_text = " ".join(text_parts).strip()
+                if not chunk.result_event.wait(timeout=remaining_time):
+                    app_logger.audio(
+                        "Chunk processing timeout",
+                        {"chunk_id": chunk.chunk_id, "timeout": remaining_time},
+                    )
 
-        app_logger.audio(
-            "Extracted transcription text from chunks",
-            {
-                "total_chunks": len(pending_chunk_refs),
-                "completed_chunks": completed_count,
-                "text_length": len(transcribed_text),
-            },
-        )
+            # 从保存的块引用中提取转录文本
+            text_parts = []
+            completed_count = 0
 
-        # 停止流式模式
-        stats = self.streaming_coordinator.stop_streaming()
+            for chunk in pending_chunk_refs:
+                result = chunk.result_container
+                if result.get("success"):
+                    completed_count += 1
+                    # 转录结果直接存储在顶层的 "text" 字段中
+                    text = result.get("text", "")
+                    if text:
+                        text_parts.append(text)
 
-        app_logger.audio("Streaming transcription stopped", stats)
+            transcribed_text = " ".join(text_parts).strip()
 
-        # 返回包含文本和统计信息的结果
-        return {"text": transcribed_text, "stats": stats}
+            app_logger.audio(
+                "Extracted transcription text from chunks",
+                {
+                    "total_chunks": len(pending_chunk_refs),
+                    "completed_chunks": completed_count,
+                    "text_length": len(transcribed_text),
+                },
+            )
+
+            # 停止流式模式
+            stats = self.streaming_coordinator.stop_streaming()
+
+            app_logger.audio("Streaming transcription stopped", stats)
+
+            # 返回包含文本和统计信息的结果
+            return {"text": transcribed_text, "stats": stats}
 
     def add_streaming_chunk(self, audio_data: np.ndarray) -> int:
         """添加流式转录块
@@ -741,6 +793,27 @@ class RefactoredTranscriptionService(ISpeechService):
             priority=TaskPriority.LOW,
             max_retries=0,
         )
+
+    def reload_streaming_mode(self) -> None:
+        """重新加载流式模式配置"""
+        if not self.config_service:
+            return
+
+        new_mode = self.config_service.get_setting(
+            "transcription.local.streaming_mode", "chunked"
+        )
+
+        # 只有在非活动状态下才能更改
+        if self.streaming_coordinator.set_streaming_mode(new_mode):
+            app_logger.audio(
+                "Streaming mode reloaded from config",
+                {"new_mode": new_mode}
+            )
+        else:
+            app_logger.audio(
+                "Cannot reload streaming mode while active",
+                {"current_mode": self.streaming_coordinator.get_streaming_mode()}
+            )
 
     def cleanup(self) -> None:
         """清理资源"""

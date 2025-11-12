@@ -516,7 +516,14 @@ class RecordingOverlay(QWidget):
         # 启动录音计时器（使用TimerManager组件）
         try:
             if self.timer_manager:
+                app_logger.log_audio_event(
+                    "Starting recording timer",
+                    {"is_recording": self.is_recording, "duration": self.recording_duration}
+                )
                 self.timer_manager.start_update_timer(self.update_recording_time)
+                app_logger.log_audio_event("Recording timer started successfully", {})
+            else:
+                app_logger.log_audio_event("WARNING: timer_manager is None, cannot start timer", {})
         except Exception as e:
             app_logger.log_error(e, "timer_start_show")
 
@@ -836,10 +843,20 @@ class RecordingOverlay(QWidget):
             seconds = self.recording_duration % 60
             try:
                 self.time_label.setText(f"{minutes:02d}:{seconds:02d}")
+                # 只在前几次更新时记录日志，避免日志过多
+                if self.recording_duration <= 3:
+                    app_logger.log_audio_event(
+                        "Recording time updated",
+                        {"duration": self.recording_duration, "display": f"{minutes:02d}:{seconds:02d}"}
+                    )
             except Exception as e:
                 app_logger.log_error(e, "update_recording_time")
         else:
             # If not recording, stop the timer immediately
+            app_logger.log_audio_event(
+                "Recording timer callback called but is_recording is False - stopping timer",
+                {"duration": self.recording_duration}
+            )
             try:
                 if hasattr(self, "update_timer") and self.update_timer.isActive():
                     self.update_timer.stop()

@@ -307,9 +307,11 @@ class TranscriptionTab(BaseSettingsTab):
         self.whisper_language_combo.setCurrentText(
             local_config.get("language", whisper_config.get("language", "auto"))
         )
-        self.streaming_mode_combo.setCurrentText(
-            local_config.get("streaming_mode", "chunked")
-        )
+        # streaming_mode只在local provider下有效
+        if provider == "local":
+            self.streaming_mode_combo.setCurrentText(
+                local_config.get("streaming_mode", "chunked")
+            )
         self.auto_load_model_checkbox.setChecked(
             local_config.get("auto_load", whisper_config.get("auto_load", True))
         )
@@ -360,13 +362,16 @@ class TranscriptionTab(BaseSettingsTab):
         Returns:
             Dict[str, Any]: 配置字典
         """
+        # 获取当前provider
+        current_provider = self.transcription_provider_combo.currentText()
+
+        # 构建完整配置（保存所有provider）
         config = {
             "transcription": {
-                "provider": self.transcription_provider_combo.currentText(),
+                "provider": current_provider,
                 "local": {
                     "model": self.whisper_model_combo.currentText(),
                     "language": self.whisper_language_combo.currentText(),
-                    "streaming_mode": self.streaming_mode_combo.currentText(),
                     "auto_load": self.auto_load_model_checkbox.isChecked(),
                 },
                 "groq": {
@@ -396,6 +401,13 @@ class TranscriptionTab(BaseSettingsTab):
                 },
             },
         }
+
+        # streaming_mode只在local provider下才从UI读取并保存
+        if current_provider == "local":
+            config["transcription"]["local"]["streaming_mode"] = (
+                self.streaming_mode_combo.currentText()
+            )
+        # 否则不添加streaming_mode字段（保持config文件中的原值）
 
         return config
 

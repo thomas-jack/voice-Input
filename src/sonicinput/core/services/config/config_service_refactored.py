@@ -4,6 +4,7 @@
 """
 
 import os
+import copy
 from pathlib import Path
 from typing import Dict, Any, Optional, Union, TypeVar, List
 from datetime import datetime
@@ -102,8 +103,8 @@ class RefactoredConfigService(IConfigService):
         # 更新配置
         self._writer.set_setting(key, value)
 
-        # 同步到读取器
-        self._reader._config = self._writer._config
+        # 同步到读取器（使用深拷贝避免引用同步问题）
+        self._reader._config = copy.deepcopy(self._writer._config)
 
         # 发送配置变更事件
         if self._event_service:

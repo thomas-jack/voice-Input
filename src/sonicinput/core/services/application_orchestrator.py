@@ -158,6 +158,22 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
             if self._speech_service:
                 self._speech_service.unload_model()
 
+            # 清理音频服务 (修复PyAudio资源泄漏)
+            if self._audio_service and hasattr(self._audio_service, "cleanup"):
+                try:
+                    self._audio_service.cleanup()
+                    app_logger.log_audio_event("Audio service cleaned up", {})
+                except Exception as e:
+                    app_logger.log_error(e, "audio_service_cleanup")
+
+            # 停止配置重载监控
+            if self.config_reload and hasattr(self.config_reload, "stop_monitoring"):
+                try:
+                    self.config_reload.stop_monitoring()
+                    app_logger.log_audio_event("Config reload monitoring stopped", {})
+                except Exception as e:
+                    app_logger.log_error(e, "config_reload_stop")
+
             self._current_phase = InitializationPhase.NOT_STARTED
             self._startup_complete = False
 
@@ -346,20 +362,34 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
 
         self.events.emit(Events.MODEL_LOADING_STARTED)
 
-        def on_success(success: bool, error: str):
+        def on_success(result: Dict[str, Any]):
+            """成功回调
+
+            Args:
+                result: 包含以下键的字典:
+                    - success: bool
+                    - model_name: str
+                    - model_info: Dict[str, Any]
+            """
+            success = result.get("success", False)
+            result_model_name = result.get("model_name", model_name)
+            model_info = result.get("model_info", {})
+
             app_logger.log_audio_event(
-                "Model loaded successfully", {"model": model_name}
+                "Model loaded successfully", {"model": result_model_name}
             )
-            # 获取模型详细信息并发送事件
-            model_info = {}
-            if hasattr(self._speech_service, "get_model_info"):
-                model_info = self._speech_service.get_model_info()
-            else:
-                model_info = {
-                    "model_name": model_name,
-                    "is_loaded": True,
-                    "device": getattr(self._speech_service, "device", "Unknown"),
-                }
+
+            # 如果结果中没有model_info，尝试获取
+            if not model_info:
+                if hasattr(self._speech_service, "get_model_info"):
+                    model_info = self._speech_service.get_model_info()
+                else:
+                    model_info = {
+                        "model_name": result_model_name,
+                        "is_loaded": True,
+                        "device": getattr(self._speech_service, "device", "Unknown"),
+                    }
+
             self.events.emit(Events.MODEL_LOADING_COMPLETED, model_info)
 
         def on_error(error_msg: str):

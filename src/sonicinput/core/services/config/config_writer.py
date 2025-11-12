@@ -125,9 +125,9 @@ class ConfigWriter:
             # 标记为脏数据
             self._dirty = True
 
-            # 创建新的定时器
+            # 创建新的定时器（非daemon，确保配置保存完成）
             self._save_timer = threading.Timer(self._save_delay, self._perform_save)
-            self._save_timer.daemon = True
+            self._save_timer.daemon = False
             self._save_timer.start()
 
     def _perform_save(self) -> None:
@@ -157,7 +157,15 @@ class ConfigWriter:
         return True
 
     def cleanup(self) -> None:
-        """清理资源 - 取消所有待处理的定时器"""
+        """清理资源 - 强制保存待处理的配置更改并取消定时器"""
+        # 先flush确保所有待处理的配置被保存
+        try:
+            self.flush()
+            app_logger.log_audio_event("Config writer flushed before cleanup", {})
+        except Exception as e:
+            app_logger.log_error(e, "config_writer_cleanup_flush")
+
+        # 然后清理定时器
         with self._timer_lock:
             if self._save_timer:
                 self._save_timer.cancel()

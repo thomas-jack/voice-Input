@@ -103,40 +103,136 @@ class RecordingController(IRecordingController):
             if device_id is None:
                 device_id = self._config.get_setting("audio.device_id")
 
+            # 每次录音开始时从配置重新读取 streaming_mode（实现配置下次录音生效）
+            configured_mode = self._config.get_setting(
+                "transcription.local.streaming_mode", "chunked"
+            )
+
+            # 尝试更新 streaming coordinator 的模式
+            if hasattr(self._speech_service, "streaming_coordinator"):
+                coordinator = self._speech_service.streaming_coordinator
+                current_mode = coordinator.get_streaming_mode()
+
+                # 如果配置的模式与当前模式不同，需要切换
+                if configured_mode != current_mode:
+                    app_logger.log_audio_event(
+                        "Streaming mode config changed, preparing to switch",
+                        {"current_mode": current_mode, "configured_mode": configured_mode}
+                    )
+
+                    # 关键修复：先强制停止之前的流（如果存在）
+                    if coordinator.is_streaming():
+                        app_logger.log_audio_event(
+                            "Stopping previous streaming session before mode switch", {}
+                        )
+                        coordinator.stop_streaming()
+
+                    # 现在可以安全切换模式（流已停止）
+                    switch_success = coordinator.set_streaming_mode(configured_mode)
+                    final_mode = coordinator.get_streaming_mode()
+
+                    app_logger.log_audio_event(
+                        "Streaming mode switch result",
+                        {
+                            "requested_mode": configured_mode,
+                            "switch_success": switch_success,
+                            "final_mode": final_mode,
+                        }
+                    )
+
+                streaming_mode = coordinator.get_streaming_mode()
+            else:
+                streaming_mode = configured_mode
+
+            app_logger.log_audio_event(
+                "Recording starting with streaming mode",
+                {"mode": streaming_mode}
+            )
+
+            # 根据模式创建不同的会话
+            streaming_session = None
+            if streaming_mode == "realtime":
+                # Realtime 模式：创建 sherpa streaming session
+                if hasattr(self._speech_service, "model_manager"):
+                    whisper_engine = self._speech_service.model_manager.get_whisper_engine()
+                    if whisper_engine and hasattr(whisper_engine, "create_streaming_session"):
+                        try:
+                            streaming_session = whisper_engine.create_streaming_session()
+                            app_logger.log_audio_event("Sherpa streaming session created", {})
+                        except Exception as e:
+                            app_logger.log_error(e, "create_streaming_session")
+
             # 启用流式转录模式（使用新的TranscriptionService API）
             if hasattr(self._speech_service, "start_streaming"):
-                # 重构后的转录服务
-                self._speech_service.start_streaming()
-                app_logger.log_audio_event("Streaming transcription started", {})
+                # 重构后的转录服务，传递 streaming_session
+                if hasattr(self._speech_service, "streaming_coordinator"):
+                    self._speech_service.streaming_coordinator.start_streaming(streaming_session)
+                else:
+                    self._speech_service.start_streaming()
+                app_logger.log_audio_event("Streaming transcription started", {"session": streaming_session is not None})
             else:
                 app_logger.log_audio_event(
                     "Streaming not supported by speech service", {}
                 )
 
-            # 设置30秒块回调（流式转录）
-            if hasattr(self._audio_service, "chunk_callback") and hasattr(
-                self._speech_service, "add_streaming_chunk"
-            ):
+            # 根据模式设置不同的回调
+            if streaming_mode == "chunked":
+                # Chunked 模式：使用 30 秒块回调
+                if hasattr(self._audio_service, "chunk_callback") and hasattr(
+                    self._speech_service, "add_streaming_chunk"
+                ):
 
-                def streaming_chunk_callback(audio_data):
-                    """流式转录块回调"""
-                    try:
-                        self._speech_service.add_streaming_chunk(audio_data)
-                        app_logger.log_audio_event(
-                            "Streaming chunk added", {"audio_length": len(audio_data)}
-                        )
-                    except Exception as e:
-                        app_logger.log_error(e, "streaming_chunk_callback")
+                    def streaming_chunk_callback(audio_data):
+                        """流式转录块回调"""
+                        try:
+                            self._speech_service.add_streaming_chunk(audio_data)
+                            app_logger.log_audio_event(
+                                "Streaming chunk added", {"audio_length": len(audio_data)}
+                            )
+                        except Exception as e:
+                            app_logger.log_error(e, "streaming_chunk_callback")
 
-                self._audio_service.chunk_callback = streaming_chunk_callback
-                app_logger.log_audio_event("Streaming chunk callback set", {})
-            else:
-                self._audio_service.chunk_callback = None
-                app_logger.log_audio_event("Streaming chunk callback not available", {})
+                    self._audio_service.chunk_callback = streaming_chunk_callback
+                    app_logger.log_audio_event("Chunked mode: chunk callback set", {})
+                else:
+                    self._audio_service.chunk_callback = None
+                    app_logger.log_audio_event("Chunked mode: chunk callback not available", {})
 
-            # 设置音频数据回调（用于实时波形显示）
-            if hasattr(self._audio_service, "set_callback"):
-                self._audio_service.set_callback(self._on_audio_data)
+                # 设置音频数据回调（用于实时波形显示）
+                if hasattr(self._audio_service, "set_callback"):
+                    self._audio_service.set_callback(self._on_audio_data)
+
+            elif streaming_mode == "realtime":
+                # Realtime 模式：使用持续音频流回调
+                if hasattr(self._speech_service, "streaming_coordinator"):
+
+                    def realtime_audio_callback(audio_data):
+                        """实时音频流回调"""
+                        try:
+                            # 发送到 streaming coordinator 的 realtime 处理
+                            partial_text = self._speech_service.streaming_coordinator.add_realtime_audio(audio_data)
+
+                            # 同时更新音频电平（用于波形显示）
+                            if len(audio_data) > 0:
+                                level = float(np.sqrt(np.mean(audio_data**2)))
+                                self._events.emit(Events.AUDIO_LEVEL_UPDATE, level)
+
+                        except Exception as e:
+                            app_logger.log_error(e, "realtime_audio_callback")
+
+                    # 清除 chunk_callback（realtime 不使用分块）
+                    if hasattr(self._audio_service, "chunk_callback"):
+                        self._audio_service.chunk_callback = None
+
+                    # 设置持续音频回调
+                    if hasattr(self._audio_service, "set_callback"):
+                        self._audio_service.set_callback(realtime_audio_callback)
+                        app_logger.log_audio_event("Realtime mode: audio callback set", {})
+                else:
+                    app_logger.log_audio_event("Realtime mode: streaming coordinator not available", {})
+                    # Fallback: 使用基本音频回调
+                    if hasattr(self._audio_service, "set_callback"):
+                        self._audio_service.set_callback(self._on_audio_data)
 
             # 启动录音
             self._audio_service.start_recording(device_id)

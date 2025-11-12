@@ -141,6 +141,29 @@ class UIEventBridge(IUIEventBridge):
         # 执行自定义处理器
         self._execute_custom_handler("audio_level_update", level)
 
+    def handle_realtime_text_update(self, data: dict) -> None:
+        """处理实时文本更新事件
+
+        注意：根据用户需求，realtime 模式下不在 overlay 中显示实时文本。
+        文本会直接通过 InputController 实时输入到应用程序。
+
+        Args:
+            data: 包含 'text' 和 'timestamp' 的字典
+        """
+        # Realtime 模式：不在 overlay 中显示文本（用户需求）
+        # 只记录日志和执行自定义处理器
+
+        app_logger.log_audio_event(
+            "Realtime text event received (not displaying in overlay)",
+            {
+                "text_length": len(data.get("text", "")),
+                "text_preview": data.get("text", "")[:30]
+            }
+        )
+
+        # 执行自定义处理器
+        self._execute_custom_handler("realtime_text_updated", data)
+
     def _setup_event_listeners(self) -> None:
         """设置事件监听器"""
         from .event_bus import Events
@@ -152,6 +175,9 @@ class UIEventBridge(IUIEventBridge):
         self.events.on(Events.AI_PROCESSING_COMPLETED, self.handle_ai_processing_completed)
         self.events.on(Events.TEXT_INPUT_COMPLETED, self.handle_text_input_completed)
         self.events.on(Events.AUDIO_LEVEL_UPDATE, self.handle_audio_level_update)
+
+        # Realtime 转录更新事件
+        self.events.on("realtime_text_updated", self.handle_realtime_text_update)
 
         # 错误事件
         self.events.on(Events.TRANSCRIPTION_ERROR, self.handle_error)

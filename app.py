@@ -686,7 +686,14 @@ def run_gui():
             print("[LOOK FOR] Green dot icon in your Windows system tray (bottom-right corner)")
             print("[RIGHT-CLICK] the tray icon to access Settings, Recording, etc.")
             print("[DOUBLE-CLICK] the tray icon to open Settings window")
-            print("[HOTKEY] Or use your configured hotkey to start recording")
+
+            # 显示配置的热键
+            hotkeys = config.get_setting("hotkeys.keys", ["f12"])
+            if isinstance(hotkeys, list) and len(hotkeys) > 0:
+                hotkey_str = " or ".join(hotkeys)
+            else:
+                hotkey_str = str(hotkeys) if hotkeys else "f12"
+            print(f"[HOTKEY] Press {hotkey_str} to start voice recording")
         else:
             main_window.show()
             print("GUI window opened")
@@ -709,8 +716,14 @@ def run_gui():
             )
 
         print(f"[RUNNING] Sonic Input is running! (Startup: {startup_duration:.2f}s)")
-        hotkey = config.get_setting("hotkey", "ctrl+shift+v")
-        print(f"[HOTKEY] Press {hotkey} to start voice recording")
+
+        # 从配置读取热键（支持多个热键）
+        hotkeys = config.get_setting("hotkeys.keys", ["f12"])
+        if isinstance(hotkeys, list) and len(hotkeys) > 0:
+            hotkey_str = " or ".join(hotkeys)
+        else:
+            hotkey_str = str(hotkeys) if hotkeys else "f12"
+        print(f"[HOTKEY] Press {hotkey_str} to start voice recording")
 
         # Set up signal handling timer for GUI mode
         # Qt event loop blocks signal handlers, so we need to periodically check
