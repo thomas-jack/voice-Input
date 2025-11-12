@@ -126,8 +126,11 @@ class TestSettingsWindowConfigIsolation:
         # 验证是临时路径
         assert str(config_path) == str(isolated_config)
 
-    def test_apply_writes_to_temp_config(self, qtbot, settings_window, isolated_config, verify_real_config_untouched):
+    def test_apply_writes_to_temp_config(self, qtbot, settings_window, isolated_config, verify_real_config_untouched, monkeypatch):
         """测试应用设置写入临时配置文件,不修改真实配置"""
+        # Mock QMessageBox to avoid blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
         # 显示窗口
         settings_window.show()
         qtbot.waitExposed(settings_window, timeout=1000)
@@ -149,8 +152,11 @@ class TestSettingsWindowConfigIsolation:
 
         # verify_real_config_untouched fixture会自动验证真实配置未被修改
 
-    def test_real_config_never_touched(self, qtbot, settings_window, verify_real_config_untouched):
+    def test_real_config_never_touched(self, qtbot, settings_window, verify_real_config_untouched, monkeypatch):
         """显式测试:真实配置文件永远不被触碰"""
+        # Mock QMessageBox to avoid blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
         real_config_path = Path(os.getenv("APPDATA", ".")) / "SonicInput" / "config.json"
 
         if real_config_path.exists():
@@ -249,8 +255,11 @@ class TestSettingsWindowLoadSave:
         # 验证配置被加载(检查内部状态)
         assert hasattr(settings_window, 'current_config')
 
-    def test_multiple_save_operations(self, qtbot, settings_window, isolated_config, verify_real_config_untouched):
+    def test_multiple_save_operations(self, qtbot, settings_window, isolated_config, verify_real_config_untouched, monkeypatch):
         """测试多次保存操作只修改临时配置"""
+        # Mock QMessageBox to avoid blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
         settings_window.show()
         qtbot.waitExposed(settings_window, timeout=1000)
 
