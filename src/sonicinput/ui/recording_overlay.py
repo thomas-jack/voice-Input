@@ -388,7 +388,10 @@ class RecordingOverlay(QWidget):
                             # 断开信号连接
                             if callback_name and hasattr(timer, "timeout"):
                                 try:
-                                    timer.timeout.disconnect()
+                                    import warnings
+                                    with warnings.catch_warnings():
+                                        warnings.simplefilter("ignore", RuntimeWarning)
+                                        timer.timeout.disconnect()
                                 except (TypeError, RuntimeError):
                                     pass  # 信号未连接或对象已删除
                         except Exception as e:
