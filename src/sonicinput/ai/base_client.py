@@ -292,6 +292,15 @@ class BaseAIClient(IAIService):
         """获取API密钥（兼容性属性）"""
         return self._raw_api_key
 
+    @property
+    def _last_tps(self) -> float:
+        """获取最新的TPS值（用于向后兼容）
+
+        Returns:
+            最新的tokens per second值，如果没有则返回0.0
+        """
+        return self._performance_monitor.get_tps()
+
     def _update_headers(self) -> None:
         """更新 HTTP 请求头"""
         headers = {

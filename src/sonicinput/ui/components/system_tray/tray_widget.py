@@ -250,7 +250,6 @@ class TrayWidget(QObject):
     def show(self) -> None:
         """Show the tray icon"""
         if self._tray_icon:
-            app_logger.debug("Attempting to show system tray icon...")
             self._tray_icon.show()
 
     def hide(self) -> None:

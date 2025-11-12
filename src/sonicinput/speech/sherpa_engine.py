@@ -164,8 +164,6 @@ class SherpaEngine(ISpeechService):
             # 获取结果
             result_text = self.recognizer.get_result(stream)
 
-            logger.debug(f"Transcription result: {result_text[:50]}...")
-
             return {
                 "text": result_text,
                 "language": self.language,

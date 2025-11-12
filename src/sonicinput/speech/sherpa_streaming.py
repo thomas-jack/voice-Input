@@ -69,9 +69,6 @@ class SherpaStreamingSession:
                 self.recognizer.decode_stream(self.stream)
                 decode_count += 1
 
-            if decode_count > 0:
-                logger.debug(f"Decoded {decode_count} frames")
-
             # 获取当前结果
             result = self.recognizer.get_result(self.stream)
 
@@ -83,19 +80,12 @@ class SherpaStreamingSession:
                 # 关键修复：不立即reset，而是标记端点并继续累积
                 if result.strip():
                     self._last_result = result
-                    logger.debug(
-                        f"Endpoint detected, current result: '{result[:30]}...', "
-                        f"length={len(result)}"
-                    )
                     # 注意：这里不调用 reset()
                     # reset()延迟到 get_final_result() 或确认无新音频时
             else:
                 # 部分结果：句子未结束
                 if result.strip():
                     self._last_result = result
-                    logger.debug(
-                        f"Partial result: '{result[:30]}...', length={len(result)}"
-                    )
 
             return self._last_result
 
@@ -144,7 +134,7 @@ class SherpaStreamingSession:
             self.stream = self.recognizer.create_stream()
             self.is_active = True
             self._last_result = ""
-            logger.debug("Stream reset successfully")
+            logger.info("Stream reset successfully")
 
         except Exception as e:
             logger.error(f"Error resetting stream: {e}")

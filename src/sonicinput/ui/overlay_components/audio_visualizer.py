@@ -1,5 +1,6 @@
 """音频可视化器 - 单一职责：管理音频级别显示"""
 
+import math
 from typing import List
 from PySide6.QtWidgets import QLabel
 
@@ -49,10 +50,22 @@ class AudioVisualizer:
             return
 
         try:
-            # 标准化到 0-1 范围，提高敏感度
-            normalized_level = min(
-                1.0, max(0.0, raw_level * self.sensitivity_multiplier)
-            )
+            # 使用对数刻度映射，更符合人耳对音量的感知
+            # 对数映射公式: log10(level * 1000 + 1) / log10(1001)
+            # 范围映射示例:
+            #   0.001 -> ~0.10 (0-1格)
+            #   0.01  -> ~0.35 (1-2格)
+            #   0.03  -> ~0.49 (2-3格)
+            #   0.05  -> ~0.57 (2-3格)
+            #   0.1   -> ~0.67 (3-4格)
+            #   0.5   -> ~0.91 (4-5格)
+            if raw_level > 0:
+                # 加1避免log(0)，乘1000扩大范围
+                log_level = math.log10(raw_level * 1000 + 1) / math.log10(1001)
+                normalized_level = min(1.0, max(0.0, log_level))
+            else:
+                normalized_level = 0.0
+
             self.current_audio_level = normalized_level
 
             # 更新音频级别条显示

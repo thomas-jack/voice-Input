@@ -98,6 +98,18 @@ class InputController(BaseController, IInputController):
 
             # 记录整体性能日志
             self._log_performance(data)
+        else:
+            # 空文本处理：仍需触发完成事件，让悬浮窗正常关闭
+            app_logger.log_audio_event(
+                "Empty text received, skipping input but triggering completion",
+                {"data_keys": list(data.keys())}
+            )
+            # 触发完成事件
+            self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
+            # 设置状态为 IDLE
+            self._state.set_app_state(AppState.IDLE)
+            # 记录性能日志
+            self._log_performance(data)
 
     def input_text(self, text: str) -> bool:
         """输入文本

@@ -198,11 +198,6 @@ class PerformanceDecorator(ServiceDecorator):
         except ImportError:
             pass
 
-        if self.logger:
-            self.logger.debug(
-                f"Decorating {descriptor.name} with performance monitoring"
-            )
-
         # 为实例添加性能监控方法
         original_methods = {}
 
@@ -218,8 +213,9 @@ class PerformanceDecorator(ServiceDecorator):
                             try:
                                 result = method(*args, **kwargs)
                                 duration = time.time() - start_time
-                                if self.logger:
-                                    self.logger.debug(
+                                # 性能监控：记录方法执行时间
+                                if self.logger and duration > 0.1:  # 仅记录超过100ms的调用
+                                    self.logger.info(
                                         f"{descriptor.name}.{name} took {duration:.3f}s"
                                     )
                                 return result
@@ -257,9 +253,6 @@ class ErrorHandlingDecorator(ServiceDecorator):
                 return instance
         except ImportError:
             pass
-
-        if self.logger:
-            self.logger.debug(f"Decorating {descriptor.name} with error handling")
 
         # 为实例添加错误处理方法
         for attr_name in dir(instance):
@@ -447,11 +440,6 @@ class EnhancedDIContainer:
             context.add_creating(descriptor.interface)
             context.depth += 1
 
-            if self.logger:
-                self.logger.debug(
-                    f"Creating service {descriptor.name} (depth: {context.depth})"
-                )
-
             start_time = time.time()
 
             # 创建实例
@@ -475,8 +463,9 @@ class EnhancedDIContainer:
 
             creation_time = time.time() - start_time
 
-            if self.logger:
-                self.logger.debug(f"Created {descriptor.name} in {creation_time:.3f}s")
+            # 性能监控：记录服务创建时间（仅记录超过100ms的）
+            if self.logger and creation_time > 0.1:
+                self.logger.info(f"Created {descriptor.name} in {creation_time:.3f}s")
 
             # 添加到已创建列表
             context.add_created(descriptor.interface, instance)
@@ -707,7 +696,7 @@ class EnhancedDIContainer:
                     priority = self._cleanup_priorities.get(interface, 50)
                     try:
                         if self.logger:
-                            self.logger.debug(
+                            self.logger.info(
                                 f"Cleaning up singleton {interface.__name__} (priority: {priority})"
                             )
                         instance.cleanup()
@@ -722,7 +711,7 @@ class EnhancedDIContainer:
             self.registry.clear()
 
             if self.logger:
-                self.logger.debug("DIContainer cleaned up")
+                self.logger.info("DIContainer cleaned up")
 
 
 # 工厂函数

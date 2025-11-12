@@ -398,7 +398,7 @@ class DynamicEventSystem(IEventService):
             self.register_event_type(event_name)
 
             if self.logger:
-                self.logger.debug(f"Auto-registered event '{event_name}'")
+                self.logger.info(f"Auto-registered event '{event_name}'")
 
         try:
             # 获取监听器
@@ -433,10 +433,10 @@ class DynamicEventSystem(IEventService):
             if self.logger:
                 self.logger.error(f"Error emitting event '{event_name}': {e}")
 
-        # 记录处理时间
+        # 记录处理时间（仅记录慢事件）
         total_time = time.time() - start_time
-        if self.logger and total_time > 0.1:  # 只记录慢事件
-            self.logger.debug(f"Event '{event_name}' processed in {total_time:.3f}s")
+        if self.logger and total_time > 0.1:
+            self.logger.info(f"Event '{event_name}' processed in {total_time:.3f}s")
 
     def subscribe(
         self,
@@ -521,11 +521,6 @@ class DynamicEventSystem(IEventService):
         if removed:
             # 清除缓存
             self._invalidate_cache_for_event(event_name)
-
-            if self.logger:
-                self.logger.debug(
-                    f"Event listener removed: {listener_id} from {event_name}"
-                )
 
         return removed
 

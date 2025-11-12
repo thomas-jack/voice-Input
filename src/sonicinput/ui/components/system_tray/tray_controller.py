@@ -46,10 +46,6 @@ class TrayController(LifecycleComponent):
             state_manager=state_manager,
             parent=parent,
         )
-        app_logger.debug("TrayController __init__ started.")
-
-        # UI widget
-        self._tray_widget: Optional[TrayWidget] = None
 
         # UI widget
         self._tray_widget: Optional[TrayWidget] = None
@@ -58,7 +54,6 @@ class TrayController(LifecycleComponent):
         self._recording_state = RecordingState.IDLE
         self._app_state = AppState.IDLE
         self._notifications_enabled = True
-        app_logger.debug("TrayController __init__ finished.")
 
     def _do_initialize(self, config: Dict[str, Any]) -> bool:
         """Initialize the tray controller
