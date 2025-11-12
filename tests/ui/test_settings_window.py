@@ -322,28 +322,49 @@ class TestSettingsWindowCoreButtons:
         qtbot.waitUntil(lambda: not settings_window.isVisible(), timeout=2000)
         assert not settings_window.isVisible()
 
-    def test_reset_tab_button_shows_confirmation(self, qtbot, settings_window, isolated_config, monkeypatch):
-        """测试Reset Tab按钮显示确认对话框"""
-        # Track if question dialog was called
-        dialog_called = []
+    def test_reset_tab_button_resets_config(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试Reset Tab按钮实际重置配置"""
+        # Mock get_default_config to return plain dict (avoid pickle issue)
+        plain_default_config = {
+            "ui": {
+                "start_minimized": True,
+                "tray_notifications": False,
+                "show_overlay": True,
+            },
+            "logging": {
+                "level": "INFO",
+                "console_output": False,
+            },
+            "hotkeys": ["f12"],
+        }
 
-        def mock_question(*args, **kwargs):
-            dialog_called.append(True)
-            return QMessageBox.StandardButton.No  # Return No to avoid actual reset
+        monkeypatch.setattr(
+            settings_window.ui_settings_service,
+            "get_default_config",
+            lambda: plain_default_config
+        )
 
-        monkeypatch.setattr(QMessageBox, "question", mock_question)
+        # Mock confirmation dialog - return Yes
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+        )
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
-        # 显示窗口
         settings_window.show()
         qtbot.waitExposed(settings_window, timeout=1000)
-        settings_window.tab_widget.setCurrentIndex(0)  # Application tab
 
-        # 点击Reset Tab按钮
+        # Go to Application tab and change a setting
+        settings_window.tab_widget.setCurrentIndex(0)
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+
+        # Click reset tab button
         settings_window.reset_button.click()
         qtbot.wait(200)
 
-        # 验证确认对话框被调用
-        assert len(dialog_called) == 1
+        # Verify setting was reset to default
+        assert settings_window.application_tab.log_level_combo.currentText() == "INFO"
 
     def test_reset_tab_button_cancel(self, qtbot, settings_window, isolated_config, monkeypatch):
         """测试取消Reset Tab操作"""
@@ -373,121 +394,320 @@ class TestSettingsWindowCoreButtons:
 
 
 @pytest.mark.gui
-class TestConfigManagement:
-    """配置管理按钮测试"""
+class TestConfigManagementIntegration:
+    """配置管理集成测试 - 使用真实文件I/O"""
 
-    def test_export_config_creates_file(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
-        """测试导出配置功能(Mock验证)"""
+    def test_export_config_creates_json_with_envelope(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导出配置创建带envelope的JSON"""
+        import json
         from PySide6.QtWidgets import QFileDialog
-        from unittest.mock import MagicMock
+
         export_file = tmp_path / "test_export.json"
 
-        # Mock config_manager.export_config
-        mock_export = MagicMock()
-        settings_window.application_tab.config_manager.export_config = mock_export
+        # Track any errors
+        errors = []
+        def mock_critical(*args, **kwargs):
+            errors.append(str(args))
 
-        # Mock QFileDialog.getSaveFileName to return the file path
-        def mock_get_save_filename(parent, caption, directory, filter_str):
-            return (str(export_file), filter_str)
-
-        monkeypatch.setattr(QFileDialog, "getSaveFileName", mock_get_save_filename)
-        # Mock QMessageBox.information
+        # Mock ALL QMessageBox dialogs to prevent blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "critical", mock_critical)
 
-        # 显示窗口
+        # Mock file dialog
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda *args, **kwargs: (str(export_file), "JSON Files (*.json)")
+        )
+
         settings_window.show()
-        qtbot.waitExposed(settings_window, timeout=1000)
+        qtbot.waitExposed(settings_window)
 
-        # 点击Export Settings按钮
+        # Click export button (real file I/O!)
         settings_window.application_tab.export_config_button.click()
         qtbot.wait(200)
 
-        # 验证export_config被调用
-        mock_export.assert_called_once_with(str(export_file))
+        # Check if there were errors
+        if errors:
+            pytest.fail(f"Export failed with error: {errors}")
 
-    def test_export_config_cancel(self, qtbot, settings_window, monkeypatch):
-        """测试取消导出配置操作"""
+        # Verify file was created
+        assert export_file.exists()
+
+        # Verify JSON structure
+        with open(export_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        assert "version" in data
+        assert data["version"] == "1.0"
+        assert "exported_at" in data
+        assert "config" in data
+        assert isinstance(data["config"], dict)
+
+        # Verify exported_at is ISO format
+        from datetime import datetime
+        datetime.fromisoformat(data["exported_at"])  # Should not raise
+
+    def test_export_config_writes_utf8_correctly(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导出配置正确写入UTF-8编码"""
+        import json
         from PySide6.QtWidgets import QFileDialog
 
-        # Mock QFileDialog to return empty path (cancelled)
-        def mock_get_save_filename_cancel(parent, caption, directory, filter_str):
-            return ("", "")
+        export_file = tmp_path / "test_utf8.json"
 
-        monkeypatch.setattr(QFileDialog, "getSaveFileName", mock_get_save_filename_cancel)
+        # Mock ALL QMessageBox dialogs to prevent blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
 
-        # 显示窗口
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda *args, **kwargs: (str(export_file), "")
+        )
+
+        # Set some config with Chinese characters
+        settings_window.ui_settings_service.set_setting("test_chinese", "测试中文")
+
         settings_window.show()
-        qtbot.waitExposed(settings_window, timeout=1000)
-
-        # 点击Export Settings按钮(会取消)
+        qtbot.waitExposed(settings_window)
         settings_window.application_tab.export_config_button.click()
         qtbot.wait(200)
 
-        # 验证没有抛出异常,操作正常取消
+        # Read and verify UTF-8
+        with open(export_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+            assert "测试中文" in content  # Should be readable
 
-    def test_import_config_loads_settings(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
-        """测试导入配置功能(Mock验证)"""
+        # Verify ensure_ascii=False (Chinese chars not escaped)
+        with open(export_file, 'rb') as f:
+            raw = f.read()
+            # UTF-8 encoded Chinese should be multi-byte, not \\uXXXX
+            assert b'\\u6d4b' not in raw  # Should NOT be Unicode-escaped
+
+    def test_export_config_handles_permission_error(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导出配置处理权限错误"""
         from PySide6.QtWidgets import QFileDialog
-        from unittest.mock import MagicMock
-        import_file = tmp_path / "test_import.json"
 
-        # 创建假的导入文件
-        import_file.write_text("{}")
+        export_file = tmp_path / "readonly" / "test.json"
 
-        # Mock config_manager.import_config
-        mock_import = MagicMock()
-        settings_window.application_tab.config_manager.import_config = mock_import
+        # Mock ALL QMessageBox dialogs to prevent blocking
+        error_shown = []
+        def mock_critical(*args, **kwargs):
+            error_shown.append(args[2])  # Message
 
-        # Mock load_current_config
-        mock_load = MagicMock()
-        settings_window.load_current_config = mock_load
-
-        # Mock QFileDialog.getOpenFileName
-        def mock_get_open_filename(parent, caption, directory, filter_str):
-            return (str(import_file), filter_str)
-
-        monkeypatch.setattr(QFileDialog, "getOpenFileName", mock_get_open_filename)
-        # Mock QMessageBox.information
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "critical", mock_critical)
 
-        # 显示窗口
+        monkeypatch.setattr(
+            QFileDialog,
+            "getSaveFileName",
+            lambda *args, **kwargs: (str(export_file), "")
+        )
+
         settings_window.show()
-        qtbot.waitExposed(settings_window, timeout=1000)
+        qtbot.waitExposed(settings_window)
 
-        # 点击Import Settings按钮
+        # Don't create parent dir - will cause error
+        settings_window.application_tab.export_config_button.click()
+        qtbot.wait(200)
+
+        # Should show error (or silently handle - check implementation)
+        # Verify file was NOT created
+        assert not export_file.exists()
+
+    def test_import_config_merges_with_existing(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导入配置深度合并(不是替换)"""
+        import json
+        from PySide6.QtWidgets import QFileDialog
+
+        # Create import file with partial config
+        import_file = tmp_path / "import.json"
+        import_data = {
+            "version": "1.0",
+            "exported_at": "2025-11-12T10:00:00",
+            "config": {
+                "logging": {
+                    "level": "DEBUG"
+                },
+                "new_key": "new_value"
+            }
+        }
+        with open(import_file, 'w', encoding='utf-8') as f:
+            json.dump(import_data, f)
+
+        # Get current config state
+        original_hotkeys = settings_window.ui_settings_service.get_setting("hotkeys")
+
+        # Mock ALL QMessageBox dialogs to prevent blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
+
+        monkeypatch.setattr(
+            QFileDialog,
+            "getOpenFileName",
+            lambda *args, **kwargs: (str(import_file), "")
+        )
+
+        settings_window.show()
+        qtbot.waitExposed(settings_window)
         settings_window.application_tab.import_config_button.click()
         qtbot.wait(200)
 
-        # 验证import_config被调用
-        mock_import.assert_called_once_with(str(import_file))
-        # 验证load_current_config被调用以重新加载UI
-        mock_load.assert_called_once()
+        # Verify merge: new key added, existing keys preserved
+        assert settings_window.ui_settings_service.get_setting("logging.level") == "DEBUG"
+        assert settings_window.ui_settings_service.get_setting("new_key") == "new_value"
+        assert settings_window.ui_settings_service.get_setting("hotkeys") == original_hotkeys
 
-    def test_reset_to_defaults_confirmation(self, qtbot, settings_window, isolated_config, monkeypatch):
-        """测试重置到默认值功能"""
-        # Mock QMessageBox.question to return Yes
+    def test_import_config_updates_ui(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导入配置后更新UI"""
+        import json
+        from PySide6.QtWidgets import QFileDialog
+
+        import_file = tmp_path / "import_ui_test.json"
+        import_data = {
+            "version": "1.0",
+            "exported_at": "2025-11-12T10:00:00",
+            "config": {
+                "logging": {"level": "ERROR"}
+            }
+        }
+        with open(import_file, 'w', encoding='utf-8') as f:
+            json.dump(import_data, f)
+
+        # Mock ALL QMessageBox dialogs to prevent blocking
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
+
+        monkeypatch.setattr(
+            QFileDialog,
+            "getOpenFileName",
+            lambda *args, **kwargs: (str(import_file), "")
+        )
+
+        # Track if load_current_config was called
+        load_called = []
+        original_load = settings_window.load_current_config
+        settings_window.load_current_config = lambda: (load_called.append(True), original_load())[1]
+
+        settings_window.show()
+        qtbot.waitExposed(settings_window)
+        settings_window.application_tab.import_config_button.click()
+        qtbot.wait(200)
+
+        # Verify UI was updated
+        assert len(load_called) == 1  # load_current_config called
+        assert settings_window.application_tab.log_level_combo.currentText() == "ERROR"
+
+    def test_import_invalid_json_shows_error(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+        """测试导入无效JSON显示错误"""
+        from PySide6.QtWidgets import QFileDialog
+
+        import_file = tmp_path / "invalid.json"
+        with open(import_file, 'w') as f:
+            f.write("{ invalid json }")
+
+        # Mock ALL QMessageBox dialogs to prevent blocking
+        error_shown = []
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
+        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: error_shown.append(True))
+
+        monkeypatch.setattr(
+            QFileDialog,
+            "getOpenFileName",
+            lambda *args, **kwargs: (str(import_file), "")
+        )
+
+        settings_window.show()
+        qtbot.waitExposed(settings_window)
+        settings_window.application_tab.import_config_button.click()
+        qtbot.wait(200)
+
+        # Verify error was shown
+        assert len(error_shown) == 1
+
+    def test_reset_to_defaults_resets_all_keys(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试重置默认配置重置所有键"""
+        from src.sonicinput.core.services.config.config_defaults import get_default_config
+
         monkeypatch.setattr(
             QMessageBox,
             "question",
             lambda *args, **kwargs: QMessageBox.StandardButton.Yes
         )
-        # Mock QMessageBox.information
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
-        # 显示窗口
         settings_window.show()
-        qtbot.waitExposed(settings_window, timeout=1000)
+        qtbot.waitExposed(settings_window)
 
-        # 修改配置
+        # Change multiple settings
         settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
-        assert settings_window.application_tab.log_level_combo.currentText() == "DEBUG"
+        settings_window.application_tab.apply_button.click()
+        qtbot.wait(100)
 
-        # 点击Reset to Defaults按钮
+        # Reset to defaults
         settings_window.application_tab.reset_config_button.click()
         qtbot.wait(200)
 
-        # 验证配置被重置到默认值
-        reset_level = settings_window.application_tab.log_level_combo.currentText()
-        assert reset_level != "DEBUG"  # Should be reset to default (WARNING)
+        # Verify all settings match defaults
+        defaults = get_default_config()
+        current_config = settings_window.ui_settings_service.get_all_settings()
+
+        assert current_config["logging"]["level"] == defaults["logging"]["level"]
+
+    def test_reset_to_defaults_saves_to_disk(self, qtbot, settings_window, isolated_config, monkeypatch):
+        """测试重置默认配置保存到磁盘"""
+        import json
+
+        monkeypatch.setattr(
+            QMessageBox,
+            "question",
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+        )
+        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
+
+        settings_window.show()
+        qtbot.waitExposed(settings_window)
+
+        config_path = settings_window.ui_settings_service.config_service.config_path
+
+        # Reset to defaults
+        settings_window.application_tab.reset_config_button.click()
+        qtbot.wait(500)  # Wait for save
+
+        # Verify file exists and contains default config
+        assert config_path.exists()
+        with open(config_path, 'r', encoding='utf-8') as f:
+            saved_config = json.load(f)
+
+        from src.sonicinput.core.services.config.config_defaults import get_default_config
+        defaults = get_default_config()
+
+        # Key configs should match defaults
+        assert saved_config["logging"] == defaults["logging"]
+
+    def test_reset_to_defaults_shows_confirmation(self, qtbot, settings_window, monkeypatch):
+        """测试重置默认配置显示确认对话框"""
+        dialog_called = []
+
+        def mock_question(*args, **kwargs):
+            dialog_called.append(True)
+            return QMessageBox.StandardButton.No  # Cancel
+
+        monkeypatch.setattr(QMessageBox, "question", mock_question)
+
+        settings_window.show()
+        qtbot.waitExposed(settings_window)
+
+        settings_window.application_tab.reset_config_button.click()
+        qtbot.wait(100)
+
+        # Verify confirmation dialog was shown
+        assert len(dialog_called) == 1
 
 

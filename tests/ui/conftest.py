@@ -15,30 +15,76 @@ def isolated_config(tmp_path):
 
     这个fixture确保测试永远不会修改真实的用户配置文件。
     每个测试都会得到一个独立的临时配置文件。
+
+    配置会从真实用户配置复制API keys和model IDs,避免测试时弹出错误窗口。
     """
     config_file = tmp_path / "test_config.json"
 
-    # 创建默认测试配置
+    # 尝试读取真实用户配置以获取API keys
+    real_config_path = Path(os.getenv("APPDATA", ".")) / "SonicInput" / "config.json"
+    real_config = {}
+    if real_config_path.exists():
+        try:
+            with open(real_config_path, 'r', encoding='utf-8') as f:
+                real_config = json.load(f)
+        except:
+            pass
+
+    # 创建默认测试配置,但使用真实的API keys
     default_config = {
         "hotkeys": ["f12"],
         "transcription": {
             "provider": "local",
-            "local": {
-                "model": "base",
+            "local": real_config.get("transcription", {}).get("local", {
+                "model": "paraformer",
                 "language": "zh",
-                "use_gpu": False,
-                "device": "cpu"
-            }
+                "auto_load": False,
+                "streaming_mode": "chunked"
+            }),
+            "groq": real_config.get("transcription", {}).get("groq", {
+                "api_key": "",
+                "model": "whisper-large-v3-turbo"
+            }),
+            "siliconflow": real_config.get("transcription", {}).get("siliconflow", {
+                "api_key": "",
+                "model": "FunAudioLLM/SenseVoiceSmall"
+            }),
+            "qwen": real_config.get("transcription", {}).get("qwen", {
+                "api_key": "",
+                "model": "qwen3-asr-flash"
+            })
         },
         "ai": {
             "enabled": False,
-            "provider": "groq"
+            "provider": "openrouter",
+            "openrouter": real_config.get("ai", {}).get("openrouter", {
+                "api_key": "",
+                "model_id": "anthropic/claude-3-sonnet"
+            }),
+            "groq": real_config.get("ai", {}).get("groq", {
+                "api_key": "",
+                "model_id": "llama3-70b-8192"
+            }),
+            "nvidia": real_config.get("ai", {}).get("nvidia", {
+                "api_key": "",
+                "model_id": "nvidia/llama-3.1-nemotron-70b-instruct"
+            }),
+            "openai_compatible": real_config.get("ai", {}).get("openai_compatible", {
+                "api_key": "",
+                "base_url": "",
+                "model_id": ""
+            })
         },
         "audio": {
             "sample_rate": 16000,
             "channels": 1,
             "auto_stop_enabled": True,
             "max_recording_duration": 60
+        },
+        "ui": {
+            "start_minimized": False,
+            "tray_notifications": True,
+            "show_overlay": True
         },
         "logging": {
             "level": "WARNING",
@@ -47,7 +93,7 @@ def isolated_config(tmp_path):
     }
 
     # 写入配置文件
-    config_file.write_text(json.dumps(default_config, indent=2))
+    config_file.write_text(json.dumps(default_config, indent=2, ensure_ascii=False))
 
     return config_file
 
@@ -152,12 +198,16 @@ def settings_window(qtbot, mock_config_service):
     # 创建mock UI服务,但使用真实的配置服务方法
     mock_ui_settings_service = MagicMock()
     mock_ui_settings_service.config_path = mock_config_service.config_path
+    mock_ui_settings_service.config_service = mock_config_service  # Expose config_service for tests
 
     # 使用真实配置服务的方法
     mock_ui_settings_service.get_setting = mock_config_service.get_setting
     mock_ui_settings_service.set_setting = mock_config_service.set_setting
     mock_ui_settings_service.get_all_settings = mock_config_service.get_all_settings
     mock_ui_settings_service.save_config = mock_config_service.save_config
+    mock_ui_settings_service.export_config = mock_config_service.export_config
+    mock_ui_settings_service.import_config = mock_config_service.import_config
+    mock_ui_settings_service.reset_to_defaults = mock_config_service.reset_to_default  # Note: method is reset_to_default not reset_to_defaults
 
     # Mock其他方法
     mock_event_service = MagicMock()
