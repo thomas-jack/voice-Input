@@ -434,7 +434,10 @@ class AudioRecorder(IAudioService):
                 audio_array = np.concatenate(self._audio_data)
                 chunks_count = len(self._audio_data)
             else:
-                return np.array([])
+                return np.array([]), 0.0
+
+        # 计算实际音频时长（基于采样数）
+        actual_duration = len(audio_array) / self._sample_rate
 
         stop_time_end = time.time()
         total_stop_duration = stop_time_end - stop_time_start
@@ -443,7 +446,7 @@ class AudioRecorder(IAudioService):
         app_logger.log_audio_event(
             "Recording stopped with timing analysis",
             {
-                "audio_duration_seconds": len(audio_array) / self._sample_rate,
+                "audio_duration_seconds": actual_duration,
                 "audio_samples": len(audio_array),
                 "chunks_recorded": chunks_count,
                 "stop_process_duration_ms": total_stop_duration * 1000,
@@ -453,7 +456,7 @@ class AudioRecorder(IAudioService):
                 "last_chunk_timestamp": stop_time_start,
             },
         )
-        return audio_array
+        return audio_array, actual_duration
 
     def _on_chunk_ready(self) -> None:
         """流式转录块就绪，提取当前音频块进行转录"""

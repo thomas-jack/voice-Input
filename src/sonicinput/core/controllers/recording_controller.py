@@ -271,14 +271,26 @@ class RecordingController(IRecordingController):
         try:
             app_logger.log_audio_event("Stopping recording", {})
 
-            # 停止录音服务
-            audio_data = self._audio_service.stop_recording()
+            # 停止录音服务（返回音频数据和实际时长）
+            audio_data, actual_duration = self._audio_service.stop_recording()
 
-            # 记录停止时间和音频时长
+            # 记录停止时间
             self._recording_stop_time = time.time()
-            self._last_audio_duration = (
-                self._recording_stop_time - self._recording_start_time
-            )
+            wall_clock_duration = self._recording_stop_time - self._recording_start_time
+
+            # 使用实际音频时长（而非墙上时间）
+            self._last_audio_duration = actual_duration
+
+            # 记录时长差异（用于诊断）
+            if abs(wall_clock_duration - actual_duration) > 1.0:
+                app_logger.log_audio_event(
+                    "Duration mismatch detected",
+                    {
+                        "actual_audio_duration": actual_duration,
+                        "wall_clock_duration": wall_clock_duration,
+                        "difference_seconds": abs(wall_clock_duration - actual_duration),
+                    }
+                )
 
             # 更新状态
             ControllerLogging.log_state_change(
