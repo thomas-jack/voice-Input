@@ -136,12 +136,10 @@ class ReprocessingWorker(QThread):
                     )
                 else:
                     try:
-                        # 设置当前记录ID供AI控制器使用
-                        self.ai_processing_controller._current_record_id = self.record.id
-
-                        # 调用AI处理
+                        # 调用AI处理，显式传递record_id
                         ai_optimized_text = self.ai_processing_controller.process_with_ai(
-                            transcription_text
+                            transcription_text,
+                            record_id=self.record.id
                         )
 
                         # 获取AI提供商信息

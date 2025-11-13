@@ -121,6 +121,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
 
             if self._current_record_id:
                 self._update_ai_status(
+                    record_id=self._current_record_id,
                     ai_text=None,
                     status="skipped",
                     error=None,
@@ -142,15 +143,19 @@ class AIProcessingController(BaseController, IAIProcessingController):
                 }
             )
 
-    def process_with_ai(self, text: str) -> str:
+    def process_with_ai(self, text: str, record_id: Optional[str] = None) -> str:
         """使用AI优化文本
 
         Args:
             text: 原始文本
+            record_id: 历史记录ID（可选，用于更新历史记录）
 
         Returns:
             优化后的文本
         """
+        # 确定使用哪个record_id：优先使用传入的，fallback到实例变量
+        actual_record_id = record_id if record_id is not None else self._current_record_id
+
         try:
             self._events.emit(Events.AI_PROCESSING_STARTED)
 
@@ -177,8 +182,9 @@ class AIProcessingController(BaseController, IAIProcessingController):
             self._last_ai_tps = getattr(ai_service, "_last_tps", 0.0)
 
             # 更新历史记录（AI成功）
-            if self._current_record_id:
+            if actual_record_id:
                 self._update_ai_status(
+                    record_id=actual_record_id,
                     ai_text=refined_text,
                     status="success",
                     error=None,
@@ -211,8 +217,9 @@ class AIProcessingController(BaseController, IAIProcessingController):
             app_logger.log_error(e, "process_with_ai")
 
             # 更新历史记录（AI失败）
-            if self._current_record_id:
+            if actual_record_id:
                 self._update_ai_status(
+                    record_id=actual_record_id,
                     ai_text=None,
                     status="failed",
                     error=error_msg,
@@ -231,8 +238,9 @@ class AIProcessingController(BaseController, IAIProcessingController):
             app_logger.log_error(e, "process_with_ai")
 
             # 更新历史记录（AI失败）
-            if self._current_record_id:
+            if actual_record_id:
                 self._update_ai_status(
+                    record_id=actual_record_id,
                     ai_text=None,
                     status="failed",
                     error=error_msg,
@@ -261,8 +269,9 @@ class AIProcessingController(BaseController, IAIProcessingController):
             app_logger.log_error(e, "process_with_ai")
 
             # 更新历史记录（AI失败）
-            if self._current_record_id:
+            if actual_record_id:
                 self._update_ai_status(
+                    record_id=actual_record_id,
                     ai_text=None,
                     status="failed",
                     error=error_msg,
@@ -281,8 +290,9 @@ class AIProcessingController(BaseController, IAIProcessingController):
             app_logger.log_error(e, "process_with_ai")
 
             # 更新历史记录（AI失败）
-            if self._current_record_id:
+            if actual_record_id:
                 self._update_ai_status(
+                    record_id=actual_record_id,
                     ai_text=None,
                     status="failed",
                     error=error_msg,
@@ -312,6 +322,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
 
     def _update_ai_status(
         self,
+        record_id: str,
         ai_text: Optional[str],
         status: str,
         error: Optional[str],
@@ -320,6 +331,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
         """更新历史记录的AI处理状态
 
         Args:
+            record_id: 历史记录ID
             ai_text: AI优化后的文本（成功时）
             status: AI状态 ("success" | "failed" | "skipped")
             error: 错误信息（失败时）
@@ -327,11 +339,11 @@ class AIProcessingController(BaseController, IAIProcessingController):
         """
         try:
             # 获取现有记录
-            record = self._history_service.get_record_by_id(self._current_record_id)
+            record = self._history_service.get_record_by_id(record_id)
             if not record:
                 app_logger.log_audio_event(
                     "Cannot update AI status - record not found",
-                    {"record_id": self._current_record_id}
+                    {"record_id": record_id}
                 )
                 return
 
@@ -352,7 +364,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                 app_logger.log_audio_event(
                     "AI status updated in history",
                     {
-                        "record_id": self._current_record_id,
+                        "record_id": record_id,
                         "status": status,
                         "ai_text_length": len(ai_text) if ai_text else 0,
                     }
@@ -360,7 +372,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
             else:
                 app_logger.log_audio_event(
                     "Failed to update AI status in history",
-                    {"record_id": self._current_record_id}
+                    {"record_id": record_id}
                 )
 
         except Exception as e:

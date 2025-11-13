@@ -3,59 +3,37 @@
 Centralizes magic numbers and configuration values used throughout the codebase.
 """
 
-# Import existing constants from parent module
+# Import the legacy constants module from the parent directory
+# Using importlib to avoid circular import issues with the constants package
+import importlib
 import sys
-from pathlib import Path
 
-# Add parent utils directory to path to import constants.py
-parent_utils = Path(__file__).parent.parent
-if str(parent_utils) not in sys.path:
-    sys.path.insert(0, str(parent_utils))
+# Import constants.py as a module under a unique name
+# This works in both development and Nuitka packaging
+_constants_module = importlib.import_module("sonicinput.utils.constants_legacy")
 
-# Import all classes from the original constants.py
-try:
-    from constants import (
-        AppInfo,
-        Paths,
-        ConfigKeys,
-        Defaults,
-        Limits,
-        UI,
-        Audio as AudioLegacy,
-        Whisper,
-        InputMethods,
-        Events,
-        ErrorMessages,
-        SuccessMessages,
-        Timing,
-        Patterns,
-        Versions,
-    )
-except ImportError:
-    # Fallback if direct import fails
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "constants_legacy",
-        parent_utils / "constants.py"
-    )
-    constants_module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(constants_module)
+# Import all classes from the constants module
+AppInfo = _constants_module.AppInfo
+Paths = _constants_module.Paths
+ConfigKeys = _constants_module.ConfigKeys
+Defaults = _constants_module.Defaults
+Limits = _constants_module.Limits
+UI = _constants_module.UI
+AudioLegacy = _constants_module.Audio
+Whisper = _constants_module.Whisper
+InputMethods = _constants_module.InputMethods
+Events = _constants_module.Events
+ErrorMessages = _constants_module.ErrorMessages
+SuccessMessages = _constants_module.SuccessMessages
+Timing = _constants_module.Timing
+Patterns = _constants_module.Patterns
+Versions = _constants_module.Versions
 
-    AppInfo = constants_module.AppInfo
-    Paths = constants_module.Paths
-    ConfigKeys = constants_module.ConfigKeys
-    Defaults = constants_module.Defaults
-    Limits = constants_module.Limits
-    UI = constants_module.UI
-    AudioLegacy = constants_module.Audio
-    Whisper = constants_module.Whisper
-    InputMethods = constants_module.InputMethods
-    Events = constants_module.Events
-    ErrorMessages = constants_module.ErrorMessages
-    SuccessMessages = constants_module.SuccessMessages
-    Timing = constants_module.Timing
-    Patterns = constants_module.Patterns
-    Versions = constants_module.Versions
+# Export Audio as both AudioLegacy and Audio for backward compatibility
+Audio = AudioLegacy
+
+# Clean up the temporary reference
+del _constants_module
 
 from .audio import (
     # Sample Rates
@@ -138,6 +116,7 @@ __all__ = [
     "Defaults",
     "Limits",
     "UI",
+    "Audio",
     "AudioLegacy",
     "Whisper",
     "InputMethods",

@@ -3,7 +3,7 @@
 Sonic Input - Application Entry Point
 
 Unified entry point providing:
-- CUDA library path setup for GPU acceleration
+- Legacy CUDA library path setup (deprecated - sherpa-onnx uses CPU only)
 - Warning suppression for cleaner output
 - CLI argument parsing and mode selection
 - Diagnostic and testing capabilities
@@ -25,20 +25,21 @@ from typing import Tuple, List, Dict, Any
 
 
 # ============================================================================
-# CUDA Path Setup for GPU Acceleration
+# CUDA Path Setup (Legacy - Deprecated for sherpa-onnx)
 # ============================================================================
 
 def setup_cuda_paths():
-    """Add CUDA/cuDNN DLL paths to system PATH for GPU acceleration
+    """Legacy CUDA/cuDNN DLL path setup (deprecated for sherpa-onnx)
 
-    Only runs if faster-whisper is installed (local transcription mode).
-    In cloud-only mode, this function silently returns without checking CUDA.
+    Note: sherpa-onnx uses CPU-only inference, so CUDA is no longer needed.
+    This function is kept for backward compatibility but effectively does nothing
+    when sherpa-onnx is installed. In cloud-only mode, returns silently.
     """
     try:
-        # Check if faster-whisper is installed (local transcription mode)
-        # Use importlib to check without importing the full module
+        # Check if sherpa-onnx is installed (local transcription mode)
+        # sherpa-onnx uses CPU inference only, no CUDA needed
         import importlib.util
-        spec = importlib.util.find_spec("faster_whisper")
+        spec = importlib.util.find_spec("sherpa_onnx")
         if spec is None:
             # Cloud-only mode - skip CUDA setup silently
             return
@@ -308,7 +309,7 @@ def run_tests():
 
 def run_model_test(container, auto_load_model=False):
     """
-    Run Whisper model transcription test.
+    Run sherpa-onnx model transcription test.
 
     Args:
         container: DIContainer instance
@@ -319,11 +320,11 @@ def run_model_test(container, auto_load_model=False):
 
     print("Initializing model test...")
 
-    # Get Whisper engine from DI container
-    whisper_engine = container.get(ISpeechService)
+    # Get sherpa-onnx engine from DI container
+    speech_engine = container.get(ISpeechService)
 
     # Create tester
-    tester = CLIModelTester(whisper_engine, timeout_seconds=120)
+    tester = CLIModelTester(speech_engine, timeout_seconds=120)
 
     # Run test
     result = tester.run_test(auto_load_model=auto_load_model)

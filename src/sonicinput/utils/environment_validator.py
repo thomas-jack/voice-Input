@@ -8,6 +8,12 @@ from typing import Dict, Any, Tuple, List
 from pathlib import Path
 from ..utils.logger import app_logger
 
+# Windows平台窗口隐藏标志
+if sys.platform == 'win32':
+    CREATE_NO_WINDOW = 0x08000000
+else:
+    CREATE_NO_WINDOW = 0
+
 
 class EnvironmentValidator:
     """Comprehensive environment validation for GUI application startup"""
@@ -124,7 +130,7 @@ class EnvironmentValidator:
                     import subprocess
 
                     result = subprocess.run(
-                        ["xset", "q"], capture_output=True, timeout=2
+                        ["xset", "q"], capture_output=True, timeout=2, creationflags=CREATE_NO_WINDOW
                     )
                     return result.returncode == 0
                 except Exception:

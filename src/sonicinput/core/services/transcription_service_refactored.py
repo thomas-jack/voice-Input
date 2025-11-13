@@ -102,10 +102,8 @@ class RefactoredTranscriptionService(ISpeechService):
                 self.model_manager.start()
                 self.task_queue_manager.start()
 
-                # 加载模型（如果未加载）
-                if not self.model_manager.is_model_loaded():
-                    app_logger.audio("Loading model on service startup", {})
-                    self.model_manager.load_model()
+                # 不再自动加载模型，由ApplicationOrchestrator根据配置决定是否加载
+                # 这避免了冗余的模型加载
 
                 # 创建转录核心（需要模型管理器启动并加载模型）
                 whisper_engine = self.model_manager.get_whisper_engine()

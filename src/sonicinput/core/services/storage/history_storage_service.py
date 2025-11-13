@@ -290,10 +290,10 @@ class HistoryStorageService(LifecycleComponent):
     def update_record(self, record: HistoryRecord) -> bool:
         """Update existing record with safe transaction handling
 
-        Only updates AI-related fields (ai_optimized_text, ai_provider, etc.)
+        Updates both transcription and AI-related fields
 
         Args:
-            record: HistoryRecord object with updated AI fields
+            record: HistoryRecord object with updated fields
 
         Returns:
             True if updated successfully, False if record not found or error
@@ -303,7 +303,11 @@ class HistoryStorageService(LifecycleComponent):
                 cursor.execute(
                     """
                     UPDATE history_records
-                    SET ai_optimized_text = ?,
+                    SET transcription_text = ?,
+                        transcription_provider = ?,
+                        transcription_status = ?,
+                        transcription_error = ?,
+                        ai_optimized_text = ?,
                         ai_provider = ?,
                         ai_status = ?,
                         ai_error = ?,
@@ -311,6 +315,10 @@ class HistoryStorageService(LifecycleComponent):
                     WHERE id = ?
                 """,
                     (
+                        record.transcription_text,
+                        record.transcription_provider,
+                        record.transcription_status,
+                        record.transcription_error,
                         record.ai_optimized_text,
                         record.ai_provider,
                         record.ai_status,

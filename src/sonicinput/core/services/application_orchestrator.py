@@ -335,11 +335,20 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
     def _init_model_loading(self) -> None:
         """初始化模型加载阶段"""
         if self._should_enable_auto_load():
-            model_name = self.config.get_setting("whisper.model", "large-v3-turbo")
-            app_logger.log_audio_event(
-                "Auto-loading model on startup", {"model_name": model_name}
-            )
-            self._load_model_async(model_name)
+            provider = self.config.get_setting("transcription.provider", "local")
+            if provider == "local":
+                model_name = self.config.get_setting("transcription.local.model", "paraformer")
+                app_logger.log_audio_event(
+                    "Auto-loading model on startup", {"model_name": model_name}
+                )
+                self._load_model_async(model_name)
+            else:
+                # 云端模式不需要预加载模型
+                app_logger.log_audio_event(
+                    "Skipping model loading for cloud provider",
+                    {"provider": provider}
+                )
+                return
 
     def _should_enable_auto_load(self) -> bool:
         """判断是否应该启用自动加载"""

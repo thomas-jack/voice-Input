@@ -5,6 +5,12 @@ import sys
 import subprocess
 from typing import Dict, List, Any
 
+# Windows平台窗口隐藏标志
+if sys.platform == 'win32':
+    CREATE_NO_WINDOW = 0x08000000
+else:
+    CREATE_NO_WINDOW = 0
+
 
 # 延迟导入app_logger以避免循环依赖
 def _get_logger():
@@ -84,7 +90,7 @@ class DependencyDiagnostics:
         # 检查 nvcc
         try:
             result = subprocess.run(
-                ["nvcc", "--version"], capture_output=True, text=True, timeout=10
+                ["nvcc", "--version"], capture_output=True, text=True, timeout=10, creationflags=CREATE_NO_WINDOW
             )
             if result.returncode == 0:
                 cuda_info["nvcc_available"] = True
@@ -99,7 +105,7 @@ class DependencyDiagnostics:
         # 检查 nvidia-smi
         try:
             result = subprocess.run(
-                ["nvidia-smi"], capture_output=True, text=True, timeout=10
+                ["nvidia-smi"], capture_output=True, text=True, timeout=10, creationflags=CREATE_NO_WINDOW
             )
             if result.returncode == 0:
                 cuda_info["nvidia_smi_available"] = True
