@@ -31,14 +31,16 @@ class ReprocessingWorker(QThread):
 
     def __init__(
         self,
-        record,
+        record_id: str,
+        audio_file_path: str,
         transcription_service,
         ai_processing_controller,
         config_service,
         history_service,
     ):
         super().__init__()
-        self.record = record
+        self.record_id = record_id  # 使用不可变的 ID
+        self.audio_file_path = audio_file_path  # 使用不可变的路径
         self.transcription_service = transcription_service
         self.ai_processing_controller = ai_processing_controller
         self.config_service = config_service
@@ -53,7 +55,7 @@ class ReprocessingWorker(QThread):
 
             # 1. 加载音频文件
             self.progress_updated.emit("Loading audio file...")
-            audio_file_path = self.record.audio_file_path
+            audio_file_path = self.audio_file_path  # 使用创建时捕获的路径
 
             if not audio_file_path:
                 self.reprocessing_failed.emit("Audio file path not found in record")
@@ -95,10 +97,13 @@ class ReprocessingWorker(QThread):
                     self.reprocessing_failed.emit(f"Transcription failed: {error_msg}")
 
                     # 更新历史记录为失败状态
-                    self.record.transcription_status = "failed"
-                    self.record.transcription_error = error_msg
-                    self.record.transcription_provider = transcription_provider
-                    self.history_service.update_record(self.record)
+                    # 从数据库获取最新的 record 并更新
+                    record = self.history_service.get_record_by_id(self.record_id)
+                    if record:
+                        record.transcription_status = "failed"
+                        record.transcription_error = error_msg
+                        record.transcription_provider = transcription_provider
+                        self.history_service.update_record(record)
                     return
 
                 transcription_text = transcription_result.get("text", "")
@@ -139,7 +144,7 @@ class ReprocessingWorker(QThread):
                         # 调用AI处理，显式传递record_id
                         ai_optimized_text = self.ai_processing_controller.process_with_ai(
                             transcription_text,
-                            record_id=self.record.id
+                            record_id=self.record_id  # 使用不可变的 ID
                         )
 
                         # 获取AI提供商信息
@@ -169,20 +174,26 @@ class ReprocessingWorker(QThread):
             else:
                 final_text = transcription_text
 
-            # 更新记录对象
-            self.record.transcription_text = transcription_text
-            self.record.transcription_provider = transcription_provider
-            self.record.transcription_status = "success"
-            self.record.transcription_error = None
-            self.record.ai_optimized_text = ai_optimized_text
-            self.record.ai_provider = ai_provider
-            self.record.ai_status = ai_status
-            self.record.ai_error = ai_error
-            self.record.final_text = final_text
+            # 从数据库获取最新的 record 并更新
+            # 这确保我们更新的是正确的记录，避免对象引用问题
+            record = self.history_service.get_record_by_id(self.record_id)
+            if not record:
+                self.reprocessing_failed.emit(f"Record not found: {self.record_id}")
+                return
+
+            record.transcription_text = transcription_text
+            record.transcription_provider = transcription_provider
+            record.transcription_status = "success"
+            record.transcription_error = None
+            record.ai_optimized_text = ai_optimized_text
+            record.ai_provider = ai_provider
+            record.ai_status = ai_status
+            record.ai_error = ai_error
+            record.final_text = final_text
 
             # 保存到数据库
             try:
-                self.history_service.update_record(self.record)
+                self.history_service.update_record(record)
             except Exception as e:
                 app_logger.log_error(e, "reprocessing_update_record")
                 self.reprocessing_failed.emit(f"Failed to update history record: {str(e)}")
@@ -397,8 +408,10 @@ class HistoryDetailDialog(QDialog):
         self.progress_dialog.show()
 
         # 创建并启动后台工作线程
+        # 传递不可变数据而不是对象引用，避免并发问题
         self.reprocessing_worker = ReprocessingWorker(
-            record=self.record,
+            record_id=self.record.id,
+            audio_file_path=self.record.audio_file_path,
             transcription_service=self.transcription_service,
             ai_processing_controller=self.ai_processing_controller,
             config_service=self.config_service,
