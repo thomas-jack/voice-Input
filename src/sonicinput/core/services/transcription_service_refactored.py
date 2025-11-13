@@ -267,6 +267,7 @@ class RefactoredTranscriptionService(ISpeechService):
         audio_data: np.ndarray,
         language: Optional[str] = None,
         temperature: float = 0.0,
+        emit_event: bool = False,
     ) -> Dict[str, Any]:
         """转录音频（同步）
 
@@ -274,6 +275,7 @@ class RefactoredTranscriptionService(ISpeechService):
             audio_data: 音频数据
             language: 指定语言（可选）
             temperature: 温度参数
+            emit_event: 是否发送transcription_completed事件（默认False，避免触发AI处理流程）
 
         Returns:
             转录结果
@@ -290,9 +292,14 @@ class RefactoredTranscriptionService(ISpeechService):
                 audio_data, language, temperature
             )
 
-            # 发送转录完成事件
-            if self.event_service:
-                self.event_service.emit("transcription_completed", {"result": result})
+            # 仅在明确要求时发送转录完成事件
+            # 注意：retry等手动转录不应触发事件，避免与正常录音流程冲突
+            if emit_event and self.event_service:
+                self.event_service.emit("transcription_completed", {
+                    "result": result,
+                    "text": result.get("text", ""),
+                    "streaming_mode": "chunked",
+                })
 
             return result
 
