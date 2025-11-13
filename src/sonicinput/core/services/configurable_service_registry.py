@@ -350,25 +350,13 @@ class ConfigurableServiceRegistry:
         try:
             # 尝试从容器获取VoiceInputApp实例
             voice_app = container.get(None)
-            app_logger.log_audio_event(
-                "DEBUG: Got voice_app from container",
-                {"has_voice_input_app_attr": hasattr(voice_app, 'voice_input_app') if voice_app else False}
-            )
 
             if hasattr(voice_app, 'voice_input_app'):
                 voice_app = voice_app.voice_input_app
-                app_logger.log_audio_event("DEBUG: Unwrapped voice_input_app", {})
 
             # 从ApplicationOrchestrator获取服务
             if hasattr(voice_app, 'orchestrator'):
                 orchestrator = voice_app.orchestrator
-                app_logger.log_audio_event(
-                    "DEBUG: Got orchestrator",
-                    {
-                        "has_speech_service": hasattr(orchestrator, '_speech_service'),
-                        "has_controllers": hasattr(orchestrator, '_controllers')
-                    }
-                )
 
                 # 获取转录服务 - 使用正确的属性名 _speech_service
                 if hasattr(orchestrator, '_speech_service'):
@@ -378,7 +366,10 @@ class ConfigurableServiceRegistry:
                         {"service_type": type(transcription_service).__name__ if transcription_service else "None"}
                     )
                 else:
-                    app_logger.log_audio_event("DEBUG: orchestrator has no _speech_service attr", {})
+                    app_logger.log_audio_event(
+                        "Warning: Orchestrator missing _speech_service attribute",
+                        {"orchestrator_type": type(orchestrator).__name__}
+                    )
 
                 # 获取AI处理控制器 - 从 _controllers 字典获取
                 if hasattr(orchestrator, '_controllers'):
@@ -389,11 +380,20 @@ class ConfigurableServiceRegistry:
                             {"controller_type": type(ai_processing_controller).__name__}
                         )
                     else:
-                        app_logger.log_audio_event("DEBUG: orchestrator._controllers['ai'] is None", {})
+                        app_logger.log_audio_event(
+                            "Warning: AI controller is None in orchestrator",
+                            {"has_controllers_dict": True}
+                        )
                 else:
-                    app_logger.log_audio_event("DEBUG: orchestrator has no _controllers attr", {})
+                    app_logger.log_audio_event(
+                        "Warning: Orchestrator missing _controllers attribute",
+                        {"orchestrator_type": type(orchestrator).__name__}
+                    )
             else:
-                app_logger.log_audio_event("DEBUG: voice_app has no orchestrator attr", {})
+                app_logger.log_audio_event(
+                    "Warning: Voice app missing orchestrator attribute",
+                    {"voice_app_type": type(voice_app).__name__}
+                )
         except Exception as e:
             app_logger.log_audio_event(
                 "Warning: Could not get services from orchestrator for UI settings",

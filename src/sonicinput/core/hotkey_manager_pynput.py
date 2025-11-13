@@ -416,15 +416,6 @@ class PynputHotkeyManager(IHotkeyService):
                     ]
                     for vk in timeout_keys:
                         del current_vk_keys[vk]
-                        if app_logger.is_debug_enabled():
-                            app_logger.log_audio_event(
-                                f"Timeout key cleaned (VK={hex(vk)})",
-                                {
-                                    "vk_code": vk,
-                                    "age_seconds": current_time
-                                    - current_vk_keys.get(vk, current_time),
-                                },
-                            )
 
                     # 调试日志：记录按键事件（DEBUG级别）
                     if app_logger.is_debug_enabled() and vk_code in [
@@ -595,17 +586,6 @@ class PynputHotkeyManager(IHotkeyService):
                 elif msg in (WM_KEYUP, WM_SYSKEYUP):
                     # 按键释放
                     vk_code = data.vkCode
-
-                    # 调试日志（DEBUG级别）
-                    if app_logger.is_debug_enabled():
-                        app_logger.log_audio_event(
-                            f"KeyUp detected (VK={hex(vk_code)})",
-                            {
-                                "vk_code": vk_code,
-                                "in_suppressed": vk_code in self._suppressed_vk_keys,
-                                "current_vk_keys": [hex(k) for k in current_vk_keys.keys()],
-                            },
-                        )
 
                     # 从跟踪中移除
                     if vk_code in current_vk_keys:
