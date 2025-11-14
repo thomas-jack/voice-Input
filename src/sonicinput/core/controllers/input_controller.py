@@ -43,9 +43,8 @@ class InputController(BaseController, IInputController):
         # Controller-specific services
         self._input_service = input_service
 
-        # Realtime 模式状态追踪
+        # Realtime 模式状态追踪（用于实时文本差量更新）
         self._last_realtime_text: str = ""  # 上一次输入的实时文本
-        self._is_realtime_mode: bool = False  # 是否处于 realtime 模式
 
         # Register event listeners and log initialization
         self._register_event_listeners()
@@ -63,25 +62,32 @@ class InputController(BaseController, IInputController):
         self._events.on(Events.RECORDING_STARTED, self._on_recording_started)
         self._events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
 
-        # 转录完成事件（用于恢复剪贴板）
-        self._events.on(Events.TRANSCRIPTION_COMPLETED, self._on_transcription_completed_restore_clipboard)
+        # 转录错误事件（用于恢复剪贴板）
+        self._events.on(Events.TRANSCRIPTION_ERROR, self._on_transcription_error_restore_clipboard)
 
     def _on_text_ready_for_input(self, data: dict) -> None:
         """处理准备好输入的文本事件
 
         Args:
-            data: 包含 text 和性能统计数据
+            data: 包含 text、性能统计数据和 streaming_mode
         """
+        # 从事件数据中获取实际的 streaming_mode，而不是依赖本地标志
+        streaming_mode = data.get("streaming_mode", "chunked")
+
         # 关键修复：realtime模式下，文本已经在录音过程中实时输入了
         # 不应该在录音结束后再输入一遍
-        if self._is_realtime_mode:
+        if streaming_mode == "realtime":
             app_logger.log_audio_event(
                 "Skipping final text input in realtime mode (already input during recording)",
                 {
                     "text_length": len(data.get("text", "")),
-                    "is_realtime_mode": self._is_realtime_mode
+                    "streaming_mode": streaming_mode
                 }
             )
+
+            # 关键修复：realtime 模式下也要恢复剪贴板
+            if hasattr(self._input_service, 'stop_recording_mode'):
+                self._input_service.stop_recording_mode()
 
             # 关键修复：即使跳过文本输入，也要触发完成事件和设置状态
             # 让 RecordingOverlay 能够正常隐藏
@@ -102,8 +108,13 @@ class InputController(BaseController, IInputController):
             # 空文本处理：仍需触发完成事件，让悬浮窗正常关闭
             app_logger.log_audio_event(
                 "Empty text received, skipping input but triggering completion",
-                {"data_keys": list(data.keys())}
+                {"data_keys": list(data.keys()), "streaming_mode": streaming_mode}
             )
+
+            # 空文本时也要恢复剪贴板
+            if hasattr(self._input_service, 'stop_recording_mode'):
+                self._input_service.stop_recording_mode()
+
             # 触发完成事件
             self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
             # 设置状态为 IDLE
@@ -130,6 +141,11 @@ class InputController(BaseController, IInputController):
             if success:
                 self._events.emit(Events.TEXT_INPUT_COMPLETED, text)
 
+                # 文本输入成功后，恢复原始剪贴板内容
+                # 修复：将剪贴板恢复从 TRANSCRIPTION_COMPLETED 移到这里，确保在文本输入完成后才恢复
+                if hasattr(self._input_service, 'stop_recording_mode'):
+                    self._input_service.stop_recording_mode()
+
                 # 重置应用状态为 IDLE（完成整个语音输入流程）
                 self._state.set_app_state(AppState.IDLE)
 
@@ -145,6 +161,10 @@ class InputController(BaseController, IInputController):
             else:
                 self._events.emit(Events.TEXT_INPUT_ERROR, "Failed to input text")
 
+                # 文本输入失败时也要恢复剪贴板
+                if hasattr(self._input_service, 'stop_recording_mode'):
+                    self._input_service.stop_recording_mode()
+
                 # 即使失败也要重置状态，否则无法进行下一次录音
                 self._state.set_app_state(AppState.IDLE)
 
@@ -153,6 +173,10 @@ class InputController(BaseController, IInputController):
         except Exception as e:
             app_logger.log_error(e, "input_text")
             self._events.emit(Events.TEXT_INPUT_ERROR, str(e))
+
+            # 异常时也要恢复剪贴板
+            if hasattr(self._input_service, 'stop_recording_mode'):
+                self._input_service.stop_recording_mode()
 
             # 异常时也要重置状态
             self._state.set_app_state(AppState.IDLE)
@@ -211,11 +235,11 @@ class InputController(BaseController, IInputController):
     def _on_recording_started(self, data=None) -> None:
         """处理录音开始事件
 
+        启动录音模式（保存原始剪贴板）
         重置 realtime 模式状态，准备接收新的实时文本更新
-        同时启动录音模式（保存原始剪贴板）
         """
+        # 重置 realtime 文本追踪（用于实时文本差量更新）
         self._last_realtime_text = ""
-        self._is_realtime_mode = True  # 假设开始录音时可能使用 realtime 模式
 
         # 启动录音模式：SmartTextInput会保存原始剪贴板，并在录音期间禁用中途restore
         try:
@@ -225,20 +249,17 @@ class InputController(BaseController, IInputController):
             app_logger.log_error(e, "start_recording_mode")
 
         app_logger.log_audio_event(
-            "InputController: Recording started, reset realtime state", {}
+            "InputController: Recording started, clipboard backup initiated", {}
         )
 
     def _on_recording_stopped(self, data=None) -> None:
         """处理录音停止事件
 
-        只清理 realtime 模式状态，不恢复剪贴板
-        剪贴板恢复延迟到转录完成后（_on_transcription_completed_restore_clipboard）
+        记录录音停止日志，剪贴板恢复会在文本输入完成后自动处理
         """
-        self._is_realtime_mode = False
-
         app_logger.log_audio_event(
-            "InputController: Recording stopped, clear realtime state",
-            {"last_text_length": len(self._last_realtime_text)}
+            "InputController: Recording stopped",
+            {"last_realtime_text_length": len(self._last_realtime_text)}
         )
 
     def _on_realtime_text_updated(self, data: dict) -> None:
@@ -318,24 +339,21 @@ class InputController(BaseController, IInputController):
         except Exception as e:
             app_logger.log_error(e, "_on_realtime_text_updated")
 
-    def _on_transcription_completed_restore_clipboard(self, data: dict) -> None:
-        """处理转录完成事件 - 恢复剪贴板
+    def _on_transcription_error_restore_clipboard(self, error_msg: str) -> None:
+        """处理转录错误事件 - 恢复剪贴板
 
-        在转录完成后调用，此时所有文本输入操作已完成，可以安全恢复剪贴板
+        转录失败时也要恢复剪贴板，避免用户原始剪贴板内容丢失
 
         Args:
-            data: 转录完成事件数据
+            error_msg: 错误信息
         """
         try:
-            # 停止录音模式：SmartTextInput会恢复录音前保存的原始剪贴板
+            # 即使转录失败，也要恢复剪贴板
             if hasattr(self._input_service, 'stop_recording_mode'):
                 self._input_service.stop_recording_mode()
                 app_logger.log_audio_event(
-                    "Clipboard restore triggered after transcription completed",
-                    {
-                        "streaming_mode": data.get("streaming_mode", "unknown"),
-                        "text_length": len(data.get("text", ""))
-                    }
+                    "Clipboard restore triggered after transcription error",
+                    {"error": error_msg[:100] if error_msg else "Unknown error"}
                 )
         except Exception as e:
-            app_logger.log_error(e, "_on_transcription_completed_restore_clipboard")
+            app_logger.log_error(e, "_on_transcription_error_restore_clipboard")

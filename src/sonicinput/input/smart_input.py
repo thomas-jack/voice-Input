@@ -1,6 +1,6 @@
 """智能文本输入策略选择器"""
 
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 from .clipboard_input import ClipboardInput
 from .sendinput import SendInputMethod
 from ..utils import TextInputError, app_logger
@@ -206,9 +206,15 @@ class SmartTextInput(IInputService):
         # 通知ClipboardInput进入录音模式（禁用中途restore）
         self.clipboard_input.set_recording_mode(True)
 
+        # 记录剪贴板备份信息（支持新旧格式）
+        if isinstance(self._original_clipboard, dict):
+            clip_info = f"{len(self._original_clipboard)} formats"
+        else:
+            clip_info = f"{len(self._original_clipboard)} chars"
+
         app_logger.log_audio_event(
             "Recording mode started, clipboard saved",
-            {"clipboard_length": len(self._original_clipboard)}
+            {"clipboard_info": clip_info}
         )
 
     def stop_recording_mode(self) -> None:
@@ -235,9 +241,16 @@ class SmartTextInput(IInputService):
             if clipboard_to_restore:
                 try:
                     self.clipboard_input.restore_clipboard(clipboard_to_restore)
+
+                    # 记录恢复信息（支持新旧格式）
+                    if isinstance(clipboard_to_restore, dict):
+                        clip_info = f"{len(clipboard_to_restore)} formats"
+                    else:
+                        clip_info = f"{len(clipboard_to_restore)} chars"
+
                     app_logger.log_audio_event(
                         "Recording mode stopped, clipboard restored successfully",
-                        {"clipboard_length": len(clipboard_to_restore)}
+                        {"clipboard_info": clip_info}
                     )
                 except Exception as e:
                     app_logger.log_error(e, "delayed_restore_clipboard")
