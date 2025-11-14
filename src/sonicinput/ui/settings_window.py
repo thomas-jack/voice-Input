@@ -126,18 +126,20 @@ class SettingsWindow(QMainWindow):
         # 为所有下拉框和数值调整控件安装滚轮事件过滤器
         self._install_wheel_filters()
 
+        # 加载当前配置 (先加载config到UI，建立基准)
+        self.load_current_config()
+
         # 监听模型加载完成事件
         if self.ui_settings_service:
-            from ..utils.constants import Events
+            from ..core.services.event_bus import Events
 
             events = self.ui_settings_service.get_event_service()
-            events.on(Events.MODEL_LOADING_COMPLETED, self._on_model_loaded)
+            events.on(Events.MODEL_LOADED, self._on_model_loaded)
 
-            # 检查模型是否已经加载（如果SettingsWindow创建晚于模型加载）
+            # 检查模型是否已经加载，如果已加载则更新status label显示runtime状态
+            # 注意: 此时dropdown已经显示config值，status label会显示runtime值
+            # 这样用户可以清楚看到config和runtime的差异(如果存在)
             self._check_initial_model_status()
-
-        # 加载当前配置
-        self.load_current_config()
 
         app_logger.log_audio_event("Settings window initialized", {})
 
@@ -581,13 +583,82 @@ class SettingsWindow(QMainWindow):
         return flat
 
     def apply_settings(self) -> None:
-        """应用设置"""
+        """应用设置（原子操作，确保UI/Config/Runtime三状态一致性）"""
+        from PySide6.QtWidgets import QProgressDialog
+        from PySide6.QtCore import Qt
+
         # 收集所有设置
         new_config = self.collect_settings_from_ui()
 
-        # 保存配置
         try:
-            # 将嵌套配置展平并逐个更新（新API方式）
+            # 检测模型是否需要变更
+            transcription_config = new_config.get("transcription", {})
+            provider = transcription_config.get("provider", "local")
+            model_needs_reload = False
+            new_model_name = None
+
+            if provider == "local" and self.ui_model_service:
+                new_model_name = transcription_config.get("local", {}).get("model", "paraformer")
+                runtime_info = self.ui_model_service.get_model_info()
+                current_model_name = runtime_info.get("model_name", "Unknown")
+
+                if new_model_name != current_model_name and current_model_name != "Unknown":
+                    model_needs_reload = True
+                    app_logger.log_audio_event(
+                        "Model change detected in Apply",
+                        {"old_model": current_model_name, "new_model": new_model_name}
+                    )
+
+            # 如果需要重载模型，使用同步阻塞方式
+            if model_needs_reload:
+                progress = QProgressDialog(
+                    f"Loading model: {new_model_name}...\nThis may take a few seconds.",
+                    None,  # No cancel button
+                    0,
+                    0,  # Indeterminate progress
+                    self,
+                )
+                progress.setWindowTitle("Applying Settings")
+                progress.setWindowModality(Qt.WindowModality.WindowModal)
+                progress.setMinimumDuration(0)
+                progress.setCancelButton(None)
+                progress.show()
+
+                # 强制刷新UI
+                from PySide6.QtWidgets import QApplication
+                QApplication.processEvents()
+
+                try:
+                    # 同步加载模型（阻塞等待）
+                    success = self.ui_model_service.load_model(new_model_name)
+
+                    if not success:
+                        progress.close()
+                        raise Exception(f"Failed to load model '{new_model_name}'")
+
+                    progress.close()
+
+                    app_logger.log_audio_event(
+                        "Model loaded successfully during Apply",
+                        {"model_name": new_model_name}
+                    )
+
+                except Exception as model_error:
+                    # 确保进度对话框关闭
+                    try:
+                        progress.close()
+                    except:
+                        pass
+
+                    app_logger.log_error(model_error, "apply_settings_model_load")
+                    QMessageBox.critical(
+                        self,
+                        "Model Load Failed",
+                        f"Failed to load model '{new_model_name}':\n{model_error}\n\nSettings NOT saved."
+                    )
+                    return  # 中止Apply操作，不保存配置
+
+            # 模型加载成功或无需变更，保存配置
             flat_config = self._flatten_config(new_config)
             for key, value in flat_config.items():
                 try:
@@ -605,13 +676,61 @@ class SettingsWindow(QMainWindow):
                 new_config["logging"]["console_output"]
             )
 
-            # 实时应用快捷键配置（无需重启）
-            # 这里需要通过UI服务来触发快捷键重载
-            # 具体实现取决于UI主服务的功能
+            # MODEL_LOADED事件会自动触发_on_model_loaded()更新状态标签
+            # 下拉框应保持用户选择(config),不应被运行时状态(runtime)覆盖
+            # 设计原则: 下拉框=用户配置, 状态标签=运行时状态
 
             QMessageBox.information(self, "Settings", "Settings applied successfully!")
+
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save settings: {e}")
+            app_logger.log_error(e, "apply_settings")
+            QMessageBox.critical(self, "Error", f"Failed to apply settings: {e}")
+
+    def _sync_ui_from_runtime(self) -> None:
+        """从运行时状态同步UI显示（确保UI反映真实状态）
+
+        这是Apply操作的最后一步，从单一数据源（运行时状态）
+        更新所有UI控件，确保UI/Config/Runtime三者一致性。
+        """
+        if not self.ui_model_service:
+            return
+
+        try:
+            # 获取真实运行时状态
+            runtime_info = self.ui_model_service.get_model_info()
+            runtime_model = runtime_info.get("model_name", "Unknown")
+            is_loaded = runtime_info.get("is_loaded", False)
+            device = runtime_info.get("device", "Unknown")
+
+            # 更新transcription tab的UI控件
+            if hasattr(self, 'transcription_tab'):
+                # 更新模型下拉框
+                model_combo = self.transcription_tab.whisper_model_combo
+                index = model_combo.findText(runtime_model)
+                if index >= 0:
+                    model_combo.setCurrentIndex(index)
+
+                # 更新状态标签
+                if is_loaded and runtime_model != "Unknown":
+                    self.transcription_tab.model_status_label.setText(
+                        f"Model loaded: {runtime_model} ({device})"
+                    )
+                    self.transcription_tab.model_status_label.setStyleSheet(
+                        "QLabel { color: #4CAF50; }"  # Green
+                    )
+                else:
+                    self.transcription_tab.model_status_label.setText("Model not loaded")
+                    self.transcription_tab.model_status_label.setStyleSheet(
+                        "QLabel { color: #757575; }"  # Gray
+                    )
+
+            app_logger.log_audio_event(
+                "UI synced from runtime state",
+                {"model": runtime_model, "device": device, "loaded": is_loaded}
+            )
+
+        except Exception as e:
+            app_logger.log_error(e, "_sync_ui_from_runtime")
 
     def accept_settings(self) -> None:
         """接受设置并关闭"""
@@ -735,8 +854,23 @@ class SettingsWindow(QMainWindow):
                 # 模型已加载，获取信息并更新UI
                 model_info = self.ui_model_service.get_model_info()
 
-                # 调用事件处理器更新UI
-                self._on_model_loaded(model_info)
+                # 关键修复：验证数据结构是否包含必要字段
+                if model_info and "model_name" in model_info:
+                    # 调用事件处理器更新UI
+                    self._on_model_loaded(model_info)
+
+                    from ..utils import app_logger
+                    app_logger.log_audio_event(
+                        "Initial model status updated from check",
+                        {"model_name": model_info.get("model_name"), "device": model_info.get("device")}
+                    )
+                else:
+                    from ..utils import app_logger
+                    app_logger.log_audio_event(
+                        "Model loaded but info structure invalid for UI update",
+                        {"model_info_keys": list(model_info.keys()) if model_info else None,
+                         "has_model_name": "model_name" in model_info if model_info else False}
+                    )
 
         except Exception as e:
             from ..utils import app_logger
@@ -756,12 +890,21 @@ class SettingsWindow(QMainWindow):
             model_name = event_data.get("model_name", "Unknown")
             device = event_data.get("device", "Unknown")
 
-            # 更新模型状态标签 - 移除 emoji 以免编码问题
+            # 1. 更新模型下拉框 (从Runtime同步)
+            index = self.transcription_tab.whisper_model_combo.findText(model_name)
+            if index >= 0:
+                self.transcription_tab.whisper_model_combo.setCurrentIndex(index)
+
+            # 2. 更新状态标签 (现有逻辑保持)
             status_text = f"Model loaded: {model_name} ({device})"
             self.transcription_tab.model_status_label.setText(status_text)
             self.transcription_tab.model_status_label.setStyleSheet(
                 "QLabel { color: #4CAF50; }"
             )  # Material Green
+
+            # 3. 更新按钮文本 (修复bug: 之前只更新了标签,忘记更新按钮)
+            self.transcription_tab.load_model_button.setText("Reload Model")
+            self.transcription_tab.unload_model_button.setEnabled(True)
 
             # 如果有GPU信息，更新显存使用 (sherpa-onnx不需要，但保留兼容性)
             if "allocated_gb" in event_data:
@@ -772,6 +915,13 @@ class SettingsWindow(QMainWindow):
                     self.transcription_tab.gpu_memory_label.setText(
                         f"{allocated:.2f}GB / {total:.1f}GB ({percent:.1f}%)"
                     )
+
+            # 记录UI完全同步
+            from ..utils import app_logger
+            app_logger.log_audio_event(
+                "UI fully synced from runtime state",
+                {"model": model_name, "device": device}
+            )
 
         except Exception as e:
             from ..utils import app_logger
@@ -920,8 +1070,8 @@ class SettingsWindow(QMainWindow):
             if device:
                 status_parts.append(f"({device})")
 
-            # 添加引擎类型
-            if engine_type and engine_type != device:
+            # 添加引擎类型（仅在有效且与device不同时显示）
+            if engine_type and engine_type not in (device, "unknown", "Unknown"):
                 status_parts.append(f"[{engine_type}]")
 
             # 添加加载时间

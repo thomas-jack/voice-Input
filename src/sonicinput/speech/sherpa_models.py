@@ -22,7 +22,7 @@ class SherpaModelManager:
             "rtf": 0.15,
         },
         "zipformer-small": {
-            "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-20.tar.bz2",
+            "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16.tar.bz2",
             "size_mb": 112,
             "language": ["zh", "en"],
             "description": "超轻量级双语模型",
@@ -233,7 +233,7 @@ class SherpaModelManager:
             return self.cache_dir / "sherpa-onnx-streaming-paraformer-bilingual-zh-en"
         elif model_name == "zipformer-small":
             # Zipformer 解压后的目录名
-            return self.cache_dir / "sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-20"
+            return self.cache_dir / "sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16"
         else:
             # 通用模式
             return self.cache_dir / f"sherpa-onnx-{model_name}"

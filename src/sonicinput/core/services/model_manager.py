@@ -71,7 +71,19 @@ class ModelManager:
         app_logger.log_audio_event("ModelManager stopped", {})
 
     def load_model(self, model_name: Optional[str] = None, timeout: int = 300) -> bool:
-        """加载模型
+        """加载模型（异步兼容方法，推荐使用load_model_sync）
+
+        Args:
+            model_name: 模型名称（可选，默认使用当前模型）
+            timeout: 超时时间（秒）
+
+        Returns:
+            True如果加载成功
+        """
+        return self.load_model_sync(model_name, timeout)
+
+    def load_model_sync(self, model_name: Optional[str] = None, timeout: int = 300) -> bool:
+        """同步加载模型（阻塞直到加载完成）
 
         Args:
             model_name: 模型名称（可选，默认使用当前模型）
@@ -156,7 +168,7 @@ class ModelManager:
                 self._model_state = ModelState.ERROR
                 self._last_load_error = str(e)
 
-            app_logger.log_error(e, "load_model")
+            app_logger.log_error(e, "load_model_sync")
 
             # 广播模型加载失败事件
             self._emit_model_event(

@@ -353,8 +353,11 @@ class MainWindow(QMainWindow):
 
                 try:
                     # 执行模型加载
-                    self.ui_model_service.load_model(model_name)
+                    success = self.ui_model_service.load_model(model_name)
                     progress.close()
+
+                    if not success:
+                        raise Exception(f"Failed to load model '{model_name}'")
 
                     app_logger.log_audio_event(
                         "Model load completed successfully via GUI",

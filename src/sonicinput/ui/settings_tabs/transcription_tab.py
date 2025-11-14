@@ -53,7 +53,7 @@ class TranscriptionTab(BaseSettingsTab):
         # 模型选择
         self.whisper_model_combo = QComboBox()
         self.whisper_model_combo.addItems(
-            ["paraformer", "zipformer"]
+            ["paraformer", "zipformer-small"]
         )
         model_layout.addRow("Model:", self.whisper_model_combo)
 
@@ -730,11 +730,24 @@ class TranscriptionTab(BaseSettingsTab):
         if is_local:
             # Local 模式：显示模型管理
             self.management_group.setTitle("Model Management")
-            self.model_status_label.setText(
-                "Model not loaded"
-                if not hasattr(self, "_model_loaded")
-                else ("Model loaded" if self._model_loaded else "Model not loaded")
-            )
+
+            # 从运行时状态获取真实模型信息
+            if hasattr(self.parent_window, 'ui_model_service'):
+                runtime_info = self.parent_window.ui_model_service.get_model_info()
+                is_loaded = runtime_info.get("is_loaded", False)
+                model_name = runtime_info.get("model_name", "Unknown")
+                device = runtime_info.get("device", "Unknown")
+
+                if is_loaded and model_name != "Unknown":
+                    self.model_status_label.setText(f"Model loaded: {model_name} ({device})")
+                    self.model_status_label.setStyleSheet("QLabel { color: #4CAF50; }")  # Green
+                else:
+                    self.model_status_label.setText("Model not loaded")
+                    self.model_status_label.setStyleSheet("QLabel { color: #757575; }")  # Gray
+            else:
+                self.model_status_label.setText("Model service not available")
+                self.model_status_label.setStyleSheet("QLabel { color: #F44336; }")  # Red
+
             self.load_model_button.setVisible(True)
             self.unload_model_button.setVisible(True)
             self.test_model_button.setText("Test Model")

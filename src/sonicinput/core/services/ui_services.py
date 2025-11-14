@@ -224,19 +224,25 @@ class UIModelService:
         return False
 
     def get_model_info(self) -> Dict[str, Any]:
-        """获取模型信息"""
-        # TranscriptionService 包装了实际的 WhisperEngine
-        # 需要通过 whisper_engine 属性访问
+        """获取模型信息（返回运行时状态，不是静态元数据）"""
+        # 优先从 ModelManager 获取运行时状态信息
+        # ModelManager.get_model_info() 返回: {state, model_name, is_loaded, device, use_gpu}
+        if hasattr(self.speech_service, 'model_manager'):
+            model_manager = self.speech_service.model_manager
+            if model_manager and hasattr(model_manager, 'get_model_info'):
+                runtime_info = model_manager.get_model_info()
+                if runtime_info and "model_name" in runtime_info:
+                    return runtime_info
+
+        # Fallback: 从 Engine 获取信息
         engine = None
         if hasattr(self.speech_service, 'whisper_engine'):
             engine = self.speech_service.whisper_engine
         elif hasattr(self.speech_service, '_engine'):
             engine = self.speech_service._engine
 
-        if engine and hasattr(engine, 'get_model_info'):
-            return engine.get_model_info()
-
-        # Fallback: 构建基本信息
+        # 注意: engine.get_model_info() 可能返回静态元数据而非运行时状态
+        # 所以我们优先构建运行时信息
         if engine:
             return {
                 "is_loaded": getattr(engine, 'is_model_loaded', False),
@@ -246,17 +252,50 @@ class UIModelService:
 
         return {"is_loaded": False, "model_name": "Unknown", "device": "Unknown"}
 
-    def load_model(self, model_name: str) -> None:
-        """加载模型"""
+    def load_model(self, model_name: str) -> bool:
+        """加载模型 - 通过ModelManager确保事件正确触发
+
+        Args:
+            model_name: 模型名称
+
+        Returns:
+            bool: 加载是否成功
+        """
+        # 优先使用ModelManager (会自动发送MODEL_LOADED事件)
+        if hasattr(self.speech_service, 'model_manager'):
+            model_manager = self.speech_service.model_manager
+            if hasattr(model_manager, 'load_model_sync'):
+                result = model_manager.load_model_sync(model_name)
+                return bool(result)
+
+        # Fallback: 直接调用engine (向后兼容,虽然不会发送事件)
         engine = self._get_engine()
         if engine and hasattr(engine, 'load_model'):
-            engine.load_model(model_name)
+            result = engine.load_model(model_name)
+            return bool(result)
 
-    def unload_model(self) -> None:
-        """卸载模型"""
+        return False
+
+    def unload_model(self) -> bool:
+        """卸载模型 - 通过ModelManager确保事件正确触发
+
+        Returns:
+            bool: 卸载是否成功
+        """
+        # 优先使用ModelManager
+        if hasattr(self.speech_service, 'model_manager'):
+            model_manager = self.speech_service.model_manager
+            if hasattr(model_manager, 'unload_model'):
+                result = model_manager.unload_model()
+                return bool(result)
+
+        # Fallback: 直接调用engine
         engine = self._get_engine()
         if engine and hasattr(engine, 'unload_model'):
-            engine.unload_model()
+            result = engine.unload_model()
+            return bool(result)
+
+        return False
 
     def test_model(self) -> Dict[str, Any]:
         """测试模型"""

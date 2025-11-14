@@ -1,15 +1,15 @@
 {
-  "hotkeys": ["f12", "alt+h"],
+  "hotkeys": {
+    "keys": ["ctrl+shift+v"],
+    "backend": "auto"
+  },
   "transcription": {
     "provider": "local",
     "local": {
-      "model": "large-v3-turbo",
-      "language": "auto",
-      "use_gpu": true,
+      "model": "paraformer",
+      "language": "zh",
       "auto_load": true,
-      "temperature": 0.0,
-      "device": "auto",
-      "compute_type": "auto"
+      "streaming_mode": "chunked"
     },
     "groq": {
       "api_key": "YOUR_GROQ_API_KEY_HERE",
@@ -24,43 +24,68 @@
       "base_url": "https://api.siliconflow.cn/v1",
       "timeout": 30,
       "max_retries": 3
+    },
+    "qwen": {
+      "api_key": "YOUR_QWEN_API_KEY_HERE",
+      "model": "qwen3-asr-flash",
+      "base_url": "https://dashscope.aliyuncs.com",
+      "timeout": 30,
+      "max_retries": 3,
+      "enable_itn": true
     }
   },
-  "whisper": {
-    "model": "large-v3-turbo",
-    "language": "auto",
-    "use_gpu": true,
-    "device": "cuda",
-    "temperature": 0.0
-  },
   "ai": {
+    "provider": "openrouter",
     "enabled": true,
     "filter_thinking": true,
-    "provider": "groq",
+    "prompt": "You are a professional transcription refinement specialist. Your task is to correct and improve text that has been transcribed by an automatic speech recognition (ASR) system.\n\nYour responsibilities:\n1. Remove filler words (um, uh, like, you know, etc.) and disfluencies\n2. Correct homophones and misrecognized words to their contextually appropriate forms\n3. Fix grammatical errors and improve sentence structure\n4. Preserve the original meaning and intent of the speaker\n5. Maintain natural language flow\n\nImportant constraints:\n- Output ONLY the corrected text, nothing else\n- Do NOT add explanations, comments, or metadata\n- Do NOT change the core message or add information not present in the original\n- Maintain the speaker's tone and style",
+    "timeout": 30,
+    "retries": 3,
+    "openrouter": {
+      "api_key": "YOUR_OPENROUTER_API_KEY_HERE",
+      "model_id": "anthropic/claude-3-sonnet"
+    },
     "groq": {
       "api_key": "YOUR_GROQ_API_KEY_HERE",
-      "model_id": "groq/compound"
+      "model_id": "llama-3.3-70b-versatile"
     },
     "nvidia": {
       "api_key": "YOUR_NVIDIA_API_KEY_HERE",
       "model_id": "meta/llama-3.1-8b-instruct"
     },
-    "openrouter": {
-      "api_key": "YOUR_OPENROUTER_API_KEY_HERE",
-      "model_id": "anthropic/claude-3-sonnet",
-      "simple_model_id": "anthropic/claude-3-sonnet",
-      "simple_prompt": "Please improve and correct the following text: {text}"
+    "openai_compatible": {
+      "api_key": "YOUR_API_KEY_HERE",
+      "base_url": "http://localhost:1234/v1",
+      "model_id": "local-model"
     }
   },
   "audio": {
     "sample_rate": 16000,
     "channels": 1,
-    "chunk_size": 1024,
-    "device_id": 0,
-    "auto_stop_enabled": true,
-    "max_recording_duration": 120,
-    "silence_threshold": 0.01,
-    "silence_duration": 2.0
+    "device_id": null,
+    "chunk_size": 1024
+  },
+  "ui": {
+    "show_overlay": true,
+    "overlay_position": {
+      "mode": "preset",
+      "preset": "center",
+      "custom": {
+        "x": 0,
+        "y": 0
+      },
+      "last_screen": {
+        "index": 0,
+        "name": "",
+        "geometry": "",
+        "device_pixel_ratio": 1.0
+      },
+      "auto_save": true
+    },
+    "overlay_always_on_top": true,
+    "tray_notifications": false,
+    "start_minimized": true,
+    "theme_color": "cyan"
   },
   "input": {
     "preferred_method": "clipboard",
@@ -69,15 +94,39 @@
     "clipboard_restore_delay": 2.0,
     "typing_delay": 0.01
   },
-  "ui": {
-    "show_recording_overlay": true,
-    "overlay_position": "top-right",
-    "theme": "dark"
+  "history": {
+    "storage_path": "auto",
+    "max_records": 1000,
+    "auto_cleanup_days": 0
   },
   "logging": {
-    "level": "WARNING",
-    "console_output": false,
+    "level": "INFO",
+    "console_output": true,
     "max_log_size_mb": 10,
-    "enabled_categories": ["performance", "error", "model"]
+    "keep_logs_days": 7,
+    "enabled_categories": [
+      "audio",
+      "api",
+      "ui",
+      "model",
+      "hotkey",
+      "gpu",
+      "startup",
+      "error",
+      "performance"
+    ]
+  },
+  "advanced": {
+    "gpu_memory_fraction": 0.8,
+    "audio_processing": {
+      "normalize_audio": true,
+      "remove_silence": true,
+      "noise_reduction": true
+    },
+    "performance": {
+      "preload_model": true,
+      "cache_audio": false,
+      "parallel_processing": false
+    }
   }
 }

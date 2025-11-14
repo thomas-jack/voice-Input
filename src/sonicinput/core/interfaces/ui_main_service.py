@@ -165,11 +165,14 @@ class IUIModelService(Protocol):
         """
         ...
 
-    def load_model(self, model_name: str) -> None:
+    def load_model(self, model_name: str) -> bool:
         """加载模型
 
         Args:
             model_name: 模型名称
+
+        Returns:
+            bool: 加载是否成功
         """
         ...
 

@@ -215,15 +215,25 @@ class SherpaEngine(ISpeechService):
         return "CPU"
 
     def get_model_info(self) -> Dict[str, Any]:
-        """获取当前模型信息
+        """获取当前模型信息（合并静态元数据和运行时状态）
 
         Returns:
-            模型信息字典
+            模型信息字典，包含静态元数据和运行时状态
         """
-        if not self.model_name:
-            return {}
+        # 获取静态模型元数据
+        if self.model_name:
+            info = self.model_manager.get_model_info(self.model_name).copy()
+        else:
+            info = {}
 
-        return self.model_manager.get_model_info(self.model_name)
+        # 添加/覆盖运行时状态信息（UI所需）
+        info.update({
+            "is_loaded": self.is_model_loaded,
+            "model_name": self.model_name or "Unknown",
+            "device": self.device,
+        })
+
+        return info
 
     def __repr__(self) -> str:
         """字符串表示"""

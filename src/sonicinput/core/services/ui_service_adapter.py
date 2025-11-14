@@ -197,11 +197,20 @@ class UIModelServiceAdapter:
             }
         return {"is_loaded": False, "model_name": "Unknown", "device": "Unknown"}
 
-    def load_model(self, model_name: str) -> None:
-        """加载模型"""
+    def load_model(self, model_name: str) -> bool:
+        """加载模型
+
+        Args:
+            model_name: 模型名称
+
+        Returns:
+            bool: 加载是否成功
+        """
         engine = self.get_whisper_engine()
         if engine and hasattr(engine, 'load_model'):
-            engine.load_model(model_name)
+            result = engine.load_model(model_name)
+            return bool(result)
+        return False
 
     def unload_model(self) -> None:
         """卸载模型"""
