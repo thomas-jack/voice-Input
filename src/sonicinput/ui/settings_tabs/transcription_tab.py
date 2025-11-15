@@ -731,22 +731,9 @@ class TranscriptionTab(BaseSettingsTab):
             # Local 模式：显示模型管理
             self.management_group.setTitle("Model Management")
 
-            # 从运行时状态获取真实模型信息
-            if hasattr(self.parent_window, 'ui_model_service'):
-                runtime_info = self.parent_window.ui_model_service.get_model_info()
-                is_loaded = runtime_info.get("is_loaded", False)
-                model_name = runtime_info.get("model_name", "Unknown")
-                device = runtime_info.get("device", "Unknown")
-
-                if is_loaded and model_name != "Unknown":
-                    self.model_status_label.setText(f"Model loaded: {model_name} ({device})")
-                    self.model_status_label.setStyleSheet("QLabel { color: #4CAF50; }")  # Green
-                else:
-                    self.model_status_label.setText("Model not loaded")
-                    self.model_status_label.setStyleSheet("QLabel { color: #757575; }")  # Gray
-            else:
-                self.model_status_label.setText("Model service not available")
-                self.model_status_label.setStyleSheet("QLabel { color: #F44336; }")  # Red
+            # 使用占位符文本，Runtime状态由_on_model_loaded事件自动更新
+            self.model_status_label.setText("Checking model status...")
+            self.model_status_label.setStyleSheet("QLabel { color: #757575; }")  # Gray
 
             self.load_model_button.setVisible(True)
             self.unload_model_button.setVisible(True)
