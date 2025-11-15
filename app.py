@@ -667,6 +667,10 @@ def run_gui():
         # Set config service for position persistence
         recording_overlay.set_config_service(voice_app.config)
 
+        # Phase 1: Inject StateManager for SSOT compliance
+        state_manager = voice_app.container.get(IStateManager)
+        recording_overlay.set_state_manager(state_manager)
+
         # Set recording overlay in voice app
         voice_app.set_recording_overlay(recording_overlay)
 

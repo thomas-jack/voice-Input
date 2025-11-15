@@ -95,9 +95,10 @@ class RecordingOverlay(QWidget):
             app_logger.log_audio_event(
                 "Setting up RecordingOverlay state variables", {}
             )
-            self.is_recording = False
+            # Phase 2: is_recording is now a computed property (see @property below)
             self.current_status = "Ready"
             self.recording_duration = 0
+            self._state_manager = None  # Phase 1: Optional StateManager injection for SSOT compliance
             app_logger.log_audio_event(
                 "RecordingOverlay state variables initialized", {}
             )
@@ -244,6 +245,76 @@ class RecordingOverlay(QWidget):
         if hasattr(self, "position_manager"):
             self.position_manager.set_config_service(config_service)
         app_logger.log_audio_event("Config service set for overlay", {})
+
+    def set_state_manager(self, state_manager) -> None:
+        """Set StateManager for SSOT compliance (Phase 1: Injection only)
+
+        Args:
+            state_manager: StateManager instance for authoritative state queries
+        """
+        self._state_manager = state_manager
+        app_logger.log_audio_event(
+            "StateManager injected into RecordingOverlay",
+            {"has_state_manager": self._state_manager is not None}
+        )
+
+    @property
+    def is_recording(self) -> bool:
+        """Is recording state (computed from StateManager - SSOT compliant)
+
+        Returns:
+            True if recording (STARTING or RECORDING), False otherwise
+        """
+        if self._state_manager is None:
+            # Fallback during initialization or if StateManager not injected
+            app_logger.log_audio_event(
+                "WARNING: is_recording queried without StateManager",
+                {"stack": False}  # Don't log stack by default to avoid spam
+            )
+            return False
+
+        try:
+            from ..core.interfaces.state import RecordingState
+            recording_state = self._state_manager.get_recording_state()
+            return recording_state in [RecordingState.STARTING, RecordingState.RECORDING]
+        except Exception as e:
+            app_logger.log_error(e, "is_recording_property_query")
+            return False
+
+    @is_recording.setter
+    def is_recording(self, value: bool) -> None:
+        """Setter for backward compatibility - logs warning but does NOT update state
+
+        Args:
+            value: Attempted value (ignored - state managed by StateManager)
+        """
+        app_logger.log_audio_event(
+            "WARNING: Direct is_recording assignment attempted (deprecated)",
+            {
+                "attempted_value": value,
+                "current_authoritative_state": self._state_manager.get_recording_state().value if self._state_manager else "no_state_manager",
+            }
+        )
+        # DO NOT update any state - StateManager is SSOT
+        # This setter exists only for backward compatibility during Phase 2 transition
+
+    def _get_authoritative_recording_state(self) -> bool:
+        """Query authoritative recording state from StateManager
+
+        Returns:
+            True if recording (STARTING or RECORDING), False otherwise
+            Falls back to local is_recording if StateManager not available
+        """
+        if self._state_manager is None:
+            # Fallback to local state during transition period
+            return self.is_recording
+
+        try:
+            return self._state_manager.is_recording()
+        except Exception as e:
+            app_logger.log_error(e, "query_authoritative_recording_state")
+            # Fallback to local state on error
+            return self.is_recording
 
     def _reset_for_reuse(self) -> None:
         """重置overlay状态以支持稳定的多次使用（Qt main thread only）"""
