@@ -341,7 +341,7 @@ class RecordingOverlay(QWidget):
             app_logger.log_error(e, "overlay_reset_for_reuse_initial")
             # 如果重置失败，尝试强制重置到基本状态
             try:
-                self.is_recording = False
+                # Phase 3: Removed `self.is_recording = False` - Queried from StateManager
                 self.current_status = "Ready"
                 if hasattr(self, "isVisible") and self.isVisible():
                     self.hide()
@@ -396,7 +396,7 @@ class RecordingOverlay(QWidget):
                 app_logger.log_audio_event("Overlay hidden during delayed reset", {})
 
             # 重置所有状态变量
-            self.is_recording = False
+            # Phase 3: Removed `self.is_recording = False` - Queried from StateManager
             self.current_status = "Ready"
             self.recording_duration = 0
             self.breathing_phase = 0
@@ -430,7 +430,7 @@ class RecordingOverlay(QWidget):
             app_logger.log_error(e, "delayed_reset")
             # 如果重置失败，尝试强制重置到基本状态
             try:
-                self.is_recording = False
+                # Phase 3: Removed `self.is_recording = False` - Queried from StateManager
                 self.current_status = "Ready"
                 if hasattr(self, "isVisible") and self.isVisible():
                     self.hide()
@@ -577,7 +577,7 @@ class RecordingOverlay(QWidget):
         if self.is_recording:
             return  # Already recording
 
-        self.is_recording = True
+        # Phase 3: Removed `self.is_recording = True` - State managed by RecordingController -> StateManager
         self.recording_duration = 0
 
         # 更新状态指示器为录音状态（红色）
@@ -721,7 +721,7 @@ class RecordingOverlay(QWidget):
             self.status_indicator.set_state(StatusIndicator.STATE_PROCESSING)
 
             # 停止录音计时器（录音已结束）
-            self.is_recording = False
+            # Phase 3: Removed `self.is_recording = False` - State already IDLE in StateManager
             if self.timer_manager:
                 self.timer_manager.stop_update_timer(self.update_recording_time)
 
@@ -739,7 +739,7 @@ class RecordingOverlay(QWidget):
             # 窗口已经隐藏，无需重复操作
             return
 
-        self.is_recording = False
+        # Phase 3: Removed `self.is_recording = False` - State managed by StateManager
 
         # 停止所有计时器（使用TimerManager组件）
         try:
