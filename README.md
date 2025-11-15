@@ -12,29 +12,21 @@
 
 ## ✨ 核心功能
 
-- 🎤 **语音识别**: 支持本地 sherpa-onnx（CPU 高效）或云端 Groq/SiliconFlow/Qwen API 转录
-- 🚀 **双模式流式转录**:
-  - **chunked 模式**: 30秒分块处理，支持 AI 优化（推荐）
-  - **realtime 模式**: 边到边流式转录，最低延迟
-- ⚡ **CPU 高效推理**: sherpa-onnx RTF 0.06-0.21，性能提升 30-300 倍
-- 🪶 **超轻量级**: 安装体积仅 250MB（比 Faster Whisper 减少 90%）
-- 🤖 **AI 文本优化**: 集成 Groq/OpenRouter/NVIDIA/OpenAI 多种模型
-- 🧠 **思考过滤**: 自动过滤 AI 思考过程标签（`<think>...</think>`），只保留优化结果
-- ⌨️ **全局快捷键**: 支持自定义快捷键（默认 F12 或 Alt+H）
-- ☁️ **轻量云模式**: 无需 GPU，使用云端 API 进行语音识别
+- 🎤 **实时语音输入**: 边说边输入，支持会议记录、快速笔记
+- 🔄 **智能剪贴板恢复**: 录音前自动备份，完成后恢复原内容
+- 🚀 **双模式转录**:
+  - **realtime**: 实时输入文字
+  - **chunked**: 支持 AI 文本优化
+- 🪶 **轻量级**: 安装包仅 250MB，无需 GPU
+- 🤖 **AI 优化**: 支持 Groq/OpenRouter/NVIDIA/OpenAI 等平台
+- ⌨️ **全局快捷键**: F12 或 Alt+H 快速启动
 
 ## 📋 系统要求
 
-**基础要求**:
-- Windows 10/11
-- Python 3.10+
-- 2GB+ RAM
-
-**本地模式（sherpa-onnx）**:
-- CPU 高效推理（RTF 0.06-0.21，比 GPU 方案更快）
-- 推荐 4GB+ RAM（8GB+ 更佳）
-- 安装体积约 250MB（比 GPU 方案减少 90%）
-- 支持 Paraformer（226MB）和 Zipformer（112MB）模型
+- Windows 10/11 64位
+- 推荐 4GB+ 内存
+- 500MB 磁盘空间
+- 无需 GPU
 
 ---
 
@@ -194,40 +186,6 @@ uv run python app.py --gui
 
 ---
 
-## 📦 依赖说明
-
-### 核心依赖（两种模式共用）
-
-| 依赖库 | 版本 | 说明 |
-|-------|------|------|
-| **Python** | 3.10+ | 运行环境 |
-| **PySide6** | ≥ 6.6.0 | GUI 框架（LGPL许可） |
-| **pynput** | ≥ 1.7.6 | 全局快捷键 |
-| **pyaudio** | ≥ 0.2.13 | 音频录制 |
-| **groq** | ≥ 0.4.1 | Groq API 客户端（云模式） |
-
-### 本地转录依赖（仅本地模式）
-
-| 依赖库 | 版本 | 说明 |
-|-------|------|------|
-| **sherpa-onnx** | ≥ 1.10.0 | 轻量级 ONNX Runtime 语音识别引擎 |
-
-**sherpa-onnx 优势**：
-- ⚡ **CPU 高效推理**: RTF 0.06-0.21（比实时快 5-16 倍）
-- 🚫 **无 GPU 依赖**: 无需 CUDA/cuDNN，纯 CPU 运行
-- 🪶 **安装体积小**: 约 250MB（比传统 GPU 方案减少 90%）
-- 📡 **流式转录**: 支持 chunked 和 realtime 双模式
-
-**支持的模型**：
-- **Paraformer**: 中英双语高精度（226MB，推荐用于准确性）
-- **Zipformer**: 超轻量级英文模型（112MB，推荐用于低内存环境）
-
-**安装方式**：
-- 云模式：`uv sync`（仅核心依赖，约 100MB）
-- 本地模式：`uv sync --extra local`（包含 sherpa-onnx，约 250MB）
-
----
-
 ## 📖 使用说明
 
 1. **启动**: 运行后最小化到系统托盘
@@ -243,125 +201,31 @@ uv run python app.py --gui
 
 ---
 
-## 🔧 故障排除
-
-### 常见问题
+## 🔧 常见问题
 
 **无法录音**:
 - 检查麦克风权限（Windows 设置 → 隐私 → 麦克风）
-- 确认麦克风设备已启用并设为默认设备
+- 确认麦克风已启用并设为默认设备
 
 **快捷键不工作**:
-- 尝试管理员权限运行应用
-- 更换快捷键（避免与其他软件冲突）
-- 检查键盘布局和输入法状态
+- 尝试管理员权限运行
+- 更换快捷键避免冲突
 
-**模型下载失败**（仅本地模式）:
-1. **检查网络连接**，确认能访问 GitHub
-2. **手动下载模型**：
-   - 访问 [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases)
-   - 下载对应模型文件（Paraformer 或 Zipformer）
-   - 解压到 `%APPDATA%\SonicInput\models\` 目录
-3. **使用代理**: 如需代理访问，设置环境变量：
-   ```bash
-   set HTTP_PROXY=http://your-proxy:port
-   set HTTPS_PROXY=http://your-proxy:port
-   ```
-4. **检查磁盘空间**: 确保至少有 500MB 可用空间
+**Groq API 错误**:
+- 检查 API Key 是否正确
+- 访问 [Groq Console](https://console.groq.com/keys) 重新生成
 
-**转录慢/内存不足**:
-- **本地模式**:
-  - 切换到更小的 Zipformer 模型（112MB vs 226MB）
-  - 关闭其他占用内存的应用
-  - 升级到 8GB+ RAM
-- **云模式**:
-  - 检查网络连接速度和稳定性
-  - 尝试切换到其他 API 提供商
-
-**Groq API 错误**（仅云模式）:
-- **API Key 无效**: 检查 API Key 是否正确，访问 [Groq Console](https://console.groq.com/keys) 重新生成
-- **配额用完**: Groq 免费额度有限，检查控制台使用情况
-- **网络错误**: 检查网络连接，确认能访问 api.groq.com
-- **速率限制**: 等待几分钟后重试，或升级 API 套餐
-
-**sherpa-onnx 初始化失败**（仅本地模式）:
-- 确认已安装本地依赖：`uv sync --extra local`
-- 运行诊断测试：`uv run python app.py --test`
-- 检查日志文件中的详细错误信息
-- 尝试重新下载模型文件
-
-### 查看日志
-
-```
-C:\Users\<用户名>\AppData\Roaming\SonicInput\logs\app.log
-```
-
-启用详细日志: 设置 → General → Log Level: DEBUG
+**更多问题**: 查看 [GitHub Issues](https://github.com/Oxidane-bot/SonicInput/issues)
 
 ---
 
-## 📁 数据存储位置
+## 📁 配置文件
 
-SonicInput 会在用户目录下创建数据文件夹，所有配置和录音历史都存储在这里。**用户对这些文件拥有完全控制权**，可以自由备份、迁移或删除。
+配置和日志位置: `%APPDATA%\SonicInput\`
 
-### Windows 默认路径
-
-```
-C:\Users\<用户名>\AppData\Roaming\SonicInput\
-```
-
-### 目录结构
-
-```
-SonicInput/
-├── config.json              # 应用配置文件（设置、API密钥等）
-├── logs/                     # 日志文件夹
-│   └── app.log              # 应用日志（可调整日志级别）
-└── history/                  # 历史记录文件夹
-    ├── history.db           # SQLite数据库（转录历史、元数据）
-    └── recordings/          # 录音文件存储
-        └── *.wav            # WAV格式录音文件
-```
-
-### 文件说明
-
-| 文件/文件夹 | 内容 | 可否删除 | 说明 |
-|------------|------|---------|------|
-| `config.json` | 应用配置 | ⚠️ 谨慎 | 删除后配置重置为默认值 |
-| `logs/app.log` | 运行日志 | ✅ 可以 | 自动轮转，可定期清理 |
-| `history/history.db` | 历史记录元数据 | ⚠️ 谨慎 | 删除后丢失所有历史记录 |
-| `history/recordings/*.wav` | 录音文件 | ✅ 可以 | 按需保留，可手动清理旧文件 |
-
-### 打开数据文件夹
-
-**方法 1**: 使用Windows资源管理器
-```
-Win+R → 输入：%APPDATA%\SonicInput → 回车
-```
-
-**方法 2**: 使用命令行
-```bash
-explorer %APPDATA%\SonicInput
-```
-
-### 数据管理建议
-
-**备份配置**：
-```bash
-# 复制配置文件到安全位置
-copy "%APPDATA%\SonicInput\config.json" "D:\Backup\SonicInput_config_backup.json"
-```
-
-**清理历史记录**：
-- 通过应用内"History"标签页删除单条记录
-- 或直接删除 `history/recordings/` 下的旧WAV文件（数据库会自动清理无效引用）
-
-**完全卸载**：
-1. 卸载/删除应用程序
-2. 手动删除数据文件夹：
-   ```bash
-   rmdir /s "%APPDATA%\SonicInput"
-   ```
+- `config.json` - 应用配置
+- `logs/app.log` - 运行日志
+- `history/` - 转录历史和录音文件
 
 ---
 

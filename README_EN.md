@@ -12,29 +12,21 @@
 
 ## ✨ Key Features
 
-- 🎤 **Speech Recognition**: Supports local sherpa-onnx (CPU-efficient) or cloud Groq/SiliconFlow/Qwen API transcription
-- 🚀 **Dual-Mode Streaming Transcription**:
-  - **chunked mode**: 30-second chunk processing with AI optimization (recommended)
-  - **realtime mode**: End-to-end streaming transcription with minimal latency
-- ⚡ **CPU-Efficient Inference**: sherpa-onnx RTF 0.06-0.21, 30-300x performance boost
-- 🪶 **Ultra-Lightweight**: Installation size only 250MB (90% reduction vs Faster Whisper)
-- 🤖 **AI Text Optimization**: Integrated Groq/OpenRouter/NVIDIA/OpenAI models
-- 🧠 **Think Tag Filtering**: Automatically filters AI thinking process tags (`<think>...</think>`), keeping only optimized results
-- ⌨️ **Global Hotkeys**: Customizable hotkeys (default F12 or Alt+H)
-- ☁️ **Lightweight Cloud Mode**: No GPU required, uses cloud APIs for speech recognition
+- 🎤 **Real-time Voice Input**: Live text input while speaking, for meetings and quick notes
+- 🔄 **Smart Clipboard Recovery**: Auto-backup before recording, auto-restore after completion
+- 🚀 **Dual-Mode Transcription**:
+  - **realtime**: Real-time text input
+  - **chunked**: AI text optimization support
+- 🪶 **Lightweight**: Only 250MB installation, no GPU required
+- 🤖 **AI Optimization**: Supports Groq/OpenRouter/NVIDIA/OpenAI platforms
+- ⌨️ **Global Hotkeys**: F12 or Alt+H for quick access
 
 ## 📋 System Requirements
 
-**Basic Requirements**:
-- Windows 10/11
-- Python 3.10+
-- 2GB+ RAM
-
-**Local Mode (sherpa-onnx)**:
-- CPU-efficient inference (RTF 0.06-0.21, faster than GPU solutions)
-- Recommended 4GB+ RAM (8GB+ better)
-- Installation size ~250MB (90% reduction vs GPU solutions)
-- Supports Paraformer (226MB) and Zipformer (112MB) models
+- Windows 10/11 64-bit
+- 4GB+ RAM recommended
+- 500MB disk space
+- No GPU required
 
 ---
 
@@ -194,40 +186,6 @@ Open settings via system tray icon to configure AI API keys for text optimizatio
 
 ---
 
-## 📦 Dependencies
-
-### Core Dependencies (Both Modes)
-
-| Dependency | Version | Description |
-|-----------|---------|-------------|
-| **Python** | 3.10+ | Runtime environment |
-| **PySide6** | ≥ 6.6.0 | GUI framework (LGPL license) |
-| **pynput** | ≥ 1.7.6 | Global hotkeys |
-| **pyaudio** | ≥ 0.2.13 | Audio recording |
-| **groq** | ≥ 0.4.1 | Groq API client (cloud mode) |
-
-### Local Transcription Dependencies (Local Mode Only)
-
-| Dependency | Version | Description |
-|-----------|---------|-------------|
-| **sherpa-onnx** | ≥ 1.10.0 | Lightweight ONNX Runtime speech recognition engine |
-
-**sherpa-onnx Advantages**:
-- ⚡ **CPU-Efficient Inference**: RTF 0.06-0.21 (5-16x faster than real-time)
-- 🚫 **No GPU Dependencies**: No CUDA/cuDNN required, pure CPU operation
-- 🪶 **Small Installation**: ~250MB (90% reduction vs traditional GPU solutions)
-- 📡 **Streaming Transcription**: Supports chunked and realtime dual modes
-
-**Supported Models**:
-- **Paraformer**: Bilingual Chinese-English high accuracy (226MB, recommended for accuracy)
-- **Zipformer**: Ultra-lightweight English model (112MB, recommended for low-memory environments)
-
-**Installation Methods**:
-- Cloud mode: `uv sync` (core dependencies only, ~100MB)
-- Local mode: `uv sync --extra local` (includes sherpa-onnx, ~250MB)
-
----
-
 ## 📖 Usage
 
 1. **Start**: Runs minimized to system tray
@@ -243,125 +201,31 @@ Open settings via system tray icon to configure AI API keys for text optimizatio
 
 ---
 
-## 🔧 Troubleshooting
-
-### Common Issues
+## 🔧 Common Issues
 
 **Cannot Record**:
 - Check microphone permissions (Windows Settings → Privacy → Microphone)
-- Confirm microphone device is enabled and set as default
+- Confirm microphone is enabled and set as default
 
 **Hotkey Not Working**:
 - Try running as administrator
-- Change hotkey (avoid conflicts with other software)
-- Check keyboard layout and input method status
+- Change hotkey to avoid conflicts
 
-**Model Download Failed** (Local Mode Only):
-1. **Check network connection**, ensure GitHub is accessible
-2. **Manual model download**:
-   - Visit [sherpa-onnx releases](https://github.com/k2-fsa/sherpa-onnx/releases)
-   - Download corresponding model files (Paraformer or Zipformer)
-   - Extract to `%APPDATA%\SonicInput\models\` directory
-3. **Use proxy**: If proxy access needed, set environment variables:
-   ```bash
-   set HTTP_PROXY=http://your-proxy:port
-   set HTTPS_PROXY=http://your-proxy:port
-   ```
-4. **Check disk space**: Ensure at least 500MB available space
+**Groq API Error**:
+- Check if API Key is correct
+- Visit [Groq Console](https://console.groq.com/keys) to regenerate
 
-**Slow Transcription / Out of Memory**:
-- **Local Mode**:
-  - Switch to smaller Zipformer model (112MB vs 226MB)
-  - Close other memory-intensive applications
-  - Upgrade to 8GB+ RAM
-- **Cloud Mode**:
-  - Check network connection speed and stability
-  - Try switching to other API providers
-
-**Groq API Error** (Cloud Mode Only):
-- **Invalid API Key**: Check if API Key is correct, visit [Groq Console](https://console.groq.com/keys) to regenerate
-- **Quota Exhausted**: Groq free tier has limits, check console for usage
-- **Network Error**: Check network connection, ensure api.groq.com is accessible
-- **Rate Limit**: Wait a few minutes and retry, or upgrade API plan
-
-**sherpa-onnx Initialization Failed** (Local Mode Only):
-- Confirm local dependencies installed: `uv sync --extra local`
-- Run diagnostic test: `uv run python app.py --test`
-- Check log files for detailed error information
-- Try re-downloading model files
-
-### View Logs
-
-```
-C:\Users\<username>\AppData\Roaming\SonicInput\logs\app.log
-```
-
-Enable detailed logging: Settings → General → Log Level: DEBUG
+**More Issues**: Check [GitHub Issues](https://github.com/Oxidane-bot/SonicInput/issues)
 
 ---
 
-## 📁 Data Storage Location
+## 📁 Configuration
 
-SonicInput creates a data folder in the user directory where all configurations and recording history are stored. **Users have full control over these files** and can freely backup, migrate, or delete them.
+Configuration and logs location: `%APPDATA%\SonicInput\`
 
-### Windows Default Path
-
-```
-C:\Users\<username>\AppData\Roaming\SonicInput\
-```
-
-### Directory Structure
-
-```
-SonicInput/
-├── config.json              # Application configuration file (settings, API keys, etc.)
-├── logs/                     # Log folder
-│   └── app.log              # Application logs (adjustable log level)
-└── history/                  # History folder
-    ├── history.db           # SQLite database (transcription history, metadata)
-    └── recordings/          # Recording file storage
-        └── *.wav            # WAV format recording files
-```
-
-### File Description
-
-| File/Folder | Content | Deletable | Note |
-|------------|---------|-----------|------|
-| `config.json` | Application configuration | ⚠️ Caution | Configuration resets to default after deletion |
-| `logs/app.log` | Runtime logs | ✅ Yes | Auto-rotated, can be cleaned periodically |
-| `history/history.db` | History metadata | ⚠️ Caution | All history lost after deletion |
-| `history/recordings/*.wav` | Recording files | ✅ Yes | Keep as needed, can manually clean old files |
-
-### Open Data Folder
-
-**Method 1**: Using Windows Explorer
-```
-Win+R → Enter: %APPDATA%\SonicInput → Press Enter
-```
-
-**Method 2**: Using Command Line
-```bash
-explorer %APPDATA%\SonicInput
-```
-
-### Data Management Suggestions
-
-**Backup Configuration**:
-```bash
-# Copy configuration file to safe location
-copy "%APPDATA%\SonicInput\config.json" "D:\Backup\SonicInput_config_backup.json"
-```
-
-**Clean History**:
-- Delete individual records through the in-app "History" tab
-- Or directly delete old WAV files in `history/recordings/` (database will auto-clean invalid references)
-
-**Complete Uninstall**:
-1. Uninstall/delete the application
-2. Manually delete data folder:
-   ```bash
-   rmdir /s "%APPDATA%\SonicInput"
-   ```
+- `config.json` - Application settings
+- `logs/app.log` - Runtime logs
+- `history/` - Transcription history and recordings
 
 ---
 
