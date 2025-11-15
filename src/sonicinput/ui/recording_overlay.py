@@ -541,22 +541,15 @@ class RecordingOverlay(QWidget):
         self.show_recording_requested.emit()
 
     def _show_recording_impl(self) -> None:
-        """Show recording status - Internal implementation (Qt main thread only)"""
-        # BUGFIX: Check window visibility instead of recording state
-        # Recording state is already set by RecordingController before this is called
-        if self.isVisible():
-            app_logger.log_audio_event(
-                "Overlay already visible, skipping show_recording",
-                {"is_recording": self.is_recording}
-            )
-            return  # Already visible
+        """Show recording status - Internal implementation (Qt main thread only)
 
-        app_logger.log_audio_event(
-            "show_recording_impl called",
-            {"is_recording": self.is_recording, "is_visible": self.isVisible()}
-        )
+        Event-driven design: RECORDING_STARTED event semantics = "show recording UI"
+        No state checks needed - Qt's show() is idempotent (safe to call multiple times)
+        """
+        # Removed visibility/state checks - let event semantics drive behavior
+        # RECORDING_STARTED event = display recording UI (period)
+        # Qt show() is idempotent - no side effects from repeated calls
 
-        # Phase 3: Removed `self.is_recording = True` - State managed by RecordingController -> StateManager
         self.recording_duration = 0
 
         # 更新状态指示器为录音状态（红色）
