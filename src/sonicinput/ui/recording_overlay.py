@@ -516,6 +516,17 @@ class RecordingOverlay(QWidget):
         except Exception as e:
             app_logger.log_error(e, "status_update_show")
 
+        # 立即激活音频可视化条（显示微小初始值）
+        # 这样用户看到窗口时可视化条就已经是激活状态，避免延迟感
+        try:
+            if self.audio_visualizer:
+                # 设置一个小的初始音频级别（约10%），显示1-2个绿色条
+                # 这会让用户感觉可视化器和窗口同时出现
+                self.audio_visualizer.update_audio_level(0.002, is_recording=True)
+                app_logger.log_audio_event("Audio visualizer pre-activated with initial level", {})
+        except Exception as e:
+            app_logger.log_error(e, "audio_visualizer_preactivate")
+
         # 启动录音计时器（使用TimerManager组件）
         try:
             if self.timer_manager:
