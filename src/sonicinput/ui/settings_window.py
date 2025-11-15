@@ -29,6 +29,7 @@ from .settings_tabs import (
     AudioInputTab,
     HistoryTab,
 )
+from .apply_transaction import ApplyTransaction, TransactionError
 
 
 class WheelEventFilter(QObject):
@@ -583,108 +584,117 @@ class SettingsWindow(QMainWindow):
         return flat
 
     def apply_settings(self) -> None:
-        """应用设置（原子操作，确保UI/Config/Runtime三状态一致性）"""
+        """应用设置（原子操作，使用事务确保全成功或全失败）"""
         from PySide6.QtWidgets import QProgressDialog
         from PySide6.QtCore import Qt
 
-        # 收集所有设置
+        # 步骤1: 收集UI设置
         new_config = self.collect_settings_from_ui()
 
-        try:
-            # 检测模型是否需要变更
-            transcription_config = new_config.get("transcription", {})
-            provider = transcription_config.get("provider", "local")
-            model_needs_reload = False
-            new_model_name = None
+        # 步骤2: 检测模型是否需要变更
+        transcription_config = new_config.get("transcription", {})
+        provider = transcription_config.get("provider", "local")
+        model_needs_reload = False
+        new_model_name = None
 
-            if provider == "local" and self.ui_model_service:
-                new_model_name = transcription_config.get("local", {}).get("model", "paraformer")
-                runtime_info = self.ui_model_service.get_model_info()
-                current_model_name = runtime_info.get("model_name", "Unknown")
+        if provider == "local" and self.ui_model_service:
+            new_model_name = transcription_config.get("local", {}).get("model", "paraformer")
+            runtime_info = self.ui_model_service.get_model_info()
+            current_model_name = runtime_info.get("model_name", "Unknown")
 
-                if new_model_name != current_model_name and current_model_name != "Unknown":
-                    model_needs_reload = True
-                    app_logger.log_audio_event(
-                        "Model change detected in Apply",
-                        {"old_model": current_model_name, "new_model": new_model_name}
-                    )
-
-            # 如果需要重载模型，使用同步阻塞方式
-            if model_needs_reload:
-                progress = QProgressDialog(
-                    f"Loading model: {new_model_name}...\nThis may take a few seconds.",
-                    None,  # No cancel button
-                    0,
-                    0,  # Indeterminate progress
-                    self,
+            if new_model_name != current_model_name and current_model_name != "Unknown":
+                model_needs_reload = True
+                app_logger.log_audio_event(
+                    "Model change detected in Apply",
+                    {"old_model": current_model_name, "new_model": new_model_name}
                 )
-                progress.setWindowTitle("Applying Settings")
-                progress.setWindowModality(Qt.WindowModality.WindowModal)
-                progress.setMinimumDuration(0)
-                progress.setCancelButton(None)
-                progress.show()
 
-                # 强制刷新UI
-                from PySide6.QtWidgets import QApplication
-                QApplication.processEvents()
+        # 步骤3: 创建事务实例
+        try:
+            # 获取事件服务
+            events = self.ui_settings_service.get_event_service()
 
-                try:
-                    # 同步加载模型（阻塞等待）
-                    success = self.ui_model_service.load_model(new_model_name)
-
-                    if not success:
-                        progress.close()
-                        raise Exception(f"Failed to load model '{new_model_name}'")
-
-                    progress.close()
-
-                    app_logger.log_audio_event(
-                        "Model loaded successfully during Apply",
-                        {"model_name": new_model_name}
-                    )
-
-                except Exception as model_error:
-                    # 确保进度对话框关闭
-                    try:
-                        progress.close()
-                    except:
-                        pass
-
-                    app_logger.log_error(model_error, "apply_settings_model_load")
-                    QMessageBox.critical(
-                        self,
-                        "Model Load Failed",
-                        f"Failed to load model '{new_model_name}':\n{model_error}\n\nSettings NOT saved."
-                    )
-                    return  # 中止Apply操作，不保存配置
-
-            # 模型加载成功或无需变更，保存配置
-            flat_config = self._flatten_config(new_config)
-            for key, value in flat_config.items():
-                try:
-                    self.ui_settings_service.set_setting(key, value)
-                except Exception as setting_error:
-                    app_logger.log_error(setting_error, f"Failed to set config: {key}")
-
-            # 立即保存配置并触发config.changed事件
-            if hasattr(self.ui_settings_service, 'save_config'):
-                self.ui_settings_service.save_config()
-
-            # 实时应用日志配置（无需重启）
-            app_logger._logger.set_log_level(new_config["logging"]["level"])
-            app_logger._logger.set_console_output(
-                new_config["logging"]["console_output"]
+            # 创建事务
+            transaction = ApplyTransaction(
+                self.ui_model_service,
+                self.ui_settings_service,
+                events
             )
 
-            # MODEL_LOADED事件会自动触发_on_model_loaded()更新状态标签
-            # 下拉框应保持用户选择(config),不应被运行时状态(runtime)覆盖
-            # 设计原则: 下拉框=用户配置, 状态标签=运行时状态
+            # 步骤4: 执行事务操作
+            try:
+                transaction.begin()
 
-            QMessageBox.information(self, "Settings", "Settings applied successfully!")
+                # 如需重载模型，显示进度对话框
+                if model_needs_reload:
+                    progress = QProgressDialog(
+                        f"Loading model: {new_model_name}...\nThis may take a few seconds.",
+                        None,  # No cancel button
+                        0,
+                        0,  # Indeterminate progress
+                        self,
+                    )
+                    progress.setWindowTitle("Applying Settings")
+                    progress.setWindowModality(Qt.WindowModality.WindowModal)
+                    progress.setMinimumDuration(0)
+                    progress.setCancelButton(None)
+                    progress.show()
+
+                    # 强制刷新UI
+                    QApplication.processEvents()
+
+                    try:
+                        # 应用模型变更
+                        transaction.apply_model_change(new_model_name)
+                        progress.close()
+
+                        app_logger.log_audio_event(
+                            "Model loaded successfully during Apply",
+                            {"model_name": new_model_name}
+                        )
+
+                    except Exception as model_error:
+                        # 确保进度对话框关闭
+                        try:
+                            progress.close()
+                        except:
+                            pass
+                        raise  # 重新抛出异常，由外层事务处理
+
+                # 应用配置变更
+                flat_config = self._flatten_config(new_config)
+                transaction.apply_config_changes(flat_config)
+
+                # 提交事务
+                transaction.commit()
+
+                # 步骤5: 实时应用日志配置（无需重启）
+                app_logger._logger.set_log_level(new_config["logging"]["level"])
+                app_logger._logger.set_console_output(
+                    new_config["logging"]["console_output"]
+                )
+
+                # 步骤6: 成功提示
+                QMessageBox.information(self, "Settings", "Settings applied successfully!")
+
+            except TransactionError as te:
+                # 事务异常，已自动回滚
+                app_logger.log_error(te, "apply_settings_transaction")
+                error_msg = str(te.original_exception) if te.original_exception else str(te)
+                QMessageBox.critical(
+                    self,
+                    "Apply Failed",
+                    f"Settings apply failed and has been rolled back:\n\n{error_msg}\n\nPlease check your settings and try again."
+                )
 
         except Exception as e:
-            app_logger.log_error(e, "apply_settings")
-            QMessageBox.critical(self, "Error", f"Failed to apply settings: {e}")
+            # 意外异常
+            app_logger.log_error(e, "apply_settings_unexpected")
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"An unexpected error occurred:\n\n{e}\n\nSettings may not have been applied correctly."
+            )
 
     def _sync_ui_from_runtime(self) -> None:
         """从运行时状态同步UI显示（确保UI反映真实状态）
