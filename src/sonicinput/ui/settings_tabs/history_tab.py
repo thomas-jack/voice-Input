@@ -221,6 +221,211 @@ class ReprocessingWorker(QThread):
         self.should_stop = True
 
 
+class BatchReprocessingWorker(QThread):
+    """批量重新处理录音的后台工作线程"""
+
+    # 信号定义
+    progress_updated = Signal(int, int, str)  # (current, total, record_id)
+    batch_completed = Signal(dict)  # 批处理完成信号，包含统计结果
+    record_processed = Signal(str, bool)  # (record_id, success) - 单条记录处理完成
+
+    def __init__(
+        self,
+        records: list,
+        cd_seconds: int,
+        transcription_service,
+        ai_processing_controller,
+        config_service,
+        history_service,
+    ):
+        super().__init__()
+        self.records = records
+        self.cd_seconds = cd_seconds
+        self.transcription_service = transcription_service
+        self.ai_processing_controller = ai_processing_controller
+        self.config_service = config_service
+        self.history_service = history_service
+        self.should_stop = False
+        self.stats = {
+            "total": 0,
+            "success": 0,
+            "skipped": 0,
+            "failed": 0,
+            "errors": []
+        }
+
+    def run(self):
+        """后台线程执行批量重处理流程"""
+        import time
+        from ...audio.recorder import AudioRecorder
+        from ...utils import app_logger
+
+        total_records = len(self.records)
+        self.stats["total"] = total_records
+
+        for i, record in enumerate(self.records):
+            if self.should_stop:
+                app_logger.log_audio_event(
+                    "Batch reprocessing cancelled by user",
+                    {"processed": i, "total": total_records}
+                )
+                break
+
+            # 发送进度更新
+            self.progress_updated.emit(i + 1, total_records, record.id)
+
+            # 处理单条记录
+            success = self._process_single_record(record)
+
+            # 发送单条记录完成信号
+            self.record_processed.emit(record.id, success)
+
+            # CD间隔（除了最后一条记录）
+            if i < total_records - 1 and self.cd_seconds > 0:
+                time.sleep(self.cd_seconds)
+
+        # 发送批处理完成信号
+        self.batch_completed.emit(self.stats)
+
+    def _process_single_record(self, record) -> bool:
+        """处理单条记录
+
+        Args:
+            record: 历史记录对象
+
+        Returns:
+            bool: 是否成功
+        """
+        from ...audio.recorder import AudioRecorder
+        from ...utils import app_logger
+
+        try:
+            # 1. 加载音频文件
+            audio_file_path = record.audio_file_path
+
+            if not audio_file_path:
+                self.stats["skipped"] += 1
+                self.stats["errors"].append(f"[SKIP] {record.id}: No audio file path")
+                return False
+
+            try:
+                audio_data = AudioRecorder.load_audio_from_file(audio_file_path)
+                if audio_data is None or len(audio_data) == 0:
+                    self.stats["skipped"] += 1
+                    self.stats["errors"].append(f"[SKIP] {record.id}: Failed to load audio")
+                    return False
+            except FileNotFoundError:
+                self.stats["skipped"] += 1
+                self.stats["errors"].append(f"[SKIP] {record.id}: Audio file not found")
+                return False
+            except Exception as e:
+                self.stats["skipped"] += 1
+                self.stats["errors"].append(f"[SKIP] {record.id}: Error loading audio - {str(e)}")
+                return False
+
+            # 2. 重新转录
+            try:
+                transcription_provider = self.config_service.get_setting("transcription.provider", "local")
+                language = self.config_service.get_setting(f"transcription.{transcription_provider}.language", "auto")
+                temperature = self.config_service.get_setting("transcription.temperature", 0.0)
+
+                transcription_result = self.transcription_service.transcribe_sync(
+                    audio_data=audio_data,
+                    language=language if language != "auto" else None,
+                    temperature=temperature,
+                )
+
+                if not transcription_result.get("success", True):
+                    error_msg = transcription_result.get("error", "Unknown error")
+                    self.stats["failed"] += 1
+                    self.stats["errors"].append(f"[FAIL] {record.id}: Transcription failed - {error_msg}")
+                    return False
+
+                transcription_text = transcription_result.get("text", "")
+
+                if not transcription_text.strip():
+                    self.stats["failed"] += 1
+                    self.stats["errors"].append(f"[FAIL] {record.id}: Empty transcription")
+                    return False
+
+            except Exception as e:
+                app_logger.log_error(e, "batch_reprocessing_transcription")
+                self.stats["failed"] += 1
+                self.stats["errors"].append(f"[FAIL] {record.id}: Transcription error - {str(e)}")
+                return False
+
+            # 3. 重新AI优化（如果启用）
+            ai_enabled = self.config_service.get_setting("ai.enabled", False)
+            ai_optimized_text = None
+            ai_provider = None
+            ai_status = "skipped"
+            ai_error = None
+
+            if ai_enabled and transcription_text.strip():
+                if not self.ai_processing_controller:
+                    ai_status = "skipped"
+                    ai_error = "AI controller not available"
+                else:
+                    try:
+                        ai_optimized_text = self.ai_processing_controller.process_with_ai(
+                            transcription_text,
+                            record_id=record.id
+                        )
+                        ai_provider = self.config_service.get_setting("ai.provider", "groq")
+
+                        if ai_optimized_text and ai_optimized_text.strip():
+                            ai_status = "success"
+                        else:
+                            ai_status = "failed"
+                            ai_error = "AI returned empty text"
+
+                    except Exception as e:
+                        app_logger.log_error(e, "batch_reprocessing_ai")
+                        ai_status = "failed"
+                        ai_error = str(e)
+
+            # 4. 更新数据库
+            final_text = ai_optimized_text if (ai_status == "success" and ai_optimized_text) else transcription_text
+
+            # 从数据库重新获取记录以确保最新状态
+            fresh_record = self.history_service.get_record_by_id(record.id)
+            if not fresh_record:
+                self.stats["failed"] += 1
+                self.stats["errors"].append(f"[FAIL] {record.id}: Record not found in database")
+                return False
+
+            fresh_record.transcription_text = transcription_text
+            fresh_record.transcription_provider = transcription_provider
+            fresh_record.transcription_status = "success"
+            fresh_record.transcription_error = None
+            fresh_record.ai_optimized_text = ai_optimized_text
+            fresh_record.ai_provider = ai_provider
+            fresh_record.ai_status = ai_status
+            fresh_record.ai_error = ai_error
+            fresh_record.final_text = final_text
+
+            try:
+                self.history_service.update_record(fresh_record)
+                self.stats["success"] += 1
+                return True
+            except Exception as e:
+                app_logger.log_error(e, "batch_reprocessing_update")
+                self.stats["failed"] += 1
+                self.stats["errors"].append(f"[FAIL] {record.id}: Database update failed - {str(e)}")
+                return False
+
+        except Exception as e:
+            from ...utils import app_logger
+            app_logger.log_error(e, "batch_reprocessing_worker")
+            self.stats["failed"] += 1
+            self.stats["errors"].append(f"[FAIL] {record.id}: Unexpected error - {str(e)}")
+            return False
+
+    def stop(self):
+        """请求停止处理"""
+        self.should_stop = True
+
+
 class HistoryDetailDialog(QDialog):
     """历史记录详情对话框"""
 
@@ -572,6 +777,8 @@ class HistoryTab(BaseSettingsTab):
         self.transcription_service = transcription_service
         self.ai_processing_controller = ai_processing_controller
         self.current_records: List[Any] = []  # 当前显示的记录列表
+        self.batch_worker = None  # 批量处理Worker
+        self.batch_progress_dialog = None  # 批量处理进度对话框
 
         from ...utils import app_logger
         app_logger.log_audio_event(
@@ -603,6 +810,14 @@ class HistoryTab(BaseSettingsTab):
         self.refresh_button = QPushButton("Refresh")
         self.refresh_button.clicked.connect(self._load_history)
         toolbar_layout.addWidget(self.refresh_button)
+
+        # 批量重新处理按钮
+        self.batch_reprocess_button = QPushButton("Batch Reprocess")
+        self.batch_reprocess_button.clicked.connect(self._on_batch_reprocess_clicked)
+        self.batch_reprocess_button.setToolTip(
+            "Re-transcribe all history records with customizable cooldown delay"
+        )
+        toolbar_layout.addWidget(self.batch_reprocess_button)
 
         layout.addLayout(toolbar_layout)
 
@@ -872,3 +1087,192 @@ class HistoryTab(BaseSettingsTab):
         历史记录页面不需要保存配置
         """
         return {}
+
+    def _on_batch_reprocess_clicked(self) -> None:
+        """处理批量重新处理按钮点击"""
+        from ..dialogs.batch_reprocess_dialog import BatchReprocessDialog
+
+        # 获取所有历史记录
+        service = self._get_history_service()
+        if not service:
+            QMessageBox.warning(
+                self.parent_window,
+                "Error",
+                "History service not available. Please restart the application."
+            )
+            return
+
+        try:
+            # 获取所有记录（使用大limit确保获取所有）
+            all_records = service.get_records(limit=100000, offset=0)
+
+            if not all_records:
+                QMessageBox.information(
+                    self.parent_window,
+                    "No Records",
+                    "No history records found to reprocess."
+                )
+                return
+
+            # 显示配置对话框
+            dialog = BatchReprocessDialog(len(all_records), self.parent_window)
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return
+
+            cd_seconds = dialog.get_cd_seconds()
+
+            # 确认操作
+            reply = QMessageBox.question(
+                self.parent_window,
+                "Confirm Batch Reprocessing",
+                f"You are about to re-transcribe {len(all_records)} records.\n\n"
+                f"Cooldown: {cd_seconds} seconds between records\n"
+                f"This operation may take a long time and consume API quota.\n\n"
+                "Are you sure you want to continue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+            # 启动批量处理
+            self._start_batch_reprocessing(all_records, cd_seconds)
+
+        except Exception as e:
+            QMessageBox.critical(
+                self.parent_window,
+                "Error",
+                f"Failed to start batch reprocessing: {str(e)}"
+            )
+
+    def _start_batch_reprocessing(self, records: list, cd_seconds: int) -> None:
+        """启动批量重新处理流程
+
+        Args:
+            records: 要处理的记录列表
+            cd_seconds: CD时间（秒）
+        """
+        # 获取必要的服务
+        transcription_service = self.transcription_service
+        ai_processing_controller = self.ai_processing_controller
+        history_service = self._get_history_service()
+
+        if not transcription_service or not history_service:
+            QMessageBox.critical(
+                self.parent_window,
+                "Error",
+                "Required services not available. Please restart the application."
+            )
+            return
+
+        # 创建进度对话框
+        self.batch_progress_dialog = QProgressDialog(
+            "Starting batch reprocessing...",
+            "Cancel",
+            0,
+            len(records),
+            self.parent_window
+        )
+        self.batch_progress_dialog.setWindowTitle("Batch Reprocessing")
+        self.batch_progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
+        self.batch_progress_dialog.setMinimumDuration(0)
+        self.batch_progress_dialog.setValue(0)
+
+        # 创建Worker线程
+        self.batch_worker = BatchReprocessingWorker(
+            records=records,
+            cd_seconds=cd_seconds,
+            transcription_service=transcription_service,
+            ai_processing_controller=ai_processing_controller,
+            config_service=self.config_manager,
+            history_service=history_service,
+        )
+
+        # 连接信号
+        self.batch_worker.progress_updated.connect(self._on_batch_progress_updated)
+        self.batch_worker.batch_completed.connect(self._on_batch_completed)
+        self.batch_progress_dialog.canceled.connect(self._on_batch_canceled)
+
+        # 启动Worker
+        self.batch_worker.start()
+
+    def _on_batch_progress_updated(self, current: int, total: int, record_id: str) -> None:
+        """批量处理进度更新
+
+        Args:
+            current: 当前处理的索引（1-based）
+            total: 总记录数
+            record_id: 当前记录ID
+        """
+        if self.batch_progress_dialog:
+            self.batch_progress_dialog.setValue(current)
+            self.batch_progress_dialog.setLabelText(
+                f"Processing {current}/{total} records...\n"
+                f"Current record: {record_id[:16]}..."
+            )
+
+    def _on_batch_completed(self, stats: dict) -> None:
+        """批量处理完成
+
+        Args:
+            stats: 统计结果字典
+        """
+        # 关闭进度对话框
+        if self.batch_progress_dialog:
+            self.batch_progress_dialog.close()
+            self.batch_progress_dialog = None
+
+        # 清理Worker
+        if self.batch_worker:
+            self.batch_worker.wait()
+            self.batch_worker = None
+
+        # 刷新历史记录列表
+        self._load_history()
+
+        # 显示完成报告
+        total = stats.get("total", 0)
+        success = stats.get("success", 0)
+        skipped = stats.get("skipped", 0)
+        failed = stats.get("failed", 0)
+        errors = stats.get("errors", [])
+
+        # 构建报告消息
+        report = f"Batch Reprocessing Complete!\n\n"
+        report += f"Total records: {total}\n"
+        report += f"✓ Successful: {success}\n"
+        report += f"⊘ Skipped: {skipped}\n"
+        report += f"✗ Failed: {failed}\n"
+
+        if errors:
+            report += f"\n\nFirst 5 errors:\n"
+            for error in errors[:5]:
+                report += f"  {error}\n"
+            if len(errors) > 5:
+                report += f"  ... and {len(errors) - 5} more errors"
+
+        QMessageBox.information(
+            self.parent_window,
+            "Batch Reprocessing Complete",
+            report
+        )
+
+    def _on_batch_canceled(self) -> None:
+        """用户取消批量处理"""
+        if self.batch_worker:
+            self.batch_worker.stop()
+            self.batch_worker.wait(5000)  # 等待最多5秒
+
+            # 强制终止（如果还在运行）
+            if self.batch_worker.isRunning():
+                self.batch_worker.terminate()
+                self.batch_worker.wait()
+
+            self.batch_worker = None
+
+        QMessageBox.information(
+            self.parent_window,
+            "Batch Reprocessing Canceled",
+            "Batch reprocessing operation has been canceled."
+        )
