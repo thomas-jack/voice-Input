@@ -65,8 +65,22 @@ class UIEventBridge(IUIEventBridge):
 
     def handle_recording_started(self, data: Any = None) -> None:
         """处理录音开始事件"""
+        app_logger.log_audio_event(
+            "UIEventBridge: handle_recording_started called",
+            {"has_overlay": self._overlay is not None}
+        )
+
         if self._overlay:
+            app_logger.log_audio_event(
+                "UIEventBridge: Calling overlay.show_recording()",
+                {}
+            )
             self._overlay.show_recording()
+        else:
+            app_logger.log_audio_event(
+                "UIEventBridge: WARNING - overlay is None, cannot show recording",
+                {}
+            )
 
         # 执行自定义处理器
         self._execute_custom_handler("recording_started", data)
