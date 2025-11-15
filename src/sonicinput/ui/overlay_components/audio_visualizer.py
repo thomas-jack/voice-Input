@@ -39,15 +39,16 @@ class AudioVisualizer:
             },
         )
 
-    def update_audio_level(self, raw_level: float, is_recording: bool = True) -> None:
+    def update_audio_level(self, raw_level: float) -> None:
         """更新音频级别显示
 
         Args:
             raw_level: 原始音频级别（通常是0-0.05范围）
-            is_recording: 是否正在录音
+
+        Note:
+            Phase 4: Removed is_recording parameter - Caller controls when to call
+            AudioVisualizer only visualizes data, doesn't manage recording state
         """
-        if not is_recording:
-            return
 
         try:
             # 使用对数刻度映射，更符合人耳对音量的感知

@@ -281,40 +281,8 @@ class RecordingOverlay(QWidget):
             app_logger.log_error(e, "is_recording_property_query")
             return False
 
-    @is_recording.setter
-    def is_recording(self, value: bool) -> None:
-        """Setter for backward compatibility - logs warning but does NOT update state
-
-        Args:
-            value: Attempted value (ignored - state managed by StateManager)
-        """
-        app_logger.log_audio_event(
-            "WARNING: Direct is_recording assignment attempted (deprecated)",
-            {
-                "attempted_value": value,
-                "current_authoritative_state": self._state_manager.get_recording_state().value if self._state_manager else "no_state_manager",
-            }
-        )
-        # DO NOT update any state - StateManager is SSOT
-        # This setter exists only for backward compatibility during Phase 2 transition
-
-    def _get_authoritative_recording_state(self) -> bool:
-        """Query authoritative recording state from StateManager
-
-        Returns:
-            True if recording (STARTING or RECORDING), False otherwise
-            Falls back to local is_recording if StateManager not available
-        """
-        if self._state_manager is None:
-            # Fallback to local state during transition period
-            return self.is_recording
-
-        try:
-            return self._state_manager.is_recording()
-        except Exception as e:
-            app_logger.log_error(e, "query_authoritative_recording_state")
-            # Fallback to local state on error
-            return self.is_recording
+    # Phase 4: Removed @is_recording.setter - Property is now read-only
+    # Phase 4: Removed _get_authoritative_recording_state() - Use property directly
 
     def _reset_for_reuse(self) -> None:
         """重置overlay状态以支持稳定的多次使用（Qt main thread only）"""
@@ -593,7 +561,8 @@ class RecordingOverlay(QWidget):
             if self.audio_visualizer:
                 # 设置一个小的初始音频级别（约10%），显示1-2个绿色条
                 # 这会让用户感觉可视化器和窗口同时出现
-                self.audio_visualizer.update_audio_level(0.002, is_recording=True)
+                # Phase 4: Removed is_recording parameter - caller controls when to update
+                self.audio_visualizer.update_audio_level(0.002)
                 app_logger.log_audio_event("Audio visualizer pre-activated with initial level", {})
         except Exception as e:
             app_logger.log_error(e, "audio_visualizer_preactivate")
@@ -859,11 +828,12 @@ class RecordingOverlay(QWidget):
 
     def _update_audio_level_impl(self, level: float) -> None:
         """Update audio level bars - Internal implementation (使用AudioVisualizer组件)"""
-        if self.audio_visualizer:
-            self.audio_visualizer.update_audio_level(level, self.is_recording)
+        # Phase 4: Guard moved to caller - only call when recording
+        if self.audio_visualizer and self.is_recording:
+            self.audio_visualizer.update_audio_level(level)
             # 更新本地引用以保持兼容性
             self.current_audio_level = self.audio_visualizer.get_current_level()
-        else:
+        elif self.audio_visualizer:
             # Fallback: 如果visualizer未初始化，保持兼容性
             self.current_audio_level = min(1.0, max(0.0, level * 20))
 
