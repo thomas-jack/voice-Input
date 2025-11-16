@@ -5,10 +5,7 @@ UI组件通过此适配器访问业务逻辑，不直接依赖具体的业务实
 """
 
 from typing import Dict, Any, Optional
-from ..interfaces import (
-    IEventService, IConfigService,
-    IHistoryStorageService
-)
+from ..interfaces import IEventService, IConfigService, IHistoryStorageService
 from ...utils import app_logger
 
 
@@ -29,16 +26,16 @@ class UIMainServiceAdapter:
 
     def is_recording(self) -> bool:
         """检查是否正在录音"""
-        return getattr(self.voice_input_app, 'is_recording', False)
+        return getattr(self.voice_input_app, "is_recording", False)
 
     def start_recording(self) -> None:
         """开始录音"""
-        if hasattr(self.voice_input_app, 'start_recording'):
+        if hasattr(self.voice_input_app, "start_recording"):
             self.voice_input_app.start_recording()
 
     def stop_recording(self) -> None:
         """停止录音"""
-        if hasattr(self.voice_input_app, 'stop_recording'):
+        if hasattr(self.voice_input_app, "stop_recording"):
             self.voice_input_app.stop_recording()
 
     def get_current_status(self) -> str:
@@ -49,7 +46,7 @@ class UIMainServiceAdapter:
 
     def get_event_service(self) -> IEventService:
         """获取事件服务"""
-        if hasattr(self.voice_input_app, 'events'):
+        if hasattr(self.voice_input_app, "events"):
             return self.voice_input_app.events
         raise AttributeError("VoiceInputApp does not have events service")
 
@@ -60,18 +57,18 @@ class UIMainServiceAdapter:
 
     def reload_hotkeys(self) -> None:
         """重新加载快捷键配置"""
-        if hasattr(self.voice_input_app, 'reload_hotkeys'):
+        if hasattr(self.voice_input_app, "reload_hotkeys"):
             self.voice_input_app.reload_hotkeys()
 
     def get_whisper_engine(self) -> Optional[Any]:
         """获取Whisper引擎"""
-        if hasattr(self.voice_input_app, 'whisper_engine'):
+        if hasattr(self.voice_input_app, "whisper_engine"):
             return self.voice_input_app.whisper_engine
         return None
 
     def cleanup(self) -> None:
         """清理资源"""
-        if hasattr(self.voice_input_app, 'cleanup'):
+        if hasattr(self.voice_input_app, "cleanup"):
             self.voice_input_app.cleanup()
 
 
@@ -119,27 +116,27 @@ class UISettingsServiceAdapter:
 
     def save_settings(self) -> None:
         """保存设置到文件"""
-        if hasattr(self.config_service, 'save_config'):
+        if hasattr(self.config_service, "save_config"):
             self.config_service.save_config()
 
     def export_config(self, file_path: str) -> None:
         """导出配置到文件"""
-        if hasattr(self.config_service, 'export_config'):
+        if hasattr(self.config_service, "export_config"):
             self.config_service.export_config(file_path)
 
     def import_config(self, file_path: str) -> None:
         """从文件导入配置"""
-        if hasattr(self.config_service, 'import_config'):
+        if hasattr(self.config_service, "import_config"):
             self.config_service.import_config(file_path)
 
     def reset_to_defaults(self) -> None:
         """重置为默认配置"""
-        if hasattr(self.config_service, 'reset_to_defaults'):
+        if hasattr(self.config_service, "reset_to_defaults"):
             self.config_service.reset_to_defaults()
 
     def get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
-        if hasattr(self.config_service, '_default_config'):
+        if hasattr(self.config_service, "_default_config"):
             return self.config_service._default_config
         return {}
 
@@ -178,22 +175,22 @@ class UIModelServiceAdapter:
     def is_model_loaded(self) -> bool:
         """检查模型是否已加载"""
         engine = self.get_whisper_engine()
-        if engine and hasattr(engine, 'is_model_loaded'):
+        if engine and hasattr(engine, "is_model_loaded"):
             return engine.is_model_loaded
         return False
 
     def get_model_info(self) -> Dict[str, Any]:
         """获取模型信息"""
         engine = self.get_whisper_engine()
-        if engine and hasattr(engine, 'get_model_info'):
+        if engine and hasattr(engine, "get_model_info"):
             return engine.get_model_info()
 
         # Fallback: 构建基本信息
         if engine:
             return {
-                "is_loaded": getattr(engine, 'is_model_loaded', False),
-                "model_name": getattr(engine, 'model_name', 'Unknown'),
-                "device": getattr(engine, 'device', 'Unknown')
+                "is_loaded": getattr(engine, "is_model_loaded", False),
+                "model_name": getattr(engine, "model_name", "Unknown"),
+                "device": getattr(engine, "device", "Unknown"),
             }
         return {"is_loaded": False, "model_name": "Unknown", "device": "Unknown"}
 
@@ -207,7 +204,7 @@ class UIModelServiceAdapter:
             bool: 加载是否成功
         """
         engine = self.get_whisper_engine()
-        if engine and hasattr(engine, 'load_model'):
+        if engine and hasattr(engine, "load_model"):
             result = engine.load_model(model_name)
             return bool(result)
         return False
@@ -215,7 +212,7 @@ class UIModelServiceAdapter:
     def unload_model(self) -> None:
         """卸载模型"""
         engine = self.get_whisper_engine()
-        if engine and hasattr(engine, 'unload_model'):
+        if engine and hasattr(engine, "unload_model"):
             engine.unload_model()
 
     def test_model(self) -> Dict[str, Any]:
@@ -230,13 +227,13 @@ class UIModelServiceAdapter:
 
         return {
             "success": True,
-            "model_name": getattr(engine, 'model_name', 'Unknown'),
-            "device": getattr(engine, 'device', 'Unknown')
+            "model_name": getattr(engine, "model_name", "Unknown"),
+            "device": getattr(engine, "device", "Unknown"),
         }
 
     def get_whisper_engine(self) -> Optional[Any]:
         """获取Whisper引擎"""
-        if hasattr(self.voice_input_app, 'whisper_engine'):
+        if hasattr(self.voice_input_app, "whisper_engine"):
             return self.voice_input_app.whisper_engine
         return None
 
@@ -260,6 +257,7 @@ class UIAudioServiceAdapter:
         """获取可用音频设备列表"""
         try:
             from ...audio.recorder import AudioRecorder
+
             temp_recorder = AudioRecorder()
             devices = temp_recorder.get_audio_devices()
             temp_recorder.cleanup()

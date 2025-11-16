@@ -427,7 +427,9 @@ class TrayController(LifecycleComponent):
             self._tray_widget.update_status_text("Recording...")
             self._tray_widget.update_recording_action_text("Stop Recording")
         else:
-            tooltip = "Sonic Input - Ready\\nRight-click for menu, Double-click for settings"
+            tooltip = (
+                "Sonic Input - Ready\\nRight-click for menu, Double-click for settings"
+            )
             self._tray_widget.update_status_text("Ready")
             self._tray_widget.update_recording_action_text("Start Recording")
 

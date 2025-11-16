@@ -59,27 +59,24 @@ class UIEventBridge(IUIEventBridge):
         """注册自定义事件处理器"""
         self._event_handlers[event_name] = handler
         app_logger.log_audio_event(
-            "Custom event handler registered",
-            {"event_name": event_name}
+            "Custom event handler registered", {"event_name": event_name}
         )
 
     def handle_recording_started(self, data: Any = None) -> None:
         """处理录音开始事件"""
         app_logger.log_audio_event(
             "UIEventBridge: handle_recording_started called",
-            {"has_overlay": self._overlay is not None}
+            {"has_overlay": self._overlay is not None},
         )
 
         if self._overlay:
             app_logger.log_audio_event(
-                "UIEventBridge: Calling overlay.show_recording()",
-                {}
+                "UIEventBridge: Calling overlay.show_recording()", {}
             )
             self._overlay.show_recording()
         else:
             app_logger.log_audio_event(
-                "UIEventBridge: WARNING - overlay is None, cannot show recording",
-                {}
+                "UIEventBridge: WARNING - overlay is None, cannot show recording", {}
             )
 
         # 执行自定义处理器
@@ -105,9 +102,8 @@ class UIEventBridge(IUIEventBridge):
         """处理AI处理完成事件"""
         if self._overlay:
             from ...ui.overlay import StatusIndicator
-            self._overlay.status_indicator.set_state(
-                StatusIndicator.STATE_COMPLETED
-            )
+
+            self._overlay.status_indicator.set_state(StatusIndicator.STATE_COMPLETED)
 
         # 执行自定义处理器
         self._execute_custom_handler("ai_processing_completed", data)
@@ -133,15 +129,14 @@ class UIEventBridge(IUIEventBridge):
                 # AI错误：显示警告色（橙色），延迟1.5秒隐藏
                 self._overlay.show_warning(delay_ms=1500)
                 app_logger.log_audio_event(
-                    "AI error handled - showing warning state",
-                    {"error_msg": error_msg}
+                    "AI error handled - showing warning state", {"error_msg": error_msg}
                 )
             else:
                 # 其他错误：显示错误色（红色），延迟2秒隐藏
                 self._overlay.show_error(delay_ms=2000)
                 app_logger.log_audio_event(
                     "Critical error handled - showing error state",
-                    {"error_msg": error_msg}
+                    {"error_msg": error_msg},
                 )
 
         # 执行自定义处理器
@@ -171,8 +166,8 @@ class UIEventBridge(IUIEventBridge):
             "Realtime text event received (not displaying in overlay)",
             {
                 "text_length": len(data.get("text", "")),
-                "text_preview": data.get("text", "")[:30]
-            }
+                "text_preview": data.get("text", "")[:30],
+            },
         )
 
         # 执行自定义处理器
@@ -186,7 +181,9 @@ class UIEventBridge(IUIEventBridge):
         self.events.on(Events.RECORDING_STARTED, self.handle_recording_started)
         self.events.on(Events.RECORDING_STOPPED, self.handle_recording_stopped)
         self.events.on(Events.AI_PROCESSING_STARTED, self.handle_ai_processing_started)
-        self.events.on(Events.AI_PROCESSING_COMPLETED, self.handle_ai_processing_completed)
+        self.events.on(
+            Events.AI_PROCESSING_COMPLETED, self.handle_ai_processing_completed
+        )
         self.events.on(Events.TEXT_INPUT_COMPLETED, self.handle_text_input_completed)
         self.events.on(Events.AUDIO_LEVEL_UPDATE, self.handle_audio_level_update)
 

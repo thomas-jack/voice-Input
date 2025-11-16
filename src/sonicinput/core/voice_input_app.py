@@ -52,10 +52,14 @@ class VoiceInputApp:
         self.config: IConfigService = self.container.get(IConfigService)
         self.events: IEventService = self.container.get(IEventService)
         self.state: IStateManager = self.container.get(IStateManager)
-        self.config_reload: IConfigReloadService = self.container.get(IConfigReloadService)
+        self.config_reload: IConfigReloadService = self.container.get(
+            IConfigReloadService
+        )
 
         # 新增服务 - 应用编排和UI事件桥接
-        self.orchestrator: IApplicationOrchestrator = self.container.get(IApplicationOrchestrator)
+        self.orchestrator: IApplicationOrchestrator = self.container.get(
+            IApplicationOrchestrator
+        )
         self.ui_bridge: IUIEventBridge = self.container.get(IUIEventBridge)
 
         # 业务服务（延迟初始化）
@@ -77,7 +81,9 @@ class VoiceInputApp:
         # UI 组件（向后兼容）
         self.recording_overlay = None
 
-        app_logger.log_audio_event("VoiceInputApp initialized with orchestrator and UI bridge", {})
+        app_logger.log_audio_event(
+            "VoiceInputApp initialized with orchestrator and UI bridge", {}
+        )
 
     @property
     def whisper_engine(self) -> Optional[ISpeechService]:
@@ -93,7 +99,9 @@ class VoiceInputApp:
             # 配置日志系统
             logger.set_config_service(self.config)
 
-            app_logger.log_audio_event("Initializing voice input app with orchestrator", {})
+            app_logger.log_audio_event(
+                "Initializing voice input app with orchestrator", {}
+            )
 
             # 初始化核心服务
             self._audio_service = self.container.get(IAudioService)
@@ -109,13 +117,10 @@ class VoiceInputApp:
             _, backend = get_hotkeys_from_config(self.config)
 
             self._hotkey_service = create_hotkey_manager(
-                self._on_hotkey_triggered,
-                backend=backend,
-                config=self.config
+                self._on_hotkey_triggered, backend=backend, config=self.config
             )
             app_logger.log_audio_event(
-                "Hotkey service created with backend",
-                {"backend": backend}
+                "Hotkey service created with backend", {"backend": backend}
             )
 
             # 初始化控制器
@@ -198,7 +203,6 @@ class VoiceInputApp:
 
         app_logger.log_audio_event("All controllers initialized", {})
 
-    
     def _on_hotkey_triggered(self, action: str) -> None:
         """快捷键触发处理"""
         if action == "toggle_recording":
@@ -249,21 +253,30 @@ class VoiceInputApp:
                             failed_hotkeys.append(hotkey.strip())
                             app_logger.log_audio_event(
                                 "Hotkey conflict during reload",
-                                {"hotkey": hotkey.strip(), "suggestions": e.suggestions}
+                                {
+                                    "hotkey": hotkey.strip(),
+                                    "suggestions": e.suggestions,
+                                },
                             )
                             # 发送事件通知UI
-                            self.events.emit("HOTKEY_CONFLICT", {
-                                "hotkey": e.hotkey,
-                                "suggestions": e.suggestions,
-                                "error_code": e.error_code,
-                            })
+                            self.events.emit(
+                                "HOTKEY_CONFLICT",
+                                {
+                                    "hotkey": e.hotkey,
+                                    "suggestions": e.suggestions,
+                                    "error_code": e.error_code,
+                                },
+                            )
                         except HotkeyRegistrationError as e:
                             failed_hotkeys.append(hotkey.strip())
                             app_logger.log_error(e, f"hotkey_registration_{hotkey}")
-                            self.events.emit("HOTKEY_REGISTRATION_ERROR", {
-                                "hotkey": hotkey.strip(),
-                                "error": str(e),
-                            })
+                            self.events.emit(
+                                "HOTKEY_REGISTRATION_ERROR",
+                                {
+                                    "hotkey": hotkey.strip(),
+                                    "error": str(e),
+                                },
+                            )
                         except Exception as e:
                             failed_hotkeys.append(hotkey.strip())
                             app_logger.log_error(e, f"hotkey_unexpected_error_{hotkey}")
@@ -276,7 +289,7 @@ class VoiceInputApp:
                         "failed": len(failed_hotkeys),
                         "failed_hotkeys": failed_hotkeys,
                         "backend": backend,
-                    }
+                    },
                 )
                 return registered_count > 0
             return False
@@ -285,7 +298,6 @@ class VoiceInputApp:
             app_logger.log_error(e, "reload_hotkeys")
             return False
 
-    
     def get_status(self) -> dict:
         """获取应用状态"""
         return {
@@ -325,7 +337,7 @@ class VoiceInputApp:
             app_logger.log_audio_event("Shutting down voice input app", {})
 
             # 使用编排器执行关闭流程
-            if hasattr(self.orchestrator, 'orchestrate_shutdown'):
+            if hasattr(self.orchestrator, "orchestrate_shutdown"):
                 self.orchestrator.orchestrate_shutdown()
             else:
                 # 回退到直接清理

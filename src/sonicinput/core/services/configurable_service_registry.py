@@ -51,17 +51,19 @@ class ConfigurableServiceRegistry:
             # 获取注册顺序
             registration_order = self.config.get_registration_order()
 
-            app_logger.log_audio_event("Registering services from config", {
-                "services_count": len(registration_order)
-            })
+            app_logger.log_audio_event(
+                "Registering services from config",
+                {"services_count": len(registration_order)},
+            )
 
             # 按顺序注册服务
             for service_name in registration_order:
                 self._register_service(service_name)
 
-            app_logger.log_audio_event("All services registered from config", {
-                "services_count": len(registration_order)
-            })
+            app_logger.log_audio_event(
+                "All services registered from config",
+                {"services_count": len(registration_order)},
+            )
 
         except Exception as e:
             app_logger.log_error(e, "register_all_services")
@@ -81,16 +83,25 @@ class ConfigurableServiceRegistry:
             # 检查是否使用工厂函数
             factory_name = service_config.get("factory")
             if factory_name:
-                self._register_service_with_factory(service_name, interface_class, factory_name, lifetime)
+                self._register_service_with_factory(
+                    service_name, interface_class, factory_name, lifetime
+                )
             else:
-                implementation_class = self._resolve_implementation(service_config["implementation"])
-                self._register_service_with_class(service_name, interface_class, implementation_class, lifetime)
+                implementation_class = self._resolve_implementation(
+                    service_config["implementation"]
+                )
+                self._register_service_with_class(
+                    service_name, interface_class, implementation_class, lifetime
+                )
 
-            app_logger.log_audio_event("Service registered from config", {
-                "service_name": service_name,
-                "interface": service_config["interface"],
-                "lifetime": service_config["lifetime"]
-            })
+            app_logger.log_audio_event(
+                "Service registered from config",
+                {
+                    "service_name": service_name,
+                    "interface": service_config["interface"],
+                    "lifetime": service_config["lifetime"],
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, f"register_service_{service_name}")
@@ -101,7 +112,7 @@ class ConfigurableServiceRegistry:
         service_name: str,
         interface_class: Type,
         implementation_class: Type,
-        lifetime: ServiceLifetime
+        lifetime: ServiceLifetime,
     ) -> None:
         """使用类注册服务"""
         if lifetime == ServiceLifetime.SINGLETON:
@@ -116,7 +127,7 @@ class ConfigurableServiceRegistry:
         service_name: str,
         interface_class: Type,
         factory_name: str,
-        lifetime: ServiceLifetime
+        lifetime: ServiceLifetime,
     ) -> None:
         """使用工厂函数注册服务"""
         factory_func = self._service_factories.get(factory_name)
@@ -140,16 +151,37 @@ class ConfigurableServiceRegistry:
         try:
             # 尝试从不同的模块导入
             implementation_mappings = {
-                "DynamicEventSystem": ("..services.dynamic_event_system", "DynamicEventSystem"),
+                "DynamicEventSystem": (
+                    "..services.dynamic_event_system",
+                    "DynamicEventSystem",
+                ),
                 "ConfigService": ("..services.config_service", "ConfigService"),
                 "StateManager": ("..services.state_manager", "StateManager"),
-                "ConfigReloadService": ("..services.config_reload_service", "ConfigReloadService"),
-                "ApplicationOrchestrator": ("..services.application_orchestrator", "ApplicationOrchestrator"),
+                "ConfigReloadService": (
+                    "..services.config_reload_service",
+                    "ConfigReloadService",
+                ),
+                "ApplicationOrchestrator": (
+                    "..services.application_orchestrator",
+                    "ApplicationOrchestrator",
+                ),
                 "UIEventBridge": ("..services.ui_event_bridge", "UIEventBridge"),
-                "UIMainServiceAdapter": ("..services.ui_service_adapter", "UIMainServiceAdapter"),
-                "UISettingsServiceAdapter": ("..services.ui_service_adapter", "UISettingsServiceAdapter"),
-                "UIModelServiceAdapter": ("..services.ui_service_adapter", "UIModelServiceAdapter"),
-                "UIAudioServiceAdapter": ("..services.ui_service_adapter", "UIAudioServiceAdapter"),
+                "UIMainServiceAdapter": (
+                    "..services.ui_service_adapter",
+                    "UIMainServiceAdapter",
+                ),
+                "UISettingsServiceAdapter": (
+                    "..services.ui_service_adapter",
+                    "UISettingsServiceAdapter",
+                ),
+                "UIModelServiceAdapter": (
+                    "..services.ui_service_adapter",
+                    "UIModelServiceAdapter",
+                ),
+                "UIAudioServiceAdapter": (
+                    "..services.ui_service_adapter",
+                    "UIAudioServiceAdapter",
+                ),
                 # UIGPUServiceAdapter removed - sherpa-onnx is CPU-only
                 "AudioRecorder": ("..audio.recorder", "AudioRecorder"),
                 "SherpaEngine": ("..speech.sherpa_engine", "SherpaEngine"),
@@ -187,21 +219,23 @@ class ConfigurableServiceRegistry:
 
     def _register_default_factories(self) -> None:
         """注册默认工厂函数"""
-        self._service_factories.update({
-            "create_config_reload_service": self._create_config_reload_service,
-            "create_audio_service": self._create_audio_service,
-            "create_speech_service": self._create_speech_service,
-            "create_ai_service": self._create_ai_service,
-            "create_input_service": self._create_input_service,
-            "create_hotkey_service": self._create_hotkey_service,
-            "create_application_orchestrator": self._create_application_orchestrator,
-            "create_ui_event_bridge": self._create_ui_event_bridge,
-            "create_ui_main_service": self._create_ui_main_service,
-            "create_ui_settings_service": self._create_ui_settings_service,
-            "create_ui_model_service": self._create_ui_model_service,
-            "create_ui_audio_service": self._create_ui_audio_service,
-            "create_ui_gpu_service": self._create_ui_gpu_service,
-        })
+        self._service_factories.update(
+            {
+                "create_config_reload_service": self._create_config_reload_service,
+                "create_audio_service": self._create_audio_service,
+                "create_speech_service": self._create_speech_service,
+                "create_ai_service": self._create_ai_service,
+                "create_input_service": self._create_input_service,
+                "create_hotkey_service": self._create_hotkey_service,
+                "create_application_orchestrator": self._create_application_orchestrator,
+                "create_ui_event_bridge": self._create_ui_event_bridge,
+                "create_ui_main_service": self._create_ui_main_service,
+                "create_ui_settings_service": self._create_ui_settings_service,
+                "create_ui_model_service": self._create_ui_model_service,
+                "create_ui_audio_service": self._create_ui_audio_service,
+                "create_ui_gpu_service": self._create_ui_gpu_service,
+            }
+        )
 
     def _create_config_reload_service(self, container):
         """创建配置重载服务工厂"""
@@ -246,6 +280,7 @@ class ConfigurableServiceRegistry:
             service = SpeechServiceFactory.create_from_config(config)
             if service is None:
                 from ..speech.sherpa_engine import SherpaEngine
+
                 return SherpaEngine("paraformer", language="zh")
             return service
 
@@ -267,6 +302,7 @@ class ConfigurableServiceRegistry:
 
         if client is None:
             from ..ai.openrouter_client import OpenRouterClient
+
             api_key = config.get_setting("ai.openrouter.api_key", "")
             return OpenRouterClient(api_key)
 
@@ -292,7 +328,10 @@ class ConfigurableServiceRegistry:
     def _create_application_orchestrator(self, container):
         """创建应用编排器工厂"""
         from ..interfaces import (
-            IConfigService, IEventService, IStateManager, IConfigReloadService
+            IConfigService,
+            IEventService,
+            IStateManager,
+            IConfigReloadService,
         )
         from ..services.application_orchestrator import ApplicationOrchestrator
 
@@ -325,13 +364,16 @@ class ConfigurableServiceRegistry:
         try:
             # 尝试获取VoiceInputApp实例
             voice_app = container.get(None)  # 如果VoiceInputApp还没有注册，需要特殊处理
-            if hasattr(voice_app, 'voice_input_app'):
+            if hasattr(voice_app, "voice_input_app"):
                 voice_app = voice_app.voice_input_app
             return UIMainServiceAdapter(voice_app)
         except:
             # 如果无法获取VoiceInputApp，返回None或抛出异常
             # 在实际集成时需要正确处理这种情况
-            app_logger.log_audio_event("Warning: Could not create UI main service - VoiceInputApp not available", {})
+            app_logger.log_audio_event(
+                "Warning: Could not create UI main service - VoiceInputApp not available",
+                {},
+            )
             return None
 
     def _create_ui_settings_service(self, container):
@@ -351,53 +393,61 @@ class ConfigurableServiceRegistry:
             # 尝试从容器获取VoiceInputApp实例
             voice_app = container.get(None)
 
-            if hasattr(voice_app, 'voice_input_app'):
+            if hasattr(voice_app, "voice_input_app"):
                 voice_app = voice_app.voice_input_app
 
             # 从ApplicationOrchestrator获取服务
-            if hasattr(voice_app, 'orchestrator'):
+            if hasattr(voice_app, "orchestrator"):
                 orchestrator = voice_app.orchestrator
 
                 # 获取转录服务 - 使用正确的属性名 _speech_service
-                if hasattr(orchestrator, '_speech_service'):
+                if hasattr(orchestrator, "_speech_service"):
                     transcription_service = orchestrator._speech_service
                     app_logger.log_audio_event(
                         "Got transcription service from orchestrator for UI settings",
-                        {"service_type": type(transcription_service).__name__ if transcription_service else "None"}
+                        {
+                            "service_type": type(transcription_service).__name__
+                            if transcription_service
+                            else "None"
+                        },
                     )
                 else:
                     app_logger.log_audio_event(
                         "Warning: Orchestrator missing _speech_service attribute",
-                        {"orchestrator_type": type(orchestrator).__name__}
+                        {"orchestrator_type": type(orchestrator).__name__},
                     )
 
                 # 获取AI处理控制器 - 从 _controllers 字典获取
-                if hasattr(orchestrator, '_controllers'):
-                    ai_processing_controller = orchestrator._controllers.get('ai')
+                if hasattr(orchestrator, "_controllers"):
+                    ai_processing_controller = orchestrator._controllers.get("ai")
                     if ai_processing_controller:
                         app_logger.log_audio_event(
                             "Got AI processing controller from orchestrator for UI settings",
-                            {"controller_type": type(ai_processing_controller).__name__}
+                            {
+                                "controller_type": type(
+                                    ai_processing_controller
+                                ).__name__
+                            },
                         )
                     else:
                         app_logger.log_audio_event(
                             "Warning: AI controller is None in orchestrator",
-                            {"has_controllers_dict": True}
+                            {"has_controllers_dict": True},
                         )
                 else:
                     app_logger.log_audio_event(
                         "Warning: Orchestrator missing _controllers attribute",
-                        {"orchestrator_type": type(orchestrator).__name__}
+                        {"orchestrator_type": type(orchestrator).__name__},
                     )
             else:
                 app_logger.log_audio_event(
                     "Warning: Voice app missing orchestrator attribute",
-                    {"voice_app_type": type(voice_app).__name__}
+                    {"voice_app_type": type(voice_app).__name__},
                 )
         except Exception as e:
             app_logger.log_audio_event(
                 "Warning: Could not get services from orchestrator for UI settings",
-                {"error": str(e)}
+                {"error": str(e)},
             )
 
         return UISettingsServiceAdapter(
@@ -415,11 +465,14 @@ class ConfigurableServiceRegistry:
         # 类似于UI主服务，需要VoiceInputApp实例
         try:
             voice_app = container.get(None)
-            if hasattr(voice_app, 'voice_input_app'):
+            if hasattr(voice_app, "voice_input_app"):
                 voice_app = voice_app.voice_input_app
             return UIModelServiceAdapter(voice_app)
         except:
-            app_logger.log_audio_event("Warning: Could not create UI model service - VoiceInputApp not available", {})
+            app_logger.log_audio_event(
+                "Warning: Could not create UI model service - VoiceInputApp not available",
+                {},
+            )
             return None
 
     def _create_ui_audio_service(self, container):
@@ -428,24 +481,30 @@ class ConfigurableServiceRegistry:
 
         try:
             voice_app = container.get(None)
-            if hasattr(voice_app, 'voice_input_app'):
+            if hasattr(voice_app, "voice_input_app"):
                 voice_app = voice_app.voice_input_app
             return UIAudioServiceAdapter(voice_app)
         except:
-            app_logger.log_audio_event("Warning: Could not create UI audio service - VoiceInputApp not available", {})
+            app_logger.log_audio_event(
+                "Warning: Could not create UI audio service - VoiceInputApp not available",
+                {},
+            )
             return None
 
     def _create_ui_gpu_service(self, container):
         """创建UI GPU服务工厂"""
         from ..services.ui_service_adapter import UIGPUServiceAdapter
+
         return UIGPUServiceAdapter()
 
-    def register_custom_factory(self, factory_name: str, factory_func: Callable) -> None:
+    def register_custom_factory(
+        self, factory_name: str, factory_func: Callable
+    ) -> None:
         """注册自定义工厂函数"""
         self._service_factories[factory_name] = factory_func
-        app_logger.log_audio_event("Custom factory registered", {
-            "factory_name": factory_name
-        })
+        app_logger.log_audio_event(
+            "Custom factory registered", {"factory_name": factory_name}
+        )
 
     def get_registered_factories(self) -> List[str]:
         """获取已注册的工厂函数列表"""

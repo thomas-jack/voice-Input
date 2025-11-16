@@ -47,8 +47,10 @@ class RefactoredTranscriptionService(ISpeechService):
             "TranscriptionService __init__ called",
             {
                 "has_config_service": config_service is not None,
-                "config_service_type": type(config_service).__name__ if config_service else "None"
-            }
+                "config_service_type": type(config_service).__name__
+                if config_service
+                else "None",
+            },
         )
 
         # 从配置读取流式模式
@@ -61,13 +63,13 @@ class RefactoredTranscriptionService(ISpeechService):
                 "Reading streaming_mode from config",
                 {
                     "streaming_mode": streaming_mode,
-                    "config_key": "transcription.local.streaming_mode"
-                }
+                    "config_key": "transcription.local.streaming_mode",
+                },
             )
         else:
             app_logger.audio(
                 "No config_service provided, using default streaming_mode",
-                {"streaming_mode": streaming_mode}
+                {"streaming_mode": streaming_mode},
             )
 
         # 创建专职组件
@@ -88,7 +90,7 @@ class RefactoredTranscriptionService(ISpeechService):
 
         app_logger.audio(
             "RefactoredTranscriptionService initialized",
-            {"streaming_mode": streaming_mode}
+            {"streaming_mode": streaming_mode},
         )
 
     def start(self) -> None:
@@ -295,11 +297,14 @@ class RefactoredTranscriptionService(ISpeechService):
             # 仅在明确要求时发送转录完成事件
             # 注意：retry等手动转录不应触发事件，避免与正常录音流程冲突
             if emit_event and self.event_service:
-                self.event_service.emit("transcription_completed", {
-                    "result": result,
-                    "text": result.get("text", ""),
-                    "streaming_mode": "chunked",
-                })
+                self.event_service.emit(
+                    "transcription_completed",
+                    {
+                        "result": result,
+                        "text": result.get("text", ""),
+                        "streaming_mode": "chunked",
+                    },
+                )
 
             return result
 
@@ -345,8 +350,7 @@ class RefactoredTranscriptionService(ISpeechService):
             final_text = self.streaming_coordinator.get_realtime_text()
 
             app_logger.audio(
-                "Getting realtime transcription text",
-                {"text_length": len(final_text)}
+                "Getting realtime transcription text", {"text_length": len(final_text)}
             )
 
             # 停止流式模式
@@ -394,7 +398,8 @@ class RefactoredTranscriptionService(ISpeechService):
                 remaining_time = timeout - (time.time() - start_time)
                 if remaining_time <= 0:
                     app_logger.audio(
-                        "Timeout waiting for chunk completion", {"chunk_id": chunk.chunk_id}
+                        "Timeout waiting for chunk completion",
+                        {"chunk_id": chunk.chunk_id},
                     )
                     break
 
@@ -811,13 +816,12 @@ class RefactoredTranscriptionService(ISpeechService):
         # 只有在非活动状态下才能更改
         if self.streaming_coordinator.set_streaming_mode(new_mode):
             app_logger.audio(
-                "Streaming mode reloaded from config",
-                {"new_mode": new_mode}
+                "Streaming mode reloaded from config", {"new_mode": new_mode}
             )
         else:
             app_logger.audio(
                 "Cannot reload streaming mode while active",
-                {"current_mode": self.streaming_coordinator.get_streaming_mode()}
+                {"current_mode": self.streaming_coordinator.get_streaming_mode()},
             )
 
     def cleanup(self) -> None:

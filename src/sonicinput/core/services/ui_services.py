@@ -6,8 +6,11 @@
 
 from typing import Dict, Any, Optional
 from ..interfaces import (
-    IEventService, IConfigService,
-    IStateManager, ISpeechService, IHistoryStorageService
+    IEventService,
+    IConfigService,
+    IStateManager,
+    ISpeechService,
+    IHistoryStorageService,
 )
 from ...utils import app_logger
 
@@ -22,7 +25,7 @@ class UIMainService:
         self,
         config_service: IConfigService,
         event_service: IEventService,
-        state_manager: IStateManager
+        state_manager: IStateManager,
     ):
         """初始化UI主服务
 
@@ -46,6 +49,7 @@ class UIMainService:
         通过事件驱动，不直接调用控制器
         """
         from ...utils.constants import Events
+
         self.events.emit(Events.RECORDING_STARTED)
 
     def stop_recording(self) -> None:
@@ -54,6 +58,7 @@ class UIMainService:
         通过事件驱动，不直接调用控制器
         """
         from ...utils.constants import Events
+
         self.events.emit(Events.RECORDING_STOPPED)
 
     def get_current_status(self) -> str:
@@ -79,6 +84,7 @@ class UIMainService:
         通过配置重载服务实现
         """
         from ...utils.constants import Events
+
         self.events.emit(Events.CONFIG_CHANGED, {"section": "hotkeys"})
 
     def get_whisper_engine(self) -> Optional[Any]:
@@ -92,7 +98,7 @@ class UIMainService:
         # 这个方法应该被废弃，UI应该使用 IUIModelService
         app_logger.log_audio_event(
             "UIMainService.get_whisper_engine() called - deprecated",
-            {"message": "Use IUIModelService instead"}
+            {"message": "Use IUIModelService instead"},
         )
         return None
 
@@ -113,7 +119,7 @@ class UISettingsService:
         event_service: IEventService,
         history_service: IHistoryStorageService,
         transcription_service=None,
-        ai_processing_controller=None
+        ai_processing_controller=None,
     ):
         """初始化UI设置服务
 
@@ -145,7 +151,7 @@ class UISettingsService:
 
     def save_settings(self) -> None:
         """保存设置到文件"""
-        if hasattr(self.config_service, 'save_config'):
+        if hasattr(self.config_service, "save_config"):
             self.config_service.save_config()
 
     def save_config(self) -> None:
@@ -155,33 +161,34 @@ class UISettingsService:
         settings_window.py 调用 save_config()，其他地方可能调用 save_settings()。
         实现立即保存，不使用防抖延迟。
         """
-        if hasattr(self.config_service, 'save_config'):
+        if hasattr(self.config_service, "save_config"):
             # 立即保存，不使用防抖延迟
             success = self.config_service.save_config()
             if success:
                 from ...utils import app_logger
+
                 app_logger.log_audio_event("Config saved immediately from UI", {})
             return success
         return False
 
     def export_config(self, file_path: str) -> None:
         """导出配置到文件"""
-        if hasattr(self.config_service, 'export_config'):
+        if hasattr(self.config_service, "export_config"):
             self.config_service.export_config(file_path)
 
     def import_config(self, file_path: str) -> None:
         """从文件导入配置"""
-        if hasattr(self.config_service, 'import_config'):
+        if hasattr(self.config_service, "import_config"):
             self.config_service.import_config(file_path)
 
     def reset_to_defaults(self) -> None:
         """重置为默认配置"""
-        if hasattr(self.config_service, 'reset_to_defaults'):
+        if hasattr(self.config_service, "reset_to_defaults"):
             self.config_service.reset_to_defaults()
 
     def get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
-        if hasattr(self.config_service, '_default_config'):
+        if hasattr(self.config_service, "_default_config"):
             return self.config_service._default_config
         return {}
 
@@ -219,7 +226,7 @@ class UIModelService:
 
     def is_model_loaded(self) -> bool:
         """检查模型是否已加载"""
-        if self.speech_service and hasattr(self.speech_service, 'is_model_loaded'):
+        if self.speech_service and hasattr(self.speech_service, "is_model_loaded"):
             return self.speech_service.is_model_loaded
         return False
 
@@ -227,27 +234,27 @@ class UIModelService:
         """获取模型信息（返回运行时状态，不是静态元数据）"""
         # 优先从 ModelManager 获取运行时状态信息
         # ModelManager.get_model_info() 返回: {state, model_name, is_loaded, device, use_gpu}
-        if hasattr(self.speech_service, 'model_manager'):
+        if hasattr(self.speech_service, "model_manager"):
             model_manager = self.speech_service.model_manager
-            if model_manager and hasattr(model_manager, 'get_model_info'):
+            if model_manager and hasattr(model_manager, "get_model_info"):
                 runtime_info = model_manager.get_model_info()
                 if runtime_info and "model_name" in runtime_info:
                     return runtime_info
 
         # Fallback: 从 Engine 获取信息
         engine = None
-        if hasattr(self.speech_service, 'whisper_engine'):
+        if hasattr(self.speech_service, "whisper_engine"):
             engine = self.speech_service.whisper_engine
-        elif hasattr(self.speech_service, '_engine'):
+        elif hasattr(self.speech_service, "_engine"):
             engine = self.speech_service._engine
 
         # 注意: engine.get_model_info() 可能返回静态元数据而非运行时状态
         # 所以我们优先构建运行时信息
         if engine:
             return {
-                "is_loaded": getattr(engine, 'is_model_loaded', False),
-                "model_name": getattr(engine, 'model_name', 'Unknown'),
-                "device": getattr(engine, 'device', 'Unknown')
+                "is_loaded": getattr(engine, "is_model_loaded", False),
+                "model_name": getattr(engine, "model_name", "Unknown"),
+                "device": getattr(engine, "device", "Unknown"),
             }
 
         return {"is_loaded": False, "model_name": "Unknown", "device": "Unknown"}
@@ -262,15 +269,15 @@ class UIModelService:
             bool: 加载是否成功
         """
         # 优先使用ModelManager (会自动发送MODEL_LOADED事件)
-        if hasattr(self.speech_service, 'model_manager'):
+        if hasattr(self.speech_service, "model_manager"):
             model_manager = self.speech_service.model_manager
-            if hasattr(model_manager, 'load_model_sync'):
+            if hasattr(model_manager, "load_model_sync"):
                 result = model_manager.load_model_sync(model_name)
                 return bool(result)
 
         # Fallback: 直接调用engine (向后兼容,虽然不会发送事件)
         engine = self._get_engine()
-        if engine and hasattr(engine, 'load_model'):
+        if engine and hasattr(engine, "load_model"):
             result = engine.load_model(model_name)
             return bool(result)
 
@@ -283,15 +290,15 @@ class UIModelService:
             bool: 卸载是否成功
         """
         # 优先使用ModelManager
-        if hasattr(self.speech_service, 'model_manager'):
+        if hasattr(self.speech_service, "model_manager"):
             model_manager = self.speech_service.model_manager
-            if hasattr(model_manager, 'unload_model'):
+            if hasattr(model_manager, "unload_model"):
                 result = model_manager.unload_model()
                 return bool(result)
 
         # Fallback: 直接调用engine
         engine = self._get_engine()
-        if engine and hasattr(engine, 'unload_model'):
+        if engine and hasattr(engine, "unload_model"):
             result = engine.unload_model()
             return bool(result)
 
@@ -308,8 +315,8 @@ class UIModelService:
 
         return {
             "success": True,
-            "model_name": getattr(engine, 'model_name', 'Unknown'),
-            "device": getattr(engine, 'device', 'Unknown')
+            "model_name": getattr(engine, "model_name", "Unknown"),
+            "device": getattr(engine, "device", "Unknown"),
         }
 
     def get_whisper_engine(self) -> Optional[Any]:
@@ -325,16 +332,16 @@ class UIModelService:
     def _get_engine(self) -> Optional[Any]:
         """获取底层引擎（内部方法）"""
         # 优先检查 RefactoredTranscriptionService 的 model_manager
-        if hasattr(self.speech_service, 'model_manager'):
+        if hasattr(self.speech_service, "model_manager"):
             model_manager = self.speech_service.model_manager
-            if hasattr(model_manager, '_whisper_engine'):
+            if hasattr(model_manager, "_whisper_engine"):
                 return model_manager._whisper_engine
-            elif hasattr(model_manager, 'get_whisper_engine'):
+            elif hasattr(model_manager, "get_whisper_engine"):
                 return model_manager.get_whisper_engine()
         # 回退到直接检查
-        if hasattr(self.speech_service, 'whisper_engine'):
+        if hasattr(self.speech_service, "whisper_engine"):
             return self.speech_service.whisper_engine
-        elif hasattr(self.speech_service, '_engine'):
+        elif hasattr(self.speech_service, "_engine"):
             return self.speech_service._engine
         return None
 
@@ -353,6 +360,7 @@ class UIAudioService:
         """获取可用音频设备列表"""
         try:
             from ...audio.recorder import AudioRecorder
+
             temp_recorder = AudioRecorder()
             devices = temp_recorder.get_audio_devices()
             temp_recorder.cleanup()
@@ -383,6 +391,7 @@ class UIGPUService:
         """获取GPU信息"""
         try:
             from ...speech.gpu_manager import GPUManager
+
             temp_gpu_manager = GPUManager()
             gpu_info = temp_gpu_manager.get_device_info()
             return gpu_info

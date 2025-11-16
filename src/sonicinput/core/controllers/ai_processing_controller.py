@@ -75,8 +75,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
         if streaming_mode == "realtime":
             # Realtime 模式：永不使用 AI（优先速度）
             app_logger.log_audio_event(
-                "Realtime mode: skipping AI processing",
-                {"text_length": len(text)}
+                "Realtime mode: skipping AI processing", {"text_length": len(text)}
             )
             should_use_ai = False
         elif streaming_mode == "chunked":
@@ -85,12 +84,11 @@ class AIProcessingController(BaseController, IAIProcessingController):
             if should_use_ai:
                 app_logger.log_audio_event(
                     "Chunked mode: AI enabled, will optimize",
-                    {"text_length": len(text)}
+                    {"text_length": len(text)},
                 )
             else:
                 app_logger.log_audio_event(
-                    "Chunked mode: AI disabled, skipping",
-                    {"text_length": len(text)}
+                    "Chunked mode: AI disabled, skipping", {"text_length": len(text)}
                 )
 
         # 根据策略决定是否使用 AI
@@ -114,8 +112,10 @@ class AIProcessingController(BaseController, IAIProcessingController):
         else:
             # 不使用AI：更新历史记录
             skip_reason = (
-                "realtime_mode" if streaming_mode == "realtime"
-                else "ai_disabled" if not self.is_ai_enabled()
+                "realtime_mode"
+                if streaming_mode == "realtime"
+                else "ai_disabled"
+                if not self.is_ai_enabled()
                 else "no_text"
             )
 
@@ -125,7 +125,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     ai_text=None,
                     status="skipped",
                     error=None,
-                    final_text=text
+                    final_text=text,
                 )
 
             # 不使用AI，直接发送原文本
@@ -139,8 +139,8 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     "original_text": text,
                     "streaming_mode": streaming_mode,
                     "skip_reason": skip_reason,
-                    **data_copy
-                }
+                    **data_copy,
+                },
             )
 
     def process_with_ai(self, text: str, record_id: Optional[str] = None) -> str:
@@ -154,7 +154,9 @@ class AIProcessingController(BaseController, IAIProcessingController):
             优化后的文本
         """
         # 确定使用哪个record_id：优先使用传入的，fallback到实例变量
-        actual_record_id = record_id if record_id is not None else self._current_record_id
+        actual_record_id = (
+            record_id if record_id is not None else self._current_record_id
+        )
 
         try:
             self._events.emit(Events.AI_PROCESSING_STARTED)
@@ -188,7 +190,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     ai_text=refined_text,
                     status="success",
                     error=None,
-                    final_text=refined_text
+                    final_text=refined_text,
                 )
 
             # 发送AI处理完成事件
@@ -223,7 +225,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     ai_text=None,
                     status="failed",
                     error=error_msg,
-                    final_text=text
+                    final_text=text,
                 )
 
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
@@ -244,7 +246,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     ai_text=None,
                     status="failed",
                     error=error_msg,
-                    final_text=text
+                    final_text=text,
                 )
 
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
@@ -275,7 +277,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     ai_text=None,
                     status="failed",
                     error=error_msg,
-                    final_text=text
+                    final_text=text,
                 )
 
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
@@ -296,7 +298,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                     ai_text=None,
                     status="failed",
                     error=error_msg,
-                    final_text=text
+                    final_text=text,
                 )
 
             self._events.emit(Events.AI_PROCESSING_ERROR, error_msg)
@@ -326,7 +328,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
         ai_text: Optional[str],
         status: str,
         error: Optional[str],
-        final_text: str
+        final_text: str,
     ) -> None:
         """更新历史记录的AI处理状态
 
@@ -343,7 +345,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
             if not record:
                 app_logger.log_audio_event(
                     "Cannot update AI status - record not found",
-                    {"record_id": record_id}
+                    {"record_id": record_id},
                 )
                 return
 
@@ -367,12 +369,11 @@ class AIProcessingController(BaseController, IAIProcessingController):
                         "record_id": record_id,
                         "status": status,
                         "ai_text_length": len(ai_text) if ai_text else 0,
-                    }
+                    },
                 )
             else:
                 app_logger.log_audio_event(
-                    "Failed to update AI status in history",
-                    {"record_id": record_id}
+                    "Failed to update AI status in history", {"record_id": record_id}
                 )
 
         except Exception as e:

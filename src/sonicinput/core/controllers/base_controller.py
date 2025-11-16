@@ -111,9 +111,7 @@ class BaseController(ABC):
         context = self._get_component_context()
         ControllerLogging.log_initialization(self._component_name, context)
 
-    def _emit_event(
-        self, event_name: str, data: Optional[Any] = None
-    ) -> None:
+    def _emit_event(self, event_name: str, data: Optional[Any] = None) -> None:
         """Safely emit event through event service
 
         Wraps event emission with error handling to ensure
@@ -136,9 +134,7 @@ class BaseController(ABC):
                 context={"event": event_name, "has_data": data is not None},
             )
 
-    def _get_config_setting(
-        self, key: str, default: Optional[Any] = None
-    ) -> Any:
+    def _get_config_setting(self, key: str, default: Optional[Any] = None) -> Any:
         """Get configuration setting with error handling
 
         Retrieves a configuration setting with automatic fallback
@@ -187,7 +183,5 @@ class BaseController(ABC):
             self._config.set_setting(key, value)
             return True
         except Exception as e:
-            app_logger.log_error(
-                e, "set_config_setting", context={"key": key}
-            )
+            app_logger.log_error(e, "set_config_setting", context={"key": key})
             return False

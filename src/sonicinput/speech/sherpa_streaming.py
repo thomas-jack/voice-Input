@@ -65,7 +65,10 @@ class SherpaStreamingSession:
             # 持续解码直到所有可用帧处理完毕
             decode_count = 0
             max_decode_per_call = 10  # 防止无限循环
-            while self.recognizer.is_ready(self.stream) and decode_count < max_decode_per_call:
+            while (
+                self.recognizer.is_ready(self.stream)
+                and decode_count < max_decode_per_call
+            ):
                 self.recognizer.decode_stream(self.stream)
                 decode_count += 1
 

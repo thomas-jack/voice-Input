@@ -72,7 +72,10 @@ class SecureStorage:
                     app_logger.log_error(
                         e,
                         "machine_id_source_failed",
-                        {"context": f"Failed to get machine ID from source #{idx}", "source_index": idx}
+                        {
+                            "context": f"Failed to get machine ID from source #{idx}",
+                            "source_index": idx,
+                        },
                     )
                     continue
 

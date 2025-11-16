@@ -56,7 +56,9 @@ class SherpaEngine(ISpeechService):
         self.recognizer: Optional[sherpa_onnx.OnlineRecognizer] = None
         self._is_loaded = False
 
-        logger.info(f"SherpaEngine initialized with model: {model_name}, language: {language}")
+        logger.info(
+            f"SherpaEngine initialized with model: {model_name}, language: {language}"
+        )
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
         """加载模型
@@ -90,7 +92,7 @@ class SherpaEngine(ISpeechService):
                     enable_endpoint_detection=True,
                     rule1_min_trailing_silence=3.6,  # 从2.4增加到3.6秒，更宽松
                     rule2_min_trailing_silence=2.0,  # 从1.2增加到2.0秒，更宽松
-                    rule3_min_utterance_length=15,   # 从20减少到15帧，允许短句子
+                    rule3_min_utterance_length=15,  # 从20减少到15帧，允许短句子
                     provider=model_config["provider"],
                 )
             elif model_config["model_type"] == "zipformer":
@@ -227,11 +229,13 @@ class SherpaEngine(ISpeechService):
             info = {}
 
         # 添加/覆盖运行时状态信息（UI所需）
-        info.update({
-            "is_loaded": self.is_model_loaded,
-            "model_name": self.model_name or "Unknown",
-            "device": self.device,
-        })
+        info.update(
+            {
+                "is_loaded": self.is_model_loaded,
+                "model_name": self.model_name or "Unknown",
+                "device": self.device,
+            }
+        )
 
         return info
 

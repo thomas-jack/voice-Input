@@ -62,7 +62,9 @@ class InputController(BaseController, IInputController):
         self._events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
 
         # 转录错误事件（用于恢复剪贴板）
-        self._events.on(Events.TRANSCRIPTION_ERROR, self._on_transcription_error_restore_clipboard)
+        self._events.on(
+            Events.TRANSCRIPTION_ERROR, self._on_transcription_error_restore_clipboard
+        )
 
     def _on_text_ready_for_input(self, data: dict) -> None:
         """处理准备好输入的文本事件
@@ -80,12 +82,12 @@ class InputController(BaseController, IInputController):
                 "Skipping final text input in realtime mode (already input during recording)",
                 {
                     "text_length": len(data.get("text", "")),
-                    "streaming_mode": streaming_mode
-                }
+                    "streaming_mode": streaming_mode,
+                },
             )
 
             # 关键修复：realtime 模式下也要恢复剪贴板
-            if hasattr(self._input_service, 'stop_recording_mode'):
+            if hasattr(self._input_service, "stop_recording_mode"):
                 self._input_service.stop_recording_mode()
 
             # 关键修复：即使跳过文本输入，也要触发完成事件和设置状态
@@ -107,11 +109,11 @@ class InputController(BaseController, IInputController):
             # 空文本处理：仍需触发完成事件，让悬浮窗正常关闭
             app_logger.log_audio_event(
                 "Empty text received, skipping input but triggering completion",
-                {"data_keys": list(data.keys()), "streaming_mode": streaming_mode}
+                {"data_keys": list(data.keys()), "streaming_mode": streaming_mode},
             )
 
             # 空文本时也要恢复剪贴板
-            if hasattr(self._input_service, 'stop_recording_mode'):
+            if hasattr(self._input_service, "stop_recording_mode"):
                 self._input_service.stop_recording_mode()
 
             # 触发完成事件
@@ -142,7 +144,7 @@ class InputController(BaseController, IInputController):
 
                 # 文本输入成功后，恢复原始剪贴板内容
                 # 修复：将剪贴板恢复从 TRANSCRIPTION_COMPLETED 移到这里，确保在文本输入完成后才恢复
-                if hasattr(self._input_service, 'stop_recording_mode'):
+                if hasattr(self._input_service, "stop_recording_mode"):
                     self._input_service.stop_recording_mode()
 
                 # 重置应用状态为 IDLE（完成整个语音输入流程）
@@ -161,7 +163,7 @@ class InputController(BaseController, IInputController):
                 self._events.emit(Events.TEXT_INPUT_ERROR, "Failed to input text")
 
                 # 文本输入失败时也要恢复剪贴板
-                if hasattr(self._input_service, 'stop_recording_mode'):
+                if hasattr(self._input_service, "stop_recording_mode"):
                     self._input_service.stop_recording_mode()
 
                 # 即使失败也要重置状态，否则无法进行下一次录音
@@ -174,7 +176,7 @@ class InputController(BaseController, IInputController):
             self._events.emit(Events.TEXT_INPUT_ERROR, str(e))
 
             # 异常时也要恢复剪贴板
-            if hasattr(self._input_service, 'stop_recording_mode'):
+            if hasattr(self._input_service, "stop_recording_mode"):
                 self._input_service.stop_recording_mode()
 
             # 异常时也要重置状态
@@ -242,7 +244,7 @@ class InputController(BaseController, IInputController):
 
         # 启动录音模式：SmartTextInput会保存原始剪贴板，并在录音期间禁用中途restore
         try:
-            if hasattr(self._input_service, 'start_recording_mode'):
+            if hasattr(self._input_service, "start_recording_mode"):
                 self._input_service.start_recording_mode()
         except Exception as e:
             app_logger.log_error(e, "start_recording_mode")
@@ -258,7 +260,7 @@ class InputController(BaseController, IInputController):
         """
         app_logger.log_audio_event(
             "InputController: Recording stopped",
-            {"last_realtime_text_length": len(self._last_realtime_text)}
+            {"last_realtime_text_length": len(self._last_realtime_text)},
         )
 
     def _on_realtime_text_updated(self, data: dict) -> None:
@@ -282,9 +284,13 @@ class InputController(BaseController, IInputController):
             app_logger.log_audio_event(
                 "Realtime text update received",
                 {
-                    "old_text": self._last_realtime_text[:30] + "..." if len(self._last_realtime_text) > 30 else self._last_realtime_text,
-                    "new_text": new_text[:30] + "..." if len(new_text) > 30 else new_text,
-                }
+                    "old_text": self._last_realtime_text[:30] + "..."
+                    if len(self._last_realtime_text) > 30
+                    else self._last_realtime_text,
+                    "new_text": new_text[:30] + "..."
+                    if len(new_text) > 30
+                    else new_text,
+                },
             )
 
             # 关键修复：如果新文本为空或显著变短，可能是sherpa reset导致的异常
@@ -295,8 +301,8 @@ class InputController(BaseController, IInputController):
                     {
                         "old_length": len(self._last_realtime_text),
                         "new_length": len(new_text),
-                        "skipping_diff": True
-                    }
+                        "skipping_diff": True,
+                    },
                 )
                 # 不执行差量更新，保持当前已输入的文本
                 return
@@ -310,8 +316,10 @@ class InputController(BaseController, IInputController):
                 "Calculated text diff",
                 {
                     "backspace_count": backspace_count,
-                    "append_text": text_to_append[:30] + "..." if len(text_to_append) > 30 else text_to_append,
-                }
+                    "append_text": text_to_append[:30] + "..."
+                    if len(text_to_append) > 30
+                    else text_to_append,
+                },
             )
 
             # 如果需要退格，先删除旧的部分
@@ -320,8 +328,7 @@ class InputController(BaseController, IInputController):
                 backspace_text = "\b" * backspace_count
                 self._input_service.input_text(backspace_text)
                 app_logger.log_audio_event(
-                    "Sent backspace keys",
-                    {"count": backspace_count}
+                    "Sent backspace keys", {"count": backspace_count}
                 )
 
             # 输入新的文本
@@ -329,7 +336,11 @@ class InputController(BaseController, IInputController):
                 self._input_service.input_text(text_to_append)
                 app_logger.log_audio_event(
                     "Sent new text",
-                    {"text": text_to_append[:50] + "..." if len(text_to_append) > 50 else text_to_append}
+                    {
+                        "text": text_to_append[:50] + "..."
+                        if len(text_to_append) > 50
+                        else text_to_append
+                    },
                 )
 
             # 更新追踪的文本
@@ -348,11 +359,11 @@ class InputController(BaseController, IInputController):
         """
         try:
             # 即使转录失败，也要恢复剪贴板
-            if hasattr(self._input_service, 'stop_recording_mode'):
+            if hasattr(self._input_service, "stop_recording_mode"):
                 self._input_service.stop_recording_mode()
                 app_logger.log_audio_event(
                     "Clipboard restore triggered after transcription error",
-                    {"error": error_msg[:100] if error_msg else "Unknown error"}
+                    {"error": error_msg[:100] if error_msg else "Unknown error"},
                 )
         except Exception as e:
             app_logger.log_error(e, "_on_transcription_error_restore_clipboard")

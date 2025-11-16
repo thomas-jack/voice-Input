@@ -617,8 +617,12 @@ class DynamicEventSystem(IEventService):
         with self._lock:
             return {
                 "total_events": len(self._registered_events),
-                "total_listeners": sum(len(listeners) for listeners in self._listeners.values()),
-                "events_with_listeners": len([e for e in self._listeners if self._listeners[e]]),
+                "total_listeners": sum(
+                    len(listeners) for listeners in self._listeners.values()
+                ),
+                "events_with_listeners": len(
+                    [e for e in self._listeners if self._listeners[e]]
+                ),
             }
 
     def enable(self) -> None:

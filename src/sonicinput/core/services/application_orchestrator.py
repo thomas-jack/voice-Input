@@ -25,6 +25,7 @@ from ...utils import app_logger, VoiceInputError
 
 class InitializationPhase(Enum):
     """初始化阶段枚举"""
+
     NOT_STARTED = "not_started"
     CORE_SERVICES = "core_services"
     CONTROLLERS = "controllers"
@@ -110,11 +111,17 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
             app_logger.log_audio_event("Application startup orchestrated", {})
 
             # 按阶段初始化
-            self._execute_phase(InitializationPhase.CORE_SERVICES, self._init_core_services)
+            self._execute_phase(
+                InitializationPhase.CORE_SERVICES, self._init_core_services
+            )
             self._execute_phase(InitializationPhase.CONTROLLERS, self._init_controllers)
             self._execute_phase(InitializationPhase.HOTKEY_SETUP, self._init_hotkeys)
-            self._execute_phase(InitializationPhase.CONFIG_RELOAD, self._init_config_reload)
-            self._execute_phase(InitializationPhase.MODEL_LOADING, self._init_model_loading)
+            self._execute_phase(
+                InitializationPhase.CONFIG_RELOAD, self._init_config_reload
+            )
+            self._execute_phase(
+                InitializationPhase.MODEL_LOADING, self._init_model_loading
+            )
 
             # 标记启动完成
             self._current_phase = InitializationPhase.COMPLETED
@@ -146,7 +153,11 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
 
             # 停止录音
             recording_controller = self._controllers.get("recording")
-            if recording_controller and hasattr(recording_controller, "is_recording") and recording_controller.is_recording():
+            if (
+                recording_controller
+                and hasattr(recording_controller, "is_recording")
+                and recording_controller.is_recording()
+            ):
                 recording_controller.stop_recording()
 
             # 停止快捷键监听
@@ -197,7 +208,7 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         self._startup_callbacks[phase].append(callback)
         app_logger.log_audio_event(
             "Startup callback registered",
-            {"phase": phase, "callback_count": len(self._startup_callbacks[phase])}
+            {"phase": phase, "callback_count": len(self._startup_callbacks[phase])},
         )
 
     def register_shutdown_callback(self, callback: Callable) -> None:
@@ -205,10 +216,12 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         self._shutdown_callbacks.append(callback)
         app_logger.log_audio_event(
             "Shutdown callback registered",
-            {"callback_count": len(self._shutdown_callbacks)}
+            {"callback_count": len(self._shutdown_callbacks)},
         )
 
-    def _execute_phase(self, phase: InitializationPhase, phase_handler: Callable) -> None:
+    def _execute_phase(
+        self, phase: InitializationPhase, phase_handler: Callable
+    ) -> None:
         """执行初始化阶段"""
         self._current_phase = phase
         app_logger.log_audio_event(f"Starting initialization phase: {phase.value}", {})
@@ -230,14 +243,17 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         """初始化核心服务阶段"""
         # 配置日志系统
         from ...utils import logger
+
         logger.set_config_service(self.config)
 
         # 核心服务已在DI容器中初始化，这里只需验证
-        if not all([
-            self._audio_service,
-            self._speech_service,
-            self._input_service,
-        ]):
+        if not all(
+            [
+                self._audio_service,
+                self._speech_service,
+                self._input_service,
+            ]
+        ):
             raise VoiceInputError("Core services not properly initialized")
 
     def _init_controllers(self) -> None:
@@ -266,33 +282,40 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         for hotkey in hotkeys:
             if hotkey and hotkey.strip():
                 try:
-                    self._hotkey_service.register_hotkey(hotkey.strip(), "toggle_recording")
+                    self._hotkey_service.register_hotkey(
+                        hotkey.strip(), "toggle_recording"
+                    )
                     registered_count += 1
                     app_logger.log_audio_event(
-                        "Hotkey registered successfully",
-                        {"hotkey": hotkey.strip()}
+                        "Hotkey registered successfully", {"hotkey": hotkey.strip()}
                     )
                 except HotkeyConflictError as e:
                     # 记录冲突但不中断启动
                     failed_hotkeys.append(hotkey.strip())
                     app_logger.log_audio_event(
                         "Hotkey conflict detected",
-                        {"hotkey": hotkey.strip(), "suggestions": e.suggestions}
+                        {"hotkey": hotkey.strip(), "suggestions": e.suggestions},
                     )
                     # 发送事件通知UI
-                    self.events.emit("HOTKEY_CONFLICT", {
-                        "hotkey": e.hotkey,
-                        "suggestions": e.suggestions,
-                        "error_code": e.error_code,
-                    })
+                    self.events.emit(
+                        "HOTKEY_CONFLICT",
+                        {
+                            "hotkey": e.hotkey,
+                            "suggestions": e.suggestions,
+                            "error_code": e.error_code,
+                        },
+                    )
                 except HotkeyRegistrationError as e:
                     # 记录注册错误但不中断启动
                     failed_hotkeys.append(hotkey.strip())
                     app_logger.log_error(e, f"hotkey_registration_{hotkey}")
-                    self.events.emit("HOTKEY_REGISTRATION_ERROR", {
-                        "hotkey": hotkey.strip(),
-                        "error": str(e),
-                    })
+                    self.events.emit(
+                        "HOTKEY_REGISTRATION_ERROR",
+                        {
+                            "hotkey": hotkey.strip(),
+                            "error": str(e),
+                        },
+                    )
                 except Exception as e:
                     # 记录其他异常
                     failed_hotkeys.append(hotkey.strip())
@@ -308,13 +331,13 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
                     "registered": registered_count,
                     "failed": len(failed_hotkeys),
                     "failed_hotkeys": failed_hotkeys,
-                }
+                },
             )
         else:
             # 所有快捷键都注册失败
             app_logger.log_audio_event(
                 "Warning: No hotkeys registered successfully",
-                {"attempted": hotkeys, "failed": failed_hotkeys}
+                {"attempted": hotkeys, "failed": failed_hotkeys},
             )
             # 应用仍然可以启动，只是没有快捷键
 
@@ -337,7 +360,9 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         if self._should_enable_auto_load():
             provider = self.config.get_setting("transcription.provider", "local")
             if provider == "local":
-                model_name = self.config.get_setting("transcription.local.model", "paraformer")
+                model_name = self.config.get_setting(
+                    "transcription.local.model", "paraformer"
+                )
                 app_logger.log_audio_event(
                     "Auto-loading model on startup", {"model_name": model_name}
                 )
@@ -345,8 +370,7 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
             else:
                 # 云端模式不需要预加载模型
                 app_logger.log_audio_event(
-                    "Skipping model loading for cloud provider",
-                    {"provider": provider}
+                    "Skipping model loading for cloud provider", {"provider": provider}
                 )
                 return
 

@@ -14,6 +14,7 @@ def _ensure_groq_imported():
     if groq is None:
         try:
             from groq import Groq
+
             groq = Groq
             app_logger.log_model_loading_step("Groq module imported successfully", {})
         except ImportError as e:
@@ -57,7 +58,7 @@ class GroqSpeechService(CloudTranscriptionBase):
         if model not in self.AVAILABLE_MODELS:
             app_logger.log_audio_event(
                 "Invalid Groq model, using default",
-                {"requested": model, "default": self.AVAILABLE_MODELS[0]}
+                {"requested": model, "default": self.AVAILABLE_MODELS[0]},
             )
             self.model = self.AVAILABLE_MODELS[0]
             self.model_name = self.model
@@ -102,27 +103,33 @@ class GroqSpeechService(CloudTranscriptionBase):
             for seg in response_data["segments"]:
                 # Handle both dict and object formats
                 if isinstance(seg, dict):
-                    segments.append({
-                        "start": seg.get("start", 0.0),
-                        "end": seg.get("end", 0.0),
-                        "text": seg.get("text", ""),
-                        "avg_logprob": seg.get("avg_logprob", 0.0),
-                        "no_speech_prob": seg.get("no_speech_prob", 0.0),
-                    })
+                    segments.append(
+                        {
+                            "start": seg.get("start", 0.0),
+                            "end": seg.get("end", 0.0),
+                            "text": seg.get("text", ""),
+                            "avg_logprob": seg.get("avg_logprob", 0.0),
+                            "no_speech_prob": seg.get("no_speech_prob", 0.0),
+                        }
+                    )
                 else:
                     # Object attribute access
-                    segments.append({
-                        "start": getattr(seg, "start", 0.0),
-                        "end": getattr(seg, "end", 0.0),
-                        "text": getattr(seg, "text", ""),
-                        "avg_logprob": getattr(seg, "avg_logprob", 0.0),
-                        "no_speech_prob": getattr(seg, "no_speech_prob", 0.0),
-                    })
+                    segments.append(
+                        {
+                            "start": getattr(seg, "start", 0.0),
+                            "end": getattr(seg, "end", 0.0),
+                            "text": getattr(seg, "text", ""),
+                            "avg_logprob": getattr(seg, "avg_logprob", 0.0),
+                            "no_speech_prob": getattr(seg, "no_speech_prob", 0.0),
+                        }
+                    )
 
         # Calculate confidence from segments
         confidence = 0.5  # Default confidence
         if segments:
-            avg_logprob = sum(seg.get("avg_logprob", 0.0) for seg in segments) / len(segments)
+            avg_logprob = sum(seg.get("avg_logprob", 0.0) for seg in segments) / len(
+                segments
+            )
             confidence = max(0.0, min(1.0, (avg_logprob + 1.0) / 2.0))
 
         return {
@@ -153,7 +160,7 @@ class GroqSpeechService(CloudTranscriptionBase):
             if model_name not in self.AVAILABLE_MODELS:
                 app_logger.log_audio_event(
                     "Invalid Groq model requested",
-                    {"requested": model_name, "available": self.AVAILABLE_MODELS}
+                    {"requested": model_name, "available": self.AVAILABLE_MODELS},
                 )
                 return False
             self.model = model_name
@@ -163,7 +170,7 @@ class GroqSpeechService(CloudTranscriptionBase):
         self._is_model_loaded = True
         app_logger.log_audio_event(
             "Groq service marked as loaded",
-            {"model": self.model, "endpoint": self.api_endpoint}
+            {"model": self.model, "endpoint": self.api_endpoint},
         )
         return True
 
@@ -182,13 +189,15 @@ class GroqSpeechService(CloudTranscriptionBase):
             Connection test result
         """
         result = super().test_connection()
-        result.update({
-            "details": {
-                "model": self.model,
-                "base_url": self.base_url or "default",
-                "endpoint": self.api_endpoint,
+        result.update(
+            {
+                "details": {
+                    "model": self.model,
+                    "base_url": self.base_url or "default",
+                    "endpoint": self.api_endpoint,
+                }
             }
-        })
+        )
         return result
 
     def initialize(self, config: Dict[str, Any]) -> None:

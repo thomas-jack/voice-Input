@@ -23,10 +23,10 @@ class ClipboardInput:
 
     # Windows GDI 句柄格式（无法跨进程/时间恢复）
     HANDLE_FORMATS = {
-        2: 'CF_BITMAP',        # HBITMAP - GDI 位图句柄
-        3: 'CF_METAFILEPICT',  # HGLOBAL (metafile) - 图元文件句柄
-        9: 'CF_PALETTE',       # HPALETTE - 调色板句柄
-        14: 'CF_ENHMETAFILE',  # HENHMETAFILE - 增强型图元文件句柄
+        2: "CF_BITMAP",  # HBITMAP - GDI 位图句柄
+        3: "CF_METAFILEPICT",  # HGLOBAL (metafile) - 图元文件句柄
+        9: "CF_PALETTE",  # HPALETTE - 调色板句柄
+        14: "CF_ENHMETAFILE",  # HENHMETAFILE - 增强型图元文件句柄
     }
 
     def __init__(self):
@@ -36,7 +36,9 @@ class ClipboardInput:
 
         app_logger.log_audio_event("Clipboard input initialized", {})
 
-    def _open_clipboard_with_retry(self, hwnd=None, max_attempts=10, delay=0.05) -> bool:
+    def _open_clipboard_with_retry(
+        self, hwnd=None, max_attempts=10, delay=0.05
+    ) -> bool:
         """使用重试逻辑打开剪贴板
 
         Args:
@@ -57,7 +59,7 @@ class ClipboardInput:
                 else:
                     app_logger.log_audio_event(
                         "Failed to open clipboard after retries",
-                        {"attempts": attempt + 1, "hwnd": hwnd, "error": str(e)}
+                        {"attempts": attempt + 1, "hwnd": hwnd, "error": str(e)},
                     )
                     app_logger.log_error(e, "_open_clipboard_with_retry")
                     return False
@@ -114,7 +116,7 @@ class ClipboardInput:
                     if fmt in SKIP_FORMATS:
                         app_logger.log_audio_event(
                             "Skipping special format",
-                            {"format": fmt, "reason": "cannot_restore"}
+                            {"format": fmt, "reason": "cannot_restore"},
                         )
                         continue
 
@@ -122,7 +124,7 @@ class ClipboardInput:
                     if has_unicode_text and fmt in SYNTHESIZED_TEXT:
                         app_logger.log_audio_event(
                             "Skipping synthesized text format",
-                            {"format": fmt, "reason": "will_auto_synthesize"}
+                            {"format": fmt, "reason": "will_auto_synthesize"},
                         )
                         continue
 
@@ -132,10 +134,18 @@ class ClipboardInput:
                             # 关键修复：跳过 GDI 句柄类型，因为句柄无法跨进程/时间恢复
                             # Windows 会从实际数据（如 CF_DIB）自动合成句柄格式（如 CF_BITMAP）
                             if fmt in self.HANDLE_FORMATS or isinstance(data, int):
-                                format_name = self.HANDLE_FORMATS.get(fmt, f"Unknown({fmt})")
+                                format_name = self.HANDLE_FORMATS.get(
+                                    fmt, f"Unknown({fmt})"
+                                )
                                 app_logger.log_audio_event(
                                     f"Skipping handle-type format: {format_name}",
-                                    {"format": fmt, "reason": "handle_type", "handle_value": data if isinstance(data, int) else "N/A"}
+                                    {
+                                        "format": fmt,
+                                        "reason": "handle_type",
+                                        "handle_value": data
+                                        if isinstance(data, int)
+                                        else "N/A",
+                                    },
                                 )
                                 continue
 
@@ -143,14 +153,13 @@ class ClipboardInput:
                             format_count += 1
                         else:
                             app_logger.log_audio_event(
-                                "Skipping delayed-rendered format",
-                                {"format": fmt}
+                                "Skipping delayed-rendered format", {"format": fmt}
                             )
                     except Exception as e:
                         # 某些格式可能无法读取，记录警告但继续
                         app_logger.log_audio_event(
                             f"Failed to backup clipboard format {fmt}",
-                            {"error": str(e), "result": "backup_exception"}
+                            {"error": str(e), "result": "backup_exception"},
                         )
 
                 app_logger.log_audio_event(
@@ -158,8 +167,8 @@ class ClipboardInput:
                     {
                         "format_count": format_count,
                         "formats": list(formats.keys()),
-                        "has_unicode": has_unicode_text
-                    }
+                        "has_unicode": has_unicode_text,
+                    },
                 )
 
             finally:
@@ -183,8 +192,7 @@ class ClipboardInput:
             if not all_formats:
                 # 剪贴板为空
                 app_logger.log_audio_event(
-                    "Clipboard is empty",
-                    {"elevated": self._is_elevated()}
+                    "Clipboard is empty", {"elevated": self._is_elevated()}
                 )
                 self.original_clipboard = ""
                 return ""
@@ -216,7 +224,9 @@ class ClipboardInput:
             self.original_clipboard = ""
             return ""
 
-    def _sort_formats_by_dependency(self, formats: Dict[int, bytes]) -> Dict[int, bytes]:
+    def _sort_formats_by_dependency(
+        self, formats: Dict[int, bytes]
+    ) -> Dict[int, bytes]:
         """按格式依赖关系排序
 
         某些格式有依赖关系，需要按正确顺序恢复：
@@ -232,13 +242,13 @@ class ClipboardInput:
         """
         # 定义格式优先级（数字越小优先级越高）
         FORMAT_PRIORITY = {
-            8: 1,    # CF_DIB - 设备无关位图（最高优先级）
-            17: 2,   # CF_METAFILEPICT - 图元文件
-            2: 3,    # CF_BITMAP - 位图
-            13: 4,   # CF_UNICODETEXT - Unicode文本
-            16: 5,   # CF_LOCALE - 区域设置
-            1: 6,    # CF_TEXT - ANSI文本
-            7: 7,    # CF_OEMTEXT - OEM文本
+            8: 1,  # CF_DIB - 设备无关位图（最高优先级）
+            17: 2,  # CF_METAFILEPICT - 图元文件
+            2: 3,  # CF_BITMAP - 位图
+            13: 4,  # CF_UNICODETEXT - Unicode文本
+            16: 5,  # CF_LOCALE - 区域设置
+            1: 6,  # CF_TEXT - ANSI文本
+            7: 7,  # CF_OEMTEXT - OEM文本
         }
 
         def get_priority(fmt: int) -> int:
@@ -253,8 +263,8 @@ class ClipboardInput:
             "Formats sorted by dependency",
             {
                 "original_order": list(formats.keys()),
-                "sorted_order": list(sorted_formats.keys())
-            }
+                "sorted_order": list(sorted_formats.keys()),
+            },
         )
 
         return sorted_formats
@@ -280,7 +290,7 @@ class ClipboardInput:
             if restored_data is None:
                 app_logger.log_audio_event(
                     f"Format {fmt} validation failed: data is None",
-                    {"format": fmt, "validation_result": "failed_null"}
+                    {"format": fmt, "validation_result": "failed_null"},
                 )
                 return False
 
@@ -292,14 +302,16 @@ class ClipboardInput:
                     {
                         "format": fmt,
                         "data_type": "handle",
-                        "handle_value": restored_data
-                    }
+                        "handle_value": restored_data,
+                    },
                 )
                 return True
 
             # 对于 bytes 类型，检查数据大小（允许 10% 的差异）
             if isinstance(restored_data, bytes) and isinstance(original_data, bytes):
-                size_diff_ratio = abs(len(restored_data) - len(original_data)) / max(len(original_data), 1)
+                size_diff_ratio = abs(len(restored_data) - len(original_data)) / max(
+                    len(original_data), 1
+                )
 
                 if size_diff_ratio > 0.1:
                     app_logger.log_audio_event(
@@ -309,8 +321,8 @@ class ClipboardInput:
                             "original_size": len(original_data),
                             "restored_size": len(restored_data),
                             "diff_ratio": f"{size_diff_ratio:.2%}",
-                            "validation_result": "failed_size"
-                        }
+                            "validation_result": "failed_size",
+                        },
                     )
                     return False
 
@@ -319,25 +331,22 @@ class ClipboardInput:
                     {
                         "format": fmt,
                         "original_size": len(original_data),
-                        "restored_size": len(restored_data)
-                    }
+                        "restored_size": len(restored_data),
+                    },
                 )
                 return True
 
             # 未知类型，保守认为成功
             app_logger.log_audio_event(
                 "Format validation passed (unknown type)",
-                {
-                    "format": fmt,
-                    "data_type": type(restored_data).__name__
-                }
+                {"format": fmt, "data_type": type(restored_data).__name__},
             )
             return True
 
         except Exception as e:
             app_logger.log_audio_event(
                 f"Format {fmt} validation failed with exception",
-                {"format": fmt, "error": str(e), "validation_result": "exception"}
+                {"format": fmt, "error": str(e), "validation_result": "exception"},
             )
             return False
 
@@ -356,21 +365,18 @@ class ClipboardInput:
             try:
                 # 使用桌面窗口作为剪贴板所有者
                 hwnd = win32gui.GetDesktopWindow()
-                app_logger.log_audio_event(
-                    "Got desktop window handle",
-                    {"hwnd": hwnd}
-                )
+                app_logger.log_audio_event("Got desktop window handle", {"hwnd": hwnd})
             except Exception as e:
                 app_logger.log_audio_event(
                     "Failed to get desktop window, using NULL",
-                    {"error": str(e), "fallback": "null_hwnd"}
+                    {"error": str(e), "fallback": "null_hwnd"},
                 )
 
             # 使用重试逻辑打开剪贴板（传递窗口句柄）
             if not self._open_clipboard_with_retry(hwnd):
                 app_logger.log_error(
                     Exception("Failed to open clipboard after retries"),
-                    "_restore_all_formats"
+                    "_restore_all_formats",
                 )
                 return
 
@@ -393,7 +399,12 @@ class ClipboardInput:
                             api_success_count += 1
                             app_logger.log_audio_event(
                                 "Format API call succeeded",
-                                {"format": fmt, "data_size": len(data) if isinstance(data, bytes) else "unknown"}
+                                {
+                                    "format": fmt,
+                                    "data_size": len(data)
+                                    if isinstance(data, bytes)
+                                    else "unknown",
+                                },
                             )
 
                             # 关键改进：验证格式是否真正可用
@@ -404,20 +415,20 @@ class ClipboardInput:
                                 validation_failed_formats.append(fmt)
                                 app_logger.log_audio_event(
                                     f"Format {fmt} API succeeded but validation failed",
-                                    {"format": fmt, "result": "validation_failed"}
+                                    {"format": fmt, "result": "validation_failed"},
                                 )
                         else:
                             failed_formats.append(fmt)
                             app_logger.log_audio_event(
                                 f"SetClipboardData returned NULL for format {fmt}",
-                                {"format": fmt, "result": "api_null"}
+                                {"format": fmt, "result": "api_null"},
                             )
                     except Exception as e:
                         # 某些格式可能无法恢复，记录警告但继续
                         failed_formats.append(fmt)
                         app_logger.log_audio_event(
                             f"Failed to restore clipboard format {fmt}",
-                            {"error": str(e), "result": "exception"}
+                            {"error": str(e), "result": "exception"},
                         )
 
                 # 改进的日志记录：区分 API 成功和实际可用
@@ -431,8 +442,8 @@ class ClipboardInput:
                         "validation_failed_count": len(validation_failed_formats),
                         "formats": list(sorted_formats.keys()),
                         "api_failed_formats": failed_formats,
-                        "validation_failed_formats": validation_failed_formats
-                    }
+                        "validation_failed_formats": validation_failed_formats,
+                    },
                 )
 
                 # 关键警告：如果验证失败的格式数量多于成功的格式
@@ -443,8 +454,8 @@ class ClipboardInput:
                             "validated": validated_count,
                             "validation_failed": len(validation_failed_formats),
                             "failed_formats": validation_failed_formats,
-                            "severity": "warning"
-                        }
+                            "severity": "warning",
+                        },
                     )
 
             finally:
@@ -476,8 +487,8 @@ class ClipboardInput:
                     {
                         "format_count": len(content),
                         "has_text": bool(text_content),
-                        "text_length": len(text_content) if text_content else 0
-                    }
+                        "text_length": len(text_content) if text_content else 0,
+                    },
                 )
 
             else:
@@ -485,8 +496,7 @@ class ClipboardInput:
                 pyperclip.copy(content)
 
                 app_logger.log_audio_event(
-                    "Clipboard restored (text only)",
-                    {"content_length": len(content)}
+                    "Clipboard restored (text only)", {"content_length": len(content)}
                 )
 
         except Exception as e:
@@ -592,8 +602,7 @@ class ClipboardInput:
         """
         self._recording_mode = enabled
         app_logger.log_audio_event(
-            "Recording mode changed",
-            {"enabled": enabled, "will_skip_restore": enabled}
+            "Recording mode changed", {"enabled": enabled, "will_skip_restore": enabled}
         )
 
     def clear_clipboard(self) -> None:
@@ -618,8 +627,7 @@ class ClipboardInput:
             return ctypes.windll.shell32.IsUserAnAdmin()
         except Exception as e:
             app_logger.log_audio_event(
-                "Failed to check if running as administrator",
-                {"error": str(e)}
+                "Failed to check if running as administrator", {"error": str(e)}
             )
             app_logger.log_error(e, "check_elevated_privileges")
             return False
@@ -629,8 +637,7 @@ class ClipboardInput:
         # 关键修复：录音模式下跳过测试（避免污染原始剪贴板）
         if self._recording_mode:
             app_logger.log_audio_event(
-                "Skipping clipboard test in recording mode",
-                {"recording_mode": True}
+                "Skipping clipboard test in recording mode", {"recording_mode": True}
             )
             return True  # 假设剪贴板可用
 
@@ -650,5 +657,8 @@ class ClipboardInput:
 
             return result == unicode_test
         except Exception as e:
-            app_logger.log_audio_event("Unicode clipboard test failed", {"error": str(e), "result": "test_exception"})
+            app_logger.log_audio_event(
+                "Unicode clipboard test failed",
+                {"error": str(e), "result": "test_exception"},
+            )
             return basic_test  # 至少基础测试通过

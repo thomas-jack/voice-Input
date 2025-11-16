@@ -74,14 +74,14 @@ class RecordingController(IRecordingController):
                 AppState.PROCESSING,
                 AppState.IDLE,
                 {"reason": "detected_stuck_state"},
-                is_forced=True
+                is_forced=True,
             )
             self._state.set_app_state(AppState.IDLE)
             ControllerLogging.log_state_change(
                 "recording",
                 self._state.get_recording_state(),
                 RecordingState.IDLE,
-                is_forced=True
+                is_forced=True,
             )
             self._state.set_recording_state(RecordingState.IDLE)
 
@@ -117,7 +117,10 @@ class RecordingController(IRecordingController):
                 if configured_mode != current_mode:
                     app_logger.log_audio_event(
                         "Streaming mode config changed, preparing to switch",
-                        {"current_mode": current_mode, "configured_mode": configured_mode}
+                        {
+                            "current_mode": current_mode,
+                            "configured_mode": configured_mode,
+                        },
                     )
 
                     # 关键修复：先强制停止之前的流（如果存在）
@@ -137,7 +140,7 @@ class RecordingController(IRecordingController):
                             "requested_mode": configured_mode,
                             "switch_success": switch_success,
                             "final_mode": final_mode,
-                        }
+                        },
                     )
 
                 streaming_mode = coordinator.get_streaming_mode()
@@ -145,8 +148,7 @@ class RecordingController(IRecordingController):
                 streaming_mode = configured_mode
 
             app_logger.log_audio_event(
-                "Recording starting with streaming mode",
-                {"mode": streaming_mode}
+                "Recording starting with streaming mode", {"mode": streaming_mode}
             )
 
             # 根据模式创建不同的会话
@@ -154,11 +156,19 @@ class RecordingController(IRecordingController):
             if streaming_mode == "realtime":
                 # Realtime 模式：创建 sherpa streaming session
                 if hasattr(self._speech_service, "model_manager"):
-                    whisper_engine = self._speech_service.model_manager.get_whisper_engine()
-                    if whisper_engine and hasattr(whisper_engine, "create_streaming_session"):
+                    whisper_engine = (
+                        self._speech_service.model_manager.get_whisper_engine()
+                    )
+                    if whisper_engine and hasattr(
+                        whisper_engine, "create_streaming_session"
+                    ):
                         try:
-                            streaming_session = whisper_engine.create_streaming_session()
-                            app_logger.log_audio_event("Sherpa streaming session created", {})
+                            streaming_session = (
+                                whisper_engine.create_streaming_session()
+                            )
+                            app_logger.log_audio_event(
+                                "Sherpa streaming session created", {}
+                            )
                         except Exception as e:
                             app_logger.log_error(e, "create_streaming_session")
 
@@ -166,10 +176,15 @@ class RecordingController(IRecordingController):
             if hasattr(self._speech_service, "start_streaming"):
                 # 重构后的转录服务，传递 streaming_session
                 if hasattr(self._speech_service, "streaming_coordinator"):
-                    self._speech_service.streaming_coordinator.start_streaming(streaming_session)
+                    self._speech_service.streaming_coordinator.start_streaming(
+                        streaming_session
+                    )
                 else:
                     self._speech_service.start_streaming()
-                app_logger.log_audio_event("Streaming transcription started", {"session": streaming_session is not None})
+                app_logger.log_audio_event(
+                    "Streaming transcription started",
+                    {"session": streaming_session is not None},
+                )
             else:
                 app_logger.log_audio_event(
                     "Streaming not supported by speech service", {}
@@ -187,7 +202,8 @@ class RecordingController(IRecordingController):
                         try:
                             self._speech_service.add_streaming_chunk(audio_data)
                             app_logger.log_audio_event(
-                                "Streaming chunk added", {"audio_length": len(audio_data)}
+                                "Streaming chunk added",
+                                {"audio_length": len(audio_data)},
                             )
                         except Exception as e:
                             app_logger.log_error(e, "streaming_chunk_callback")
@@ -196,7 +212,9 @@ class RecordingController(IRecordingController):
                     app_logger.log_audio_event("Chunked mode: chunk callback set", {})
                 else:
                     self._audio_service.chunk_callback = None
-                    app_logger.log_audio_event("Chunked mode: chunk callback not available", {})
+                    app_logger.log_audio_event(
+                        "Chunked mode: chunk callback not available", {}
+                    )
 
                 # 设置音频数据回调（用于实时波形显示）
                 if hasattr(self._audio_service, "set_callback"):
@@ -210,7 +228,9 @@ class RecordingController(IRecordingController):
                         """实时音频流回调"""
                         try:
                             # 发送到 streaming coordinator 的 realtime 处理
-                            partial_text = self._speech_service.streaming_coordinator.add_realtime_audio(audio_data)
+                            partial_text = self._speech_service.streaming_coordinator.add_realtime_audio(
+                                audio_data
+                            )
 
                             # 同时更新音频电平（用于波形显示）
                             if len(audio_data) > 0:
@@ -227,9 +247,13 @@ class RecordingController(IRecordingController):
                     # 设置持续音频回调
                     if hasattr(self._audio_service, "set_callback"):
                         self._audio_service.set_callback(realtime_audio_callback)
-                        app_logger.log_audio_event("Realtime mode: audio callback set", {})
+                        app_logger.log_audio_event(
+                            "Realtime mode: audio callback set", {}
+                        )
                 else:
-                    app_logger.log_audio_event("Realtime mode: streaming coordinator not available", {})
+                    app_logger.log_audio_event(
+                        "Realtime mode: streaming coordinator not available", {}
+                    )
                     # Fallback: 使用基本音频回调
                     if hasattr(self._audio_service, "set_callback"):
                         self._audio_service.set_callback(self._on_audio_data)
@@ -245,7 +269,7 @@ class RecordingController(IRecordingController):
                 "recording",
                 RecordingState.IDLE,
                 RecordingState.RECORDING,
-                {"device_id": device_id}
+                {"device_id": device_id},
             )
             self._state.set_recording_state(RecordingState.RECORDING)
 
@@ -288,8 +312,10 @@ class RecordingController(IRecordingController):
                     {
                         "actual_audio_duration": actual_duration,
                         "wall_clock_duration": wall_clock_duration,
-                        "difference_seconds": abs(wall_clock_duration - actual_duration),
-                    }
+                        "difference_seconds": abs(
+                            wall_clock_duration - actual_duration
+                        ),
+                    },
                 )
 
             # 更新状态
@@ -297,7 +323,7 @@ class RecordingController(IRecordingController):
                 "recording",
                 RecordingState.RECORDING,
                 RecordingState.IDLE,
-                {"duration": f"{self._last_audio_duration:.1f}s"}
+                {"duration": f"{self._last_audio_duration:.1f}s"},
             )
             self._state.set_recording_state(RecordingState.IDLE)
 
@@ -340,18 +366,16 @@ class RecordingController(IRecordingController):
                                 "record_id": record_id,
                                 "file_path": audio_file_path,
                                 "duration": f"{self._last_audio_duration:.1f}s",
-                            }
+                            },
                         )
                     else:
                         app_logger.log_audio_event(
-                            "Failed to save audio file",
-                            {"record_id": record_id}
+                            "Failed to save audio file", {"record_id": record_id}
                         )
                         audio_file_path = None
                 else:
                     app_logger.log_audio_event(
-                        "AudioService does not support save_to_file",
-                        {}
+                        "AudioService does not support save_to_file", {}
                     )
                     audio_file_path = None
             except Exception as e:
@@ -383,7 +407,7 @@ class RecordingController(IRecordingController):
                 RecordingState.RECORDING,
                 RecordingState.IDLE,
                 {"reason": "error_recovery"},
-                is_forced=True
+                is_forced=True,
             )
             self._state.set_recording_state(RecordingState.IDLE)
             app_logger.log_error(e, "stop_recording")

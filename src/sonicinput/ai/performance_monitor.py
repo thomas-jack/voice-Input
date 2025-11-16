@@ -38,12 +38,14 @@ class AIPerformanceMonitor:
                 self._last_tps = tps
 
                 # 记录到历史中
-                self._request_history.append({
-                    "duration": duration,
-                    "tokens": tokens,
-                    "tps": tps,
-                    "timestamp": time.time()
-                })
+                self._request_history.append(
+                    {
+                        "duration": duration,
+                        "tokens": tokens,
+                        "tps": tps,
+                        "timestamp": time.time(),
+                    }
+                )
 
                 # 限制历史记录大小
                 if len(self._request_history) > self._max_history_size:
@@ -51,16 +53,14 @@ class AIPerformanceMonitor:
 
                 app_logger.log_audio_event(
                     "Request performance recorded",
-                    {
-                        "duration": duration,
-                        "tokens": tokens,
-                        "tps": tps
-                    }
+                    {"duration": duration, "tokens": tokens, "tps": tps},
                 )
         except Exception as e:
             app_logger.log_error(e, "record_request_performance")
 
-    def extract_token_stats(self, result: Dict[str, Any], response_time: float) -> Dict[str, Any]:
+    def extract_token_stats(
+        self, result: Dict[str, Any], response_time: float
+    ) -> Dict[str, Any]:
         """提取 token 使用统计
 
         Args:
@@ -168,7 +168,9 @@ class AIPerformanceMonitor:
             total_requests = len(self._request_history)
             average_tps = self.get_average_tps()
             last_tps = self._last_tps
-            average_response_time = sum(req["duration"] for req in self._request_history) / total_requests
+            average_response_time = (
+                sum(req["duration"] for req in self._request_history) / total_requests
+            )
 
             return {
                 "total_requests": total_requests,

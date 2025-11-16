@@ -78,7 +78,9 @@ class HotkeyTab(BaseSettingsTab):
         # Backend info label
         self.backend_info_label = QLabel()
         self.backend_info_label.setWordWrap(True)
-        self.backend_info_label.setStyleSheet("color: #888; font-size: 10px; padding: 5px;")
+        self.backend_info_label.setStyleSheet(
+            "color: #888; font-size: 10px; padding: 5px;"
+        )
         backend_layout.addWidget(self.backend_info_label)
 
         layout.addWidget(backend_group)
@@ -180,7 +182,7 @@ class HotkeyTab(BaseSettingsTab):
         config = {
             "hotkeys": {
                 "keys": hotkeys_list if hotkeys_list else ["ctrl+shift+v"],
-                "backend": backend if backend else "auto"
+                "backend": backend if backend else "auto",
             }
         }
 
@@ -246,10 +248,7 @@ class HotkeyTab(BaseSettingsTab):
         """Handle backend selection change"""
         backend = self.backend_combo.currentData()
         self._update_backend_info(backend)
-        app_logger.log_audio_event(
-            "Hotkey backend changed",
-            {"backend": backend}
-        )
+        app_logger.log_audio_event("Hotkey backend changed", {"backend": backend})
 
     def _update_backend_info(self, backend: str) -> None:
         """Update backend information label"""

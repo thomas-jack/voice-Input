@@ -52,7 +52,10 @@ class SiliconFlowEngine(CloudTranscriptionBase):
         if model_name not in self.AVAILABLE_MODELS:
             app_logger.log_audio_event(
                 "Invalid SiliconFlow model, using default",
-                {"requested_model": model_name, "default_model": self.AVAILABLE_MODELS[0]}
+                {
+                    "requested_model": model_name,
+                    "default_model": self.AVAILABLE_MODELS[0],
+                },
             )
             self.model_name = self.AVAILABLE_MODELS[0]
 
@@ -118,7 +121,10 @@ class SiliconFlowEngine(CloudTranscriptionBase):
             if model_name not in self.AVAILABLE_MODELS:
                 app_logger.log_audio_event(
                     "Invalid model for load_model",
-                    {"requested_model": model_name, "available_models": self.AVAILABLE_MODELS}
+                    {
+                        "requested_model": model_name,
+                        "available_models": self.AVAILABLE_MODELS,
+                    },
                 )
                 return False
             self.model_name = model_name
@@ -127,7 +133,7 @@ class SiliconFlowEngine(CloudTranscriptionBase):
         self._is_model_loaded = True
         app_logger.log_audio_event(
             "SiliconFlow model marked as loaded",
-            {"model": self.model_name, "provider": "siliconflow"}
+            {"model": self.model_name, "provider": "siliconflow"},
         )
         return True
 
@@ -146,13 +152,15 @@ class SiliconFlowEngine(CloudTranscriptionBase):
             连接测试结果
         """
         result = super().test_connection()
-        result.update({
-            "details": {
-                "model": self.model_name,
-                "base_url": self.base_url,
-                "endpoint": self.api_endpoint,
+        result.update(
+            {
+                "details": {
+                    "model": self.model_name,
+                    "base_url": self.base_url,
+                    "endpoint": self.api_endpoint,
+                }
             }
-        })
+        )
         return result
 
     def initialize(self, config: Dict[str, Any]) -> None:
@@ -187,5 +195,5 @@ class SiliconFlowEngine(CloudTranscriptionBase):
 
         app_logger.log_model_loading_step(
             "SiliconFlow provider initialized",
-            {"model": self.model_name, "base_url": self.base_url}
+            {"model": self.model_name, "base_url": self.base_url},
         )

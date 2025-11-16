@@ -81,69 +81,69 @@ class Win32HotkeyManager(IHotkeyService):
 
     # Virtual key code mapping
     VK_MAP = {
-        'f1': win32con.VK_F1,
-        'f2': win32con.VK_F2,
-        'f3': win32con.VK_F3,
-        'f4': win32con.VK_F4,
-        'f5': win32con.VK_F5,
-        'f6': win32con.VK_F6,
-        'f7': win32con.VK_F7,
-        'f8': win32con.VK_F8,
-        'f9': win32con.VK_F9,
-        'f10': win32con.VK_F10,
-        'f11': win32con.VK_F11,
-        'f12': win32con.VK_F12,
-        'a': ord('A'),
-        'b': ord('B'),
-        'c': ord('C'),
-        'd': ord('D'),
-        'e': ord('E'),
-        'f': ord('F'),
-        'g': ord('G'),
-        'h': ord('H'),
-        'i': ord('I'),
-        'j': ord('J'),
-        'k': ord('K'),
-        'l': ord('L'),
-        'm': ord('M'),
-        'n': ord('N'),
-        'o': ord('O'),
-        'p': ord('P'),
-        'q': ord('Q'),
-        'r': ord('R'),
-        's': ord('S'),
-        't': ord('T'),
-        'u': ord('U'),
-        'v': ord('V'),
-        'w': ord('W'),
-        'x': ord('X'),
-        'y': ord('Y'),
-        'z': ord('Z'),
-        '0': ord('0'),
-        '1': ord('1'),
-        '2': ord('2'),
-        '3': ord('3'),
-        '4': ord('4'),
-        '5': ord('5'),
-        '6': ord('6'),
-        '7': ord('7'),
-        '8': ord('8'),
-        '9': ord('9'),
-        'space': win32con.VK_SPACE,
-        'enter': win32con.VK_RETURN,
-        'esc': win32con.VK_ESCAPE,
-        'tab': win32con.VK_TAB,
-        'backspace': win32con.VK_BACK,
-        'delete': win32con.VK_DELETE,
-        'insert': win32con.VK_INSERT,
-        'home': win32con.VK_HOME,
-        'end': win32con.VK_END,
-        'pageup': win32con.VK_PRIOR,
-        'pagedown': win32con.VK_NEXT,
-        'up': win32con.VK_UP,
-        'down': win32con.VK_DOWN,
-        'left': win32con.VK_LEFT,
-        'right': win32con.VK_RIGHT,
+        "f1": win32con.VK_F1,
+        "f2": win32con.VK_F2,
+        "f3": win32con.VK_F3,
+        "f4": win32con.VK_F4,
+        "f5": win32con.VK_F5,
+        "f6": win32con.VK_F6,
+        "f7": win32con.VK_F7,
+        "f8": win32con.VK_F8,
+        "f9": win32con.VK_F9,
+        "f10": win32con.VK_F10,
+        "f11": win32con.VK_F11,
+        "f12": win32con.VK_F12,
+        "a": ord("A"),
+        "b": ord("B"),
+        "c": ord("C"),
+        "d": ord("D"),
+        "e": ord("E"),
+        "f": ord("F"),
+        "g": ord("G"),
+        "h": ord("H"),
+        "i": ord("I"),
+        "j": ord("J"),
+        "k": ord("K"),
+        "l": ord("L"),
+        "m": ord("M"),
+        "n": ord("N"),
+        "o": ord("O"),
+        "p": ord("P"),
+        "q": ord("Q"),
+        "r": ord("R"),
+        "s": ord("S"),
+        "t": ord("T"),
+        "u": ord("U"),
+        "v": ord("V"),
+        "w": ord("W"),
+        "x": ord("X"),
+        "y": ord("Y"),
+        "z": ord("Z"),
+        "0": ord("0"),
+        "1": ord("1"),
+        "2": ord("2"),
+        "3": ord("3"),
+        "4": ord("4"),
+        "5": ord("5"),
+        "6": ord("6"),
+        "7": ord("7"),
+        "8": ord("8"),
+        "9": ord("9"),
+        "space": win32con.VK_SPACE,
+        "enter": win32con.VK_RETURN,
+        "esc": win32con.VK_ESCAPE,
+        "tab": win32con.VK_TAB,
+        "backspace": win32con.VK_BACK,
+        "delete": win32con.VK_DELETE,
+        "insert": win32con.VK_INSERT,
+        "home": win32con.VK_HOME,
+        "end": win32con.VK_END,
+        "pageup": win32con.VK_PRIOR,
+        "pagedown": win32con.VK_NEXT,
+        "up": win32con.VK_UP,
+        "down": win32con.VK_DOWN,
+        "left": win32con.VK_LEFT,
+        "right": win32con.VK_RIGHT,
     }
 
     def __init__(self, callback: Callable[[str], None]):
@@ -153,7 +153,9 @@ class Win32HotkeyManager(IHotkeyService):
             callback: Callback function called when hotkey is triggered
         """
         self.callback = callback
-        self.registered_hotkeys: Dict[str, Dict] = {}  # hotkey_str -> {id, action, modifiers, vk}
+        self.registered_hotkeys: Dict[
+            str, Dict
+        ] = {}  # hotkey_str -> {id, action, modifiers, vk}
         self._is_listening_flag = False
         self._message_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -181,19 +183,19 @@ class Win32HotkeyManager(IHotkeyService):
         Raises:
             HotkeyRegistrationError: Invalid hotkey format
         """
-        parts = [part.strip().lower() for part in hotkey_str.split('+')]
+        parts = [part.strip().lower() for part in hotkey_str.split("+")]
 
         modifiers = 0
         vk = 0
 
         for part in parts:
-            if part in ('ctrl', 'control'):
+            if part in ("ctrl", "control"):
                 modifiers |= self.MOD_CONTROL
-            elif part in ('alt', 'menu'):
+            elif part in ("alt", "menu"):
                 modifiers |= self.MOD_ALT
-            elif part == 'shift':
+            elif part == "shift":
                 modifiers |= self.MOD_SHIFT
-            elif part in ('win', 'windows', 'super'):
+            elif part in ("win", "windows", "super"):
                 modifiers |= self.MOD_WIN
             elif part in self.VK_MAP:
                 if vk != 0:
@@ -222,33 +224,33 @@ class Win32HotkeyManager(IHotkeyService):
         Returns:
             Normalized hotkey string
         """
-        parts = [part.strip().lower() for part in hotkey_str.split('+')]
+        parts = [part.strip().lower() for part in hotkey_str.split("+")]
 
         # Order: ctrl, alt, shift, win, key
         modifiers = []
         key = None
 
         for part in parts:
-            if part in ('ctrl', 'control'):
-                if 'ctrl' not in modifiers:
-                    modifiers.append('ctrl')
-            elif part in ('alt', 'menu'):
-                if 'alt' not in modifiers:
-                    modifiers.append('alt')
-            elif part == 'shift':
-                if 'shift' not in modifiers:
-                    modifiers.append('shift')
-            elif part in ('win', 'windows', 'super'):
-                if 'win' not in modifiers:
-                    modifiers.append('win')
+            if part in ("ctrl", "control"):
+                if "ctrl" not in modifiers:
+                    modifiers.append("ctrl")
+            elif part in ("alt", "menu"):
+                if "alt" not in modifiers:
+                    modifiers.append("alt")
+            elif part == "shift":
+                if "shift" not in modifiers:
+                    modifiers.append("shift")
+            elif part in ("win", "windows", "super"):
+                if "win" not in modifiers:
+                    modifiers.append("win")
             else:
                 key = part
 
         # Build normalized string
-        result = '+'.join(modifiers)
+        result = "+".join(modifiers)
         if key:
             if result:
-                result += '+' + key
+                result += "+" + key
             else:
                 result = key
 
@@ -298,6 +300,7 @@ class Win32HotkeyManager(IHotkeyService):
 
             # Message loop - process thread messages
             import ctypes
+
             msg = ctypes.wintypes.MSG()
 
             while not self._stop_event.is_set():
@@ -309,16 +312,15 @@ class Win32HotkeyManager(IHotkeyService):
                     result = ctypes.windll.user32.GetMessageW(
                         ctypes.byref(msg),
                         None,  # NULL window handle - get thread messages
-                        0,     # min message filter
-                        0      # max message filter
+                        0,  # min message filter
+                        0,  # max message filter
                     )
 
                     if result == 0:  # WM_QUIT
                         break
                     elif result < 0:  # Error
                         app_logger.log_error(
-                            Exception("GetMessage failed"),
-                            "win32_message_loop"
+                            Exception("GetMessage failed"), "win32_message_loop"
                         )
                         break
 
@@ -328,15 +330,15 @@ class Win32HotkeyManager(IHotkeyService):
 
                         # Find hotkey by ID
                         for hotkey_str, info in self.registered_hotkeys.items():
-                            if info['id'] == hotkey_id:
-                                action = info['action']
+                            if info["id"] == hotkey_id:
+                                action = info["action"]
 
                                 app_logger.log_audio_event(
                                     "Win32 hotkey triggered",
                                     {
                                         "hotkey": hotkey_str,
                                         "action": action,
-                                        "id": hotkey_id
+                                        "id": hotkey_id,
                                     },
                                 )
 
@@ -346,7 +348,7 @@ class Win32HotkeyManager(IHotkeyService):
                                 threading.Thread(
                                     target=self._execute_callback,
                                     args=(action,),
-                                    daemon=True
+                                    daemon=True,
                                 ).start()
 
                                 break
@@ -406,15 +408,18 @@ class Win32HotkeyManager(IHotkeyService):
                 nonlocal registration_error
                 try:
                     import ctypes
+
                     # Use NULL window handle - binds hotkey to the thread
                     success = ctypes.windll.user32.RegisterHotKey(
-                        None,      # NULL window handle - bind to thread
+                        None,  # NULL window handle - bind to thread
                         hotkey_id,
                         modifiers,
-                        vk
+                        vk,
                     )
 
-                    error_code = ctypes.windll.kernel32.GetLastError() if not success else 0
+                    error_code = (
+                        ctypes.windll.kernel32.GetLastError() if not success else 0
+                    )
 
                     # Log RegisterHotKey result
                     app_logger.log_audio_event(
@@ -425,13 +430,15 @@ class Win32HotkeyManager(IHotkeyService):
                             "modifiers": modifiers,
                             "vk": vk,
                             "success": bool(success),
-                            "error_code": error_code
-                        }
+                            "error_code": error_code,
+                        },
                     )
 
                     if not success:
                         # Create conflict error with detailed info
-                        registration_error = HotkeyConflictError(normalized_hotkey, error_code)
+                        registration_error = HotkeyConflictError(
+                            normalized_hotkey, error_code
+                        )
 
                         # Log conflict details
                         app_logger.log_audio_event(
@@ -440,17 +447,17 @@ class Win32HotkeyManager(IHotkeyService):
                                 "hotkey": normalized_hotkey,
                                 "error_code": error_code,
                                 "error_message": "Hotkey already registered by another application",
-                                "suggestions": registration_error.suggestions
-                            }
+                                "suggestions": registration_error.suggestions,
+                            },
                         )
                         return
 
                     # Store registration info
                     self.registered_hotkeys[normalized_hotkey] = {
-                        'id': hotkey_id,
-                        'action': action,
-                        'modifiers': modifiers,
-                        'vk': vk
+                        "id": hotkey_id,
+                        "action": action,
+                        "modifiers": modifiers,
+                        "vk": vk,
                     }
 
                     app_logger.log_audio_event(
@@ -460,7 +467,7 @@ class Win32HotkeyManager(IHotkeyService):
                             "action": action,
                             "id": hotkey_id,
                             "modifiers": modifiers,
-                            "vk": vk
+                            "vk": vk,
                         },
                     )
 
@@ -476,12 +483,16 @@ class Win32HotkeyManager(IHotkeyService):
             # If message loop is running, wake it up
             if self._is_listening_flag and self._message_thread:
                 import ctypes
+
                 thread_id = ctypes.windll.kernel32.GetThreadId(
-                    self._message_thread.native_id if hasattr(self._message_thread, 'native_id')
+                    self._message_thread.native_id
+                    if hasattr(self._message_thread, "native_id")
                     else self._message_thread.ident
                 )
                 # Post a dummy message to wake up GetMessage
-                ctypes.windll.user32.PostThreadMessageW(thread_id, win32con.WM_NULL, 0, 0)
+                ctypes.windll.user32.PostThreadMessageW(
+                    thread_id, win32con.WM_NULL, 0, 0
+                )
 
             # Wait for completion (with timeout)
             if registration_complete.wait(timeout=2.0):
@@ -497,7 +508,7 @@ class Win32HotkeyManager(IHotkeyService):
                 # Timeout - should not happen in normal operation
                 app_logger.log_audio_event(
                     "Hotkey registration queued (message loop not ready yet)",
-                    {"hotkey": normalized_hotkey}
+                    {"hotkey": normalized_hotkey},
                 )
 
             return True
@@ -521,10 +532,11 @@ class Win32HotkeyManager(IHotkeyService):
             return False
 
         info = self.registered_hotkeys[normalized_hotkey]
-        hotkey_id = info['id']
+        hotkey_id = info["id"]
 
         try:
             import ctypes
+
             # Use NULL window handle (thread-level hotkey)
             ctypes.windll.user32.UnregisterHotKey(None, hotkey_id)
 
@@ -564,14 +576,13 @@ class Win32HotkeyManager(IHotkeyService):
 
             # Start message loop thread
             self._message_thread = threading.Thread(
-                target=self._message_loop,
-                daemon=True,
-                name="Win32HotkeyMessageLoop"
+                target=self._message_loop, daemon=True, name="Win32HotkeyMessageLoop"
             )
             self._message_thread.start()
 
             # Wait for window creation
             import time
+
             for _ in range(50):  # Wait up to 5 seconds
                 if self._is_listening_flag:
                     break
@@ -602,18 +613,22 @@ class Win32HotkeyManager(IHotkeyService):
             # Post quit message to message loop thread
             if self._message_thread and self._message_thread.is_alive():
                 import ctypes
+
                 try:
                     thread_id = ctypes.windll.kernel32.GetThreadId(
-                        self._message_thread.native_id if hasattr(self._message_thread, 'native_id')
+                        self._message_thread.native_id
+                        if hasattr(self._message_thread, "native_id")
                         else self._message_thread.ident
                     )
                     # Post WM_QUIT to the thread
-                    ctypes.windll.user32.PostThreadMessageW(thread_id, win32con.WM_QUIT, 0, 0)
+                    ctypes.windll.user32.PostThreadMessageW(
+                        thread_id, win32con.WM_QUIT, 0, 0
+                    )
                 except Exception as e:
                     app_logger.log_error(
                         e,
                         "hotkey_listener_cleanup",
-                        {"context": "Failed to post WM_QUIT to hotkey listener thread"}
+                        {"context": "Failed to post WM_QUIT to hotkey listener thread"},
                     )
 
             # Wait for thread
@@ -635,8 +650,7 @@ class Win32HotkeyManager(IHotkeyService):
             Dict mapping hotkey string to action name
         """
         return {
-            hotkey: info['action']
-            for hotkey, info in self.registered_hotkeys.items()
+            hotkey: info["action"] for hotkey, info in self.registered_hotkeys.items()
         }
 
     def reload(self) -> None:
@@ -653,6 +667,6 @@ class Win32HotkeyManager(IHotkeyService):
         # Re-register
         for hotkey, info in current_hotkeys:
             try:
-                self.register_hotkey(hotkey, info['action'])
+                self.register_hotkey(hotkey, info["action"])
             except Exception as e:
                 app_logger.log_error(e, f"reload_hotkey_{hotkey}")

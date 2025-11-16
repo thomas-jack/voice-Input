@@ -226,7 +226,11 @@ class SendInputMethod:
             app_logger.log_error(
                 e,
                 "surrogate_pair_check_failed",
-                {"context": "Failed to check Unicode surrogate pair", "char": repr(char), "index": index}
+                {
+                    "context": "Failed to check Unicode surrogate pair",
+                    "char": repr(char),
+                    "index": index,
+                },
             )
             return False
 

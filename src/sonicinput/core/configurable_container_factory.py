@@ -17,17 +17,16 @@ from ..utils import app_logger
 class ConfigurableContainerFactory:
     """可配置容器工厂
 
-    职责：
-- 根据配置创建DI容器
-- 支持从配置文件加载服务定义
-- 提供默认配置回退
-- 管理容器生命周期
+        职责：
+    - 根据配置创建DI容器
+    - 支持从配置文件加载服务定义
+    - 提供默认配置回退
+    - 管理容器生命周期
     """
 
     @staticmethod
     def create_container(
-        config_path: Optional[str] = None,
-        use_default_config: bool = True
+        config_path: Optional[str] = None, use_default_config: bool = True
     ) -> EnhancedDIContainer:
         """创建配置驱动的DI容器
 
@@ -39,10 +38,10 @@ class ConfigurableContainerFactory:
             配置好的DI容器实例
         """
         try:
-            app_logger.log_audio_event("Creating configurable container", {
-                "config_path": config_path,
-                "use_default_config": use_default_config
-            })
+            app_logger.log_audio_event(
+                "Creating configurable container",
+                {"config_path": config_path, "use_default_config": use_default_config},
+            )
 
             # 创建容器实例
             container = EnhancedDIContainer()
@@ -50,14 +49,15 @@ class ConfigurableContainerFactory:
             # 创建服务配置
             if config_path and os.path.exists(config_path):
                 service_config = ServiceRegistryConfig(config_path)
-                app_logger.log_audio_event("Service config loaded from file", {
-                    "config_path": config_path
-                })
+                app_logger.log_audio_event(
+                    "Service config loaded from file", {"config_path": config_path}
+                )
             else:
                 if config_path:
-                    app_logger.log_audio_event("Config file not found, using default config", {
-                        "config_path": config_path
-                    })
+                    app_logger.log_audio_event(
+                        "Config file not found, using default config",
+                        {"config_path": config_path},
+                    )
 
                 if use_default_config:
                     service_config = ServiceRegistryConfig()
@@ -75,9 +75,10 @@ class ConfigurableContainerFactory:
             container._service_config = service_config
             container._service_registry = registry
 
-            app_logger.log_audio_event("Configurable container created successfully", {
-                "services_registered": len(service_config.get_all_service_configs())
-            })
+            app_logger.log_audio_event(
+                "Configurable container created successfully",
+                {"services_registered": len(service_config.get_all_service_configs())},
+            )
 
             return container
 
@@ -104,14 +105,12 @@ class ConfigurableContainerFactory:
                 config_path = None
 
         return ConfigurableContainerFactory.create_container(
-            config_path=config_path,
-            use_default_config=True
+            config_path=config_path, use_default_config=True
         )
 
     @staticmethod
     def save_service_config(
-        container: EnhancedDIContainer,
-        config_path: Optional[str] = None
+        container: EnhancedDIContainer, config_path: Optional[str] = None
     ) -> None:
         """保存服务配置到文件
 
@@ -119,7 +118,7 @@ class ConfigurableContainerFactory:
             container: DI容器实例
             config_path: 保存路径，可选
         """
-        if not hasattr(container, '_service_config'):
+        if not hasattr(container, "_service_config"):
             raise ValueError("Container does not have service configuration")
 
         service_config = container._service_config
@@ -127,8 +126,7 @@ class ConfigurableContainerFactory:
 
     @staticmethod
     def reload_service_config(
-        container: EnhancedDIContainer,
-        config_path: Optional[str] = None
+        container: EnhancedDIContainer, config_path: Optional[str] = None
     ) -> EnhancedDIContainer:
         """重新加载服务配置并创建新容器
 
@@ -140,7 +138,7 @@ class ConfigurableContainerFactory:
             重新配置的容器实例
         """
         # 获取当前配置路径
-        if config_path is None and hasattr(container, '_service_config'):
+        if config_path is None and hasattr(container, "_service_config"):
             config_path = container._service_config.config_path
 
         # 清理当前容器
@@ -148,15 +146,13 @@ class ConfigurableContainerFactory:
 
         # 创建新容器
         return ConfigurableContainerFactory.create_container(
-            config_path=config_path,
-            use_default_config=True
+            config_path=config_path, use_default_config=True
         )
 
 
 # 便捷函数
 def create_configurable_container(
-    config_path: Optional[str] = None,
-    use_default_config: bool = True
+    config_path: Optional[str] = None, use_default_config: bool = True
 ) -> EnhancedDIContainer:
     """创建配置驱动的DI容器（便捷函数）
 
@@ -168,8 +164,7 @@ def create_configurable_container(
         配置好的DI容器实例
     """
     return ConfigurableContainerFactory.create_container(
-        config_path=config_path,
-        use_default_config=use_default_config
+        config_path=config_path, use_default_config=use_default_config
     )
 
 

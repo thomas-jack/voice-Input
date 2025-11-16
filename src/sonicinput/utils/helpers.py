@@ -20,7 +20,7 @@ import functools
 from .constants import Paths, Defaults
 
 # Windows平台窗口隐藏标志
-if sys.platform == 'win32':
+if sys.platform == "win32":
     CREATE_NO_WINDOW = 0x08000000
 else:
     CREATE_NO_WINDOW = 0
@@ -231,7 +231,9 @@ def restart_application(args: Optional[List[str]] = None) -> None:
 
     if platform.system() == "Windows":
         # Use python -m to ensure same Python interpreter
-        subprocess.Popen([sys.executable, "-m"] + sys.argv + args, creationflags=CREATE_NO_WINDOW)
+        subprocess.Popen(
+            [sys.executable, "-m"] + sys.argv + args, creationflags=CREATE_NO_WINDOW
+        )
     else:
         os.execv(sys.executable, [sys.executable] + sys.argv + args)
 

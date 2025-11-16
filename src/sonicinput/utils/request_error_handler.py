@@ -86,7 +86,8 @@ class RequestErrorHandler:
         }
 
         return error_messages.get(
-            status_code, f"HTTP {status_code} from {provider_name}: {response_text[:200]}"
+            status_code,
+            f"HTTP {status_code} from {provider_name}: {response_text[:200]}",
         )
 
     @staticmethod

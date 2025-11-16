@@ -332,8 +332,8 @@ class PynputHotkeyManager(IHotkeyService):
                         "Listener thread stop timeout",
                         {
                             "timeout_seconds": timeout,
-                            "still_alive": self._listener.is_alive()
-                        }
+                            "still_alive": self._listener.is_alive(),
+                        },
                     )
                     break
                 time.sleep(0.05)  # 检查间隔改为 50ms
@@ -549,7 +549,9 @@ class PynputHotkeyManager(IHotkeyService):
                                         "normalized_current": str(normalized_current),
                                         "hotkey_keys": str(hotkey_keys),
                                         "action": hotkey_info.get("action", "unknown"),
-                                        "suppressed_vk_keys": [hex(vk) for vk in self._suppressed_vk_keys],
+                                        "suppressed_vk_keys": [
+                                            hex(vk) for vk in self._suppressed_vk_keys
+                                        ],
                                     },
                                 )
 
@@ -699,8 +701,7 @@ class PynputHotkeyManager(IHotkeyService):
             快捷键映射，键为快捷键组合，值为动作名称
         """
         return {
-            hotkey: info["action"]
-            for hotkey, info in self.registered_hotkeys.items()
+            hotkey: info["action"] for hotkey, info in self.registered_hotkeys.items()
         }
 
     def start_listening(self) -> bool:

@@ -50,7 +50,7 @@ from .di_container_enhanced import create_container, create_enhanced_container
 from .configurable_container_factory import (
     ConfigurableContainerFactory,
     create_configurable_container,
-    create_container_from_env
+    create_container_from_env,
 )
 
 __all__ = [

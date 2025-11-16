@@ -67,7 +67,9 @@ class ReprocessingWorker(QThread):
                     self.reprocessing_failed.emit("Failed to load audio data from file")
                     return
             except FileNotFoundError:
-                self.reprocessing_failed.emit(f"Audio file not found: {audio_file_path}")
+                self.reprocessing_failed.emit(
+                    f"Audio file not found: {audio_file_path}"
+                )
                 return
             except Exception as e:
                 self.reprocessing_failed.emit(f"Error loading audio file: {str(e)}")
@@ -81,9 +83,15 @@ class ReprocessingWorker(QThread):
 
             try:
                 # 获取当前转录配置
-                transcription_provider = self.config_service.get_setting("transcription.provider", "local")
-                language = self.config_service.get_setting(f"transcription.{transcription_provider}.language", "auto")
-                temperature = self.config_service.get_setting("transcription.temperature", 0.0)
+                transcription_provider = self.config_service.get_setting(
+                    "transcription.provider", "local"
+                )
+                language = self.config_service.get_setting(
+                    f"transcription.{transcription_provider}.language", "auto"
+                )
+                temperature = self.config_service.get_setting(
+                    "transcription.temperature", 0.0
+                )
 
                 # 调用转录服务
                 transcription_result = self.transcription_service.transcribe_sync(
@@ -93,7 +101,9 @@ class ReprocessingWorker(QThread):
                 )
 
                 if not transcription_result.get("success", True):
-                    error_msg = transcription_result.get("error", "Unknown transcription error")
+                    error_msg = transcription_result.get(
+                        "error", "Unknown transcription error"
+                    )
                     self.reprocessing_failed.emit(f"Transcription failed: {error_msg}")
 
                     # 更新历史记录为失败状态
@@ -137,18 +147,22 @@ class ReprocessingWorker(QThread):
                     ai_optimized_text = ""
                     app_logger.log_audio_event(
                         "Retry processing: AI controller not available, skipping AI optimization",
-                        {"ai_enabled": ai_enabled}
+                        {"ai_enabled": ai_enabled},
                     )
                 else:
                     try:
                         # 调用AI处理，显式传递record_id
-                        ai_optimized_text = self.ai_processing_controller.process_with_ai(
-                            transcription_text,
-                            record_id=self.record_id  # 使用不可变的 ID
+                        ai_optimized_text = (
+                            self.ai_processing_controller.process_with_ai(
+                                transcription_text,
+                                record_id=self.record_id,  # 使用不可变的 ID
+                            )
                         )
 
                         # 获取AI提供商信息
-                        ai_provider = self.config_service.get_setting("ai.provider", "groq")
+                        ai_provider = self.config_service.get_setting(
+                            "ai.provider", "groq"
+                        )
 
                         if ai_optimized_text and ai_optimized_text.strip():
                             ai_status = "success"
@@ -196,7 +210,9 @@ class ReprocessingWorker(QThread):
                 self.history_service.update_record(record)
             except Exception as e:
                 app_logger.log_error(e, "reprocessing_update_record")
-                self.reprocessing_failed.emit(f"Failed to update history record: {str(e)}")
+                self.reprocessing_failed.emit(
+                    f"Failed to update history record: {str(e)}"
+                )
                 return
 
             # 5. 完成
@@ -246,13 +262,7 @@ class BatchReprocessingWorker(QThread):
         self.config_service = config_service
         self.history_service = history_service
         self.should_stop = False
-        self.stats = {
-            "total": 0,
-            "success": 0,
-            "skipped": 0,
-            "failed": 0,
-            "errors": []
-        }
+        self.stats = {"total": 0, "success": 0, "skipped": 0, "failed": 0, "errors": []}
 
     def run(self):
         """后台线程执行批量重处理流程"""
@@ -266,7 +276,7 @@ class BatchReprocessingWorker(QThread):
             if self.should_stop:
                 app_logger.log_audio_event(
                     "Batch reprocessing cancelled by user",
-                    {"processed": i, "total": total_records}
+                    {"processed": i, "total": total_records},
                 )
                 break
 
@@ -311,7 +321,9 @@ class BatchReprocessingWorker(QThread):
                 audio_data = AudioRecorder.load_audio_from_file(audio_file_path)
                 if audio_data is None or len(audio_data) == 0:
                     self.stats["skipped"] += 1
-                    self.stats["errors"].append(f"[SKIP] {record.id}: Failed to load audio")
+                    self.stats["errors"].append(
+                        f"[SKIP] {record.id}: Failed to load audio"
+                    )
                     return False
             except FileNotFoundError:
                 self.stats["skipped"] += 1
@@ -319,14 +331,22 @@ class BatchReprocessingWorker(QThread):
                 return False
             except Exception as e:
                 self.stats["skipped"] += 1
-                self.stats["errors"].append(f"[SKIP] {record.id}: Error loading audio - {str(e)}")
+                self.stats["errors"].append(
+                    f"[SKIP] {record.id}: Error loading audio - {str(e)}"
+                )
                 return False
 
             # 2. 重新转录
             try:
-                transcription_provider = self.config_service.get_setting("transcription.provider", "local")
-                language = self.config_service.get_setting(f"transcription.{transcription_provider}.language", "auto")
-                temperature = self.config_service.get_setting("transcription.temperature", 0.0)
+                transcription_provider = self.config_service.get_setting(
+                    "transcription.provider", "local"
+                )
+                language = self.config_service.get_setting(
+                    f"transcription.{transcription_provider}.language", "auto"
+                )
+                temperature = self.config_service.get_setting(
+                    "transcription.temperature", 0.0
+                )
 
                 transcription_result = self.transcription_service.transcribe_sync(
                     audio_data=audio_data,
@@ -337,20 +357,26 @@ class BatchReprocessingWorker(QThread):
                 if not transcription_result.get("success", True):
                     error_msg = transcription_result.get("error", "Unknown error")
                     self.stats["failed"] += 1
-                    self.stats["errors"].append(f"[FAIL] {record.id}: Transcription failed - {error_msg}")
+                    self.stats["errors"].append(
+                        f"[FAIL] {record.id}: Transcription failed - {error_msg}"
+                    )
                     return False
 
                 transcription_text = transcription_result.get("text", "")
 
                 if not transcription_text.strip():
                     self.stats["failed"] += 1
-                    self.stats["errors"].append(f"[FAIL] {record.id}: Empty transcription")
+                    self.stats["errors"].append(
+                        f"[FAIL] {record.id}: Empty transcription"
+                    )
                     return False
 
             except Exception as e:
                 app_logger.log_error(e, "batch_reprocessing_transcription")
                 self.stats["failed"] += 1
-                self.stats["errors"].append(f"[FAIL] {record.id}: Transcription error - {str(e)}")
+                self.stats["errors"].append(
+                    f"[FAIL] {record.id}: Transcription error - {str(e)}"
+                )
                 return False
 
             # 3. 重新AI优化（如果启用）
@@ -366,11 +392,14 @@ class BatchReprocessingWorker(QThread):
                     ai_error = "AI controller not available"
                 else:
                     try:
-                        ai_optimized_text = self.ai_processing_controller.process_with_ai(
-                            transcription_text,
-                            record_id=record.id
+                        ai_optimized_text = (
+                            self.ai_processing_controller.process_with_ai(
+                                transcription_text, record_id=record.id
+                            )
                         )
-                        ai_provider = self.config_service.get_setting("ai.provider", "groq")
+                        ai_provider = self.config_service.get_setting(
+                            "ai.provider", "groq"
+                        )
 
                         if ai_optimized_text and ai_optimized_text.strip():
                             ai_status = "success"
@@ -384,13 +413,19 @@ class BatchReprocessingWorker(QThread):
                         ai_error = str(e)
 
             # 4. 更新数据库
-            final_text = ai_optimized_text if (ai_status == "success" and ai_optimized_text) else transcription_text
+            final_text = (
+                ai_optimized_text
+                if (ai_status == "success" and ai_optimized_text)
+                else transcription_text
+            )
 
             # 从数据库重新获取记录以确保最新状态
             fresh_record = self.history_service.get_record_by_id(record.id)
             if not fresh_record:
                 self.stats["failed"] += 1
-                self.stats["errors"].append(f"[FAIL] {record.id}: Record not found in database")
+                self.stats["errors"].append(
+                    f"[FAIL] {record.id}: Record not found in database"
+                )
                 return False
 
             fresh_record.transcription_text = transcription_text
@@ -410,14 +445,19 @@ class BatchReprocessingWorker(QThread):
             except Exception as e:
                 app_logger.log_error(e, "batch_reprocessing_update")
                 self.stats["failed"] += 1
-                self.stats["errors"].append(f"[FAIL] {record.id}: Database update failed - {str(e)}")
+                self.stats["errors"].append(
+                    f"[FAIL] {record.id}: Database update failed - {str(e)}"
+                )
                 return False
 
         except Exception as e:
             from ...utils import app_logger
+
             app_logger.log_error(e, "batch_reprocessing_worker")
             self.stats["failed"] += 1
-            self.stats["errors"].append(f"[FAIL] {record.id}: Unexpected error - {str(e)}")
+            self.stats["errors"].append(
+                f"[FAIL] {record.id}: Unexpected error - {str(e)}"
+            )
             return False
 
     def stop(self):
@@ -463,9 +503,13 @@ class HistoryDetailDialog(QDialog):
         basic_info = QGroupBox("Basic Information")
         basic_layout = QVBoxLayout(basic_info)
 
-        time_label = QLabel(f"<b>Time:</b> {self.record.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+        time_label = QLabel(
+            f"<b>Time:</b> {self.record.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         duration_label = QLabel(f"<b>Duration:</b> {self.record.duration:.2f}s")
-        audio_path_label = QLabel(f"<b>Audio File:</b> {self.record.audio_file_path or 'N/A'}")
+        audio_path_label = QLabel(
+            f"<b>Audio File:</b> {self.record.audio_file_path or 'N/A'}"
+        )
         audio_path_label.setWordWrap(True)
 
         basic_layout.addWidget(time_label)
@@ -474,10 +518,14 @@ class HistoryDetailDialog(QDialog):
         info_layout.addWidget(basic_info)
 
         # 原始转录信息
-        trans_group = QGroupBox(f"Original Transcription ({self.record.transcription_status})")
+        trans_group = QGroupBox(
+            f"Original Transcription ({self.record.transcription_status})"
+        )
         trans_layout = QVBoxLayout(trans_group)
 
-        trans_provider_label = QLabel(f"<b>Provider:</b> {self.record.transcription_provider or 'N/A'}")
+        trans_provider_label = QLabel(
+            f"<b>Provider:</b> {self.record.transcription_provider or 'N/A'}"
+        )
         trans_layout.addWidget(trans_provider_label)
 
         if self.record.transcription_error:
@@ -493,7 +541,11 @@ class HistoryDetailDialog(QDialog):
         info_layout.addWidget(trans_group)
 
         # 优化后文本（根据AI状态显示不同内容）
-        ai_status_text = f"AI {self.record.ai_status.title()}" if self.record.ai_status else "AI Status Unknown"
+        ai_status_text = (
+            f"AI {self.record.ai_status.title()}"
+            if self.record.ai_status
+            else "AI Status Unknown"
+        )
         optimized_group = QGroupBox(f"Optimized Text ({ai_status_text})")
         optimized_layout = QVBoxLayout(optimized_group)
 
@@ -551,6 +603,7 @@ class HistoryDetailDialog(QDialog):
     def _copy_to_clipboard(self):
         """复制优化后的文本到剪贴板"""
         from PySide6.QtWidgets import QApplication
+
         clipboard = QApplication.clipboard()
         # 复制优化后的文本（如果 AI 成功则是AI文本，否则是转录文本）
         text_to_copy = self.optimized_text_edit.toPlainText()
@@ -567,8 +620,10 @@ class HistoryDetailDialog(QDialog):
                 "has_transcription_service": self.transcription_service is not None,
                 "has_config_service": self.config_service is not None,
                 "has_ai_controller": self.ai_processing_controller is not None,
-                "transcription_service_type": type(self.transcription_service).__name__ if self.transcription_service else "None"
-            }
+                "transcription_service_type": type(self.transcription_service).__name__
+                if self.transcription_service
+                else "None",
+            },
         )
 
         # 检查是否有必要的服务
@@ -577,7 +632,7 @@ class HistoryDetailDialog(QDialog):
                 self,
                 "Service Unavailable",
                 "Retry processing requires transcription service.\n\n"
-                "This feature may not be available in this context."
+                "This feature may not be available in this context.",
             )
             return
 
@@ -591,7 +646,7 @@ class HistoryDetailDialog(QDialog):
             "The original record will be updated with new results.\n\n"
             "Continue?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
 
         if reply != QMessageBox.StandardButton.Yes:
@@ -603,7 +658,7 @@ class HistoryDetailDialog(QDialog):
             "Cancel",
             0,
             0,  # 不确定进度的模式
-            self
+            self,
         )
         self.progress_dialog.setWindowTitle("Reprocessing Recording")
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -624,8 +679,12 @@ class HistoryDetailDialog(QDialog):
 
         # 连接信号
         self.reprocessing_worker.progress_updated.connect(self._on_progress_updated)
-        self.reprocessing_worker.reprocessing_completed.connect(self._on_reprocessing_completed)
-        self.reprocessing_worker.reprocessing_failed.connect(self._on_reprocessing_failed)
+        self.reprocessing_worker.reprocessing_completed.connect(
+            self._on_reprocessing_completed
+        )
+        self.reprocessing_worker.reprocessing_failed.connect(
+            self._on_reprocessing_failed
+        )
         self.progress_dialog.canceled.connect(self._on_reprocessing_canceled)
 
         # 启动工作线程
@@ -671,7 +730,7 @@ class HistoryDetailDialog(QDialog):
             "Recording has been successfully reprocessed!\n\n"
             f"Transcription Provider: {result.get('transcription_provider', 'N/A')}\n"
             f"AI Status: {ai_status}\n\n"
-            "The record has been updated in the history."
+            "The record has been updated in the history.",
         )
 
     def _on_reprocessing_failed(self, error_message: str):
@@ -690,7 +749,7 @@ class HistoryDetailDialog(QDialog):
             self,
             "Reprocessing Failed",
             f"Failed to reprocess the recording:\n\n{error_message}\n\n"
-            "Please check the logs for more details."
+            "Please check the logs for more details.",
         )
 
     def _on_reprocessing_canceled(self):
@@ -707,9 +766,7 @@ class HistoryDetailDialog(QDialog):
             self.reprocessing_worker = None
 
         QMessageBox.information(
-            self,
-            "Reprocessing Canceled",
-            "Reprocessing operation has been canceled."
+            self, "Reprocessing Canceled", "Reprocessing operation has been canceled."
         )
 
     def _delete_record(self):
@@ -719,7 +776,7 @@ class HistoryDetailDialog(QDialog):
             "Delete Record",
             f"Are you sure you want to delete this record?\n\nTime: {self.record.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+            QMessageBox.StandardButton.No,
         )
 
         if reply == QMessageBox.StandardButton.Yes:
@@ -727,23 +784,13 @@ class HistoryDetailDialog(QDialog):
                 success = self.history_service.delete_record(self.record.id)
                 if success:
                     QMessageBox.information(
-                        self,
-                        "Success",
-                        "Record deleted successfully!"
+                        self, "Success", "Record deleted successfully!"
                     )
                     self.accept()  # 关闭对话框
                 else:
-                    QMessageBox.warning(
-                        self,
-                        "Warning",
-                        "Failed to delete record."
-                    )
+                    QMessageBox.warning(self, "Warning", "Failed to delete record.")
             except Exception as e:
-                QMessageBox.critical(
-                    self,
-                    "Error",
-                    f"Error deleting record: {str(e)}"
-                )
+                QMessageBox.critical(self, "Error", f"Error deleting record: {str(e)}")
 
 
 class HistoryTab(BaseSettingsTab):
@@ -780,14 +827,20 @@ class HistoryTab(BaseSettingsTab):
         self.batch_progress_dialog = None  # 批量处理进度对话框
 
         from ...utils import app_logger
+
         app_logger.log_audio_event(
             "HistoryTab initialized with services",
             {
                 "has_transcription_service": self.transcription_service is not None,
-                "has_ai_processing_controller": self.ai_processing_controller is not None,
-                "transcription_service_type": type(self.transcription_service).__name__ if self.transcription_service else "None",
-                "ai_controller_type": type(self.ai_processing_controller).__name__ if self.ai_processing_controller else "None"
-            }
+                "has_ai_processing_controller": self.ai_processing_controller
+                is not None,
+                "transcription_service_type": type(self.transcription_service).__name__
+                if self.transcription_service
+                else "None",
+                "ai_controller_type": type(self.ai_processing_controller).__name__
+                if self.ai_processing_controller
+                else "None",
+            },
         )
 
     def _setup_ui(self) -> None:
@@ -823,13 +876,17 @@ class HistoryTab(BaseSettingsTab):
         # 历史记录表格
         self.history_table = QTableWidget()
         self.history_table.setColumnCount(4)
-        self.history_table.setHorizontalHeaderLabels([
-            "Time", "LEN", "Transcription", "Status"
-        ])
+        self.history_table.setHorizontalHeaderLabels(
+            ["Time", "LEN", "Transcription", "Status"]
+        )
 
         # 表格设置
-        self.history_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.history_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.history_table.setSelectionBehavior(
+            QAbstractItemView.SelectionBehavior.SelectRows
+        )
+        self.history_table.setSelectionMode(
+            QAbstractItemView.SelectionMode.SingleSelection
+        )
         self.history_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.history_table.setAlternatingRowColors(True)
 
@@ -839,13 +896,19 @@ class HistoryTab(BaseSettingsTab):
         # 列宽设置
         header = self.history_table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Fixed)  # Time - 固定宽度
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)  # Length - 固定宽度
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)  # Transcription - 自动拉伸
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)  # AI Status - 固定宽度
+        header.setSectionResizeMode(
+            1, QHeaderView.ResizeMode.Fixed
+        )  # Length - 固定宽度
+        header.setSectionResizeMode(
+            2, QHeaderView.ResizeMode.Stretch
+        )  # Transcription - 自动拉伸
+        header.setSectionResizeMode(
+            3, QHeaderView.ResizeMode.Fixed
+        )  # AI Status - 固定宽度
 
         # 设置固定列宽
         self.history_table.setColumnWidth(0, 110)  # Time: MM-DD HH:MM 格式
-        self.history_table.setColumnWidth(1, 80)   # Length: "0.5s" 格式
+        self.history_table.setColumnWidth(1, 80)  # Length: "0.5s" 格式
         self.history_table.setColumnWidth(3, 100)  # AI Status: 固定100px，内容居中
 
         layout.addWidget(self.history_table)
@@ -880,14 +943,18 @@ class HistoryTab(BaseSettingsTab):
         if self.history_service is None:
             try:
                 # 通过config_manager的get_history_service方法获取
-                if hasattr(self.config_manager, 'get_history_service'):
+                if hasattr(self.config_manager, "get_history_service"):
                     self.history_service = self.config_manager.get_history_service()
                     if self.history_service is None:
                         # 记录警告但不抛出异常，让调用者处理
                         from ...utils import app_logger
-                        app_logger.warning("HistoryStorageService not available from config_manager")
+
+                        app_logger.warning(
+                            "HistoryStorageService not available from config_manager"
+                        )
             except Exception as e:
                 from ...utils import app_logger
+
                 app_logger.log_error(e, "Failed to get HistoryStorageService")
                 return None
 
@@ -900,7 +967,7 @@ class HistoryTab(BaseSettingsTab):
             QMessageBox.warning(
                 self.parent_window,
                 "Error",
-                "History service not available. Please restart the application."
+                "History service not available. Please restart the application.",
             )
             return
 
@@ -912,10 +979,17 @@ class HistoryTab(BaseSettingsTab):
             search_text = self.search_input.text().strip().lower()
             if search_text:
                 self.current_records = [
-                    r for r in self.current_records
-                    if (r.transcription_text and search_text in r.transcription_text.lower()) or
-                       (r.ai_optimized_text and search_text in r.ai_optimized_text.lower()) or
-                       (r.final_text and search_text in r.final_text.lower())
+                    r
+                    for r in self.current_records
+                    if (
+                        r.transcription_text
+                        and search_text in r.transcription_text.lower()
+                    )
+                    or (
+                        r.ai_optimized_text
+                        and search_text in r.ai_optimized_text.lower()
+                    )
+                    or (r.final_text and search_text in r.final_text.lower())
                 ]
 
             # 更新表格
@@ -926,9 +1000,7 @@ class HistoryTab(BaseSettingsTab):
 
         except Exception as e:
             QMessageBox.critical(
-                self.parent_window,
-                "Error",
-                f"Failed to load history: {str(e)}"
+                self.parent_window, "Error", f"Failed to load history: {str(e)}"
             )
 
     def _update_table(self) -> None:
@@ -942,7 +1014,9 @@ class HistoryTab(BaseSettingsTab):
             # Time - 短格式：MM-DD HH:MM
             time_str = record.timestamp.strftime("%m-%d %H:%M")
             time_item = QTableWidgetItem(time_str)
-            time_item.setToolTip(record.timestamp.strftime("%Y-%m-%d %H:%M:%S"))  # 完整时间作为tooltip
+            time_item.setToolTip(
+                record.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+            )  # 完整时间作为tooltip
             self.history_table.setItem(row, 0, time_item)
 
             # Duration
@@ -979,9 +1053,7 @@ class HistoryTab(BaseSettingsTab):
         service = self._get_history_service()
         if not service:
             QMessageBox.warning(
-                self.parent_window,
-                "Error",
-                "History service not available."
+                self.parent_window, "Error", "History service not available."
             )
             return
 
@@ -991,27 +1063,42 @@ class HistoryTab(BaseSettingsTab):
 
         if not transcription_service or not ai_processing_controller:
             from ...utils import app_logger
+
             app_logger.log_audio_event(
                 "Attempting lazy service loading in HistoryTab",
                 {
                     "has_transcription_service": transcription_service is not None,
-                    "has_ai_controller": ai_processing_controller is not None
-                }
+                    "has_ai_controller": ai_processing_controller is not None,
+                },
             )
 
             # 尝试从config_manager (UISettingsServiceAdapter) 获取服务
-            if hasattr(self.config_manager, 'transcription_service') and not transcription_service:
+            if (
+                hasattr(self.config_manager, "transcription_service")
+                and not transcription_service
+            ):
                 transcription_service = self.config_manager.transcription_service
                 app_logger.log_audio_event(
                     "Got transcription service from config_manager",
-                    {"service_type": type(transcription_service).__name__ if transcription_service else "None"}
+                    {
+                        "service_type": type(transcription_service).__name__
+                        if transcription_service
+                        else "None"
+                    },
                 )
 
-            if hasattr(self.config_manager, 'ai_processing_controller') and not ai_processing_controller:
+            if (
+                hasattr(self.config_manager, "ai_processing_controller")
+                and not ai_processing_controller
+            ):
                 ai_processing_controller = self.config_manager.ai_processing_controller
                 app_logger.log_audio_event(
                     "Got AI controller from config_manager",
-                    {"controller_type": type(ai_processing_controller).__name__ if ai_processing_controller else "None"}
+                    {
+                        "controller_type": type(ai_processing_controller).__name__
+                        if ai_processing_controller
+                        else "None"
+                    },
                 )
 
         dialog = HistoryDetailDialog(
@@ -1021,7 +1108,7 @@ class HistoryTab(BaseSettingsTab):
             transcription_service=transcription_service,
             ai_processing_controller=ai_processing_controller,
             config_service=self.config_manager,
-            parent=self.parent_window
+            parent=self.parent_window,
         )
 
         result = dialog.exec()
@@ -1042,8 +1129,10 @@ class HistoryTab(BaseSettingsTab):
 
         # 计算成功率（转录成功且AI成功或跳过）
         success_count = sum(
-            1 for r in self.current_records
-            if r.transcription_status == "success" and r.ai_status in ["success", "skipped"]
+            1
+            for r in self.current_records
+            if r.transcription_status == "success"
+            and r.ai_status in ["success", "skipped"]
         )
         success_rate = (success_count / total_count * 100) if total_count > 0 else 0
 
@@ -1097,7 +1186,7 @@ class HistoryTab(BaseSettingsTab):
             QMessageBox.warning(
                 self.parent_window,
                 "Error",
-                "History service not available. Please restart the application."
+                "History service not available. Please restart the application.",
             )
             return
 
@@ -1109,7 +1198,7 @@ class HistoryTab(BaseSettingsTab):
                 QMessageBox.information(
                     self.parent_window,
                     "No Records",
-                    "No history records found to reprocess."
+                    "No history records found to reprocess.",
                 )
                 return
 
@@ -1129,7 +1218,7 @@ class HistoryTab(BaseSettingsTab):
                 f"This operation may take a long time and consume API quota.\n\n"
                 "Are you sure you want to continue?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
 
             if reply != QMessageBox.StandardButton.Yes:
@@ -1142,7 +1231,7 @@ class HistoryTab(BaseSettingsTab):
             QMessageBox.critical(
                 self.parent_window,
                 "Error",
-                f"Failed to start batch reprocessing: {str(e)}"
+                f"Failed to start batch reprocessing: {str(e)}",
             )
 
     def _start_batch_reprocessing(self, records: list, cd_seconds: int) -> None:
@@ -1161,7 +1250,7 @@ class HistoryTab(BaseSettingsTab):
             QMessageBox.critical(
                 self.parent_window,
                 "Error",
-                "Required services not available. Please restart the application."
+                "Required services not available. Please restart the application.",
             )
             return
 
@@ -1171,7 +1260,7 @@ class HistoryTab(BaseSettingsTab):
             "Cancel",
             0,
             len(records),
-            self.parent_window
+            self.parent_window,
         )
         self.batch_progress_dialog.setWindowTitle("Batch Reprocessing")
         self.batch_progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
@@ -1196,7 +1285,9 @@ class HistoryTab(BaseSettingsTab):
         # 启动Worker
         self.batch_worker.start()
 
-    def _on_batch_progress_updated(self, current: int, total: int, record_id: str) -> None:
+    def _on_batch_progress_updated(
+        self, current: int, total: int, record_id: str
+    ) -> None:
         """批量处理进度更新
 
         Args:
@@ -1252,9 +1343,7 @@ class HistoryTab(BaseSettingsTab):
                 report += f"  ... and {len(errors) - 5} more errors"
 
         QMessageBox.information(
-            self.parent_window,
-            "Batch Reprocessing Complete",
-            report
+            self.parent_window, "Batch Reprocessing Complete", report
         )
 
     def _on_batch_canceled(self) -> None:
@@ -1273,5 +1362,5 @@ class HistoryTab(BaseSettingsTab):
         QMessageBox.information(
             self.parent_window,
             "Batch Reprocessing Canceled",
-            "Batch reprocessing operation has been canceled."
+            "Batch reprocessing operation has been canceled.",
         )

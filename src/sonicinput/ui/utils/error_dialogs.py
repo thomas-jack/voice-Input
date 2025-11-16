@@ -24,7 +24,9 @@ def show_hotkey_conflict_error(
     msg_box.setWindowTitle("Hotkey Conflict")
 
     # Build message
-    message = f"The hotkey '{conflicting_hotkey}' is already in use by another application."
+    message = (
+        f"The hotkey '{conflicting_hotkey}' is already in use by another application."
+    )
     message += "\n\n"
     message += "This could be:"
     message += "\n- Your web browser (F12 is common for developer tools)"

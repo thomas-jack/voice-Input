@@ -309,7 +309,9 @@ class ApplyTransaction:
         self._backup_model_name = None
         self._changes_applied = False
 
-    def _flatten_config(self, config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+    def _flatten_config(
+        self, config: Dict[str, Any], prefix: str = ""
+    ) -> Dict[str, Any]:
         """展平配置字典 - 将嵌套字典转换为点分隔的键值对
 
         将嵌套的配置字典转换为扁平的键值对格式。

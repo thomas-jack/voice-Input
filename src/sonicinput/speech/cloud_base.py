@@ -87,13 +87,14 @@ class CloudTranscriptionBase(ISpeechService):
         with self._session_lock:
             if self._session is None:
                 self._session = requests.Session()
-                self._session.headers.update({
-                    "User-Agent": "SonicInput/1.4",
-                    **self.get_auth_headers()
-                })
+                self._session.headers.update(
+                    {"User-Agent": "SonicInput/1.4", **self.get_auth_headers()}
+                )
             return self._session
 
-    def _numpy_to_wav_bytes(self, audio_data: np.ndarray, sample_rate: int = 16000) -> bytes:
+    def _numpy_to_wav_bytes(
+        self, audio_data: np.ndarray, sample_rate: int = 16000
+    ) -> bytes:
         """Convert numpy audio data to WAV bytes
 
         Args:
@@ -267,7 +268,10 @@ class CloudTranscriptionBase(ISpeechService):
             app_logger.log_error(
                 e,
                 "cloud_error_response_parse_failed",
-                {"context": "Failed to parse error response JSON, using raw text", "status_code": response.status_code}
+                {
+                    "context": "Failed to parse error response JSON, using raw text",
+                    "status_code": response.status_code,
+                },
             )
             error_message = f"HTTP {response.status_code}: {response.text}"
 
@@ -277,7 +281,9 @@ class CloudTranscriptionBase(ISpeechService):
             "provider": self.provider_id,
         }
 
-    def _should_retry(self, status_code: int, retry_count: int, max_retries: int) -> bool:
+    def _should_retry(
+        self, status_code: int, retry_count: int, max_retries: int
+    ) -> bool:
         """Determine if request should be retried
 
         Args:
@@ -315,7 +321,7 @@ class CloudTranscriptionBase(ISpeechService):
         temperature: float = 0.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Transcribe audio data using cloud API
 
@@ -345,9 +351,7 @@ class CloudTranscriptionBase(ISpeechService):
 
         # Prepare request data
         request_data = self.prepare_request_data(
-            language=language,
-            temperature=temperature,
-            **kwargs
+            language=language, temperature=temperature, **kwargs
         )
 
         # Prepare files for upload
@@ -372,12 +376,16 @@ class CloudTranscriptionBase(ISpeechService):
         if "error" not in result:
             try:
                 parsed_result = self.parse_response(result)
-                parsed_result.update({
-                    "processing_time": processing_time,
-                    "duration": audio_duration,
-                    "real_time_factor": processing_time / audio_duration if audio_duration > 0 else 0,
-                    "provider": self.provider_id,
-                })
+                parsed_result.update(
+                    {
+                        "processing_time": processing_time,
+                        "duration": audio_duration,
+                        "real_time_factor": processing_time / audio_duration
+                        if audio_duration > 0
+                        else 0,
+                        "provider": self.provider_id,
+                    }
+                )
 
                 app_logger.log_transcription(
                     audio_length=audio_duration,
@@ -398,11 +406,15 @@ class CloudTranscriptionBase(ISpeechService):
                 }
         else:
             # Error occurred during request
-            result.update({
-                "processing_time": processing_time,
-                "duration": audio_duration,
-                "real_time_factor": processing_time / audio_duration if audio_duration > 0 else 0,
-            })
+            result.update(
+                {
+                    "processing_time": processing_time,
+                    "duration": audio_duration,
+                    "real_time_factor": processing_time / audio_duration
+                    if audio_duration > 0
+                    else 0,
+                }
+            )
             return result
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
@@ -487,7 +499,7 @@ class CloudTranscriptionBase(ISpeechService):
                 "message": "Connection successful",
                 "provider": self.provider_id,
                 "details": {
-                    "model": getattr(self, 'model_name', 'default'),
+                    "model": getattr(self, "model_name", "default"),
                     "endpoint": self.api_endpoint,
                 },
             }
@@ -517,7 +529,8 @@ class CloudTranscriptionBase(ISpeechService):
             "error_count": self._error_count,
             "average_request_time": avg_request_time,
             "total_request_time": self._total_request_time,
-            "success_rate": (self._request_count - self._error_count) / self._request_count
+            "success_rate": (self._request_count - self._error_count)
+            / self._request_count
             if self._request_count > 0
             else 0,
             "provider": self.provider_id,

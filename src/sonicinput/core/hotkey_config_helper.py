@@ -42,7 +42,9 @@ def get_hotkeys_from_config(config_service) -> Tuple[List[str], str]:
     return (["ctrl+shift+v"], "auto")
 
 
-def set_hotkeys_to_config(config_service, hotkeys: List[str], backend: str = "auto") -> None:
+def set_hotkeys_to_config(
+    config_service, hotkeys: List[str], backend: str = "auto"
+) -> None:
     """Save hotkeys and backend to configuration
 
     Always saves in new format: {"keys": [...], "backend": "..."}
@@ -52,7 +54,4 @@ def set_hotkeys_to_config(config_service, hotkeys: List[str], backend: str = "au
         hotkeys: List of hotkey strings
         backend: Backend name
     """
-    config_service.set_setting("hotkeys", {
-        "keys": hotkeys,
-        "backend": backend
-    })
+    config_service.set_setting("hotkeys", {"keys": hotkeys, "backend": backend})

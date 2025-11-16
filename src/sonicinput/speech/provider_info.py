@@ -26,7 +26,7 @@ class ProviderInfo:
         supports_language_detection: bool = True,
         max_audio_duration: Optional[int] = None,
         supported_languages: Optional[list] = None,
-        **metadata
+        **metadata,
     ):
         """Initialize provider information
 
@@ -71,7 +71,7 @@ class ProviderInfo:
             "supports_language_detection": self.supports_language_detection,
             "max_audio_duration": self.max_audio_duration,
             "supported_languages": self.supported_languages,
-            **self.metadata
+            **self.metadata,
         }
 
     def __repr__(self) -> str:
@@ -80,6 +80,7 @@ class ProviderInfo:
 
 # Simple provider registry
 PROVIDER_REGISTRY: Dict[str, ProviderInfo] = {}
+
 
 def register_provider(provider_info: ProviderInfo) -> None:
     """Register a provider in the registry
@@ -121,7 +122,8 @@ def get_providers_by_type(provider_type: str) -> Dict[str, ProviderInfo]:
         Dictionary of providers of the specified type
     """
     return {
-        pid: info for pid, info in PROVIDER_REGISTRY.items()
+        pid: info
+        for pid, info in PROVIDER_REGISTRY.items()
         if info.provider_type == provider_type
     }
 
@@ -144,6 +146,7 @@ def create_provider_instance(provider_id: str, **kwargs) -> Optional[ISpeechServ
         return provider_info.provider_class(**kwargs)
     except Exception as e:
         from ..utils import app_logger
+
         app_logger.log_error(e, f"create_provider_instance_{provider_id}")
         return None
 
@@ -154,78 +157,95 @@ def _auto_register_providers() -> None:
     try:
         # Local sherpa-onnx engine
         from .sherpa_engine import SherpaEngine
-        register_provider(ProviderInfo(
-            provider_id="local",
-            display_name="Local Sherpa-ONNX",
-            description="Lightweight CPU-only transcription with Paraformer/Zipformer models",
-            provider_type="local",
-            provider_class=SherpaEngine,
-            supports_gpu=False,  # CPU-only
-            supports_streaming=True,  # 支持真正的流式转录
-            supports_language_detection=False,  # 模型预训练语言
-            supported_languages=["zh", "en"],  # 中英双语
-        ))
+
+        register_provider(
+            ProviderInfo(
+                provider_id="local",
+                display_name="Local Sherpa-ONNX",
+                description="Lightweight CPU-only transcription with Paraformer/Zipformer models",
+                provider_type="local",
+                provider_class=SherpaEngine,
+                supports_gpu=False,  # CPU-only
+                supports_streaming=True,  # 支持真正的流式转录
+                supports_language_detection=False,  # 模型预训练语言
+                supported_languages=["zh", "en"],  # 中英双语
+            )
+        )
     except Exception as e:
         from ..utils import app_logger
+
         app_logger.log_error(e, "Failed to register Local Sherpa-ONNX")
 
     try:
         # Groq Cloud service
         from .groq_speech_service import GroqSpeechService
-        register_provider(ProviderInfo(
-            provider_id="groq",
-            display_name="Groq Cloud",
-            description="Fast cloud-based transcription with Whisper models",
-            provider_type="cloud",
-            provider_class=GroqSpeechService,
-            supports_gpu=False,
-            supports_streaming=False,
-            supports_language_detection=True,
-            supported_languages=None,  # All Whisper languages
-        ))
+
+        register_provider(
+            ProviderInfo(
+                provider_id="groq",
+                display_name="Groq Cloud",
+                description="Fast cloud-based transcription with Whisper models",
+                provider_type="cloud",
+                provider_class=GroqSpeechService,
+                supports_gpu=False,
+                supports_streaming=False,
+                supports_language_detection=True,
+                supported_languages=None,  # All Whisper languages
+            )
+        )
     except Exception as e:
         from ..utils import app_logger
+
         app_logger.log_error(e, "Failed to register Groq")
 
     try:
         # SiliconFlow service
         from .siliconflow_engine import SiliconFlowEngine
-        register_provider(ProviderInfo(
-            provider_id="siliconflow",
-            display_name="SiliconFlow",
-            description="Ultra-low latency cloud transcription with Chinese dialect support",
-            provider_type="cloud",
-            provider_class=SiliconFlowEngine,
-            supports_gpu=False,
-            supports_streaming=False,
-            supports_language_detection=True,
-            supported_languages=["zh", "en", "ja", "ko", "yue", "wuu", "nan"],
-            max_audio_duration=300,  # 5 minutes
-        ))
+
+        register_provider(
+            ProviderInfo(
+                provider_id="siliconflow",
+                display_name="SiliconFlow",
+                description="Ultra-low latency cloud transcription with Chinese dialect support",
+                provider_type="cloud",
+                provider_class=SiliconFlowEngine,
+                supports_gpu=False,
+                supports_streaming=False,
+                supports_language_detection=True,
+                supported_languages=["zh", "en", "ja", "ko", "yue", "wuu", "nan"],
+                max_audio_duration=300,  # 5 minutes
+            )
+        )
     except Exception as e:
         from ..utils import app_logger
+
         app_logger.log_error(e, "Failed to register SiliconFlow")
 
     try:
         # Qwen ASR service
         from .qwen_engine import QwenEngine
-        register_provider(ProviderInfo(
-            provider_id="qwen",
-            display_name="Qwen ASR",
-            description="Alibaba Cloud Qwen ASR with emotion and language detection",
-            provider_type="cloud",
-            provider_class=QwenEngine,
-            supports_gpu=False,
-            supports_streaming=False,
-            supports_language_detection=True,
-            supported_languages=None,  # Multi-language support
-            max_audio_duration=None,  # Check Qwen docs for limits
-        ))
+
+        register_provider(
+            ProviderInfo(
+                provider_id="qwen",
+                display_name="Qwen ASR",
+                description="Alibaba Cloud Qwen ASR with emotion and language detection",
+                provider_type="cloud",
+                provider_class=QwenEngine,
+                supports_gpu=False,
+                supports_streaming=False,
+                supports_language_detection=True,
+                supported_languages=None,  # Multi-language support
+                max_audio_duration=None,  # Check Qwen docs for limits
+            )
+        )
     except Exception as e:
         from ..utils import app_logger
+
         app_logger.log_error(e, "Failed to register Qwen ASR")
 
     from ..utils import app_logger
+
     app_logger.log_audio_event(
         "Provider auto-registration completed",
         {

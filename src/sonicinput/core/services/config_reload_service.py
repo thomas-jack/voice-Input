@@ -64,7 +64,9 @@ class ConfigReloadService:
         except Exception as e:
             app_logger.log_error(e, "setup_config_watcher")
 
-    def register_reload_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def register_reload_callback(
+        self, callback: Callable[[Dict[str, Any]], None]
+    ) -> None:
         """注册配置重载回调函数
 
         Args:
@@ -188,10 +190,7 @@ class ConfigReloadService:
                     )
 
                     # 只有在未录音且未处理时才重载
-                    if (
-                        not self.state.is_recording()
-                        and not self.state.is_processing()
-                    ):
+                    if not self.state.is_recording() and not self.state.is_processing():
                         self._reload_model_with_gpu_setting(new_use_gpu)
                     else:
                         app_logger.log_audio_event(
@@ -207,9 +206,7 @@ class ConfigReloadService:
         try:
             if self._speech_service and hasattr(self._speech_service, "model_manager"):
                 # 通过model_manager获取whisper_engine
-                whisper_engine = (
-                    self._speech_service.model_manager.get_whisper_engine()
-                )
+                whisper_engine = self._speech_service.model_manager.get_whisper_engine()
                 # 只在 whisper_engine 不为 None 时才尝试访问 use_gpu
                 if whisper_engine is not None:
                     return getattr(whisper_engine, "use_gpu", None)
@@ -286,7 +283,9 @@ class ConfigReloadService:
                 new_provider = transcription_config["provider"]
 
                 # 获取当前 provider
-                current_provider = self.config.get_setting("transcription.provider", "local")
+                current_provider = self.config.get_setting(
+                    "transcription.provider", "local"
+                )
 
                 # 只有在配置真正改变时才重载
                 if new_provider != current_provider:
@@ -299,10 +298,7 @@ class ConfigReloadService:
                     )
 
                     # 只有在未录音且未处理时才重载
-                    if (
-                        not self.state.is_recording()
-                        and not self.state.is_processing()
-                    ):
+                    if not self.state.is_recording() and not self.state.is_processing():
                         self._reload_transcription_service(new_provider)
                     else:
                         app_logger.log_audio_event(

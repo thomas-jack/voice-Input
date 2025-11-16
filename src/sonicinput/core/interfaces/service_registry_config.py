@@ -28,7 +28,9 @@ class IServiceRegistryConfig(Protocol):
         """保存服务配置到文件"""
         ...
 
-    def register_service_config(self, service_name: str, config: Dict[str, Any]) -> None:
+    def register_service_config(
+        self, service_name: str, config: Dict[str, Any]
+    ) -> None:
         """注册服务配置"""
         ...
 

@@ -93,7 +93,10 @@ class SpeechServiceFactory:
                 if not api_key:
                     raise ValueError("Qwen provider requires API key")
                 return QwenEngine(
-                    api_key=api_key, model=model, base_url=base_url, enable_itn=enable_itn
+                    api_key=api_key,
+                    model=model,
+                    base_url=base_url,
+                    enable_itn=enable_itn,
                 )
 
             else:
@@ -158,9 +161,7 @@ class SpeechServiceFactory:
                     else:
                         app_logger.log_audio_event(
                             "Cannot fallback: sherpa-onnx not installed",
-                            {
-                                "suggestion": "Install with: uv sync --extra local"
-                            },
+                            {"suggestion": "Install with: uv sync --extra local"},
                         )
                         return None
 
@@ -218,9 +219,7 @@ class SpeechServiceFactory:
                     "transcription.qwen.base_url",
                     "https://dashscope.aliyuncs.com",
                 )
-                enable_itn = config.get_setting(
-                    "transcription.qwen.enable_itn", True
-                )
+                enable_itn = config.get_setting("transcription.qwen.enable_itn", True)
 
                 if not api_key:
                     app_logger.log_audio_event(
@@ -259,9 +258,7 @@ class SpeechServiceFactory:
                 else:
                     app_logger.log_audio_event(
                         "Cannot fallback: sherpa-onnx not installed",
-                        {
-                            "suggestion": "Install with: uv sync --extra local"
-                        },
+                        {"suggestion": "Install with: uv sync --extra local"},
                     )
                     return None
 
@@ -307,6 +304,4 @@ class SpeechServiceFactory:
             "paraformer",  # 默认使用 paraformer 模型
         )
         # sherpa-onnx 不需要 use_gpu 参数
-        return SpeechServiceFactory.create_service(
-            provider="local", model=model
-        )
+        return SpeechServiceFactory.create_service(provider="local", model=model)

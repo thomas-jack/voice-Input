@@ -213,8 +213,7 @@ class SmartTextInput(IInputService):
             clip_info = f"{len(self._original_clipboard)} chars"
 
         app_logger.log_audio_event(
-            "Recording mode started, clipboard saved",
-            {"clipboard_info": clip_info}
+            "Recording mode started, clipboard saved", {"clipboard_info": clip_info}
         )
 
     def stop_recording_mode(self) -> None:
@@ -229,7 +228,9 @@ class SmartTextInput(IInputService):
         import time
         import threading
 
-        restore_delay = self.config_service.get_setting("input.clipboard_restore_delay", 1.0)
+        restore_delay = self.config_service.get_setting(
+            "input.clipboard_restore_delay", 1.0
+        )
 
         # 关键修复：将剪贴板内容传递给线程，而不是引用实例变量
         # 避免主线程清空变量后，线程无法恢复
@@ -250,7 +251,7 @@ class SmartTextInput(IInputService):
 
                     app_logger.log_audio_event(
                         "Recording mode stopped, clipboard restored successfully",
-                        {"clipboard_info": clip_info}
+                        {"clipboard_info": clip_info},
                     )
                 except Exception as e:
                     app_logger.log_error(e, "delayed_restore_clipboard")
@@ -268,7 +269,7 @@ class SmartTextInput(IInputService):
         if restore_thread.is_alive():
             app_logger.log_audio_event(
                 "Clipboard restore thread timeout, but will complete in background",
-                {"timeout": timeout}
+                {"timeout": timeout},
             )
 
         self._recording_mode = False

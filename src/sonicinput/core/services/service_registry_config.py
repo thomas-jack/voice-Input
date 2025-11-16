@@ -42,9 +42,10 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
         if config_path and os.path.exists(config_path):
             self.load_config_from_file(config_path)
 
-        app_logger.log_audio_event("ServiceRegistryConfig initialized", {
-            "services_count": len(self._service_configs)
-        })
+        app_logger.log_audio_event(
+            "ServiceRegistryConfig initialized",
+            {"services_count": len(self._service_configs)},
+        )
 
     def _initialize_default_configs(self) -> None:
         """初始化默认服务配置"""
@@ -56,7 +57,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": [],
                 "factory": None,
                 "description": "事件总线服务，负责组件间通信",
-                "priority": 1
+                "priority": 1,
             },
             "config_service": {
                 "interface": "IConfigService",
@@ -65,7 +66,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["event_service"],
                 "factory": None,
                 "description": "配置管理服务，负责应用配置管理",
-                "priority": 2
+                "priority": 2,
             },
             "state_manager": {
                 "interface": "IStateManager",
@@ -74,7 +75,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["event_service"],
                 "factory": None,
                 "description": "状态管理器，负责应用状态管理",
-                "priority": 3
+                "priority": 3,
             },
             "history_service": {
                 "interface": "IHistoryStorageService",
@@ -83,7 +84,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_history_service",
                 "description": "历史记录存储服务，负责录音历史持久化",
-                "priority": 4
+                "priority": 4,
             },
             "config_reload_service": {
                 "interface": "IConfigReloadService",
@@ -92,7 +93,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service", "event_service", "state_manager"],
                 "factory": "create_config_reload_service",
                 "description": "配置热重载服务，负责配置变更监控",
-                "priority": 5
+                "priority": 5,
             },
             "audio_service": {
                 "interface": "IAudioService",
@@ -101,7 +102,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_audio_service",
                 "description": "音频录制服务，负责音频数据采集",
-                "priority": 6
+                "priority": 6,
             },
             "speech_service": {
                 "interface": "ISpeechService",
@@ -110,7 +111,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service", "event_service"],
                 "factory": "create_speech_service",
                 "description": "语音识别服务，负责语音转文字",
-                "priority": 7
+                "priority": 7,
             },
             "ai_service": {
                 "interface": "IAIService",
@@ -119,7 +120,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_ai_service",
                 "description": "AI处理服务，负责文本优化和处理",
-                "priority": 8
+                "priority": 8,
             },
             "input_service": {
                 "interface": "IInputService",
@@ -128,7 +129,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_input_service",
                 "description": "智能输入服务，负责文本输入模拟",
-                "priority": 9
+                "priority": 9,
             },
             "hotkey_service": {
                 "interface": "IHotkeyService",
@@ -137,16 +138,21 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": [],
                 "factory": "create_hotkey_service",
                 "description": "快捷键服务，负责全局快捷键管理",
-                "priority": 10
+                "priority": 10,
             },
             "application_orchestrator": {
                 "interface": "IApplicationOrchestrator",
                 "implementation": "ApplicationOrchestrator",
                 "lifetime": "singleton",
-                "dependencies": ["config_service", "event_service", "state_manager", "config_reload_service"],
+                "dependencies": [
+                    "config_service",
+                    "event_service",
+                    "state_manager",
+                    "config_reload_service",
+                ],
                 "factory": "create_application_orchestrator",
                 "description": "应用编排器，负责应用启动流程管理",
-                "priority": 11
+                "priority": 11,
             },
             "ui_event_bridge": {
                 "interface": "IUIEventBridge",
@@ -155,8 +161,8 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["event_service"],
                 "factory": "create_ui_event_bridge",
                 "description": "UI事件桥接器，负责UI层事件通信",
-                "priority": 12
-            }
+                "priority": 12,
+            },
         }
 
         for service_name, config in default_configs.items():
@@ -184,7 +190,9 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
         """获取所有服务配置"""
         return self._service_configs.copy()
 
-    def register_service_config(self, service_name: str, config: Dict[str, Any]) -> None:
+    def register_service_config(
+        self, service_name: str, config: Dict[str, Any]
+    ) -> None:
         """注册服务配置"""
         # 验证配置格式
         required_fields = ["interface", "lifetime"]
@@ -196,11 +204,14 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
         self._build_dependency_graph()
         self._is_dirty = True
 
-        app_logger.log_audio_event("Service config registered", {
-            "service_name": service_name,
-            "implementation": config.get("implementation"),
-            "lifetime": config.get("lifetime")
-        })
+        app_logger.log_audio_event(
+            "Service config registered",
+            {
+                "service_name": service_name,
+                "implementation": config.get("implementation"),
+                "lifetime": config.get("lifetime"),
+            },
+        )
 
     def get_service_dependencies(self, service_name: str) -> List[str]:
         """获取服务依赖列表"""
@@ -209,7 +220,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
     def load_config_from_file(self, config_path: str) -> None:
         """从文件加载服务配置"""
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
 
             if "services" in config_data:
@@ -220,10 +231,13 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
             self.config_path = config_path
             self._is_dirty = False
 
-            app_logger.log_audio_event("Service configs loaded from file", {
-                "config_path": config_path,
-                "services_count": len(self._service_configs)
-            })
+            app_logger.log_audio_event(
+                "Service configs loaded from file",
+                {
+                    "config_path": config_path,
+                    "services_count": len(self._service_configs),
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, "load_config_from_file")
@@ -241,22 +255,25 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
             config_data = {
                 "version": "1.0",
                 "description": "SonicInput Service Registry Configuration",
-                "services": self._service_configs
+                "services": self._service_configs,
             }
 
             # 确保目录存在
             os.makedirs(os.path.dirname(config_path), exist_ok=True)
 
-            with open(config_path, 'w', encoding='utf-8') as f:
+            with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
 
             self.config_path = config_path
             self._is_dirty = False
 
-            app_logger.log_audio_event("Service configs saved to file", {
-                "config_path": config_path,
-                "services_count": len(self._service_configs)
-            })
+            app_logger.log_audio_event(
+                "Service configs saved to file",
+                {
+                    "config_path": config_path,
+                    "services_count": len(self._service_configs),
+                },
+            )
 
         except Exception as e:
             app_logger.log_error(e, "save_config_to_file")
@@ -274,7 +291,9 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
         for service_name, dependencies in self._dependency_graph.items():
             for dep in dependencies:
                 if dep not in self._service_configs:
-                    errors.append(f"Service '{service_name}' depends on non-existent service '{dep}'")
+                    errors.append(
+                        f"Service '{service_name}' depends on non-existent service '{dep}'"
+                    )
 
         # 检查接口和实现的有效性
         for service_name, config in self._service_configs.items():
@@ -283,11 +302,15 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
             factory = config.get("factory")
 
             if not factory and not implementation:
-                errors.append(f"Service '{service_name}' must have either implementation or factory")
+                errors.append(
+                    f"Service '{service_name}' must have either implementation or factory"
+                )
 
             lifetime = config.get("lifetime")
             if lifetime and lifetime not in ["singleton", "transient", "scoped"]:
-                errors.append(f"Service '{service_name}' has invalid lifetime: {lifetime}")
+                errors.append(
+                    f"Service '{service_name}' has invalid lifetime: {lifetime}"
+                )
 
         return errors
 
@@ -328,7 +351,9 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 if service in self._dependency_graph.get(other_service, []):
                     in_degree[other_service] -= 1
                     if in_degree[other_service] == 0:
-                        other_priority = self._service_configs[other_service].get("priority", 999)
+                        other_priority = self._service_configs[other_service].get(
+                            "priority", 999
+                        )
                         heappush(queue, (other_priority, other_service))
 
         # 检查是否所有服务都被处理（没有循环依赖）

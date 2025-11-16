@@ -83,7 +83,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 "record_id": self._current_record_id,
                 "audio_file_path": self._current_audio_file_path,
                 "audio_duration": self._audio_duration,
-            }
+            },
         )
 
         # 启动流式转录处理
@@ -100,7 +100,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 "app",
                 AppState.IDLE,
                 AppState.PROCESSING,
-                {"mode": "sync_transcription"}
+                {"mode": "sync_transcription"},
             )
             self._state.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
@@ -137,7 +137,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 AppState.PROCESSING,
                 AppState.IDLE,
                 {"reason": "transcription_error"},
-                is_forced=True
+                is_forced=True,
             )
             self._state.set_app_state(AppState.IDLE)
 
@@ -148,7 +148,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 "app",
                 AppState.IDLE,
                 AppState.PROCESSING,
-                {"mode": "streaming_transcription"}
+                {"mode": "streaming_transcription"},
             )
             self._state.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
@@ -168,7 +168,9 @@ class TranscriptionController(BaseController, ITranscriptionController):
             # 获取流式模式（用于后续处理决策）
             streaming_mode = "chunked"  # 默认值
             if hasattr(self._speech_service, "streaming_coordinator"):
-                streaming_mode = self._speech_service.streaming_coordinator.get_streaming_mode()
+                streaming_mode = (
+                    self._speech_service.streaming_coordinator.get_streaming_mode()
+                )
 
             app_logger.log_audio_event(
                 "Streaming transcription stopped",
@@ -179,7 +181,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
             if streaming_mode == "realtime":
                 app_logger.log_audio_event(
                     "Realtime mode: text already input during recording, clearing final text to prevent duplicate",
-                    {"original_text_length": len(text)}
+                    {"original_text_length": len(text)},
                 )
                 text = ""  # 清空文本，避免重复输入
 
@@ -208,11 +210,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
 
             # 保存历史记录（转录阶段）
             if self._current_record_id and self._current_audio_file_path:
-                self._save_transcription_record(
-                    text=text,
-                    status="success",
-                    error=None
-                )
+                self._save_transcription_record(text=text, status="success", error=None)
 
             # 发送转录完成事件（包含 streaming_mode）
             self._events.emit(
@@ -232,7 +230,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 "app",
                 AppState.PROCESSING,
                 AppState.IDLE,
-                {"duration": f"{transcribe_duration:.3f}s"}
+                {"duration": f"{transcribe_duration:.3f}s"},
             )
             self._state.set_app_state(AppState.IDLE)
 
@@ -241,11 +239,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
 
             # 保存失败的历史记录
             if self._current_record_id and self._current_audio_file_path:
-                self._save_transcription_record(
-                    text="",
-                    status="failed",
-                    error=str(e)
-                )
+                self._save_transcription_record(text="", status="failed", error=str(e))
 
             # 转换为用户友好消息
             error_info = ErrorMessageTranslator.translate(e, "transcription")
@@ -257,7 +251,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 AppState.PROCESSING,
                 AppState.IDLE,
                 {"reason": "streaming_transcription_error"},
-                is_forced=True
+                is_forced=True,
             )
             self._state.set_app_state(AppState.IDLE)
 
@@ -345,12 +339,12 @@ class TranscriptionController(BaseController, ITranscriptionController):
                         "record_id": self._current_record_id,
                         "status": status,
                         "text_length": len(text),
-                    }
+                    },
                 )
             else:
                 app_logger.log_audio_event(
                     "Failed to save transcription record",
-                    {"record_id": self._current_record_id}
+                    {"record_id": self._current_record_id},
                 )
 
         except Exception as e:

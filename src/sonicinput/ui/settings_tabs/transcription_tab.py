@@ -38,7 +38,9 @@ class TranscriptionTab(BaseSettingsTab):
         provider_layout = QFormLayout(provider_group)
 
         self.transcription_provider_combo = QComboBox()
-        self.transcription_provider_combo.addItems(["local", "groq", "siliconflow", "qwen"])
+        self.transcription_provider_combo.addItems(
+            ["local", "groq", "siliconflow", "qwen"]
+        )
         self.transcription_provider_combo.currentTextChanged.connect(
             self._on_provider_changed
         )
@@ -52,9 +54,7 @@ class TranscriptionTab(BaseSettingsTab):
 
         # 模型选择
         self.whisper_model_combo = QComboBox()
-        self.whisper_model_combo.addItems(
-            ["paraformer", "zipformer-small"]
-        )
+        self.whisper_model_combo.addItems(["paraformer", "zipformer-small"])
         model_layout.addRow("Model:", self.whisper_model_combo)
 
         # 语言设置
@@ -203,15 +203,15 @@ class TranscriptionTab(BaseSettingsTab):
         self.qwen_api_key_edit = QLineEdit()
         self.qwen_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.qwen_api_key_edit.setPlaceholderText("Enter DashScope API key")
-        self.qwen_api_key_edit.textChanged.connect(
-            self._on_qwen_api_key_changed
-        )
+        self.qwen_api_key_edit.textChanged.connect(self._on_qwen_api_key_changed)
         qwen_layout.addRow("API Key:", self.qwen_api_key_edit)
 
         # Model
         self.qwen_model_combo = QComboBox()
         self.qwen_model_combo.addItems(["qwen3-asr-flash"])
-        self.qwen_model_combo.setToolTip("Qwen ASR model with emotion and language detection")
+        self.qwen_model_combo.setToolTip(
+            "Qwen ASR model with emotion and language detection"
+        )
         qwen_layout.addRow("Model:", self.qwen_model_combo)
 
         # Base URL
@@ -223,7 +223,9 @@ class TranscriptionTab(BaseSettingsTab):
 
         # Enable ITN (Inverse Text Normalization)
         self.qwen_enable_itn_checkbox = QCheckBox("Enable Inverse Text Normalization")
-        self.qwen_enable_itn_checkbox.setToolTip("Convert spoken numbers to digits (e.g., '一千' -> '1000')")
+        self.qwen_enable_itn_checkbox.setToolTip(
+            "Convert spoken numbers to digits (e.g., '一千' -> '1000')"
+        )
         self.qwen_enable_itn_checkbox.setChecked(True)
         qwen_layout.addRow("ITN:", self.qwen_enable_itn_checkbox)
 
@@ -345,7 +347,9 @@ class TranscriptionTab(BaseSettingsTab):
         # Qwen settings
         qwen_config = transcription_config.get("qwen", {})
         self.qwen_api_key_edit.setText(qwen_config.get("api_key", ""))
-        self.qwen_model_combo.setCurrentText(qwen_config.get("model", "qwen3-asr-flash"))
+        self.qwen_model_combo.setCurrentText(
+            qwen_config.get("model", "qwen3-asr-flash")
+        )
         self.qwen_base_url_edit.setText(
             qwen_config.get("base_url", "https://dashscope.aliyuncs.com")
         )
@@ -538,7 +542,8 @@ class TranscriptionTab(BaseSettingsTab):
             # 检查用户是否点击了取消
             if (
                 hasattr(self, "_groq_progress_dialog")
-                and self._groq_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+                and self._groq_progress_dialog.result()
+                == QMessageBox.StandardButton.Cancel
             ):
                 self._groq_test_timer.stop()
                 self._groq_progress_dialog.close()
@@ -618,7 +623,9 @@ class TranscriptionTab(BaseSettingsTab):
 
         # 创建定时器轮询测试状态
         self._siliconflow_test_timer = QTimer()
-        self._siliconflow_test_timer.timeout.connect(self._check_siliconflow_test_status)
+        self._siliconflow_test_timer.timeout.connect(
+            self._check_siliconflow_test_status
+        )
         self._siliconflow_test_timer.start(100)  # 每100ms检查一次
 
     def _check_siliconflow_test_status(self) -> None:
@@ -644,7 +651,9 @@ class TranscriptionTab(BaseSettingsTab):
                         f"Successfully connected to SiliconFlow API!\n\nModel: {self._siliconflow_test_model}\n\nYou can now use cloud transcription.",
                     )
                 else:
-                    error_msg = self._siliconflow_test_result["error"] or "Unknown error"
+                    error_msg = (
+                        self._siliconflow_test_result["error"] or "Unknown error"
+                    )
                     self.model_status_label.setText("API connection failed")
                     QMessageBox.critical(
                         self.parent_window,
@@ -656,7 +665,8 @@ class TranscriptionTab(BaseSettingsTab):
             # 检查用户是否点击了取消
             if (
                 hasattr(self, "_siliconflow_progress_dialog")
-                and self._siliconflow_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+                and self._siliconflow_progress_dialog.result()
+                == QMessageBox.StandardButton.Cancel
             ):
                 self._siliconflow_test_timer.stop()
                 self._siliconflow_progress_dialog.close()
@@ -924,7 +934,8 @@ class TranscriptionTab(BaseSettingsTab):
             # 检查用户是否点击了取消
             if (
                 hasattr(self, "_qwen_progress_dialog")
-                and self._qwen_progress_dialog.result() == QMessageBox.StandardButton.Cancel
+                and self._qwen_progress_dialog.result()
+                == QMessageBox.StandardButton.Cancel
             ):
                 self._qwen_test_timer.stop()
                 self._qwen_progress_dialog.close()

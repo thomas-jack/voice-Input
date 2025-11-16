@@ -77,7 +77,9 @@ class HTTPClientManager:
                 if hasattr(self.session, key):
                     setattr(self.session, key, value)
 
-            app_logger.log_audio_event("Session config updated", {"config_keys": list(kwargs.keys())})
+            app_logger.log_audio_event(
+                "Session config updated", {"config_keys": list(kwargs.keys())}
+            )
         except Exception as e:
             app_logger.log_error(e, "update_session_config")
 
@@ -88,7 +90,9 @@ class HTTPClientManager:
             headers: 默认请求头字典
         """
         self.session.headers.update(headers)
-        app_logger.log_audio_event("Default headers set", {"header_count": len(headers)})
+        app_logger.log_audio_event(
+            "Default headers set", {"header_count": len(headers)}
+        )
 
     def close(self) -> None:
         """关闭HTTP客户端"""

@@ -70,14 +70,17 @@ class QwenEngine(CloudTranscriptionBase):
     def _get_session(self):  # type: ignore
         """Get or create HTTP session"""
         import requests
+
         with self._session_lock:
             if self._session is None:
                 self._session = requests.Session()
-                self._session.headers.update({
-                    "User-Agent": "SonicInput/1.4",
-                    "Content-Type": "application/json",
-                    **self.get_auth_headers()
-                })
+                self._session.headers.update(
+                    {
+                        "User-Agent": "SonicInput/1.4",
+                        "Content-Type": "application/json",
+                        **self.get_auth_headers(),
+                    }
+                )
             return self._session
 
     def prepare_request_data(self, **kwargs) -> Dict[str, Any]:
@@ -96,21 +99,14 @@ class QwenEngine(CloudTranscriptionBase):
             "model": self.model,
             "input": {
                 "messages": [
-                    {
-                        "role": "system",
-                        "content": [{"text": ""}]
-                    },
+                    {"role": "system", "content": [{"text": ""}]},
                     {
                         "role": "user",
-                        "content": []  # Audio will be added here
-                    }
+                        "content": [],  # Audio will be added here
+                    },
                 ]
             },
-            "parameters": {
-                "asr_options": {
-                    "enable_itn": self.enable_itn
-                }
-            }
+            "parameters": {"asr_options": {"enable_itn": self.enable_itn}},
         }
 
         return request_data
@@ -130,7 +126,7 @@ class QwenEngine(CloudTranscriptionBase):
             if not choices:
                 app_logger.log_audio_event(
                     "Qwen response has no choices",
-                    {"response": str(response_data)[:200]}
+                    {"response": str(response_data)[:200]},
                 )
                 return {
                     "text": "",
@@ -203,7 +199,7 @@ class QwenEngine(CloudTranscriptionBase):
         temperature: float = 0.0,
         max_retries: int = 3,
         retry_delay: float = 1.0,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Transcribe audio data using Qwen ASR API
 
@@ -236,7 +232,7 @@ class QwenEngine(CloudTranscriptionBase):
             wav_bytes = self._numpy_to_wav_bytes(audio_data)
 
             # Base64 encode audio
-            audio_base64 = base64.b64encode(wav_bytes).decode('utf-8')
+            audio_base64 = base64.b64encode(wav_bytes).decode("utf-8")
 
             # Prepare request body
             request_body = self.prepare_request_data(**kwargs)
@@ -264,12 +260,16 @@ class QwenEngine(CloudTranscriptionBase):
             if "error" not in result:
                 try:
                     parsed_result = self.parse_response(result)
-                    parsed_result.update({
-                        "processing_time": processing_time,
-                        "duration": audio_duration,
-                        "real_time_factor": processing_time / audio_duration if audio_duration > 0 else 0,
-                        "provider": self.provider_id,
-                    })
+                    parsed_result.update(
+                        {
+                            "processing_time": processing_time,
+                            "duration": audio_duration,
+                            "real_time_factor": processing_time / audio_duration
+                            if audio_duration > 0
+                            else 0,
+                            "provider": self.provider_id,
+                        }
+                    )
 
                     app_logger.log_transcription(
                         audio_length=audio_duration,
@@ -290,11 +290,15 @@ class QwenEngine(CloudTranscriptionBase):
                     }
             else:
                 # Error occurred during request
-                result.update({
-                    "processing_time": processing_time,
-                    "duration": audio_duration,
-                    "real_time_factor": processing_time / audio_duration if audio_duration > 0 else 0,
-                })
+                result.update(
+                    {
+                        "processing_time": processing_time,
+                        "duration": audio_duration,
+                        "real_time_factor": processing_time / audio_duration
+                        if audio_duration > 0
+                        else 0,
+                    }
+                )
                 return result
 
         except Exception as e:
@@ -464,7 +468,7 @@ class QwenEngine(CloudTranscriptionBase):
                 "status_code": response.status_code,
                 "error": error_message,
                 "provider": self.provider_id,
-            }
+            },
         )
 
         return {
@@ -494,7 +498,7 @@ class QwenEngine(CloudTranscriptionBase):
             if model_name not in self.AVAILABLE_MODELS:
                 app_logger.log_audio_event(
                     "Invalid Qwen model requested",
-                    {"requested": model_name, "available": self.AVAILABLE_MODELS}
+                    {"requested": model_name, "available": self.AVAILABLE_MODELS},
                 )
                 return False
             self.model = model_name
@@ -504,7 +508,7 @@ class QwenEngine(CloudTranscriptionBase):
         self._is_model_loaded = True
         app_logger.log_audio_event(
             "Qwen ASR service marked as loaded",
-            {"model": self.model, "endpoint": self.api_endpoint}
+            {"model": self.model, "endpoint": self.api_endpoint},
         )
         return True
 
@@ -539,7 +543,9 @@ class QwenEngine(CloudTranscriptionBase):
 
         # Update API endpoint based on base_url
         if self.base_url != "https://dashscope.aliyuncs.com":
-            self.api_endpoint = f"{self.base_url}/api/v1/services/aigc/multimodal-generation/generation"
+            self.api_endpoint = (
+                f"{self.base_url}/api/v1/services/aigc/multimodal-generation/generation"
+            )
 
         # Mark as loaded
         self._is_model_loaded = True
@@ -560,12 +566,14 @@ class QwenEngine(CloudTranscriptionBase):
             Connection test result
         """
         result = super().test_connection()
-        result.update({
-            "details": {
-                "model": self.model,
-                "base_url": self.base_url,
-                "endpoint": self.api_endpoint,
-                "enable_itn": self.enable_itn,
+        result.update(
+            {
+                "details": {
+                    "model": self.model,
+                    "base_url": self.base_url,
+                    "endpoint": self.api_endpoint,
+                    "enable_itn": self.enable_itn,
+                }
             }
-        })
+        )
         return result

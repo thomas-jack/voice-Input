@@ -140,7 +140,7 @@ class MainWindow(QMainWindow):
         ui_main_service: Optional[IUIMainService] = None,
         ui_settings_service: Optional[IUISettingsService] = None,
         ui_model_service: Optional[IUIModelService] = None,
-        parent=None
+        parent=None,
     ):
         """初始化主窗口
 
@@ -163,8 +163,7 @@ class MainWindow(QMainWindow):
             self._connect_service_events()
 
         app_logger.log_audio_event(
-            "MainWindow initialized",
-            {"services_injected": ui_main_service is not None}
+            "MainWindow initialized", {"services_injected": ui_main_service is not None}
         )
 
     def setup_window(self) -> None:
@@ -213,7 +212,7 @@ class MainWindow(QMainWindow):
         self,
         ui_main_service: IUIMainService,
         ui_settings_service: IUISettingsService,
-        ui_model_service: IUIModelService
+        ui_model_service: IUIModelService,
     ) -> None:
         """设置UI服务（依赖注入）
 
@@ -259,9 +258,7 @@ class MainWindow(QMainWindow):
         suggestions = data.get("suggestions", [])
 
         # 显示友好的错误对话框
-        should_open_settings = show_hotkey_conflict_error(
-            self, hotkey, suggestions
-        )
+        should_open_settings = show_hotkey_conflict_error(self, hotkey, suggestions)
 
         # 如果用户选择打开设置
         if should_open_settings:
@@ -281,7 +278,7 @@ class MainWindow(QMainWindow):
                 "Try a different hotkey combination",
                 "Check the hotkey format (e.g., 'ctrl+shift+v')",
                 "Restart the application",
-            ]
+            ],
         )
 
     def toggle_recording(self) -> None:

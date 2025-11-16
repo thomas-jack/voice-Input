@@ -11,17 +11,19 @@ from enum import Enum
 
 class PluginType(Enum):
     """插件类型枚举"""
+
     SPEECH_ENGINE = "speech_engine"  # 语音识别引擎
-    AI_SERVICE = "ai_service"        # AI处理服务
-    INPUT_METHOD = "input_method"    # 输入方法
+    AI_SERVICE = "ai_service"  # AI处理服务
+    INPUT_METHOD = "input_method"  # 输入方法
     AUDIO_PROCESSOR = "audio_processor"  # 音频处理器
-    UI_COMPONENT = "ui_component"    # UI组件
+    UI_COMPONENT = "ui_component"  # UI组件
     EVENT_HANDLER = "event_handler"  # 事件处理器
-    EXTENSION = "extension"          # 通用扩展
+    EXTENSION = "extension"  # 通用扩展
 
 
 class PluginStatus(Enum):
     """插件状态枚举"""
+
     UNKNOWN = "unknown"
     LOADED = "loaded"
     ACTIVE = "active"
@@ -66,7 +68,7 @@ class IPlugin(Protocol):
         """插件依赖列表"""
         ...
 
-    def initialize(self, context: 'IPluginContext') -> bool:
+    def initialize(self, context: "IPluginContext") -> bool:
         """初始化插件
 
         Args:
@@ -523,7 +525,7 @@ class BasePlugin(ABC):
             "author": self.author,
             "type": self.plugin_type.value,
             "status": self._status.value,
-            "dependencies": self.dependencies
+            "dependencies": self.dependencies,
         }
 
     def get_config_schema(self) -> Optional[Dict[str, Any]]:

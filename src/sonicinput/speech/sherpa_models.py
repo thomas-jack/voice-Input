@@ -61,12 +61,18 @@ class SherpaModelManager:
         model_dir = self._get_model_dir(model_name)
 
         # 检查必要文件是否存在
-        required_files = ["tokens.txt", "encoder-epoch-99-avg-1.onnx", "decoder-epoch-99-avg-1.onnx"]
+        required_files = [
+            "tokens.txt",
+            "encoder-epoch-99-avg-1.onnx",
+            "decoder-epoch-99-avg-1.onnx",
+        ]
         if model_name == "paraformer":
             # Paraformer 特殊文件名
             required_files = ["tokens.txt", "encoder.int8.onnx", "decoder.int8.onnx"]
 
-        return model_dir.exists() and all((model_dir / f).exists() for f in required_files)
+        return model_dir.exists() and all(
+            (model_dir / f).exists() for f in required_files
+        )
 
     def download_model(self, model_name: str, progress_callback=None) -> Path:
         """下载模型到本地缓存
@@ -233,7 +239,10 @@ class SherpaModelManager:
             return self.cache_dir / "sherpa-onnx-streaming-paraformer-bilingual-zh-en"
         elif model_name == "zipformer-small":
             # Zipformer 解压后的目录名
-            return self.cache_dir / "sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16"
+            return (
+                self.cache_dir
+                / "sherpa-onnx-streaming-zipformer-small-bilingual-zh-en-2023-02-16"
+            )
         else:
             # 通用模式
             return self.cache_dir / f"sherpa-onnx-{model_name}"

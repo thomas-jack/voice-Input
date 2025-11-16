@@ -16,13 +16,12 @@ from .interfaces import IHotkeyService
 
 class HotkeyBackendError(Exception):
     """Error creating hotkey backend"""
+
     pass
 
 
 def create_hotkey_manager(
-    callback: Callable[[str], None],
-    backend: str = "auto",
-    config: Optional[any] = None
+    callback: Callable[[str], None], backend: str = "auto", config: Optional[any] = None
 ) -> IHotkeyService:
     """Create hotkey manager with specified backend
 
@@ -44,27 +43,28 @@ def create_hotkey_manager(
         # Default to win32 (no admin required)
         actual_backend = "win32"
         app_logger.log_audio_event(
-            "Auto-selecting hotkey backend",
-            {"selected": actual_backend}
+            "Auto-selecting hotkey backend", {"selected": actual_backend}
         )
 
     # Create backend
     try:
         if actual_backend == "win32":
             from .hotkey_manager_win32 import Win32HotkeyManager
+
             manager = Win32HotkeyManager(callback)
             app_logger.log_audio_event(
                 "Created Win32 hotkey manager",
-                {"backend": "win32", "admin_required": False}
+                {"backend": "win32", "admin_required": False},
             )
             return manager
 
         elif actual_backend == "pynput":
             from .hotkey_manager_pynput import PynputHotkeyManager
+
             manager = PynputHotkeyManager(callback)
             app_logger.log_audio_event(
                 "Created pynput hotkey manager",
-                {"backend": "pynput", "admin_recommended": True}
+                {"backend": "pynput", "admin_recommended": True},
             )
             return manager
 
@@ -83,9 +83,10 @@ def create_hotkey_manager(
             # Try pynput as fallback
             try:
                 from .hotkey_manager_pynput import PynputHotkeyManager
+
                 app_logger.log_audio_event(
                     "Falling back to pynput hotkey manager",
-                    {"original_backend": actual_backend}
+                    {"original_backend": actual_backend},
                 )
                 return PynputHotkeyManager(callback)
             except ImportError:
@@ -121,12 +122,9 @@ def get_backend_info(backend: str) -> dict:
                 "无需管理员权限",
                 "跨权限边界工作（不受 UIPI 限制）",
                 "性能优秀（无钩子开销）",
-                "Windows 官方 API"
+                "Windows 官方 API",
             ],
-            "cons": [
-                "无法阻止快捷键事件传递到活动窗口",
-                "可能与其他应用的快捷键冲突"
-            ]
+            "cons": ["无法阻止快捷键事件传递到活动窗口", "可能与其他应用的快捷键冲突"],
         }
     elif backend == "pynput":
         return {
@@ -138,15 +136,12 @@ def get_backend_info(backend: str) -> dict:
             "performance": "good",
             "compatibility": "Windows XP+",
             "recommended": False,
-            "pros": [
-                "可以阻止快捷键事件传递",
-                "完全控制键盘事件处理"
-            ],
+            "pros": ["可以阻止快捷键事件传递", "完全控制键盘事件处理"],
             "cons": [
                 "需要管理员权限才能可靠工作",
                 "受 UIPI 限制（无法监听提升权限的窗口）",
-                "性能开销较高（钩住所有键盘事件）"
-            ]
+                "性能开销较高（钩住所有键盘事件）",
+            ],
         }
     else:
         return {
@@ -158,7 +153,7 @@ def get_backend_info(backend: str) -> dict:
             "compatibility": "unknown",
             "recommended": False,
             "pros": [],
-            "cons": [f"未知后端: {backend}"]
+            "cons": [f"未知后端: {backend}"],
         }
 
 
@@ -166,8 +161,8 @@ def get_backend_info(backend: str) -> dict:
 from .hotkey_manager_pynput import PynputHotkeyManager as HotkeyManager
 
 __all__ = [
-    'create_hotkey_manager',
-    'get_backend_info',
-    'HotkeyBackendError',
-    'HotkeyManager',  # For backward compatibility
+    "create_hotkey_manager",
+    "get_backend_info",
+    "HotkeyBackendError",
+    "HotkeyManager",  # For backward compatibility
 ]

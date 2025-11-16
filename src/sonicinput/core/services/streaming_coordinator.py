@@ -149,11 +149,19 @@ class StreamingCoordinator:
 
                     # 显式清理sherpa-onnx streaming session
                     try:
-                        if hasattr(self._realtime_session, 'is_active') and self._realtime_session.is_active:
-                            if hasattr(self._realtime_session, 'stream') and self._realtime_session.stream:
+                        if (
+                            hasattr(self._realtime_session, "is_active")
+                            and self._realtime_session.is_active
+                        ):
+                            if (
+                                hasattr(self._realtime_session, "stream")
+                                and self._realtime_session.stream
+                            ):
                                 self._realtime_session.stream.input_finished()
                             self._realtime_session.is_active = False
-                            app_logger.log_audio_event("Realtime session explicitly cleaned up", {})
+                            app_logger.log_audio_event(
+                                "Realtime session explicitly cleaned up", {}
+                            )
                     except Exception as e:
                         app_logger.log_error(e, "realtime_session_cleanup")
 
@@ -462,9 +470,7 @@ class StreamingCoordinator:
             self._streaming_mode_type = mode
             self._streaming_stats["mode"] = mode
 
-            app_logger.log_audio_event(
-                "Streaming mode changed", {"new_mode": mode}
-            )
+            app_logger.log_audio_event("Streaming mode changed", {"new_mode": mode})
 
             return True
 

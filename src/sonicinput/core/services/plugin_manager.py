@@ -9,9 +9,7 @@ import importlib.util
 import inspect
 from typing import Dict, List, Optional, Type, Any
 from pathlib import Path
-from ..interfaces import (
-    IPlugin, PluginType, PluginStatus, BasePlugin
-)
+from ..interfaces import IPlugin, PluginType, PluginStatus, BasePlugin
 from ...utils import app_logger
 
 
@@ -31,7 +29,9 @@ class PluginContext:
         try:
             return self._service_container.get(service_interface)
         except Exception as e:
-            app_logger.log_error(e, f"PluginContext.get_service for {service_interface.__name__}")
+            app_logger.log_error(
+                e, f"PluginContext.get_service for {service_interface.__name__}"
+            )
             return None
 
     def get_config(self, key: str, default: Any = None) -> Any:
@@ -53,9 +53,13 @@ class PluginContext:
         """记录日志"""
         try:
             if hasattr(app_logger, f"log_{level.lower()}"):
-                getattr(app_logger, f"log_{level.lower()}")(f"[PluginContext] {message}")
+                getattr(app_logger, f"log_{level.lower()}")(
+                    f"[PluginContext] {message}"
+                )
             else:
-                app_logger.log_audio_event(f"[PluginContext] {message}", {"level": level})
+                app_logger.log_audio_event(
+                    f"[PluginContext] {message}", {"level": level}
+                )
         except Exception as e:
             print(f"[PluginContext Error] {message}: {e}")
 
@@ -73,7 +77,9 @@ class PluginContext:
             if self._event_service:
                 self._event_service.on(event_name, handler)
         except Exception as e:
-            app_logger.log_error(e, f"PluginContext.register_event_handler for {event_name}")
+            app_logger.log_error(
+                e, f"PluginContext.register_event_handler for {event_name}"
+            )
 
 
 class PluginRegistry:
@@ -89,18 +95,21 @@ class PluginRegistry:
         try:
             plugin_name = plugin.name
             if plugin_name in self._plugins:
-                app_logger.log_audio_event("Plugin already registered", {
-                    "plugin_name": plugin_name
-                })
+                app_logger.log_audio_event(
+                    "Plugin already registered", {"plugin_name": plugin_name}
+                )
                 return False
 
             self._plugins[plugin_name] = plugin
             self._metadata[plugin_name] = plugin.get_info()
-            app_logger.log_audio_event("Plugin registered", {
-                "plugin_name": plugin_name,
-                "plugin_type": plugin.plugin_type.value,
-                "version": plugin.version
-            })
+            app_logger.log_audio_event(
+                "Plugin registered",
+                {
+                    "plugin_name": plugin_name,
+                    "plugin_type": plugin.plugin_type.value,
+                    "version": plugin.version,
+                },
+            )
             return True
         except Exception as e:
             app_logger.log_error(e, "PluginRegistry.register_plugin")
@@ -120,9 +129,9 @@ class PluginRegistry:
             if plugin_name in self._event_handlers:
                 del self._event_handlers[plugin_name]
 
-            app_logger.log_audio_event("Plugin unregistered", {
-                "plugin_name": plugin_name
-            })
+            app_logger.log_audio_event(
+                "Plugin unregistered", {"plugin_name": plugin_name}
+            )
             return True
         except Exception as e:
             app_logger.log_error(e, "PluginRegistry.unregister_plugin")
@@ -161,7 +170,10 @@ class PluginLoader:
         try:
             file_path = Path(file_path)
             if not file_path.exists():
-                app_logger.log_error(Exception(f"Plugin file not found: {file_path}"), "PluginLoader.load_from_file")
+                app_logger.log_error(
+                    Exception(f"Plugin file not found: {file_path}"),
+                    "PluginLoader.load_from_file",
+                )
                 return None
 
             # 动态加载模块
@@ -169,7 +181,10 @@ class PluginLoader:
                 f"plugin_{file_path.stem}", file_path
             )
             if spec is None or spec.loader is None:
-                app_logger.log_error(Exception(f"Could not create spec for {file_path}"), "PluginLoader.load_from_file")
+                app_logger.log_error(
+                    Exception(f"Could not create spec for {file_path}"),
+                    "PluginLoader.load_from_file",
+                )
                 return None
 
             module = importlib.util.module_from_spec(spec)
@@ -185,7 +200,10 @@ class PluginLoader:
                 self._plugin_classes[plugin_instance.name] = plugin_class
                 return plugin_instance
             else:
-                app_logger.log_error(Exception(f"No valid plugin class found in {file_path}"), "PluginLoader.load_from_file")
+                app_logger.log_error(
+                    Exception(f"No valid plugin class found in {file_path}"),
+                    "PluginLoader.load_from_file",
+                )
                 return None
 
         except Exception as e:
@@ -204,7 +222,10 @@ class PluginLoader:
                 self._plugin_classes[plugin_instance.name] = plugin_class
                 return plugin_instance
             else:
-                app_logger.log_error(Exception(f"No valid plugin class found in module {module_path}"), "PluginLoader.load_from_module")
+                app_logger.log_error(
+                    Exception(f"No valid plugin class found in module {module_path}"),
+                    "PluginLoader.load_from_module",
+                )
                 return None
 
         except Exception as e:
@@ -223,21 +244,28 @@ class PluginLoader:
                 self._plugin_classes[plugin_instance.name] = plugin_class
                 return plugin_instance
             else:
-                app_logger.log_error(Exception(f"No valid plugin class found in package {package_path}"), "PluginLoader.load_from_package")
+                app_logger.log_error(
+                    Exception(f"No valid plugin class found in package {package_path}"),
+                    "PluginLoader.load_from_package",
+                )
                 return None
 
         except Exception as e:
-            app_logger.log_error(e, f"PluginLoader.load_from_package for {package_path}")
+            app_logger.log_error(
+                e, f"PluginLoader.load_from_package for {package_path}"
+            )
             return None
 
     def _find_plugin_class(self, module) -> Optional[Type[IPlugin]]:
         """在模块中查找插件类"""
         try:
             for name, obj in inspect.getmembers(module):
-                if (inspect.isclass(obj) and
-                    issubclass(obj, (IPlugin, BasePlugin)) and
-                    obj != IPlugin and
-                    obj != BasePlugin):
+                if (
+                    inspect.isclass(obj)
+                    and issubclass(obj, (IPlugin, BasePlugin))
+                    and obj != IPlugin
+                    and obj != BasePlugin
+                ):
                     return obj
             return None
         except Exception as e:
@@ -248,13 +276,26 @@ class PluginLoader:
         """验证插件"""
         try:
             # 检查必需的属性和方法
-            required_attrs = ['name', 'version', 'description', 'author', 'plugin_type', 'dependencies']
+            required_attrs = [
+                "name",
+                "version",
+                "description",
+                "author",
+                "plugin_type",
+                "dependencies",
+            ]
             for attr in required_attrs:
                 if not hasattr(plugin, attr):
                     return False
 
             # 检查必需的方法
-            required_methods = ['initialize', 'activate', 'deactivate', 'cleanup', 'get_info']
+            required_methods = [
+                "initialize",
+                "activate",
+                "deactivate",
+                "cleanup",
+                "get_info",
+            ]
             for method in required_methods:
                 if not hasattr(plugin, method) or not callable(getattr(plugin, method)):
                     return False
@@ -294,20 +335,20 @@ class PluginManager:
                 return False
 
             if not self._loader.validate_plugin(plugin):
-                app_logger.log_audio_event("Plugin validation failed", {
-                    "plugin_name": plugin.name,
-                    "plugin_path": plugin_path
-                })
+                app_logger.log_audio_event(
+                    "Plugin validation failed",
+                    {"plugin_name": plugin.name, "plugin_path": plugin_path},
+                )
                 return False
 
             if self._registry.register_plugin(plugin):
                 plugin.set_context(self._context)
                 plugin.initialize(self._context)
                 self._plugin_status[plugin.name] = PluginStatus.LOADED
-                app_logger.log_audio_event("Plugin loaded successfully", {
-                    "plugin_name": plugin.name,
-                    "plugin_path": plugin_path
-                })
+                app_logger.log_audio_event(
+                    "Plugin loaded successfully",
+                    {"plugin_name": plugin.name, "plugin_path": plugin_path},
+                )
                 return True
             else:
                 return False
@@ -332,9 +373,9 @@ class PluginManager:
             success = self._registry.unregister_plugin(plugin_name)
             if success:
                 self._plugin_status[plugin_name] = PluginStatus.UNKNOWN
-                app_logger.log_audio_event("Plugin unloaded", {
-                    "plugin_name": plugin_name
-                })
+                app_logger.log_audio_event(
+                    "Plugin unloaded", {"plugin_name": plugin_name}
+                )
             return success
 
         except Exception as e:
@@ -355,9 +396,9 @@ class PluginManager:
             success = plugin.activate()
             if success:
                 self._plugin_status[plugin_name] = PluginStatus.ACTIVE
-                app_logger.log_audio_event("Plugin activated", {
-                    "plugin_name": plugin_name
-                })
+                app_logger.log_audio_event(
+                    "Plugin activated", {"plugin_name": plugin_name}
+                )
             return success
 
         except Exception as e:
@@ -374,13 +415,15 @@ class PluginManager:
             success = plugin.deactivate()
             if success:
                 self._plugin_status[plugin_name] = PluginStatus.INACTIVE
-                app_logger.log_audio_event("Plugin deactivated", {
-                    "plugin_name": plugin_name
-                })
+                app_logger.log_audio_event(
+                    "Plugin deactivated", {"plugin_name": plugin_name}
+                )
             return success
 
         except Exception as e:
-            app_logger.log_error(e, f"PluginManager.deactivate_plugin for {plugin_name}")
+            app_logger.log_error(
+                e, f"PluginManager.deactivate_plugin for {plugin_name}"
+            )
             return False
 
     def get_plugin(self, plugin_name: str) -> Optional[IPlugin]:
@@ -390,7 +433,11 @@ class PluginManager:
     def get_plugins_by_type(self, plugin_type: PluginType) -> List[IPlugin]:
         """根据类型获取插件列表"""
         all_plugins = self._registry.get_all_plugins()
-        return [plugin for plugin in all_plugins.values() if plugin.plugin_type == plugin_type]
+        return [
+            plugin
+            for plugin in all_plugins.values()
+            if plugin.plugin_type == plugin_type
+        ]
 
     def get_all_plugins(self) -> Dict[str, IPlugin]:
         """获取所有插件"""
@@ -404,9 +451,9 @@ class PluginManager:
         """扫描插件目录"""
         try:
             if not os.path.exists(directory):
-                app_logger.log_audio_event("Plugin directory does not exist", {
-                    "directory": directory
-                })
+                app_logger.log_audio_event(
+                    "Plugin directory does not exist", {"directory": directory}
+                )
                 return 0
 
             discovered_plugins = 0
@@ -420,14 +467,16 @@ class PluginManager:
                 if self.load_plugin(str(file_path)):
                     discovered_plugins += 1
 
-            app_logger.log_audio_event("Plugin directory scanned", {
-                "directory": directory,
-                "plugins_found": discovered_plugins
-            })
+            app_logger.log_audio_event(
+                "Plugin directory scanned",
+                {"directory": directory, "plugins_found": discovered_plugins},
+            )
             return discovered_plugins
 
         except Exception as e:
-            app_logger.log_error(e, f"PluginManager.scan_plugins_directory for {directory}")
+            app_logger.log_error(
+                e, f"PluginManager.scan_plugins_directory for {directory}"
+            )
             return 0
 
     def reload_plugin(self, plugin_name: str) -> bool:
@@ -453,9 +502,9 @@ class PluginManager:
     def enable_plugin_auto_load(self, enabled: bool) -> None:
         """启用/禁用插件自动加载"""
         self._auto_load_enabled = enabled
-        app_logger.log_audio_event("Plugin auto load setting changed", {
-            "enabled": enabled
-        })
+        app_logger.log_audio_event(
+            "Plugin auto load setting changed", {"enabled": enabled}
+        )
 
     def add_plugin_directory(self, directory: str) -> None:
         """添加插件目录"""

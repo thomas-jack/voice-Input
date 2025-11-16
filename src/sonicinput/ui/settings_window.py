@@ -67,14 +67,14 @@ class SettingsWindow(QMainWindow):
         self,
         ui_settings_service: IUISettingsService,
         ui_model_service: IUIModelService,
-        parent: Optional[QWidget] = None
+        parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
 
         self.ui_settings_service = ui_settings_service
         self.ui_model_service = ui_model_service
         self.ui_audio_service = None  # 可选，在需要时初始化
-        self.ui_gpu_service = None     # 可选，在需要时初始化
+        self.ui_gpu_service = None  # 可选，在需要时初始化
         self.current_config = {}
 
         # 设置窗口属性
@@ -89,23 +89,29 @@ class SettingsWindow(QMainWindow):
         # 获取转录服务和AI处理控制器（用于HistoryTab的重处理功能）
         transcription_service = None
         ai_processing_controller = None
-        if hasattr(self.ui_settings_service, 'get_transcription_service'):
+        if hasattr(self.ui_settings_service, "get_transcription_service"):
             transcription_service = self.ui_settings_service.get_transcription_service()
             app_logger.log_audio_event(
                 "SettingsWindow got transcription service",
                 {
                     "is_none": transcription_service is None,
-                    "service_type": type(transcription_service).__name__ if transcription_service else "None"
-                }
+                    "service_type": type(transcription_service).__name__
+                    if transcription_service
+                    else "None",
+                },
             )
-        if hasattr(self.ui_settings_service, 'get_ai_processing_controller'):
-            ai_processing_controller = self.ui_settings_service.get_ai_processing_controller()
+        if hasattr(self.ui_settings_service, "get_ai_processing_controller"):
+            ai_processing_controller = (
+                self.ui_settings_service.get_ai_processing_controller()
+            )
             app_logger.log_audio_event(
                 "SettingsWindow got AI processing controller",
                 {
                     "is_none": ai_processing_controller is None,
-                    "controller_type": type(ai_processing_controller).__name__ if ai_processing_controller else "None"
-                }
+                    "controller_type": type(ai_processing_controller).__name__
+                    if ai_processing_controller
+                    else "None",
+                },
             )
 
         # 创建标签页实例
@@ -598,7 +604,9 @@ class SettingsWindow(QMainWindow):
         new_model_name = None
 
         if provider == "local" and self.ui_model_service:
-            new_model_name = transcription_config.get("local", {}).get("model", "paraformer")
+            new_model_name = transcription_config.get("local", {}).get(
+                "model", "paraformer"
+            )
             runtime_info = self.ui_model_service.get_model_info()
             current_model_name = runtime_info.get("model_name", "Unknown")
 
@@ -606,7 +614,7 @@ class SettingsWindow(QMainWindow):
                 model_needs_reload = True
                 app_logger.log_audio_event(
                     "Model change detected in Apply",
-                    {"old_model": current_model_name, "new_model": new_model_name}
+                    {"old_model": current_model_name, "new_model": new_model_name},
                 )
 
         # 步骤3: 创建事务实例
@@ -616,9 +624,7 @@ class SettingsWindow(QMainWindow):
 
             # 创建事务
             transaction = ApplyTransaction(
-                self.ui_model_service,
-                self.ui_settings_service,
-                events
+                self.ui_model_service, self.ui_settings_service, events
             )
 
             # 步骤4: 执行事务操作
@@ -650,7 +656,7 @@ class SettingsWindow(QMainWindow):
 
                         app_logger.log_audio_event(
                             "Model loaded successfully during Apply",
-                            {"model_name": new_model_name}
+                            {"model_name": new_model_name},
                         )
 
                     except Exception as model_error:
@@ -675,16 +681,20 @@ class SettingsWindow(QMainWindow):
                 )
 
                 # 步骤6: 成功提示
-                QMessageBox.information(self, "Settings", "Settings applied successfully!")
+                QMessageBox.information(
+                    self, "Settings", "Settings applied successfully!"
+                )
 
             except TransactionError as te:
                 # 事务异常，已自动回滚
                 app_logger.log_error(te, "apply_settings_transaction")
-                error_msg = str(te.original_exception) if te.original_exception else str(te)
+                error_msg = (
+                    str(te.original_exception) if te.original_exception else str(te)
+                )
                 QMessageBox.critical(
                     self,
                     "Apply Failed",
-                    f"Settings apply failed and has been rolled back:\n\n{error_msg}\n\nPlease check your settings and try again."
+                    f"Settings apply failed and has been rolled back:\n\n{error_msg}\n\nPlease check your settings and try again.",
                 )
 
         except Exception as e:
@@ -693,7 +703,7 @@ class SettingsWindow(QMainWindow):
             QMessageBox.critical(
                 self,
                 "Error",
-                f"An unexpected error occurred:\n\n{e}\n\nSettings may not have been applied correctly."
+                f"An unexpected error occurred:\n\n{e}\n\nSettings may not have been applied correctly.",
             )
 
     def _sync_ui_from_runtime(self) -> None:
@@ -713,7 +723,7 @@ class SettingsWindow(QMainWindow):
             device = runtime_info.get("device", "Unknown")
 
             # 更新transcription tab的UI控件
-            if hasattr(self, 'transcription_tab'):
+            if hasattr(self, "transcription_tab"):
                 # 更新模型下拉框
                 model_combo = self.transcription_tab.whisper_model_combo
                 index = model_combo.findText(runtime_model)
@@ -729,14 +739,16 @@ class SettingsWindow(QMainWindow):
                         "QLabel { color: #4CAF50; }"  # Green
                     )
                 else:
-                    self.transcription_tab.model_status_label.setText("Model not loaded")
+                    self.transcription_tab.model_status_label.setText(
+                        "Model not loaded"
+                    )
                     self.transcription_tab.model_status_label.setStyleSheet(
                         "QLabel { color: #757575; }"  # Gray
                     )
 
             app_logger.log_audio_event(
                 "UI synced from runtime state",
-                {"model": runtime_model, "device": device, "loaded": is_loaded}
+                {"model": runtime_model, "device": device, "loaded": is_loaded},
             )
 
         except Exception as e:
@@ -870,16 +882,27 @@ class SettingsWindow(QMainWindow):
                     self._on_model_loaded(model_info)
 
                     from ..utils import app_logger
+
                     app_logger.log_audio_event(
                         "Initial model status updated from check",
-                        {"model_name": model_info.get("model_name"), "device": model_info.get("device")}
+                        {
+                            "model_name": model_info.get("model_name"),
+                            "device": model_info.get("device"),
+                        },
                     )
                 else:
                     from ..utils import app_logger
+
                     app_logger.log_audio_event(
                         "Model loaded but info structure invalid for UI update",
-                        {"model_info_keys": list(model_info.keys()) if model_info else None,
-                         "has_model_name": "model_name" in model_info if model_info else False}
+                        {
+                            "model_info_keys": list(model_info.keys())
+                            if model_info
+                            else None,
+                            "has_model_name": "model_name" in model_info
+                            if model_info
+                            else False,
+                        },
                     )
 
         except Exception as e:
@@ -920,7 +943,7 @@ class SettingsWindow(QMainWindow):
             if "allocated_gb" in event_data:
                 allocated = event_data["allocated_gb"]
                 total = event_data.get("total_gb", 0)
-                if total > 0 and hasattr(self.transcription_tab, 'gpu_memory_label'):
+                if total > 0 and hasattr(self.transcription_tab, "gpu_memory_label"):
                     percent = (allocated / total) * 100
                     self.transcription_tab.gpu_memory_label.setText(
                         f"{allocated:.2f}GB / {total:.1f}GB ({percent:.1f}%)"
@@ -928,9 +951,10 @@ class SettingsWindow(QMainWindow):
 
             # 记录UI完全同步
             from ..utils import app_logger
+
             app_logger.log_audio_event(
                 "UI fully synced from runtime state",
-                {"model": model_name, "device": device}
+                {"model": model_name, "device": device},
             )
 
         except Exception as e:
@@ -1036,12 +1060,16 @@ class SettingsWindow(QMainWindow):
         """刷新模型状态显示"""
         try:
             # 显示检查状态
-            self.transcription_tab.model_status_label.setText("Checking model status...")
+            self.transcription_tab.model_status_label.setText(
+                "Checking model status..."
+            )
             self.transcription_tab.model_status_label.setStyleSheet("color: blue;")
 
             # 使用 UI 模型服务获取模型信息
             if not self.ui_model_service:
-                self.transcription_tab.model_status_label.setText("Model service not available")
+                self.transcription_tab.model_status_label.setText(
+                    "Model service not available"
+                )
                 self.transcription_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
@@ -1320,7 +1348,9 @@ class SettingsWindow(QMainWindow):
                 "auto_save": True,
             },
         )
-        self.ui_settings_service.set_setting("ui.overlay_position", default_overlay_position)
+        self.ui_settings_service.set_setting(
+            "ui.overlay_position", default_overlay_position
+        )
 
         # 重置日志设置
         self.ui_settings_service.set_setting(

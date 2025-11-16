@@ -76,7 +76,10 @@ class AudioRecorder(IAudioService):
                     app_logger.log_error(
                         e,
                         "audio_initialization_cleanup_failed",
-                        {"context": "Failed to terminate PyAudio during cleanup", "init_error": str(init_error)}
+                        {
+                            "context": "Failed to terminate PyAudio during cleanup",
+                            "init_error": str(init_error),
+                        },
                     )
                 finally:
                     self._audio = None
@@ -498,7 +501,9 @@ class AudioRecorder(IAudioService):
                 return np.concatenate(self._audio_data)
             return np.array([])
 
-    def save_to_file(self, file_path: str, audio_data: Optional[np.ndarray] = None) -> bool:
+    def save_to_file(
+        self, file_path: str, audio_data: Optional[np.ndarray] = None
+    ) -> bool:
         """保存音频数据到WAV文件
 
         Args:
@@ -515,17 +520,14 @@ class AudioRecorder(IAudioService):
 
             # 检查是否有音频数据
             if audio_data is None or len(audio_data) == 0:
-                app_logger.log_error(
-                    Exception("No audio data to save"),
-                    "save_to_file"
-                )
+                app_logger.log_error(Exception("No audio data to save"), "save_to_file")
                 return False
 
             # 将音频数据转换为int16格式
             audio_int16 = (audio_data * 32767).astype(np.int16)
 
             # 保存为WAV文件
-            with wave.open(file_path, 'wb') as wav_file:
+            with wave.open(file_path, "wb") as wav_file:
                 wav_file.setnchannels(self.channels)
                 wav_file.setsampwidth(2)  # 16-bit = 2 bytes
                 wav_file.setframerate(self._sample_rate)
@@ -536,8 +538,8 @@ class AudioRecorder(IAudioService):
                 {
                     "file_path": file_path,
                     "duration": len(audio_data) / self._sample_rate,
-                    "sample_rate": self._sample_rate
-                }
+                    "sample_rate": self._sample_rate,
+                },
             )
 
             return True
@@ -568,7 +570,7 @@ class AudioRecorder(IAudioService):
                 raise FileNotFoundError(f"Audio file not found: {file_path}")
 
             # 打开WAV文件
-            with wave.open(file_path, 'rb') as wav_file:
+            with wave.open(file_path, "rb") as wav_file:
                 # 获取音频参数
                 channels = wav_file.getnchannels()
                 sample_width = wav_file.getsampwidth()
@@ -606,8 +608,8 @@ class AudioRecorder(IAudioService):
                         "duration": len(audio_data) / framerate,
                         "sample_rate": framerate,
                         "channels": channels,
-                        "sample_width": sample_width
-                    }
+                        "sample_width": sample_width,
+                    },
                 )
 
                 return audio_data
@@ -615,7 +617,7 @@ class AudioRecorder(IAudioService):
         except FileNotFoundError:
             app_logger.log_error(
                 FileNotFoundError(f"Audio file not found: {file_path}"),
-                "load_audio_from_file"
+                "load_audio_from_file",
             )
             raise
         except Exception as e:

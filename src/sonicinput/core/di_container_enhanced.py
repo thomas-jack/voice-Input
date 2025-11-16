@@ -28,10 +28,14 @@ from .interfaces.input import IInputService
 from .interfaces.speech import ISpeechService
 from .interfaces.state import IStateManager
 from .interfaces.history import IHistoryStorageService
+
 # UI 服务接口
 from .interfaces.ui_main_service import (
-    IUIMainService, IUISettingsService, IUIModelService,
-    IUIAudioService, IUIGPUService
+    IUIMainService,
+    IUISettingsService,
+    IUIModelService,
+    IUIAudioService,
+    IUIGPUService,
 )
 
 T = TypeVar("T")
@@ -214,7 +218,9 @@ class PerformanceDecorator(ServiceDecorator):
                                 result = method(*args, **kwargs)
                                 duration = time.time() - start_time
                                 # 性能监控：记录方法执行时间
-                                if self.logger and duration > 0.1:  # 仅记录超过100ms的调用
+                                if (
+                                    self.logger and duration > 0.1
+                                ):  # 仅记录超过100ms的调用
                                     self.logger.info(
                                         f"{descriptor.name}.{name} took {duration:.3f}s"
                                     )
@@ -478,10 +484,12 @@ class EnhancedDIContainer:
                     extra={
                         "service_name": descriptor.name,
                         "interface": descriptor.interface.__name__,
-                        "dependencies": [dep.__name__ for dep in descriptor.dependencies],
+                        "dependencies": [
+                            dep.__name__ for dep in descriptor.dependencies
+                        ],
                         "time_elapsed": f"{duration:.2f}s",
                         "creation_depth": context.depth,
-                    }
+                    },
                 )
             # Re-raise with enhanced context
             raise ValueError(
@@ -685,7 +693,9 @@ class EnhancedDIContainer:
             # 按清理优先级排序单例（升序，数字小的先清理）
             sorted_singletons = sorted(
                 self._singletons.items(),
-                key=lambda item: self._cleanup_priorities.get(item[0], 50)  # 默认优先级50
+                key=lambda item: self._cleanup_priorities.get(
+                    item[0], 50
+                ),  # 默认优先级50
             )
 
             # 按优先级顺序清理单例
@@ -750,11 +760,7 @@ def create_container() -> "EnhancedDIContainer":
         state = container.get(IStateManager)
 
         # 创建服务实例（其他服务依赖稍后注入）
-        return ConfigReloadService(
-            config=config,
-            events=events,
-            state=state
-        )
+        return ConfigReloadService(config=config, events=events, state=state)
 
     container.register_factory(
         IConfigReloadService, create_config_reload_service, ServiceLifetime.SINGLETON
@@ -764,6 +770,7 @@ def create_container() -> "EnhancedDIContainer":
     def create_history_service(container):
         config = container.get(IConfigService)
         from .services.storage import HistoryStorageService
+
         service = HistoryStorageService(config)
         service.initialize({})  # 初始化服务
         return service
@@ -826,8 +833,8 @@ def create_container() -> "EnhancedDIContainer":
                             "original_provider": "local",
                             "new_provider": switched_to,
                             "reason": "sherpa-onnx not installed",
-                            "suggestion": "Install sherpa-onnx for local transcription"
-                        }
+                            "suggestion": "Install sherpa-onnx for local transcription",
+                        },
                     )
                 else:
                     app_logger.log_audio_event(
@@ -836,8 +843,8 @@ def create_container() -> "EnhancedDIContainer":
                             "original_provider": "local",
                             "reason": "sherpa-onnx not installed",
                             "action": "Will use stub service",
-                            "suggestion": "Configure a cloud provider API key or install sherpa-onnx"
-                        }
+                            "suggestion": "Configure a cloud provider API key or install sherpa-onnx",
+                        },
                     )
 
         # 使用 SpeechServiceFactory 从配置创建服务
@@ -850,6 +857,7 @@ def create_container() -> "EnhancedDIContainer":
             if service is None:
                 # Fallback 到默认的 SherpaEngine（仅在本地模式）
                 from ..speech.sherpa_engine import SherpaEngine
+
                 return SherpaEngine(model_name="paraformer", language="zh")
             return service
 
@@ -903,7 +911,9 @@ def create_container() -> "EnhancedDIContainer":
         config = container.get(IConfigService)
 
         # 支持新格式 {"keys": [...], "backend": "auto"} 和旧格式 ["key1", "key2"]
-        hotkeys_config = config.get_setting("hotkeys", {"keys": ["ctrl+shift+v"], "backend": "auto"})
+        hotkeys_config = config.get_setting(
+            "hotkeys", {"keys": ["ctrl+shift+v"], "backend": "auto"}
+        )
         if isinstance(hotkeys_config, list):
             # 旧格式，使用默认后端
             backend = "auto"
@@ -932,7 +942,9 @@ def create_container() -> "EnhancedDIContainer":
         )
 
     container.register_factory(
-        IApplicationOrchestrator, create_application_orchestrator, ServiceLifetime.SINGLETON
+        IApplicationOrchestrator,
+        create_application_orchestrator,
+        ServiceLifetime.SINGLETON,
     )
 
     # UI事件桥接器 - 单例（依赖事件服务）
@@ -955,10 +967,9 @@ def create_container() -> "EnhancedDIContainer":
         state = container.get(IStateManager)
 
         from .services.ui_services import UIMainService
+
         return UIMainService(
-            config_service=config,
-            event_service=events,
-            state_manager=state
+            config_service=config, event_service=events, state_manager=state
         )
 
     container.register_factory(
@@ -978,20 +989,25 @@ def create_container() -> "EnhancedDIContainer":
             transcription_service = container.get(ISpeechService)
         except Exception as e:
             from ..utils import app_logger
+
             app_logger.log_audio_event(
                 "ISpeechService not yet registered",
-                {"context": "Optional dependency for UISettingsService", "error": str(e)}
+                {
+                    "context": "Optional dependency for UISettingsService",
+                    "error": str(e),
+                },
             )
 
         # AI controller在这个阶段可能还未注册,留空
 
         from .services.ui_services import UISettingsService
+
         return UISettingsService(
             config_service=config,
             event_service=events,
             history_service=history,
             transcription_service=transcription_service,
-            ai_processing_controller=ai_processing_controller
+            ai_processing_controller=ai_processing_controller,
         )
 
     container.register_factory(
@@ -1003,6 +1019,7 @@ def create_container() -> "EnhancedDIContainer":
         speech = container.get(ISpeechService)
 
         from .services.ui_services import UIModelService
+
         return UIModelService(speech_service=speech)
 
     container.register_factory(
@@ -1012,6 +1029,7 @@ def create_container() -> "EnhancedDIContainer":
     # UI音频服务 - 单例（无依赖）
     def create_ui_audio_service(container):
         from .services.ui_services import UIAudioService
+
         return UIAudioService()
 
     container.register_factory(
@@ -1021,6 +1039,7 @@ def create_container() -> "EnhancedDIContainer":
     # UI GPU服务 - 单例（无依赖）
     def create_ui_gpu_service(container):
         from .services.ui_services import UIGPUService
+
         return UIGPUService()
 
     container.register_factory(
@@ -1040,11 +1059,11 @@ def create_container() -> "EnhancedDIContainer":
     container.set_cleanup_priority(IUIEventBridge, 18)
 
     # 业务服务层 - 中等优先级 (40-60)
-    container.set_cleanup_priority(IAudioService, 40)   # 音频服务较早清理
-    container.set_cleanup_priority(IInputService, 45)   # 输入服务
+    container.set_cleanup_priority(IAudioService, 40)  # 音频服务较早清理
+    container.set_cleanup_priority(IInputService, 45)  # 输入服务
     container.set_cleanup_priority(IHotkeyService, 48)  # 快捷键服务
     container.set_cleanup_priority(ISpeechService, 50)  # 语音服务
-    container.set_cleanup_priority(IAIService, 52)      # AI服务
+    container.set_cleanup_priority(IAIService, 52)  # AI服务
 
     # 应用编排层 - 较高优先级 (70-80)
     container.set_cleanup_priority(IHistoryStorageService, 70)  # 历史记录服务
@@ -1052,7 +1071,7 @@ def create_container() -> "EnhancedDIContainer":
     container.set_cleanup_priority(IConfigReloadService, 78)  # 配置重载服务
 
     # 核心基础服务 - 最后清理 (90-100)
-    container.set_cleanup_priority(IStateManager, 90)   # 状态管理器
+    container.set_cleanup_priority(IStateManager, 90)  # 状态管理器
     container.set_cleanup_priority(IConfigService, 95)  # 配置服务（倒数第二）
     container.set_cleanup_priority(IEventService, 100)  # 事件服务（最后清理）
 

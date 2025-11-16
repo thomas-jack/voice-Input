@@ -228,7 +228,6 @@ class BaseAIClient(IAIService):
             },
         )
 
-    
     def _init_secure_storage(self) -> None:
         """初始化安全存储"""
         try:
@@ -420,7 +419,7 @@ class BaseAIClient(IAIService):
                 attempt,
                 self.retry_delay,
                 RequestErrorHandler.RETRY_DELAY_MAX,
-                is_timeout=False
+                is_timeout=False,
             )
 
             # 如果等待时间过长，提前放弃
@@ -463,7 +462,7 @@ class BaseAIClient(IAIService):
                 attempt,
                 self.retry_delay,
                 RequestErrorHandler.TIMEOUT_RETRY_MAX,
-                is_timeout=True  # Use shorter delays for timeouts
+                is_timeout=True,  # Use shorter delays for timeouts
             )
 
             app_logger.log_audio_event(
@@ -500,9 +499,7 @@ class BaseAIClient(IAIService):
         if attempt < self.max_retries - 1:
             # Use RequestErrorHandler for consistent retry delays
             wait_time = RequestErrorHandler.calculate_retry_delay(
-                attempt,
-                self.retry_delay,
-                is_timeout=False
+                attempt, self.retry_delay, is_timeout=False
             )
             app_logger.log_audio_event(
                 f"{provider} network error, retrying {attempt + 2}/{self.max_retries}",

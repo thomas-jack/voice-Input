@@ -6,7 +6,7 @@ import subprocess
 from typing import Dict, List, Any
 
 # Windows平台窗口隐藏标志
-if sys.platform == 'win32':
+if sys.platform == "win32":
     CREATE_NO_WINDOW = 0x08000000
 else:
     CREATE_NO_WINDOW = 0
@@ -90,7 +90,11 @@ class DependencyDiagnostics:
         # 检查 nvcc
         try:
             result = subprocess.run(
-                ["nvcc", "--version"], capture_output=True, text=True, timeout=10, creationflags=CREATE_NO_WINDOW
+                ["nvcc", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=CREATE_NO_WINDOW,
             )
             if result.returncode == 0:
                 cuda_info["nvcc_available"] = True
@@ -105,7 +109,11 @@ class DependencyDiagnostics:
         # 检查 nvidia-smi
         try:
             result = subprocess.run(
-                ["nvidia-smi"], capture_output=True, text=True, timeout=10, creationflags=CREATE_NO_WINDOW
+                ["nvidia-smi"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                creationflags=CREATE_NO_WINDOW,
             )
             if result.returncode == 0:
                 cuda_info["nvidia_smi_available"] = True

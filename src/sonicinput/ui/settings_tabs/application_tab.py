@@ -257,20 +257,22 @@ class ApplicationTab(BaseSettingsTab):
 
         # 从当前配置中读取overlay_position（可能包含custom坐标）
         current_config = self.config_manager.get_all_settings()
-        existing_overlay_position = current_config.get("ui", {}).get("overlay_position", {})
+        existing_overlay_position = current_config.get("ui", {}).get(
+            "overlay_position", {}
+        )
 
         # 如果现有配置是custom模式，保留custom数据；否则使用preset模式
         if existing_overlay_position.get("mode") == "custom":
             # 保留custom模式和坐标，但更新preset值（作为fallback）
             config["ui"]["overlay_position"] = {
                 **existing_overlay_position,  # 保留所有现有字段（custom坐标等）
-                "preset": overlay_position_text  # 更新preset值
+                "preset": overlay_position_text,  # 更新preset值
             }
         else:
             # preset模式或新配置，使用选中的preset
             config["ui"]["overlay_position"] = {
                 "mode": "preset",
-                "preset": overlay_position_text
+                "preset": overlay_position_text,
             }
 
         return config

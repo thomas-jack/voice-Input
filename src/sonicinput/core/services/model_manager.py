@@ -82,7 +82,9 @@ class ModelManager:
         """
         return self.load_model_sync(model_name, timeout)
 
-    def load_model_sync(self, model_name: Optional[str] = None, timeout: int = 300) -> bool:
+    def load_model_sync(
+        self, model_name: Optional[str] = None, timeout: int = 300
+    ) -> bool:
         """同步加载模型（阻塞直到加载完成）
 
         Args:

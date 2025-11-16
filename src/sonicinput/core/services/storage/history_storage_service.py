@@ -34,10 +34,13 @@ class HistoryStorageService(LifecycleComponent):
         """子类特定的初始化逻辑"""
         try:
             # 获取存储路径
-            storage_base = self._config_service.get_setting("history.storage_path", "auto")
+            storage_base = self._config_service.get_setting(
+                "history.storage_path", "auto"
+            )
             if storage_base == "auto":
                 # 默认使用AppData/Roaming/SonicInput/history
                 from ....utils.helpers import get_app_data_dir
+
                 self._storage_path = get_app_data_dir() / "history"
             else:
                 self._storage_path = Path(storage_base)
@@ -60,7 +63,7 @@ class HistoryStorageService(LifecycleComponent):
                 {
                     "storage_path": str(self._storage_path),
                     "db_path": str(self._db_path),
-                }
+                },
             )
 
             return True
@@ -125,8 +128,7 @@ class HistoryStorageService(LifecycleComponent):
             orphaned_count = self.cleanup_orphaned_files()
             if orphaned_count > 0:
                 app_logger.log_audio_event(
-                    "Cleaned up orphaned audio files",
-                    {"count": orphaned_count}
+                    "Cleaned up orphaned audio files", {"count": orphaned_count}
                 )
             return True
         except Exception as e:
@@ -136,13 +138,13 @@ class HistoryStorageService(LifecycleComponent):
     def _do_stop(self) -> bool:
         """子类特定的停止逻辑"""
         # 关闭当前线程的数据库连接
-        if hasattr(self._local, 'conn') and self._local.conn is not None:
+        if hasattr(self._local, "conn") and self._local.conn is not None:
             try:
                 self._local.conn.close()
                 self._local.conn = None
                 app_logger.log_audio_event(
                     "Thread-local DB connection closed on stop",
-                    {"thread_id": threading.get_ident()}
+                    {"thread_id": threading.get_ident()},
                 )
             except Exception as e:
                 app_logger.log_error(e, "close_database_connection_on_stop")
@@ -155,13 +157,13 @@ class HistoryStorageService(LifecycleComponent):
         Returns:
             当前线程的 SQLite 连接对象
         """
-        if not hasattr(self._local, 'conn') or self._local.conn is None:
+        if not hasattr(self._local, "conn") or self._local.conn is None:
             self._local.conn = sqlite3.connect(str(self._db_path))
             self._local.conn.row_factory = sqlite3.Row  # 启用列名访问
 
             app_logger.log_audio_event(
                 "Thread-local DB connection created",
-                {"thread_id": threading.get_ident()}
+                {"thread_id": threading.get_ident()},
             )
 
         return self._local.conn
@@ -225,13 +227,13 @@ class HistoryStorageService(LifecycleComponent):
     def _do_cleanup(self) -> None:
         """子类特定的清理逻辑"""
         # 关闭当前线程的数据库连接
-        if hasattr(self._local, 'conn') and self._local.conn is not None:
+        if hasattr(self._local, "conn") and self._local.conn is not None:
             try:
                 self._local.conn.close()
                 self._local.conn = None
                 app_logger.log_audio_event(
                     "Thread-local DB connection closed",
-                    {"thread_id": threading.get_ident()}
+                    {"thread_id": threading.get_ident()},
                 )
             except Exception as e:
                 app_logger.log_error(e, "close_thread_connection")
@@ -415,10 +417,7 @@ class HistoryStorageService(LifecycleComponent):
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT * FROM history_records WHERE id = ?",
-                (record_id,)
-            )
+            cursor.execute("SELECT * FROM history_records WHERE id = ?", (record_id,))
 
             row = cursor.fetchone()
             if row:
@@ -439,14 +438,25 @@ class HistoryStorageService(LifecycleComponent):
             cursor = conn.cursor()
 
             # 验证order_by以防止SQL注入
-            allowed_fields = ["timestamp", "duration", "transcription_status", "ai_status"]
+            allowed_fields = [
+                "timestamp",
+                "duration",
+                "transcription_status",
+                "ai_status",
+            ]
             allowed_orders = ["ASC", "DESC"]
 
             order_parts = order_by.split()
-            if len(order_parts) != 2 or order_parts[0] not in allowed_fields or order_parts[1] not in allowed_orders:
+            if (
+                len(order_parts) != 2
+                or order_parts[0] not in allowed_fields
+                or order_parts[1] not in allowed_orders
+            ):
                 order_by = "timestamp DESC"  # 默认排序
 
-            query = f"SELECT * FROM history_records ORDER BY {order_by} LIMIT ? OFFSET ?"
+            query = (
+                f"SELECT * FROM history_records ORDER BY {order_by} LIMIT ? OFFSET ?"
+            )
 
             cursor.execute(query, (limit, offset))
 
@@ -534,8 +544,7 @@ class HistoryStorageService(LifecycleComponent):
             if audio_path.exists():
                 audio_path.unlink()
                 app_logger.log_audio_event(
-                    "Audio file deleted",
-                    {"path": str(audio_path)}
+                    "Audio file deleted", {"path": str(audio_path)}
                 )
 
             # 删除数据库记录
@@ -544,8 +553,7 @@ class HistoryStorageService(LifecycleComponent):
             conn.commit()
 
             app_logger.log_audio_event(
-                "History record deleted",
-                {"record_id": record_id}
+                "History record deleted", {"record_id": record_id}
             )
 
             return True
@@ -651,11 +659,12 @@ class HistoryStorageService(LifecycleComponent):
                         file_path.unlink()
                         deleted_count += 1
                         app_logger.log_audio_event(
-                            "Orphaned file deleted",
-                            {"path": str(file_path)}
+                            "Orphaned file deleted", {"path": str(file_path)}
                         )
                     except Exception as e:
-                        app_logger.log_error(e, f"delete_orphaned_file_{file_path.name}")
+                        app_logger.log_error(
+                            e, f"delete_orphaned_file_{file_path.name}"
+                        )
 
             return deleted_count
 

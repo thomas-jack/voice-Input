@@ -98,7 +98,9 @@ class RecordingOverlay(QWidget):
             # Phase 2: is_recording is now a computed property (see @property below)
             self.current_status = "Ready"
             self.recording_duration = 0
-            self._state_manager = None  # Phase 1: Optional StateManager injection for SSOT compliance
+            self._state_manager = (
+                None  # Phase 1: Optional StateManager injection for SSOT compliance
+            )
             app_logger.log_audio_event(
                 "RecordingOverlay state variables initialized", {}
             )
@@ -255,7 +257,7 @@ class RecordingOverlay(QWidget):
         self._state_manager = state_manager
         app_logger.log_audio_event(
             "StateManager injected into RecordingOverlay",
-            {"has_state_manager": self._state_manager is not None}
+            {"has_state_manager": self._state_manager is not None},
         )
 
     @property
@@ -269,14 +271,18 @@ class RecordingOverlay(QWidget):
             # Fallback during initialization or if StateManager not injected
             app_logger.log_audio_event(
                 "WARNING: is_recording queried without StateManager",
-                {"stack": False}  # Don't log stack by default to avoid spam
+                {"stack": False},  # Don't log stack by default to avoid spam
             )
             return False
 
         try:
             from ..core.interfaces.state import RecordingState
+
             recording_state = self._state_manager.get_recording_state()
-            return recording_state in [RecordingState.STARTING, RecordingState.RECORDING]
+            return recording_state in [
+                RecordingState.STARTING,
+                RecordingState.RECORDING,
+            ]
         except Exception as e:
             app_logger.log_error(e, "is_recording_property_query")
             return False
@@ -428,6 +434,7 @@ class RecordingOverlay(QWidget):
                             if callback_name and hasattr(timer, "timeout"):
                                 try:
                                     import warnings
+
                                     with warnings.catch_warnings():
                                         warnings.simplefilter("ignore", RuntimeWarning)
                                         timer.timeout.disconnect()
@@ -567,7 +574,9 @@ class RecordingOverlay(QWidget):
                 # 这会让用户感觉可视化器和窗口同时出现
                 # Phase 4: Removed is_recording parameter - caller controls when to update
                 self.audio_visualizer.update_audio_level(0.002)
-                app_logger.log_audio_event("Audio visualizer pre-activated with initial level", {})
+                app_logger.log_audio_event(
+                    "Audio visualizer pre-activated with initial level", {}
+                )
         except Exception as e:
             app_logger.log_error(e, "audio_visualizer_preactivate")
 
@@ -576,12 +585,17 @@ class RecordingOverlay(QWidget):
             if self.timer_manager:
                 app_logger.log_audio_event(
                     "Starting recording timer",
-                    {"is_recording": self.is_recording, "duration": self.recording_duration}
+                    {
+                        "is_recording": self.is_recording,
+                        "duration": self.recording_duration,
+                    },
                 )
                 self.timer_manager.start_update_timer(self.update_recording_time)
                 app_logger.log_audio_event("Recording timer started successfully", {})
             else:
-                app_logger.log_audio_event("WARNING: timer_manager is None, cannot start timer", {})
+                app_logger.log_audio_event(
+                    "WARNING: timer_manager is None, cannot start timer", {}
+                )
         except Exception as e:
             app_logger.log_error(e, "timer_start_show")
 
@@ -906,7 +920,10 @@ class RecordingOverlay(QWidget):
                 if self.recording_duration <= 3:
                     app_logger.log_audio_event(
                         "Recording time updated",
-                        {"duration": self.recording_duration, "display": f"{minutes:02d}:{seconds:02d}"}
+                        {
+                            "duration": self.recording_duration,
+                            "display": f"{minutes:02d}:{seconds:02d}",
+                        },
                     )
             except Exception as e:
                 app_logger.log_error(e, "update_recording_time")
@@ -914,7 +931,7 @@ class RecordingOverlay(QWidget):
             # If not recording, stop the timer immediately
             app_logger.log_audio_event(
                 "Recording timer callback called but is_recording is False - stopping timer",
-                {"duration": self.recording_duration}
+                {"duration": self.recording_duration},
             )
             try:
                 if hasattr(self, "update_timer") and self.update_timer.isActive():
@@ -1052,7 +1069,9 @@ class RecordingOverlay(QWidget):
                 app_logger.log_error(
                     e,
                     "overlay_disconnect_signals_failed",
-                    {"context": "Failed to disconnect RecordingOverlay signals during cleanup"}
+                    {
+                        "context": "Failed to disconnect RecordingOverlay signals during cleanup"
+                    },
                 )
 
             app_logger.log_audio_event(

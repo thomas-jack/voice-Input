@@ -13,7 +13,9 @@ class IConfigReloadService(Protocol):
         """设置配置文件监听器"""
         ...
 
-    def register_reload_callback(self, callback: Callable[[Dict[str, Any]], None]) -> None:
+    def register_reload_callback(
+        self, callback: Callable[[Dict[str, Any]], None]
+    ) -> None:
         """注册配置重载回调函数
 
         Args:

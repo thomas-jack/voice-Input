@@ -75,9 +75,7 @@ class ControllerLogging:
         try:
             app_logger.log_audio_event(f"Starting {operation_name}", {})
             yield
-            app_logger.log_audio_event(
-                f"{operation_name} completed successfully", {}
-            )
+            app_logger.log_audio_event(f"{operation_name} completed successfully", {})
         except Exception as e:
             app_logger.log_error(e, operation_name)
 
@@ -204,7 +202,9 @@ class ControllerLogging:
             new_state.name if hasattr(new_state, "name") else str(new_state)
         )
 
-        message = f"State transition: {component_name} {old_state_name} -> {new_state_name}"
+        message = (
+            f"State transition: {component_name} {old_state_name} -> {new_state_name}"
+        )
         if is_forced:
             message += " (forced recovery)"
 
