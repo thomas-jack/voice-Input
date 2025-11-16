@@ -8,7 +8,6 @@ from PySide6.QtWidgets import QSystemTrayIcon, QMenu
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction
 from typing import Optional, Dict
-from ....utils import app_logger
 
 
 class TrayWidget(QObject):

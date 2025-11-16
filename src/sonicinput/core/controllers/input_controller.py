@@ -4,7 +4,6 @@
 """
 
 import time
-from typing import Optional
 
 from ..interfaces import (
     IInputController,

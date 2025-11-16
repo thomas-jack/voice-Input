@@ -1,6 +1,6 @@
 """智能文本输入策略选择器"""
 
-from typing import Optional, Dict, Union
+from typing import Optional, Dict
 from .clipboard_input import ClipboardInput
 from .sendinput import SendInputMethod
 from ..utils import TextInputError, app_logger

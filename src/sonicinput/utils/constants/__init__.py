@@ -6,7 +6,6 @@ Centralizes magic numbers and configuration values used throughout the codebase.
 # Import the legacy constants module from the parent directory
 # Using importlib to avoid circular import issues with the constants package
 import importlib
-import sys
 
 # Import constants.py as a module under a unique name
 # This works in both development and Nuitka packaging

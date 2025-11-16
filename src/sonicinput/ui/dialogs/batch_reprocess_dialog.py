@@ -16,7 +16,6 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QFormLayout,
 )
-from PySide6.QtCore import Qt
 
 
 class BatchReprocessDialog(QDialog):

@@ -257,7 +257,6 @@ class BatchReprocessingWorker(QThread):
     def run(self):
         """后台线程执行批量重处理流程"""
         import time
-        from ...audio.recorder import AudioRecorder
         from ...utils import app_logger
 
         total_records = len(self.records)
@@ -1239,14 +1238,14 @@ class HistoryTab(BaseSettingsTab):
         errors = stats.get("errors", [])
 
         # 构建报告消息
-        report = f"Batch Reprocessing Complete!\n\n"
+        report = "Batch Reprocessing Complete!\n\n"
         report += f"Total records: {total}\n"
         report += f"✓ Successful: {success}\n"
         report += f"⊘ Skipped: {skipped}\n"
         report += f"✗ Failed: {failed}\n"
 
         if errors:
-            report += f"\n\nFirst 5 errors:\n"
+            report += "\n\nFirst 5 errors:\n"
             for error in errors[:5]:
                 report += f"  {error}\n"
             if len(errors) > 5:
