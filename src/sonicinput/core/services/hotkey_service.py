@@ -27,10 +27,11 @@ from ..interfaces.hotkey import IHotkeyService
 from ...utils import app_logger
 
 
-class HotkeyService(LifecycleComponent, IConfigReloadable):
+class HotkeyService(LifecycleComponent):
     """热键服务（支持配置热重载）
 
     封装热键管理器，提供配置热重载能力。
+    实现 IConfigReloadable 协议（结构化类型）。
     """
 
     def __init__(

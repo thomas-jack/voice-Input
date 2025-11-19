@@ -62,6 +62,9 @@ class RefactoredConfigService(IConfigService):
         # 加载配置
         self.load_config()
 
+        # 初始化上次保存的配置快照（用于计算变更）
+        self._last_saved_config = copy.deepcopy(self._reader._config)
+
         # 验证和修复配置结构完整性
         self._validate_and_repair_config_structure()
 
@@ -343,9 +346,52 @@ class RefactoredConfigService(IConfigService):
 
         return True
 
+    def _calculate_config_diff(
+        self, old_config: Dict[str, Any], new_config: Dict[str, Any]
+    ) -> set:
+        """计算两个配置之间的差异键
+
+        Args:
+            old_config: 旧配置
+            new_config: 新配置
+
+        Returns:
+            变更的键集合（点分隔路径）
+        """
+
+        def flatten(config: Dict[str, Any], prefix: str = "") -> Dict[str, Any]:
+            """将嵌套配置展平为点分隔的键值对"""
+            result = {}
+            for key, value in config.items():
+                full_key = f"{prefix}.{key}" if prefix else key
+                if isinstance(value, dict):
+                    result.update(flatten(value, full_key))
+                else:
+                    result[full_key] = value
+            return result
+
+        old_flat = flatten(old_config)
+        new_flat = flatten(new_config)
+
+        changed_keys = set()
+
+        # 检查新增和变更的键
+        for key, value in new_flat.items():
+            if key not in old_flat or old_flat[key] != value:
+                changed_keys.add(key)
+
+        # 检查删除的键
+        for key in old_flat:
+            if key not in new_flat:
+                changed_keys.add(key)
+
+        return changed_keys
+
     def _send_config_saved_event(self) -> None:
         """发送配置保存事件"""
         if self._event_service:
+            current_config = self._reader._config.copy()
+
             self._event_service.emit(
                 "config_saved",
                 {
@@ -355,12 +401,23 @@ class RefactoredConfigService(IConfigService):
                 EventPriority.NORMAL,
             )
 
+            # 计算配置变更
+            changed_keys = self._calculate_config_diff(
+                self._last_saved_config, current_config
+            )
+
             # 发送配置变更事件（用于热重载）
             self._event_service.emit(
                 "config.changed",
                 {
-                    "config": self._reader._config.copy(),
-                    "timestamp": datetime.now().isoformat(),
+                    "changed_keys": changed_keys,
+                    "old_config": self._last_saved_config.copy(),
+                    "new_config": current_config,
+                    "config": current_config,  # 保持向后兼容
+                    "timestamp": datetime.now().timestamp(),  # 使用 float 时间戳
                 },
                 EventPriority.HIGH,
             )
+
+            # 更新上次保存的配置
+            self._last_saved_config = copy.deepcopy(current_config)
