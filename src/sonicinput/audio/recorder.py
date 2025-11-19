@@ -45,6 +45,7 @@ class AudioRecorder(IAudioService):
         else:
             self.chunk_duration = 30.0
         self.chunk_callback = None  # 外部回调，用于流式转录块
+        self._chunked_samples_sent = 0  # 追踪已发送给chunk_callback的样本数量
 
         self._initialize_audio()
 
@@ -257,6 +258,7 @@ class AudioRecorder(IAudioService):
         """启动录音线程（从 start_recording 中提取的辅助方法）"""
         self._recording = True
         self._audio_data = []
+        self._chunked_samples_sent = 0  # 重置chunk追踪计数器
 
         # 启动录音线程（30秒计时在线程内部实现）
         self._record_thread = threading.Thread(target=self._record_audio)
@@ -462,18 +464,28 @@ class AudioRecorder(IAudioService):
         return audio_array, actual_duration
 
     def _on_chunk_ready(self) -> None:
-        """流式转录块就绪，提取当前音频块进行转录"""
+        """流式转录块就绪，提取增量音频块进行转录
+
+        关键修复：不再清空 _audio_data，而是追踪已发送的样本数，
+        这样既能保留完整录音，又能提取增量chunk用于流式转录
+        """
         if not self._recording or not self.chunk_callback:
             return
 
-        # 线程安全：读取并清空音频数据
+        # 线程安全：读取增量音频数据（不清空完整数据）
         chunk_audio = None
         with self._data_lock:
-            if len(self._audio_data) > 0:
-                # 复制当前音频数据
-                chunk_audio = np.concatenate(self._audio_data, axis=0).flatten()
-                # 清空缓冲区，继续录音 - 使用clear()优化内存
-                self._audio_data.clear()
+            if len(self._audio_data) == 0:
+                return
+
+            # 拼接所有音频数据
+            full_audio = np.concatenate(self._audio_data, axis=0).flatten()
+            total_samples = len(full_audio)
+
+            # 只提取新增的部分（自上次chunk_callback以来的增量）
+            if total_samples > self._chunked_samples_sent:
+                chunk_audio = full_audio[self._chunked_samples_sent:].copy()
+                self._chunked_samples_sent = total_samples
             else:
                 return
 
@@ -483,13 +495,14 @@ class AudioRecorder(IAudioService):
                 "chunk_samples": len(chunk_audio),
                 "chunk_duration_seconds": len(chunk_audio) / self._sample_rate,
                 "configured_duration": self.chunk_duration,
+                "total_samples_tracked": self._chunked_samples_sent,
             },
         )
 
         # 调用外部回调（异步转录）- 保护录音线程
         if self.chunk_callback:
             try:
-                self.chunk_callback(chunk_audio.copy())
+                self.chunk_callback(chunk_audio)
             except Exception as callback_error:
                 app_logger.log_error(callback_error, "_on_chunk_ready_callback")
                 # 继续录音，不中断
