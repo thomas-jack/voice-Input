@@ -166,8 +166,11 @@ class TranscriptionController(BaseController, ITranscriptionController):
             stats = result.get("stats", {})
 
             # 获取流式模式（用于后续处理决策）
-            streaming_mode = "chunked"  # 默认值
-            if hasattr(self._speech_service, "streaming_coordinator"):
+            # 优先从stats中获取（字段名是"mode"）
+            streaming_mode = stats.get("mode", "chunked")
+
+            # 如果stats中没有mode字段，尝试从streaming_coordinator获取（本地提供商）
+            if streaming_mode == "chunked" and hasattr(self._speech_service, "streaming_coordinator"):
                 streaming_mode = (
                     self._speech_service.streaming_coordinator.get_streaming_mode()
                 )
@@ -189,12 +192,42 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
                 self._state.set_app_state(AppState.IDLE)
 
-            # 如果流式转录没有结果,fallback到同步转录（仅chunked模式）
-            if not text and streaming_mode == "chunked" and self._audio_service:
-                app_logger.log_audio_event(
-                    "No text from streaming, falling back to sync transcription", {}
-                )
-                text = self._sync_transcribe_last_audio()
+            # 如果流式转录没有结果,fallback到同步转录
+            # 云提供商的 streaming_mode 为 "not_supported"，需要fallback
+            # 本地提供商的 chunked 模式如果失败也需要fallback
+            if not text and streaming_mode in ["chunked", "not_supported"]:
+                # 优先使用 audio_service (本地提供商)
+                if self._audio_service:
+                    app_logger.log_audio_event(
+                        "No text from streaming, falling back to sync transcription (local audio_service)",
+                        {"streaming_mode": streaming_mode}
+                    )
+                    text = self._sync_transcribe_last_audio()
+                # 云提供商：从文件读取完整音频进行转录
+                elif self._current_audio_file_path and hasattr(self._speech_service, "transcribe_sync"):
+                    app_logger.log_audio_event(
+                        "No text from streaming, falling back to file-based transcription (cloud provider)",
+                        {"streaming_mode": streaming_mode, "audio_file": self._current_audio_file_path}
+                    )
+                    # 从文件读取音频数据
+                    import wave
+                    import numpy as np
+                    try:
+                        with wave.open(self._current_audio_file_path, 'rb') as wav_file:
+                            frames = wav_file.readframes(wav_file.getnframes())
+                            audio_data = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+
+                        # 使用云提供商的 transcribe_sync
+                        result = self._speech_service.transcribe_sync(audio_data)
+                        text = result.get("text", "")
+
+                        app_logger.log_audio_event(
+                            "File-based transcription completed",
+                            {"text_length": len(text), "audio_file": self._current_audio_file_path}
+                        )
+                    except Exception as e:
+                        app_logger.log_error(e, "file_based_transcription_fallback")
+                        text = ""
 
             transcribe_duration = time.time() - transcribe_start
 

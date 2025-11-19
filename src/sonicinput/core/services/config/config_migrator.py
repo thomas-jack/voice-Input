@@ -88,7 +88,43 @@ class ConfigMigrator:
         migrated = False
 
         try:
-            # 1. 删除根级别的旧 openrouter 配置
+            # 1. 迁移旧 Whisper 模型名到 sherpa-onnx 模型名
+            if "transcription" in config:
+                local_config = config.get("transcription", {}).get("local", {})
+                if "model" in local_config:
+                    old_model = local_config["model"]
+                    # Faster Whisper 模型 -> sherpa-onnx 模型映射
+                    model_mapping = {
+                        "whisper-large-v3": "paraformer",
+                        "whisper-large-v3-turbo": "paraformer",
+                        "large-v3": "paraformer",
+                        "large-v3-turbo": "paraformer",
+                        "large-v2": "paraformer",
+                        "large": "paraformer",
+                        "medium": "paraformer",
+                        "small": "zipformer-small",
+                        "base": "zipformer-small",
+                        "tiny": "zipformer-small",
+                    }
+
+                    if old_model in model_mapping:
+                        new_model = model_mapping[old_model]
+                        config["transcription"]["local"]["model"] = new_model
+                        app_logger.info(
+                            f"Migrating: transcription.local.model "
+                            f"'{old_model}' -> '{new_model}'"
+                        )
+                        migrated = True
+                    elif old_model not in ["paraformer", "zipformer-small"]:
+                        # 未知模型名，默认使用 paraformer
+                        config["transcription"]["local"]["model"] = "paraformer"
+                        app_logger.warning(
+                            f"Migrating: Unknown model '{old_model}' "
+                            f"-> 'paraformer' (default)"
+                        )
+                        migrated = True
+
+            # 2. 删除根级别的旧 openrouter 配置
             if "openrouter" in config:
                 app_logger.info("Migrating: Removing root-level 'openrouter' config")
                 del config["openrouter"]

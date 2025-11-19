@@ -17,7 +17,7 @@ Recommended for users running the application in administrator mode.
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode, HotKey
 import time
-from typing import Callable, Dict, Set, Optional, Any, Union
+from typing import Callable, Dict, Set, Optional, Any, Union, List
 from ..utils import HotkeyRegistrationError, app_logger
 from .interfaces import IHotkeyService
 
@@ -42,6 +42,7 @@ class PynputHotkeyManager(IHotkeyService):
 
     def __init__(self, callback: Callable[[str], None]):
         self.callback = callback
+        self._default_action = "toggle_recording"  # 保存默认动作
         self.registered_hotkeys: Dict[
             str, Dict[str, Any]
         ] = {}  # hotkey_string -> {hotkey_obj, action, keys}
@@ -830,3 +831,40 @@ class PynputHotkeyManager(IHotkeyService):
         except Exception as e:
             app_logger.log_error(e, f"test_hotkey_availability_{hotkey}")
             return {"available": False, "message": f"Error testing hotkey: {str(e)}"}
+
+    def reload(self, new_keys: List[str]) -> None:
+        """重新加载热键配置
+
+        Args:
+            new_keys: 新的热键列表（如 ["f12", "alt+h"]）
+        """
+        app_logger.log_audio_event(
+            "Reloading Pynput hotkeys",
+            {"old_keys": list(self.registered_hotkeys.keys()), "new_keys": new_keys},
+        )
+
+        # 1. 停止旧监听器
+        if self._listener and self._listener.running:
+            self._listener.stop()
+            app_logger.log_audio_event("Pynput listener stopped", {})
+
+        # 2. 清空旧热键
+        self.registered_hotkeys.clear()
+
+        # 3. 注册新热键
+        for key_combo in new_keys:
+            try:
+                # 使用默认动作
+                self.register_hotkey(key_combo, self._default_action)
+            except Exception as e:
+                app_logger.log_error(
+                    e, f"PynputHotkeyManager.reload: Failed to register {key_combo}"
+                )
+
+        # 4. 重新启动监听器
+        if new_keys:
+            self._restart_listener()
+            app_logger.log_audio_event(
+                "Pynput hotkeys reloaded",
+                {"active_keys": list(self.registered_hotkeys.keys())},
+            )

@@ -14,7 +14,7 @@ Trade-offs:
 """
 
 import win32con
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, List
 import threading
 import queue
 from ..utils import HotkeyRegistrationError, app_logger
@@ -153,6 +153,7 @@ class Win32HotkeyManager(IHotkeyService):
             callback: Callback function called when hotkey is triggered
         """
         self.callback = callback
+        self._default_action = "toggle_recording"  # 保存默认动作
         self.registered_hotkeys: Dict[
             str, Dict
         ] = {}  # hotkey_str -> {id, action, modifiers, vk}
@@ -653,20 +654,31 @@ class Win32HotkeyManager(IHotkeyService):
             hotkey: info["action"] for hotkey, info in self.registered_hotkeys.items()
         }
 
-    def reload(self) -> None:
-        """Reload hotkey configuration
+    def reload(self, new_keys: List[str]) -> None:
+        """重新加载热键配置
 
-        Re-registers all hotkeys (compatibility method)
+        Args:
+            new_keys: 新的热键列表（如 ["f12", "alt+h"]）
         """
-        # Store current hotkeys
-        current_hotkeys = list(self.registered_hotkeys.items())
+        app_logger.log_audio_event(
+            "Reloading Win32 hotkeys",
+            {"old_keys": list(self.registered_hotkeys.keys()), "new_keys": new_keys},
+        )
 
-        # Unregister all
+        # 1. 注销所有旧热键
         self.unregister_all_hotkeys()
 
-        # Re-register
-        for hotkey, info in current_hotkeys:
+        # 2. 注册新热键
+        for key_combo in new_keys:
             try:
-                self.register_hotkey(hotkey, info["action"])
+                # 使用默认动作（通常是 toggle_recording）
+                self.register_hotkey(key_combo, self._default_action)
             except Exception as e:
-                app_logger.log_error(e, f"reload_hotkey_{hotkey}")
+                app_logger.log_error(
+                    e, f"Win32HotkeyManager.reload: Failed to register {key_combo}"
+                )
+
+        app_logger.log_audio_event(
+            "Win32 hotkeys reloaded",
+            {"active_keys": list(self.registered_hotkeys.keys())},
+        )

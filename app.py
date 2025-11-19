@@ -21,7 +21,7 @@ import argparse
 import signal
 import time
 from pathlib import Path
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, Dict, Any
 
 
 # ============================================================================
@@ -90,7 +90,7 @@ def setup_cuda_paths():
             for path in paths_to_add:
                 print(f"     - {path}")
         else:
-            print(f"[INFO] No CUDA library paths found (GPU may not be available)")
+            print("[INFO] No CUDA library paths found (GPU may not be available)")
 
     except Exception as e:
         print(f"[WARN] Failed to setup CUDA paths: {e}")
@@ -204,9 +204,7 @@ def run_tests():
     try:
         # Test core imports
         from sonicinput.core.voice_input_app import VoiceInputApp
-        from sonicinput.core.di_container import DIContainer
-        from sonicinput.speech.sherpa_engine import SherpaEngine
-        from sonicinput.core.interfaces import IConfigService, ISpeechService
+        from sonicinput.core.interfaces import IConfigService
 
         # Test dependency injection
         from sonicinput.core.di_container_enhanced import create_container
@@ -477,15 +475,10 @@ def test_gui_components() -> bool:
         # Test PySide6 imports
         print("Testing PySide6 imports...")
         from PySide6.QtWidgets import QApplication
-        from PySide6.QtCore import QTimer
         print("[PASS] PySide6 imports successful")
         
         # Test application components (import only)
         print("Testing application component imports...")
-        from sonicinput.ui.main_window import MainWindow
-        from sonicinput.ui.components.system_tray.tray_controller import TrayController
-        from sonicinput.core.voice_input_app import VoiceInputApp
-        from sonicinput.core.di_container import DIContainer
         print("[PASS] Application component imports successful")
         
         # Test QApplication creation
@@ -547,7 +540,6 @@ def run_gui():
         from sonicinput.ui.components.system_tray.tray_controller import TrayController
         from sonicinput.ui.recording_overlay import RecordingOverlay
         from sonicinput.core.voice_input_app import VoiceInputApp
-        from sonicinput.core.di_container import DIContainer
 
         # Import qt-material for modern UI theming
         from qt_material import apply_stylesheet

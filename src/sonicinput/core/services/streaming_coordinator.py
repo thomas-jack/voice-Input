@@ -142,8 +142,12 @@ class StreamingCoordinator:
             elif self._streaming_mode_type == "realtime":
                 if self._realtime_session:
                     try:
-                        final_text = self._realtime_session.get_final_result()
-                        self._realtime_partial_text = final_text
+                        final_result = self._realtime_session.get_final_result()
+                        # get_final_result() 返回 dict {"text": ..., "language": ...}
+                        if isinstance(final_result, dict):
+                            self._realtime_partial_text = final_result.get("text", "")
+                        else:
+                            self._realtime_partial_text = str(final_result)
                     except Exception as e:
                         app_logger.log_error(e, "realtime_final_result")
 

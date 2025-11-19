@@ -8,6 +8,7 @@ from .config_service import ConfigService
 from .state_manager import StateManager
 from .lifecycle_manager import LifecycleManager
 from .transcription_service import TranscriptionService, TranscriptionResult
+from .ai_service import AIService
 
 __all__ = [
     "EventBus",
@@ -17,4 +18,5 @@ __all__ = [
     "LifecycleManager",
     "TranscriptionService",
     "TranscriptionResult",
+    "AIService",
 ]
