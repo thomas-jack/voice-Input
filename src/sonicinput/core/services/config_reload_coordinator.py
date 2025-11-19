@@ -515,14 +515,17 @@ class ConfigReloadCoordinator:
                 except Exception as e:
                     logger.warning(f"Failed to cleanup old instance of {name}: {e}")
 
-            # 5. 初始化新实例（如果需要）
-            if hasattr(new_instance, "initialize"):
-                try:
-                    new_instance.initialize()
-                    logger.debug(f"New instance initialized for {name}")
-                except Exception as e:
-                    logger.error(f"Failed to initialize new instance of {name}: {e}")
-                    raise
+            # 5. 验证新实例已初始化（工厂应该已经处理）
+            if hasattr(new_instance, "_is_model_loaded"):
+                if not new_instance._is_model_loaded:
+                    logger.warning(
+                        f"Service {name} factory did not initialize the service. "
+                        f"This may cause runtime errors."
+                    )
+                else:
+                    logger.debug(f"Service {name} successfully initialized by factory")
+            else:
+                logger.debug(f"Service {name} initialized (no model loading required)")
 
         except Exception as e:
             logger.error(f"Failed to recreate service {name}: {e}")

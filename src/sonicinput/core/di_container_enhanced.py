@@ -748,7 +748,7 @@ def create_container() -> "EnhancedDIContainer":
     from ..audio import AudioRecorder
     from ..ai import AIClientFactory
     from ..input import SmartTextInput
-    from .hotkey_manager import create_hotkey_manager
+    from .services.hotkey_service import HotkeyService
 
     # 事件服务 - 单例（最先创建，因为其他服务依赖它）
     container.register_singleton(IEventService, DynamicEventSystem)
@@ -845,6 +845,8 @@ def create_container() -> "EnhancedDIContainer":
                             "suggestion": "Install sherpa-onnx for local transcription",
                         },
                     )
+                    # 更新 provider 变量
+                    provider = switched_to
                 else:
                     app_logger.log_audio_event(
                         "Local provider unavailable and no cloud provider configured",
@@ -870,22 +872,50 @@ def create_container() -> "EnhancedDIContainer":
                 return SherpaEngine(model_name="paraformer", language="zh")
             return service
 
-        # 使用TranscriptionService包装,提供线程隔离（传递 config 用于流式模式配置）
-        transcription_service = TranscriptionService(
-            speech_service_factory, event_service, config_service=config
-        )
+        # 关键修复：只有本地提供商才包装到 TranscriptionService（提供流式支持）
+        # 云提供商直接返回（已实现 ISpeechService.transcribe()）
+        if provider == "local":
+            # 使用TranscriptionService包装,提供线程隔离和流式转录（传递 config 用于流式模式配置）
+            transcription_service = TranscriptionService(
+                speech_service_factory, event_service, config_service=config
+            )
 
-        # 启动TranscriptionService
-        transcription_service.start()
+            # 启动TranscriptionService
+            transcription_service.start()
 
-        # 注册到配置重载服务注册中心（带工厂）
-        config_reload_registry.register(
-            "transcription_service",
-            transcription_service,
-            factory=lambda: create_speech_service(container)
-        )
+            # 注册到配置重载服务注册中心（带工厂）
+            config_reload_registry.register(
+                "transcription_service",
+                transcription_service,
+                factory=lambda: create_speech_service(container)
+            )
 
-        return transcription_service
+            return transcription_service
+        else:
+            # 云提供商直接返回（Groq/SiliconFlow/Qwen 已实现完整的 ISpeechService）
+            cloud_service = speech_service_factory()
+
+            # 云服务也加载模型（虽然只是标记为已加载）
+            if hasattr(cloud_service, "load_model"):
+                cloud_service.load_model()
+
+            from ..utils import app_logger
+            app_logger.log_audio_event(
+                "Cloud speech service created (no TranscriptionService wrapper)",
+                {
+                    "provider": provider,
+                    "service_type": type(cloud_service).__name__,
+                },
+            )
+
+            # 注册到配置重载服务注册中心（带工厂）
+            config_reload_registry.register(
+                "transcription_service",
+                cloud_service,
+                factory=lambda: create_speech_service(container)
+            )
+
+            return cloud_service
 
     container.register_factory(
         ISpeechService, create_speech_service, ServiceLifetime.SINGLETON
@@ -917,7 +947,7 @@ def create_container() -> "EnhancedDIContainer":
         IInputService, create_input_service, ServiceLifetime.TRANSIENT
     )
 
-    # 快捷键服务 - 瞬态
+    # 快捷键服务 - 单例（需要热重载支持）
     def create_hotkey_service(container):
         # 创建一个空的回调函数，在VoiceInputApp中会被替换
         def dummy_callback(action: str):
@@ -926,21 +956,23 @@ def create_container() -> "EnhancedDIContainer":
         # 读取配置以确定使用哪个后端
         config = container.get(IConfigService)
 
-        # 支持新格式 {"keys": [...], "backend": "auto"} 和旧格式 ["key1", "key2"]
-        hotkeys_config = config.get_setting(
-            "hotkeys", {"keys": ["ctrl+shift+v"], "backend": "auto"}
-        )
-        if isinstance(hotkeys_config, list):
-            # 旧格式，使用默认后端
-            backend = "auto"
-        else:
-            # 新格式
-            backend = hotkeys_config.get("backend", "auto")
+        # 使用 HotkeyService 包装器（支持配置热重载）
+        hotkey_service = HotkeyService(config, dummy_callback)
 
-        return create_hotkey_manager(dummy_callback, backend=backend, config=config)
+        # 初始化服务
+        hotkey_service.initialize()
+
+        # 注册到配置重载服务注册中心（带工厂）
+        config_reload_registry.register(
+            "hotkey_service",
+            hotkey_service,
+            factory=lambda: create_hotkey_service(container)
+        )
+
+        return hotkey_service
 
     container.register_factory(
-        IHotkeyService, create_hotkey_service, ServiceLifetime.TRANSIENT
+        IHotkeyService, create_hotkey_service, ServiceLifetime.SINGLETON
     )
 
     # 应用编排器 - 单例（依赖多个核心服务）

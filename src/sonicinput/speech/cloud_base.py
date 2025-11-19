@@ -536,6 +536,83 @@ class CloudTranscriptionBase(ISpeechService):
             "provider": self.provider_id,
         }
 
+    def transcribe_sync(
+        self,
+        audio_data: np.ndarray,
+        language: Optional[str] = None,
+        temperature: float = 0.0,
+        emit_event: bool = False,
+    ) -> Dict[str, Any]:
+        """Synchronous transcription (alias for transcribe for API compatibility)
+
+        This method provides compatibility with TranscriptionService API.
+        Cloud providers don't use emit_event parameter as they handle transcription directly.
+
+        Args:
+            audio_data: Audio data as numpy array
+            language: Language code (optional)
+            temperature: Sampling temperature (0.0-1.0)
+            emit_event: Ignored for cloud providers (kept for API compatibility)
+
+        Returns:
+            Transcription result dictionary
+        """
+        return self.transcribe(
+            audio_data=audio_data,
+            language=language,
+            temperature=temperature,
+        )
+
+    # ========== Streaming API Stubs (cloud providers don't support streaming) ==========
+
+    def start_streaming(self) -> None:
+        """Start streaming mode (no-op for cloud providers)
+
+        Cloud providers process complete audio files, not streaming audio.
+        This is a compatibility stub for the ISpeechService interface.
+        """
+        app_logger.log_audio_event(
+            "Streaming mode not supported for cloud provider",
+            {
+                "provider": self.provider_id,
+                "note": "Cloud providers process complete audio files only",
+            },
+        )
+
+    def stop_streaming(self) -> Dict[str, Any]:
+        """Stop streaming mode (no-op for cloud providers)
+
+        Returns:
+            Empty statistics dictionary
+        """
+        return {
+            "text": "",
+            "stats": {
+                "total_chunks": 0,
+                "streaming_mode": "not_supported",
+                "provider": self.provider_id,
+            },
+        }
+
+    def add_streaming_chunk(self, audio_chunk: np.ndarray) -> Optional[str]:
+        """Add streaming audio chunk (no-op for cloud providers)
+
+        Args:
+            audio_chunk: Audio chunk data
+
+        Returns:
+            None (cloud providers don't support streaming)
+        """
+        app_logger.log_audio_event(
+            "Streaming chunk ignored by cloud provider",
+            {
+                "provider": self.provider_id,
+                "chunk_length": len(audio_chunk),
+                "note": "Use complete audio transcription instead",
+            },
+        )
+        return None
+
     def __del__(self):
         """Cleanup on destruction"""
         try:
