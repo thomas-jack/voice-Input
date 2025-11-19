@@ -441,6 +441,10 @@ class Win32HotkeyManager(IHotkeyService):
                             normalized_hotkey, error_code
                         )
 
+                        # Check if running as admin
+                        import ctypes
+                        is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+
                         # Log conflict details
                         app_logger.log_audio_event(
                             "Win32 hotkey conflict detected",
@@ -449,6 +453,8 @@ class Win32HotkeyManager(IHotkeyService):
                                 "error_code": error_code,
                                 "error_message": "Hotkey already registered by another application",
                                 "suggestions": registration_error.suggestions,
+                                "running_as_admin": is_admin,
+                                "note": "If error_code is 1409 and running_as_admin is False, the conflicting app may be running with admin privileges. Try running SonicInput as administrator."
                             },
                         )
                         return

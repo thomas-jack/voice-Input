@@ -28,19 +28,22 @@ def show_hotkey_conflict_error(
         f"The hotkey '{conflicting_hotkey}' is already in use by another application."
     )
     message += "\n\n"
-    message += "This could be:"
-    message += "\n- Your web browser (F12 is common for developer tools)"
-    message += "\n- Another application with global hotkeys"
+    message += "Common causes:"
+    message += "\n- Web browser developer tools (F12 is commonly used)"
+    message += "\n- Another application running with administrator privileges"
+    message += "\n- Game launchers or recording software"
     message += "\n- System shortcuts"
+    message += "\n\n"
+    message += "Solutions:"
+    message += "\n1. Change the hotkey in Settings (recommended)"
+    message += "\n2. Run SonicInput as administrator (if the conflicting app is admin)"
+    message += "\n3. Close the conflicting application"
 
     if suggestions:
         message += "\n\n"
-        message += "Suggested alternatives:"
+        message += "Suggested alternative hotkeys:"
         for i, suggestion in enumerate(suggestions, 1):
-            message += f"\n{i}. {suggestion.upper()}"
-
-    message += "\n\n"
-    message += "You can change the hotkey in Settings > Hotkeys tab."
+            message += f"\n  - {suggestion.upper()}"
 
     msg_box.setText(message)
 
