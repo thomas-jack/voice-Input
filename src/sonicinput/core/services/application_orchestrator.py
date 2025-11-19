@@ -18,7 +18,6 @@ from ..interfaces import (
     ISpeechService,
     IInputService,
     IHotkeyService,
-    IConfigReloadService,
 )
 from ...utils import app_logger, VoiceInputError
 
@@ -30,7 +29,6 @@ class InitializationPhase(Enum):
     CORE_SERVICES = "core_services"
     CONTROLLERS = "controllers"
     HOTKEY_SETUP = "hotkey_setup"
-    CONFIG_RELOAD = "config_reload"
     MODEL_LOADING = "model_loading"
     COMPLETED = "completed"
 
@@ -50,7 +48,6 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
-        config_reload_service: IConfigReloadService,
     ):
         """初始化应用编排器
 
@@ -58,12 +55,10 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
             config_service: 配置服务
             event_service: 事件服务
             state_manager: 状态管理器
-            config_reload_service: 配置重载服务
         """
         self.config = config_service
         self.events = event_service
         self.state = state_manager
-        self.config_reload = config_reload_service
 
         # 初始化状态
         self._current_phase = InitializationPhase.NOT_STARTED
@@ -116,9 +111,6 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
             )
             self._execute_phase(InitializationPhase.CONTROLLERS, self._init_controllers)
             self._execute_phase(InitializationPhase.HOTKEY_SETUP, self._init_hotkeys)
-            self._execute_phase(
-                InitializationPhase.CONFIG_RELOAD, self._init_config_reload
-            )
             self._execute_phase(
                 InitializationPhase.MODEL_LOADING, self._init_model_loading
             )
@@ -176,14 +168,6 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
                     app_logger.log_audio_event("Audio service cleaned up", {})
                 except Exception as e:
                     app_logger.log_error(e, "audio_service_cleanup")
-
-            # 停止配置重载监控
-            if self.config_reload and hasattr(self.config_reload, "stop_monitoring"):
-                try:
-                    self.config_reload.stop_monitoring()
-                    app_logger.log_audio_event("Config reload monitoring stopped", {})
-                except Exception as e:
-                    app_logger.log_error(e, "config_reload_stop")
 
             self._current_phase = InitializationPhase.NOT_STARTED
             self._startup_complete = False
@@ -340,20 +324,6 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
                 {"attempted": hotkeys, "failed": failed_hotkeys},
             )
             # 应用仍然可以启动，只是没有快捷键
-
-    def _init_config_reload(self) -> None:
-        """初始化配置重载阶段"""
-        if not self.config_reload:
-            raise VoiceInputError("Config reload service not available")
-
-        # 设置服务依赖
-        self.config_reload.set_speech_service(self._speech_service)
-        self.config_reload.set_audio_service(self._audio_service)
-        self.config_reload.set_hotkey_service(self._hotkey_service)
-
-        # 启动监控
-        self.config_reload.start_monitoring()
-        app_logger.log_audio_event("Config reload monitoring enabled", {})
 
     def _init_model_loading(self) -> None:
         """初始化模型加载阶段"""

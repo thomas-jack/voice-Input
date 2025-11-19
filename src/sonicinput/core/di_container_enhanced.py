@@ -15,6 +15,10 @@ from enum import Enum
 from dataclasses import dataclass, field
 import inspect
 
+# 导入新的配置重载组件
+from .services.service_registry import ServiceRegistry as ConfigReloadServiceRegistry
+from .services.config_reload_coordinator import ConfigReloadCoordinator
+
 # 接口导入
 from .interfaces.ai import IAIService
 from .interfaces.audio import IAudioService
@@ -729,6 +733,9 @@ def create_container() -> "EnhancedDIContainer":
     """创建依赖注入容器实例并注册所有服务"""
     container = EnhancedDIContainer()
 
+    # 创建配置重载服务注册中心（最先创建）
+    config_reload_registry = ConfigReloadServiceRegistry()
+
     # 显式导入接口（避免import *）
 
     # 服务实现
@@ -736,7 +743,6 @@ def create_container() -> "EnhancedDIContainer":
     from .services.state_manager import StateManager
     from .services.transcription_service import TranscriptionService
     from .services.dynamic_event_system import DynamicEventSystem
-    from .services.config_reload_service import ConfigReloadService
     from .services.application_orchestrator import ApplicationOrchestrator
     from .services.ui_event_bridge import UIEventBridge
     from ..audio import AudioRecorder
@@ -753,17 +759,20 @@ def create_container() -> "EnhancedDIContainer":
     # 状态管理器 - 单例（需要 EventService）
     container.register_singleton(IStateManager, StateManager)
 
-    # 配置重载服务 - 单例（需要多个服务依赖）
-    def create_config_reload_service(container):
-        config = container.get(IConfigService)
+    # 配置重载协调器 - 单例（替代旧的 ConfigReloadService）
+    def create_config_reload_coordinator(container):
         events = container.get(IEventService)
-        state = container.get(IStateManager)
 
-        # 创建服务实例（其他服务依赖稍后注入）
-        return ConfigReloadService(config=config, events=events, state=state)
+        # 创建配置重载协调器（使用新的 ServiceRegistry）
+        coordinator = ConfigReloadCoordinator(
+            service_registry=config_reload_registry,
+            event_service=events
+        )
+
+        return coordinator
 
     container.register_factory(
-        IConfigReloadService, create_config_reload_service, ServiceLifetime.SINGLETON
+        IConfigReloadService, create_config_reload_coordinator, ServiceLifetime.SINGLETON
     )
 
     # 历史记录服务 - 单例
@@ -869,6 +878,13 @@ def create_container() -> "EnhancedDIContainer":
         # 启动TranscriptionService
         transcription_service.start()
 
+        # 注册到配置重载服务注册中心（带工厂）
+        config_reload_registry.register(
+            "transcription_service",
+            transcription_service,
+            factory=lambda: create_speech_service(container)
+        )
+
         return transcription_service
 
     container.register_factory(
@@ -932,13 +948,11 @@ def create_container() -> "EnhancedDIContainer":
         config = container.get(IConfigService)
         events = container.get(IEventService)
         state = container.get(IStateManager)
-        config_reload = container.get(IConfigReloadService)
 
         return ApplicationOrchestrator(
             config_service=config,
             event_service=events,
             state_manager=state,
-            config_reload_service=config_reload,
         )
 
     container.register_factory(

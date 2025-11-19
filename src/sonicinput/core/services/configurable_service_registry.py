@@ -157,10 +157,6 @@ class ConfigurableServiceRegistry:
                 ),
                 "ConfigService": ("..services.config_service", "ConfigService"),
                 "StateManager": ("..services.state_manager", "StateManager"),
-                "ConfigReloadService": (
-                    "..services.config_reload_service",
-                    "ConfigReloadService",
-                ),
                 "ApplicationOrchestrator": (
                     "..services.application_orchestrator",
                     "ApplicationOrchestrator",
@@ -221,7 +217,6 @@ class ConfigurableServiceRegistry:
         """注册默认工厂函数"""
         self._service_factories.update(
             {
-                "create_config_reload_service": self._create_config_reload_service,
                 "create_audio_service": self._create_audio_service,
                 "create_speech_service": self._create_speech_service,
                 "create_ai_service": self._create_ai_service,
@@ -236,17 +231,6 @@ class ConfigurableServiceRegistry:
                 "create_ui_gpu_service": self._create_ui_gpu_service,
             }
         )
-
-    def _create_config_reload_service(self, container):
-        """创建配置重载服务工厂"""
-        from ..interfaces import IConfigService, IEventService, IStateManager
-        from ..services.config_reload_service import ConfigReloadService
-
-        config = container.get(IConfigService)
-        events = container.get(IEventService)
-        state = container.get(IStateManager)
-
-        return ConfigReloadService(config=config, events=events, state=state)
 
     def _create_audio_service(self, container):
         """创建音频服务工厂"""
@@ -331,20 +315,17 @@ class ConfigurableServiceRegistry:
             IConfigService,
             IEventService,
             IStateManager,
-            IConfigReloadService,
         )
         from ..services.application_orchestrator import ApplicationOrchestrator
 
         config = container.get(IConfigService)
         events = container.get(IEventService)
         state = container.get(IStateManager)
-        config_reload = container.get(IConfigReloadService)
 
         return ApplicationOrchestrator(
             config_service=config,
             event_service=events,
             state_manager=state,
-            config_reload_service=config_reload,
         )
 
     def _create_ui_event_bridge(self, container):

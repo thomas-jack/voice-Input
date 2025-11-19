@@ -86,15 +86,6 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "description": "历史记录存储服务，负责录音历史持久化",
                 "priority": 4,
             },
-            "config_reload_service": {
-                "interface": "IConfigReloadService",
-                "implementation": "ConfigReloadService",
-                "lifetime": "singleton",
-                "dependencies": ["config_service", "event_service", "state_manager"],
-                "factory": "create_config_reload_service",
-                "description": "配置热重载服务，负责配置变更监控",
-                "priority": 5,
-            },
             "audio_service": {
                 "interface": "IAudioService",
                 "implementation": "AudioRecorder",
@@ -102,7 +93,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_audio_service",
                 "description": "音频录制服务，负责音频数据采集",
-                "priority": 6,
+                "priority": 5,
             },
             "speech_service": {
                 "interface": "ISpeechService",
@@ -111,7 +102,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service", "event_service"],
                 "factory": "create_speech_service",
                 "description": "语音识别服务，负责语音转文字",
-                "priority": 7,
+                "priority": 6,
             },
             "ai_service": {
                 "interface": "IAIService",
@@ -120,7 +111,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_ai_service",
                 "description": "AI处理服务，负责文本优化和处理",
-                "priority": 8,
+                "priority": 7,
             },
             "input_service": {
                 "interface": "IInputService",
@@ -129,7 +120,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["config_service"],
                 "factory": "create_input_service",
                 "description": "智能输入服务，负责文本输入模拟",
-                "priority": 9,
+                "priority": 8,
             },
             "hotkey_service": {
                 "interface": "IHotkeyService",
@@ -148,11 +139,10 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                     "config_service",
                     "event_service",
                     "state_manager",
-                    "config_reload_service",
                 ],
                 "factory": "create_application_orchestrator",
                 "description": "应用编排器，负责应用启动流程管理",
-                "priority": 11,
+                "priority": 9,
             },
             "ui_event_bridge": {
                 "interface": "IUIEventBridge",
@@ -161,7 +151,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                 "dependencies": ["event_service"],
                 "factory": "create_ui_event_bridge",
                 "description": "UI事件桥接器，负责UI层事件通信",
-                "priority": 12,
+                "priority": 11,
             },
         }
 
