@@ -289,11 +289,15 @@ class ApplyTransaction:
         """
         try:
             app_logger.debug(f"事务式保存配置: {len(changes)} 项")
+
+            # 直接使用 config_service 的 set_setting 并指定 immediate=True
+            # 这样每次设置都会立即保存并触发 config.changed 事件，确保热重载立即生效
+            config_service = self._settings_service.config_service
             for key, value in changes.items():
-                self._settings_service.set_setting(key, value)
-            # 保存到文件
-            self._settings_service.save_settings()
-            app_logger.debug("配置保存成功")
+                # 使用 immediate=True 确保立即保存并触发热重载事件
+                config_service.set_setting(key, value, immediate=True)
+
+            app_logger.debug("配置保存成功（已触发热重载事件）")
         except Exception as e:
             app_logger.error(f"配置保存失败: {e}")
             raise
