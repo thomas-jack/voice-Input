@@ -109,18 +109,22 @@ class VoiceInputApp:
             self._input_service = self.container.get(IInputService)
             self._history_service = self.container.get(IHistoryStorageService)
 
-            # 初始化快捷键服务（支持win32和pynput后端）
-            from .hotkey_manager import create_hotkey_manager
+            # 初始化快捷键服务（从 DI 容器获取，确保被注册到 config_reload_registry）
+            # HotkeyService 在创建时已经注册了所有热键
+            # 通过事件系统处理热键触发
+            self._hotkey_service = self.container.get(IHotkeyService)
+
+            # 订阅热键触发事件
+            self.events.subscribe("hotkey_triggered", self._on_hotkey_triggered)
+
+            # 获取后端信息用于日志
             from .hotkey_config_helper import get_hotkeys_from_config
 
-            # 读取配置确定后端
-            _, backend = get_hotkeys_from_config(self.config)
+            hotkeys, backend = get_hotkeys_from_config(self.config)
 
-            self._hotkey_service = create_hotkey_manager(
-                self._on_hotkey_triggered, backend=backend, config=self.config
-            )
             app_logger.log_audio_event(
-                "Hotkey service created with backend", {"backend": backend}
+                "Hotkey service initialized from container",
+                {"backend": backend, "registered_hotkeys": hotkeys},
             )
 
             # 初始化控制器
@@ -203,8 +207,13 @@ class VoiceInputApp:
 
         app_logger.log_audio_event("All controllers initialized", {})
 
-    def _on_hotkey_triggered(self, action: str) -> None:
-        """快捷键触发处理"""
+    def _on_hotkey_triggered(self, event_data: dict) -> None:
+        """快捷键触发处理（事件回调）
+
+        Args:
+            event_data: 事件数据，包含 {"action": "toggle_recording"}
+        """
+        action = event_data.get("action", "toggle_recording")
         if action == "toggle_recording":
             self.toggle_recording()
 

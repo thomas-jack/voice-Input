@@ -949,18 +949,22 @@ def create_container() -> "EnhancedDIContainer":
 
     # 快捷键服务 - 单例（需要热重载支持）
     def create_hotkey_service(container):
-        # 创建一个空的回调函数，在VoiceInputApp中会被替换
-        def dummy_callback(action: str):
-            pass
-
         # 读取配置以确定使用哪个后端
         config = container.get(IConfigService)
 
-        # 使用 HotkeyService 包装器（支持配置热重载）
-        hotkey_service = HotkeyService(config, dummy_callback)
+        # 创建一个回调函数（调用录音控制器）
+        # 注意：此时录音控制器可能还未创建，所以使用延迟绑定
+        def hotkey_callback(action: str):
+            # 通过事件系统触发，而不是直接调用录音控制器
+            # 这样可以解耦 HotkeyService 和 VoiceInputApp
+            event_service = container.get(IEventService)
+            event_service.emit("hotkey_triggered", {"action": action})
 
-        # 初始化服务
-        hotkey_service.initialize()
+        # 使用 HotkeyService 包装器（支持配置热重载）
+        hotkey_service = HotkeyService(config, hotkey_callback)
+
+        # 初始化服务 (传入空的配置字典，因为 HotkeyService 从 config_service 读取配置)
+        hotkey_service.initialize({})
 
         # 注册到配置重载服务注册中心（带工厂）
         config_reload_registry.register(

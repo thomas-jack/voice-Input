@@ -52,12 +52,20 @@ class HotkeyService(LifecycleComponent):
         self._current_backend: str = ""
         self._current_keys: List[str] = []
 
-    def _on_initialize(self) -> None:
-        """初始化服务：创建热键管理器"""
+    def _do_initialize(self, config: dict) -> bool:
+        """初始化服务：创建热键管理器
+
+        Args:
+            config: 初始化配置
+
+        Returns:
+            True if initialization successful
+        """
         try:
             # 读取配置
             if not self._config_service:
-                raise RuntimeError("Config service is not initialized")
+                app_logger.log_error(Exception("Config service is not initialized"), "HotkeyService._do_initialize")
+                return False
 
             # 使用 get_setting 获取配置
             backend: str = self._config_service.get_setting("hotkeys.backend", "pynput")
@@ -86,16 +94,22 @@ class HotkeyService(LifecycleComponent):
                 {
                     "backend": backend,
                     "keys": keys,
-                    "manager_type": type(self._manager).__name__,
+                    "manager_type": type(self._manager).__name__ if self._manager else "None",
                 }
             )
 
-        except Exception as e:
-            app_logger.log_error(e, "HotkeyService._on_initialize")
-            raise
+            return True
 
-    def _on_start(self) -> None:
-        """启动服务：开始监听热键"""
+        except Exception as e:
+            app_logger.log_error(e, "HotkeyService._do_initialize")
+            return False
+
+    def _do_start(self) -> bool:
+        """启动服务：开始监听热键
+
+        Returns:
+            True if start successful
+        """
         try:
             if self._manager:
                 success = self._manager.start_listening()
@@ -104,17 +118,24 @@ class HotkeyService(LifecycleComponent):
                         "HotkeyService started listening",
                         {"backend": self._current_backend}
                     )
+                    return True
                 else:
                     app_logger.log_audio_event(
                         "HotkeyService failed to start listening",
                         {"backend": self._current_backend}
                     )
+                    return False
+            return False
         except Exception as e:
-            app_logger.log_error(e, "HotkeyService._on_start")
-            raise
+            app_logger.log_error(e, "HotkeyService._do_start")
+            return False
 
-    def _on_stop(self) -> None:
-        """停止服务：停止监听热键"""
+    def _do_stop(self) -> bool:
+        """停止服务：停止监听热键
+
+        Returns:
+            True if stop successful
+        """
         try:
             if self._manager:
                 self._manager.stop_listening()
@@ -122,11 +143,17 @@ class HotkeyService(LifecycleComponent):
                     "HotkeyService stopped listening",
                     {"backend": self._current_backend}
                 )
+            return True
         except Exception as e:
-            app_logger.log_error(e, "HotkeyService._on_stop")
+            app_logger.log_error(e, "HotkeyService._do_stop")
+            return False
 
-    def _on_cleanup(self) -> None:
-        """清理服务：清理热键管理器"""
+    def _do_cleanup(self) -> bool:
+        """清理服务：清理热键管理器
+
+        Returns:
+            True if cleanup successful
+        """
         try:
             if self._manager:
                 # 注销所有热键
@@ -139,8 +166,10 @@ class HotkeyService(LifecycleComponent):
                     "HotkeyService cleaned up",
                     {"backend": self._current_backend}
                 )
+            return True
         except Exception as e:
-            app_logger.log_error(e, "HotkeyService._on_cleanup")
+            app_logger.log_error(e, "HotkeyService._do_cleanup")
+            return False
 
     def _create_manager(self, backend: str) -> None:
         """创建热键管理器

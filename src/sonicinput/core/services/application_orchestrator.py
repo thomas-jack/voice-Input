@@ -248,82 +248,32 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
                 raise VoiceInputError(f"Controller '{controller_name}' not initialized")
 
     def _init_hotkeys(self) -> None:
-        """初始化快捷键阶段"""
+        """初始化快捷键阶段
+
+        注意：HotkeyService 已经在初始化时注册了热键，
+        这里启动热键监听。
+        """
         if not self._hotkey_service:
             raise VoiceInputError("Hotkey service not available")
 
-        # 支持多快捷键配置（新旧格式兼容）
+        # 获取热键配置用于日志记录
         from ..hotkey_config_helper import get_hotkeys_from_config
-        from ..hotkey_manager_win32 import HotkeyConflictError
-        from ...utils import HotkeyRegistrationError
 
         hotkeys, backend = get_hotkeys_from_config(self.config)
 
-        # 注册所有快捷键，处理冲突
-        registered_count = 0
-        failed_hotkeys = []
+        # HotkeyService 已经在 _on_initialize 中注册了热键
+        # 现在启动监听
+        if hasattr(self._hotkey_service, "start"):
+            self._hotkey_service.start()
 
-        for hotkey in hotkeys:
-            if hotkey and hotkey.strip():
-                try:
-                    self._hotkey_service.register_hotkey(
-                        hotkey.strip(), "toggle_recording"
-                    )
-                    registered_count += 1
-                    app_logger.log_audio_event(
-                        "Hotkey registered successfully", {"hotkey": hotkey.strip()}
-                    )
-                except HotkeyConflictError as e:
-                    # 记录冲突但不中断启动
-                    failed_hotkeys.append(hotkey.strip())
-                    app_logger.log_audio_event(
-                        "Hotkey conflict detected",
-                        {"hotkey": hotkey.strip(), "suggestions": e.suggestions},
-                    )
-                    # 发送事件通知UI
-                    self.events.emit(
-                        "HOTKEY_CONFLICT",
-                        {
-                            "hotkey": e.hotkey,
-                            "suggestions": e.suggestions,
-                            "error_code": e.error_code,
-                        },
-                    )
-                except HotkeyRegistrationError as e:
-                    # 记录注册错误但不中断启动
-                    failed_hotkeys.append(hotkey.strip())
-                    app_logger.log_error(e, f"hotkey_registration_{hotkey}")
-                    self.events.emit(
-                        "HOTKEY_REGISTRATION_ERROR",
-                        {
-                            "hotkey": hotkey.strip(),
-                            "error": str(e),
-                        },
-                    )
-                except Exception as e:
-                    # 记录其他异常
-                    failed_hotkeys.append(hotkey.strip())
-                    app_logger.log_error(e, f"hotkey_unexpected_error_{hotkey}")
-
-        # 至少注册了一个快捷键才启动监听
-        if registered_count > 0:
-            self._hotkey_service.start_listening()
-            app_logger.log_audio_event(
-                "Hotkeys initialized",
-                {
-                    "hotkeys": hotkeys,
-                    "registered": registered_count,
-                    "failed": len(failed_hotkeys),
-                    "failed_hotkeys": failed_hotkeys,
-                },
-            )
-        else:
-            # 所有快捷键都注册失败
-            app_logger.log_audio_event(
-                "Warning: No hotkeys registered successfully",
-                {"attempted": hotkeys, "failed": failed_hotkeys},
-            )
-            # 应用仍然可以启动，只是没有快捷键
+        app_logger.log_audio_event(
+            "Hotkey service ready",
+            {
+                "hotkeys": hotkeys,
+                "backend": backend,
+                "is_listening": self._hotkey_service.is_listening,
+            },
+        )
 
     def _init_model_loading(self) -> None:
         """初始化模型加载阶段"""

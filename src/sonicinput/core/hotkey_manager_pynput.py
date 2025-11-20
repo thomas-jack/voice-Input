@@ -843,15 +843,34 @@ class PynputHotkeyManager(IHotkeyService):
             {"old_keys": list(self.registered_hotkeys.keys()), "new_keys": new_keys},
         )
 
-        # 1. 停止旧监听器
+        # 1. 停止旧监听器并等待线程退出
         if self._listener and self._listener.running:
             self._listener.stop()
-            app_logger.log_audio_event("Pynput listener stopped", {})
+
+            # 等待 listener 线程完全退出，避免状态冲突
+            import time
+            timeout = 2.0
+            start_time = time.time()
+
+            while self._listener.is_alive():
+                elapsed = time.time() - start_time
+                if elapsed > timeout:
+                    app_logger.log_audio_event(
+                        "Listener thread stop timeout during reload",
+                        {
+                            "timeout_seconds": timeout,
+                            "still_alive": self._listener.is_alive(),
+                        },
+                    )
+                    break
+                time.sleep(0.05)
+
+            app_logger.log_audio_event("Pynput listener stopped and thread exited", {})
 
         # 2. 清空旧热键
         self.registered_hotkeys.clear()
 
-        # 3. 注册新热键
+        # 3. 注册新热键（register_hotkey 会自动调用 _restart_listener）
         for key_combo in new_keys:
             try:
                 # 使用默认动作
@@ -861,10 +880,8 @@ class PynputHotkeyManager(IHotkeyService):
                     e, f"PynputHotkeyManager.reload: Failed to register {key_combo}"
                 )
 
-        # 4. 重新启动监听器
-        if new_keys:
-            self._restart_listener()
-            app_logger.log_audio_event(
-                "Pynput hotkeys reloaded",
-                {"active_keys": list(self.registered_hotkeys.keys())},
-            )
+        # 注意：不需要再次调用 _restart_listener，因为 register_hotkey 已经调用了
+        app_logger.log_audio_event(
+            "Pynput hotkeys reloaded",
+            {"active_keys": list(self.registered_hotkeys.keys())},
+        )
