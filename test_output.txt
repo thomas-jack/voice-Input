@@ -1,0 +1,123 @@
+C:\Users\Oxidane\Documents\projects\New folder\src\sonicinput\utils\startup_diagnostics.py:159: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  import pkg_resources
+[32m2025-11-22 04:34:11.626[0m | [1mINFO    [0m | [36msonicinput.speech.sherpa_engine[0m:[36m__init__[0m:[36m62[0m - [1mSherpaEngine initialized with model: paraformer, language: zh[0m
+[32m2025-11-22 04:34:11.632[0m | [1mINFO    [0m | [36msonicinput.speech.sherpa_engine[0m:[36mload_model[0m:[36m96[0m - [1mLoading model: paraformer[0m
+[32m2025-11-22 04:34:14.904[0m | [1mINFO    [0m | [36msonicinput.speech.sherpa_engine[0m:[36mload_model[0m:[36m136[0m - [1mModel paraformer loaded successfully[0m
+=== Sonic Input ===
+Running application tests...
+[DI_CONTAINER] Starting lifecycle services...
+[DI_CONTAINER] Lifecycle services list: ['ConfigService', 'StateManager', 'HotkeyService', 'HistoryStorageService']
+[DI_CONTAINER] Processing ConfigService...
+[DI_CONTAINER] About to log_audio_event for ConfigService
+[DI_CONTAINER] About to resolve ConfigService
+[DI_CONTAINER] Resolved ConfigService, type: <class 'sonicinput.core.services.config.config_service_refactored.RefactoredConfigService'>
+[DI_CONTAINER] ConfigService has start() method: True
+[DI_CONTAINER] Calling start() for ConfigService...
+[DI_CONTAINER] start() returned: True for ConfigService
+[DI_CONTAINER] ConfigService started successfully!
+[DI_CONTAINER] Processing StateManager...
+[DI_CONTAINER] About to log_audio_event for StateManager
+[DI_CONTAINER] About to resolve StateManager
+[DI_CONTAINER] Resolved StateManager, type: <class 'sonicinput.core.services.state_manager.StateManager'>
+[DI_CONTAINER] StateManager has start() method: True
+[DI_CONTAINER] Calling start() for StateManager...
+[DI_CONTAINER] start() returned: True for StateManager
+[DI_CONTAINER] StateManager started successfully!
+[DI_CONTAINER] Processing HotkeyService...
+[DI_CONTAINER] About to log_audio_event for HotkeyService
+[DI_CONTAINER] About to resolve HotkeyService
+[DI_CONTAINER] Resolved HotkeyService, type: <class 'sonicinput.core.services.hotkey_service.HotkeyService'>
+[DI_CONTAINER] HotkeyService has start() method: True
+[DI_CONTAINER] Calling start() for HotkeyService...
+[DI_CONTAINER] start() returned: True for HotkeyService
+[DI_CONTAINER] HotkeyService started successfully!
+[DI_CONTAINER] Processing HistoryStorageService...
+[DI_CONTAINER] About to log_audio_event for HistoryStorageService
+[DI_CONTAINER] About to resolve HistoryStorageService
+[DI_CONTAINER] Resolved HistoryStorageService, type: <class 'sonicinput.core.services.storage.history_storage_service.HistoryStorageService'>
+[DI_CONTAINER] HistoryStorageService has start() method: True
+[DI_CONTAINER] Calling start() for HistoryStorageService...
+[HISTORY_STORAGE] _do_start() called
+[HISTORY_STORAGE] Getting storage path from config...
+[HISTORY_STORAGE] storage_base = auto
+[HISTORY_STORAGE] Using auto storage path, importing get_app_data_dir...
+[HISTORY_STORAGE] Calling get_app_data_dir()...
+[HISTORY_STORAGE] _storage_path set to C:\Users\Oxidane\AppData\Roaming\SonicInput\history
+[HISTORY_STORAGE] Creating storage directory...
+[HISTORY_STORAGE] Storage directory created
+[HISTORY_STORAGE] Creating recordings subdirectory...
+[HISTORY_STORAGE] Recordings subdirectory created
+[HISTORY_STORAGE] Setting database path...
+[HISTORY_STORAGE] _db_path set to C:\Users\Oxidane\AppData\Roaming\SonicInput\history\history.db
+[HISTORY_STORAGE] Calling _init_database()...
+[HISTORY_STORAGE] _init_database() returned
+[HISTORY_STORAGE] Logged database init success
+[HISTORY_STORAGE] Calling cleanup_orphaned_files()...
+[HISTORY_STORAGE] cleanup_orphaned_files() returned 0
+[HISTORY_STORAGE] Logged service start success
+[HISTORY_STORAGE] _do_start() returning True
+[DI_CONTAINER] start() returned: True for HistoryStorageService
+[DI_CONTAINER] HistoryStorageService started successfully!
+SUCCESS: Core application components loaded
+INFO: Using sherpa-onnx (CPU-only, no GPU required)
+SUCCESS: Configuration loaded: paraformer
+
+--- EventBus Tests ---
+Testing EventBus...
+  [PASS] Basic emit/on works
+  [PASS] Priority queue works (HIGH > NORMAL > LOW)
+  [PASS] Once listener only triggers once
+  [PASS] Listener exceptions don't stop other listeners
+  [PASS] Concurrent safety: 10 threads, 10 events received
+  [PASS] Statistics: 1 events, 1 listeners
+[OK] EventBus: All 6 tests passed!
+
+--- System Environment Tests ---
+Collecting system information...
+SUCCESS: System info collected - OS: Windows-10-10.0.26100-SP0
+Collecting Python environment information...
+SUCCESS: Python 3.10.18 (main, Sep  2 2025, 14:15:06) [MSC v.1944 64 bit (AMD64)] on unknown
+Checking dependency versions...
+SUCCESS: 0 dependencies checked
+Checking file system access...
+WARNING: Some file system access issues detected
+Collecting process information...
+SUCCESS: Process info collected - PID: 101180
+
+--- Model Transcription Test ---
+Initializing model test...
+[TEST] Model not loaded. Loading model...
+[TEST] Model loaded successfully
+[TEST] Generating test audio (2 seconds, low noise)...
+[TEST] Running transcription...
+[TEST] Test completed successfully
+
+============================================================
+MODEL TEST RESULTS
+============================================================
+Status: [!] NEEDS REVIEW
+
+Transcription:
+  Text: "Transcription core not available" 
+  Language: unknown
+  Confidence: 0.00%
+
+Performance:
+  Transcription Time: 0.00s
+  RTF (Real-Time Factor): 0.00x
+
+Analysis:
+  Is Hallucination: True
+  Interpretation: WARNING: Possible hallucination detected
+
+============================================================
+
+
+All tests passed! Use --gui to start the application.
+
+[CLEANUP] Cleaning up test resources...
+[CLEANUP] Shutting down voice app...
+[CLEANUP] Voice app shutdown completed
+[CLEANUP] Cleaning up container...
+[CLEANUP] Container cleanup completed
+[CLEANUP] Test cleanup completed successfully

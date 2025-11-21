@@ -31,19 +31,78 @@ class ConfigValidator:
             if not hotkey:
                 issues.append("Hotkey is not set")
 
-            # 验证Whisper配置
-            whisper_model = self._get_nested(config, "whisper.model", "")
-            valid_models = [
-                "tiny",
-                "base",
-                "small",
-                "medium",
-                "large-v3",
-                "large-v3-turbo",
-                "turbo",
-            ]
-            if whisper_model not in valid_models:
-                warnings.append(f"Unknown Whisper model: {whisper_model}")
+            # 验证转录提供商配置
+            provider = self._get_nested(config, "transcription.provider", "local")
+            valid_providers = ["local", "groq", "siliconflow", "qwen"]
+            if provider not in valid_providers:
+                warnings.append(f"Unknown transcription provider: {provider}")
+
+            # 本地 sherpa-onnx 配置验证
+            if provider == "local":
+                model = self._get_nested(
+                    config, "transcription.local.model", "paraformer"
+                )
+                valid_local_models = ["paraformer", "zipformer-small"]
+                if model not in valid_local_models:
+                    warnings.append(f"Unknown sherpa-onnx model: {model}")
+
+                streaming_mode = self._get_nested(
+                    config, "transcription.local.streaming_mode", "chunked"
+                )
+                valid_streaming_modes = ["chunked", "realtime"]
+                if streaming_mode not in valid_streaming_modes:
+                    warnings.append(f"Unknown streaming mode: {streaming_mode}")
+
+            # Groq 云服务配置验证
+            elif provider == "groq":
+                api_key = self._get_nested(config, "transcription.groq.api_key", "")
+                if not api_key:
+                    warnings.append("Groq provider is selected but API key is not set")
+
+                model = self._get_nested(
+                    config, "transcription.groq.model", "whisper-large-v3-turbo"
+                )
+                valid_groq_models = [
+                    "whisper-large-v3",
+                    "whisper-large-v3-turbo",
+                    "distil-whisper-large-v3-en",
+                ]
+                if model not in valid_groq_models:
+                    warnings.append(f"Unknown Groq model: {model}")
+
+            # SiliconFlow 云服务配置验证
+            elif provider == "siliconflow":
+                api_key = self._get_nested(
+                    config, "transcription.siliconflow.api_key", ""
+                )
+                if not api_key:
+                    warnings.append(
+                        "SiliconFlow provider is selected but API key is not set"
+                    )
+
+                model = self._get_nested(
+                    config,
+                    "transcription.siliconflow.model",
+                    "FunAudioLLM/SenseVoiceSmall",
+                )
+                # SiliconFlow 只有一个模型，但允许未来扩展
+                valid_siliconflow_models = ["FunAudioLLM/SenseVoiceSmall"]
+                if model not in valid_siliconflow_models:
+                    warnings.append(f"Unknown SiliconFlow model: {model}")
+
+            # Qwen ASR 云服务配置验证
+            elif provider == "qwen":
+                api_key = self._get_nested(config, "transcription.qwen.api_key", "")
+                if not api_key:
+                    warnings.append("Qwen provider is selected but API key is not set")
+
+                model = self._get_nested(
+                    config, "transcription.qwen.model", "qwen3-asr-flash"
+                )
+                # Qwen ASR 模型验证（基于 Qwen 文档）
+                valid_qwen_models = ["qwen3-asr-flash", "qwen2-audio-instruct"]
+                if model not in valid_qwen_models:
+                    warnings.append(f"Unknown Qwen ASR model: {model}")
 
             # 验证AI配置
             if self._get_nested(config, "ai.enabled", False):
@@ -122,11 +181,14 @@ class ConfigValidator:
                     "device_id": None,
                     "chunk_size": 1024,
                 },
-                "whisper": {
-                    "model": "large-v3-turbo",
-                    "language": "auto",
-                    "device": "auto",
-                    "compute_type": "auto",
+                "transcription": {
+                    "provider": "local",
+                    "local": {
+                        "model": "paraformer",
+                        "language": "zh",
+                        "streaming_mode": "chunked",
+                        "auto_load": True,
+                    },
                 },
                 "ui": {"show_overlay": True, "start_minimized": True},
             }

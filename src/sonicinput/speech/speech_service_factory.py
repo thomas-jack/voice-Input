@@ -5,6 +5,7 @@ Unified speech service creation logic, supporting dynamic switching between prov
 
 from typing import Optional
 from ..core.interfaces import ISpeechService, IConfigService
+from ..core.services.config import ConfigKeys
 from ..utils import app_logger
 
 
@@ -124,12 +125,12 @@ class SpeechServiceFactory:
         """
         try:
             # Read transcription provider (with fallback to legacy whisper config)
-            provider = config.get_setting("transcription.provider", "local")
+            provider = config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
 
             if provider == "local":
                 # Read local (sherpa-onnx) configuration
                 model = config.get_setting(
-                    "transcription.local.model",
+                    ConfigKeys.TRANSCRIPTION_LOCAL_MODEL,
                     "paraformer",  # 默认使用 paraformer 模型
                 )
                 # sherpa-onnx 不需要 use_gpu 参数，始终使用 CPU
@@ -139,12 +140,13 @@ class SpeechServiceFactory:
 
             elif provider == "groq":
                 # Read Groq configuration
-                api_key = config.get_setting("transcription.groq.api_key", "")
+                api_key = config.get_setting(ConfigKeys.TRANSCRIPTION_GROQ_API_KEY, "")
                 model = config.get_setting(
-                    "transcription.groq.model", "whisper-large-v3-turbo"
+                    ConfigKeys.TRANSCRIPTION_GROQ_MODEL, "whisper-large-v3-turbo"
                 )
                 base_url = config.get_setting(
-                    "transcription.groq.base_url", "https://api.groq.com/openai/v1"
+                    ConfigKeys.TRANSCRIPTION_GROQ_BASE_URL,
+                    "https://api.groq.com/openai/v1",
                 )
 
                 if not api_key:
@@ -177,12 +179,15 @@ class SpeechServiceFactory:
 
             elif provider == "siliconflow":
                 # Read SiliconFlow configuration
-                api_key = config.get_setting("transcription.siliconflow.api_key", "")
+                api_key = config.get_setting(
+                    ConfigKeys.TRANSCRIPTION_SILICONFLOW_API_KEY, ""
+                )
                 model = config.get_setting(
-                    "transcription.siliconflow.model", "FunAudioLLM/SenseVoiceSmall"
+                    ConfigKeys.TRANSCRIPTION_SILICONFLOW_MODEL,
+                    "FunAudioLLM/SenseVoiceSmall",
                 )
                 base_url = config.get_setting(
-                    "transcription.siliconflow.base_url",
+                    ConfigKeys.TRANSCRIPTION_SILICONFLOW_BASE_URL,
                     "https://api.siliconflow.cn/v1",
                 )
 
@@ -211,15 +216,17 @@ class SpeechServiceFactory:
 
             elif provider == "qwen":
                 # Read Qwen configuration
-                api_key = config.get_setting("transcription.qwen.api_key", "")
+                api_key = config.get_setting(ConfigKeys.TRANSCRIPTION_QWEN_API_KEY, "")
                 model = config.get_setting(
-                    "transcription.qwen.model", "qwen3-asr-flash"
+                    ConfigKeys.TRANSCRIPTION_QWEN_MODEL, "qwen3-asr-flash"
                 )
                 base_url = config.get_setting(
-                    "transcription.qwen.base_url",
+                    ConfigKeys.TRANSCRIPTION_QWEN_BASE_URL,
                     "https://dashscope.aliyuncs.com",
                 )
-                enable_itn = config.get_setting("transcription.qwen.enable_itn", True)
+                enable_itn = config.get_setting(
+                    ConfigKeys.TRANSCRIPTION_QWEN_ENABLE_ITN, True
+                )
 
                 if not api_key:
                     app_logger.log_audio_event(
@@ -300,7 +307,7 @@ class SpeechServiceFactory:
             ISpeechService: Local speech service instance
         """
         model = config.get_setting(
-            "transcription.local.model",
+            ConfigKeys.TRANSCRIPTION_LOCAL_MODEL,
             "paraformer",  # 默认使用 paraformer 模型
         )
         # sherpa-onnx 不需要 use_gpu 参数

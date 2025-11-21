@@ -20,6 +20,7 @@ import time
 from typing import Callable, Dict, Set, Optional, Any, Union, List
 from ..utils import HotkeyRegistrationError, app_logger
 from .interfaces import IHotkeyService
+from .base.lifecycle_component import LifecycleComponent
 
 # Windows 虚拟键码常量
 WM_KEYDOWN = 0x0100
@@ -37,10 +38,11 @@ VK_LWIN = 0x5B  # Left Windows
 VK_RWIN = 0x5C  # Right Windows
 
 
-class PynputHotkeyManager(IHotkeyService):
+class PynputHotkeyManager(LifecycleComponent, IHotkeyService):
     """全局快捷键管理 - 基于pynput实现 (需要管理员权限以获得最佳体验)"""
 
     def __init__(self, callback: Callable[[str], None]):
+        super().__init__("PynputHotkeyManager")
         self.callback = callback
         self._default_action = "toggle_recording"  # 保存默认动作
         self.registered_hotkeys: Dict[
@@ -54,6 +56,81 @@ class PynputHotkeyManager(IHotkeyService):
         app_logger.log_audio_event(
             "Pynput hotkey manager initialized (win32_event_filter)", {}
         )
+
+    def _do_start(self) -> bool:
+        """Start the hotkey listener
+
+        Returns:
+            True if start successful, False otherwise
+        """
+        if self._is_listening_flag:
+            app_logger.log_audio_event("Hotkey listening already active", {})
+            return True
+
+        # 检查是否有已注册的快捷键
+        if not self.registered_hotkeys:
+            app_logger.log_audio_event(
+                "No hotkeys registered, skipping listening start", {}
+            )
+            return False
+
+        try:
+            # 启动listener
+            self._restart_listener()
+
+            app_logger.log_audio_event(
+                "Hotkey listening started (pynput)",
+                {
+                    "registered_count": len(self.registered_hotkeys),
+                    "hotkeys": list(self.registered_hotkeys.keys()),
+                },
+            )
+            return True
+
+        except Exception as e:
+            self._is_listening_flag = False
+            app_logger.log_error(e, "start_listening")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Stop the hotkey listener and cleanup resources
+
+        Returns:
+            True if stop successful, False otherwise
+        """
+        try:
+            # 注销所有快捷键
+            hotkeys_to_remove = list(self.registered_hotkeys.keys())
+
+            for hotkey in hotkeys_to_remove:
+                # 从字典中删除，不调用unregister_hotkey避免重复restart
+                if hotkey in self.registered_hotkeys:
+                    del self.registered_hotkeys[hotkey]
+
+            # 停止listener - pynput的stop()不会阻塞键盘输入
+            if self._listener and self._is_listening_flag:
+                self._listener.stop()
+
+                # 等待 listener 线程完全退出，避免进程泄漏
+                import time
+
+                for _ in range(10):  # 最多等待 1 秒
+                    if not self._listener.is_alive():
+                        break
+                    time.sleep(0.1)
+
+                self._listener = None
+                self._is_listening_flag = False
+
+            app_logger.log_audio_event(
+                "All hotkeys unregistered and listener stopped (pynput)",
+                {"count": len(hotkeys_to_remove)},
+            )
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "pynput_hotkey_manager_stop")
+            return False
 
     @property
     def is_listening(self) -> bool:
@@ -664,32 +741,8 @@ class PynputHotkeyManager(IHotkeyService):
             return False
 
     def unregister_all_hotkeys(self) -> None:
-        """注销所有快捷键 - pynput版本不会阻塞"""
-        hotkeys_to_remove = list(self.registered_hotkeys.keys())
-
-        for hotkey in hotkeys_to_remove:
-            # 从字典中删除，不调用unregister_hotkey避免重复restart
-            if hotkey in self.registered_hotkeys:
-                del self.registered_hotkeys[hotkey]
-
-        # 停止listener - pynput的stop()不会阻塞键盘输入
-        if self._listener and self._is_listening_flag:
-            self._listener.stop()
-
-            # 等待 listener 线程完全退出，避免进程泄漏
-            import time
-
-            for _ in range(10):  # 最多等待 1 秒
-                if not self._listener.is_alive():
-                    break
-                time.sleep(0.1)
-
-            self._listener = None
-            self._is_listening_flag = False
-
-        app_logger.log_audio_event(
-            "All hotkeys unregistered (pynput)", {"count": len(hotkeys_to_remove)}
-        )
+        """注销所有快捷键 (delegates to LifecycleComponent.stop())"""
+        self.stop()
 
     def is_hotkey_registered(self, hotkey: str) -> bool:
         """检查快捷键是否已注册"""
@@ -706,47 +759,12 @@ class PynputHotkeyManager(IHotkeyService):
         }
 
     def start_listening(self) -> bool:
-        """开始监听快捷键"""
-        if self._is_listening_flag:
-            app_logger.log_audio_event("Hotkey listening already active", {})
-            return True
-
-        # 检查是否有已注册的快捷键
-        if not self.registered_hotkeys:
-            app_logger.log_audio_event(
-                "No hotkeys registered, skipping listening start", {}
-            )
-            return False
-
-        try:
-            # 启动listener
-            self._restart_listener()
-
-            app_logger.log_audio_event(
-                "Hotkey listening started (pynput)",
-                {
-                    "registered_count": len(self.registered_hotkeys),
-                    "hotkeys": list(self.registered_hotkeys.keys()),
-                },
-            )
-            return True
-
-        except Exception as e:
-            self._is_listening_flag = False
-            app_logger.log_error(e, "start_listening")
-            return False
+        """开始监听快捷键 (delegates to LifecycleComponent.start())"""
+        return self.start()
 
     def stop_listening(self) -> None:
-        """停止监听快捷键"""
-        if not self._is_listening_flag:
-            return
-
-        if self._listener:
-            self._listener.stop()
-            self._listener = None
-
-        self._is_listening_flag = False
-        app_logger.log_audio_event("Hotkey listening stopped", {})
+        """停止监听快捷键 (delegates to LifecycleComponent.stop())"""
+        self.stop()
 
     def _normalize_hotkey(self, hotkey: str) -> str:
         """规范化快捷键字符串"""
@@ -849,6 +867,7 @@ class PynputHotkeyManager(IHotkeyService):
 
             # 等待 listener 线程完全退出，避免状态冲突
             import time
+
             timeout = 2.0
             start_time = time.time()
 

@@ -17,15 +17,19 @@ from .error_recovery_service import ErrorRecoveryService
 
 from ...utils import app_logger, WhisperLoadError
 from ...core.interfaces.speech import ISpeechService
+from ...core.base.lifecycle_component import LifecycleComponent
 from ..interfaces.config_reload import (
     IConfigReloadable,
     ConfigDiff,
     ReloadResult,
     ReloadStrategy,
 )
+from .config import ConfigKeys
 
 
-class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
+class RefactoredTranscriptionService(
+    LifecycleComponent, ISpeechService, IConfigReloadable
+):
     """重构后的转录服务（支持配置热重载）
 
     采用协调器模式，将原来的复杂功能拆分为多个专职组件：
@@ -46,6 +50,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             event_service: 事件服务（可选）
             config_service: 配置服务（可选）
         """
+        super().__init__("TranscriptionService")
         self.event_service = event_service
         self.config_service = config_service
 
@@ -63,13 +68,13 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         streaming_mode = "chunked"  # 默认值
         if config_service:
             streaming_mode = config_service.get_setting(
-                "transcription.local.streaming_mode", "chunked"
+                ConfigKeys.TRANSCRIPTION_LOCAL_STREAMING_MODE, "chunked"
             )
             app_logger.audio(
                 "Reading streaming_mode from config",
                 {
                     "streaming_mode": streaming_mode,
-                    "config_key": "transcription.local.streaming_mode",
+                    "config_key": ConfigKeys.TRANSCRIPTION_LOCAL_STREAMING_MODE,
                 },
             )
         else:
@@ -87,9 +92,8 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         )
         self.error_recovery_service = ErrorRecoveryService(event_service)
 
-        # 状态管理
+        # 状态管理（LifecycleComponent 提供 _state，不需要 _is_started）
         self._service_lock = threading.RLock()
-        self._is_started = False
 
         # 注册任务处理器
         self._register_task_handlers()
@@ -99,12 +103,13 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             {"streaming_mode": streaming_mode},
         )
 
-    def start(self) -> None:
-        """启动转录服务"""
-        with self._service_lock:
-            if self._is_started:
-                return
+    def _do_start(self) -> bool:
+        """启动转录服务 - LifecycleComponent 实现
 
+        Returns:
+            True if start successful
+        """
+        with self._service_lock:
             try:
                 # 启动各个组件
                 self.model_manager.start()
@@ -139,8 +144,6 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
                         },
                     )
 
-                self._is_started = True
-
                 app_logger.audio(
                     "RefactoredTranscriptionService started",
                     {
@@ -159,34 +162,30 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
                         },
                     )
 
+                return True
+
             except Exception as e:
                 app_logger.error(
                     "Transcription service start failed",
                     e,
                     context={"error_type": "transcription_service_start_failed"},
                 )
-                self.stop()
-                raise
+                # LifecycleComponent will handle setting state to ERROR
+                return False
 
-    def stop(self, timeout: Optional[float] = None) -> None:
-        """停止转录服务
+    def _do_stop(self) -> bool:
+        """停止转录服务 - LifecycleComponent 实现
 
-        Args:
-            timeout: 停止超时时间（秒），可选参数，用于测试兼容性
+        Returns:
+            True if stop successful
         """
         with self._service_lock:
-            if not self._is_started:
-                return
-
             try:
                 # 停止流式转录
                 self.streaming_coordinator.cleanup()
 
-                # 停止任务队列（传递 timeout 参数）
-                if timeout is not None:
-                    self.task_queue_manager.stop(timeout=timeout)
-                else:
-                    self.task_queue_manager.stop()
+                # 停止任务队列
+                self.task_queue_manager.stop()
 
                 # 停止模型管理器
                 self.model_manager.stop()
@@ -194,7 +193,8 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
                 # 清理转录核心
                 self.transcription_core = None
 
-                self._is_started = False
+                # 清理错误恢复服务（合并 cleanup() 逻辑）
+                self.error_recovery_service.cleanup()
 
                 app_logger.audio("RefactoredTranscriptionService stopped", {})
 
@@ -202,12 +202,15 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
                 if self.event_service:
                     self.event_service.emit("transcription_service_stopped", {})
 
+                return True
+
             except Exception as e:
                 app_logger.error(
                     "Transcription service stop failed",
                     e,
                     context={"error_type": "transcription_service_stop_failed"},
                 )
+                return False
 
     def transcribe(
         self,
@@ -247,7 +250,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         Returns:
             任务ID
         """
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         # 准备任务数据
@@ -288,7 +291,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         Returns:
             转录结果
         """
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         if not self.transcription_core:
@@ -336,7 +339,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
 
     def start_streaming(self) -> None:
         """开始流式转录模式"""
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         self.streaming_coordinator.start_streaming()
@@ -456,7 +459,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         Returns:
             块ID
         """
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         return self.streaming_coordinator.add_streaming_chunk(audio_data)
@@ -494,7 +497,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
 
     def unload_model_async(self) -> None:
         """卸载模型（异步）"""
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         self.model_manager.unload_model()
@@ -545,7 +548,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         Returns:
             True如果重载成功
         """
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         success = self.model_manager.reload_model(model_name, use_gpu)
@@ -565,7 +568,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             True如果服务已启动且模型已加载
         """
         return (
-            self._is_started
+            self.is_running
             and self.model_manager.is_model_loaded()
             and self.transcription_core is not None
         )
@@ -577,7 +580,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             服务状态信息
         """
         status = {
-            "service_started": self._is_started,
+            "service_started": self.is_running,
             "model_status": self.model_manager.get_model_info(),
             "streaming_status": self.streaming_coordinator.get_stats(),
             "task_queue_status": self.task_queue_manager.get_stats(),
@@ -653,7 +656,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         if not self.ensure_transcription_core():
             # 提供详细的错误信息帮助诊断
             error_info = {
-                "service_started": self._is_started,
+                "service_started": self.is_running,
                 "model_loaded": self.model_manager.is_model_loaded()
                 if self.model_manager
                 else False,
@@ -754,7 +757,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         if not self.transcription_core:
             # 提供详细的错误信息帮助诊断
             error_info = {
-                "service_started": self._is_started,
+                "service_started": self.is_running,
                 "model_loaded": self.model_manager.is_model_loaded()
                 if self.model_manager
                 else False,
@@ -816,7 +819,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             return
 
         new_mode = self.config_service.get_setting(
-            "transcription.local.streaming_mode", "chunked"
+            ConfigKeys.TRANSCRIPTION_LOCAL_STREAMING_MODE, "chunked"
         )
 
         # 只有在非活动状态下才能更改
@@ -831,14 +834,8 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             )
 
     def cleanup(self) -> None:
-        """清理资源"""
+        """清理资源 - 向后兼容方法，内部调用 stop()"""
         self.stop()
-
-        # 清理各个组件
-        self.streaming_coordinator.cleanup()
-        self.error_recovery_service.cleanup()
-
-        app_logger.audio("RefactoredTranscriptionService cleaned up", {})
 
     # Backward compatibility properties - 这些属性用于UI显示
     @property
@@ -883,7 +880,7 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
         Returns:
             是否加载成功
         """
-        if not self._is_started:
+        if not self.is_running:
             raise RuntimeError("Transcription service is not started")
 
         return self.model_manager.load_model(model_name)
@@ -1072,7 +1069,9 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
             )
 
             return ReloadResult(
-                success=True, message="Preparation successful", rollback_data=rollback_data
+                success=True,
+                message="Preparation successful",
+                rollback_data=rollback_data,
             )
 
         except Exception as e:
@@ -1200,7 +1199,9 @@ class RefactoredTranscriptionService(ISpeechService, IConfigReloadable):
                 )
 
             else:
-                return ReloadResult(success=False, message=f"Unknown strategy: {strategy}")
+                return ReloadResult(
+                    success=False, message=f"Unknown strategy: {strategy}"
+                )
 
         except Exception as e:
             app_logger.error(

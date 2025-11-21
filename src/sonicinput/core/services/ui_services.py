@@ -10,8 +10,8 @@ from ..interfaces import (
     IConfigService,
     IStateManager,
     ISpeechService,
-    IHistoryStorageService,
 )
+from ..services.storage.history_storage_service import HistoryStorageService
 from ...utils import app_logger
 
 
@@ -117,7 +117,7 @@ class UISettingsService:
         self,
         config_service: IConfigService,
         event_service: IEventService,
-        history_service: IHistoryStorageService,
+        history_service: HistoryStorageService,
         transcription_service=None,
         ai_processing_controller=None,
     ):
@@ -196,7 +196,7 @@ class UISettingsService:
         """获取事件服务"""
         return self.event_service
 
-    def get_history_service(self) -> IHistoryStorageService:
+    def get_history_service(self) -> HistoryStorageService:
         """获取历史记录存储服务"""
         return self.history_service
 

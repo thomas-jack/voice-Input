@@ -85,8 +85,8 @@ class BaseController(ABC):
         Example:
             def _get_component_context(self):
                 return {
-                    "ai_enabled": self._config.get_setting("ai.enabled"),
-                    "provider": self._config.get_setting("ai.provider"),
+                    "ai_enabled": self._config.get_setting(ConfigKeys.AI_ENABLED),
+                    "provider": self._config.get_setting(ConfigKeys.AI_PROVIDER),
                     "version": "1.0"
                 }
         """

@@ -4,6 +4,7 @@ from PySide6.QtGui import QGuiApplication, QScreen
 from PySide6.QtCore import QPoint
 from typing import Dict, Any, Optional, Tuple, TYPE_CHECKING
 from ...utils import app_logger
+from ...core.services.config import ConfigKeys
 
 if TYPE_CHECKING:
     from ...core.interfaces import IConfigService
@@ -275,6 +276,7 @@ class PositionManager:
                 return
 
             # 验证ui.overlay_position存在且为字典
+            # Note: This is a parent key check, no ConfigKey constant exists for parent structure
             overlay_pos = self.config_service.get_setting("ui.overlay_position", None)
             if not isinstance(overlay_pos, dict):
                 app_logger.log_audio_event(
@@ -299,11 +301,11 @@ class PositionManager:
 
             # 验证custom子结构
             custom_pos = self.config_service.get_setting(
-                "ui.overlay_position.custom", None
+                ConfigKeys.UI_OVERLAY_POSITION_CUSTOM, None
             )
             if not isinstance(custom_pos, dict):
                 self.config_service.set_setting(
-                    "ui.overlay_position.custom", {"x": 0, "y": 0}
+                    ConfigKeys.UI_OVERLAY_POSITION_CUSTOM, {"x": 0, "y": 0}
                 )
 
             app_logger.log_audio_event("Overlay config structure verified", {})
@@ -319,19 +321,19 @@ class PositionManager:
         try:
             # 获取配置中的位置模式
             position_mode = self.config_service.get_setting(
-                "ui.overlay_position.mode", "preset"
+                ConfigKeys.UI_OVERLAY_POSITION_MODE, "preset"
             )
 
             if position_mode == "custom":
                 # 自定义位置模式
                 saved_x = self.config_service.get_setting(
-                    "ui.overlay_position.custom.x", 0
+                    ConfigKeys.UI_OVERLAY_POSITION_CUSTOM_X, 0
                 )
                 saved_y = self.config_service.get_setting(
-                    "ui.overlay_position.custom.y", 0
+                    ConfigKeys.UI_OVERLAY_POSITION_CUSTOM_Y, 0
                 )
                 last_screen_info = self.config_service.get_setting(
-                    "ui.overlay_position.last_screen", {}
+                    ConfigKeys.UI_OVERLAY_POSITION_LAST_SCREEN, {}
                 )
 
                 if last_screen_info:
@@ -362,7 +364,7 @@ class PositionManager:
             else:
                 # 预设位置模式
                 preset_position = self.config_service.get_setting(
-                    "ui.overlay_position.preset", "center"
+                    ConfigKeys.UI_OVERLAY_POSITION_PRESET, "center"
                 )
                 self.set_preset_position(preset_position)
                 app_logger.log_audio_event(

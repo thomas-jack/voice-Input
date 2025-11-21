@@ -1,70 +1,679 @@
-"""依赖注入容器 - 重构后的新实现
+"""Simplified Dependency Injection Container
 
-重构目标：
-- 使用服务描述符模式，支持多种生命周期
-- 支持循环依赖检测
-- 支持服务装饰和配置驱动注册
-- 简化使用方式
-
-新的特性：
-1. ServiceLifetime - 支持单例、瞬态、作用域
-2. ServiceDescriptor - 描述服务配置
-3. 自动依赖注入 - 支持构造函数注入
-4. 插件化 - 支持服务装饰器
-
-使用方法：
-```python
-# 创建容器
-container = EnhancedDIContainer()
-
-# 注册服务
-container.register_singleton(IEventService, EventBus)
-container.register_transient(IAIService, GroqClient)
-
-# 获取服务
-event_service = container.get(IEventService)
-ai_service = container.get(IAIService)
-
-# 创建作用域
-with container.create_scope() as scope:
-    scoped_service = scope.get(IScopedService)
-```
-
-注意：新的API与旧版本不同，设计更简洁现代。
+Minimal DI container following YAGNI principle.
+Only provides essential features actually needed by the application.
 """
 
-# 直接导入增强版实现
-from .di_container_enhanced import (
-    EnhancedDIContainer,
-    ServiceLifetime,
-    ServiceDescriptor,
-    ServiceScope,
-    ServiceRegistry,
+from typing import Dict, Type, TypeVar, Callable, Any
+from enum import Enum
+
+# Interface imports for create_container()
+from .interfaces import (
+    IAIService,
+    IInputService,
+    IHotkeyService,
+    IHistoryStorageService,
+    IApplicationOrchestrator,
+    IUIEventBridge,
+)
+from .interfaces.audio import IAudioService
+from .interfaces.ui_main_service import (
+    IUIMainService,
+    IUISettingsService,
+    IUIModelService,
+    IUIAudioService,
+    IUIGPUService,
 )
 
-# 主要API - 直接使用增强版实现
-DIContainer = EnhancedDIContainer
+# Global singleton instance for HistoryStorageService
+# This must be at module level to work with global keyword in create_history_service()
+_history_service_instance = None
 
-# 导出工厂函数
-from .di_container_enhanced import create_container, create_enhanced_container
-from .configurable_container_factory import (
-    ConfigurableContainerFactory,
-    create_configurable_container,
-    create_container_from_env,
-)
+T = TypeVar("T")
 
-__all__ = [
-    "DIContainer",
-    "EnhancedDIContainer",
-    # 核心类型
-    "ServiceLifetime",
-    "ServiceDescriptor",
-    "ServiceScope",
-    "ServiceRegistry",
-    # 工厂函数
-    "create_container",
-    "create_enhanced_container",
-    "ConfigurableContainerFactory",
-    "create_configurable_container",
-    "create_container_from_env",
-]
+
+class Lifetime(Enum):
+    """Service lifetime"""
+
+    SINGLETON = "singleton"  # One instance for the entire application
+    TRANSIENT = "transient"  # New instance each time
+
+
+class DIContainer:
+    """Simplified dependency injection container
+
+    Provides only 3 core responsibilities:
+    1. Service registration
+    2. Singleton management
+    3. Dependency resolution
+
+    Usage:
+        container = DIContainer()
+
+        # Register singleton
+        container.register_singleton(IMyService, MyServiceImpl)
+
+        # Register transient
+        container.register_transient(IMyService, MyServiceImpl)
+
+        # Register with factory
+        container.register_singleton(
+            IConfigService,
+            factory=lambda: ConfigService(config_path)
+        )
+
+        # Resolve service
+        service = container.resolve(IMyService)
+    """
+
+    def __init__(self):
+        """Initialize DI container"""
+        # Core storage
+        self._registrations: Dict[Type, tuple[Callable, Lifetime]] = {}
+        self._singletons: Dict[Type, Any] = {}
+
+    def register_singleton(
+        self,
+        interface: Type[T],
+        implementation: Type[T] = None,
+        factory: Callable[[], T] = None,
+    ) -> "DIContainer":
+        """Register a singleton service
+
+        Args:
+            interface: Service interface type
+            implementation: Service implementation type (if not using factory)
+            factory: Factory function to create service (if not using implementation)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            container.register_singleton(IConfigService, ConfigService)
+            container.register_singleton(ILogger, factory=lambda: Logger("app"))
+        """
+        if implementation is None and factory is None:
+            # Self-registration (interface is also implementation)
+            implementation = interface
+
+        creator = factory if factory else lambda: self._create(implementation)
+        self._registrations[interface] = (creator, Lifetime.SINGLETON)
+        return self
+
+    def register_transient(
+        self,
+        interface: Type[T],
+        implementation: Type[T] = None,
+        factory: Callable[[], T] = None,
+    ) -> "DIContainer":
+        """Register a transient service (new instance each time)
+
+        Args:
+            interface: Service interface type
+            implementation: Service implementation type (if not using factory)
+            factory: Factory function to create service (if not using implementation)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            container.register_transient(IRequestHandler, RequestHandler)
+        """
+        if implementation is None and factory is None:
+            implementation = interface
+
+        creator = factory if factory else lambda: self._create(implementation)
+        self._registrations[interface] = (creator, Lifetime.TRANSIENT)
+        return self
+
+    def resolve(self, interface: Type[T]) -> T:
+        """Resolve a service instance
+
+        Args:
+            interface: Service interface type to resolve
+
+        Returns:
+            Service instance
+
+        Raises:
+            ValueError: If service not registered
+
+        Example:
+            config = container.resolve(IConfigService)
+        """
+        if interface not in self._registrations:
+            raise ValueError(f"Service {interface.__name__} not registered")
+
+        creator, lifetime = self._registrations[interface]
+
+        # Singleton: reuse existing instance
+        if lifetime == Lifetime.SINGLETON:
+            if interface not in self._singletons:
+                self._singletons[interface] = creator()
+            return self._singletons[interface]
+
+        # Transient: create new instance
+        return creator()
+
+    def _create(self, service_type: Type[T]) -> T:
+        """Create service instance with dependency resolution
+
+        Args:
+            service_type: Type to instantiate
+
+        Returns:
+            Service instance
+
+        Note:
+            This is a simple implementation that does NOT handle:
+            - Constructor parameter injection
+            - Circular dependency detection
+            Circular dependencies must be avoided manually.
+        """
+        try:
+            # Simple instantiation without dependency injection
+            # If the service needs dependencies, use factory function instead
+            return service_type()
+        except Exception as e:
+            raise RuntimeError(
+                f"Failed to create {service_type.__name__}: {e}. "
+                f"If this service has dependencies, register it with a factory function."
+            )
+
+    def is_registered(self, interface: Type) -> bool:
+        """Check if service is registered
+
+        Args:
+            interface: Service interface type
+
+        Returns:
+            True if registered, False otherwise
+        """
+        return interface in self._registrations
+
+    def clear(self) -> None:
+        """Clear all registrations and singletons
+
+        Useful for testing or resetting the container.
+        """
+        self._registrations.clear()
+        self._singletons.clear()
+
+    # Backward compatibility aliases
+    def get(self, interface: Type[T]) -> T:
+        """Alias for resolve() - backward compatibility
+
+        Args:
+            interface: Service interface type to resolve
+
+        Returns:
+            Service instance
+        """
+        return self.resolve(interface)
+
+    def cleanup(self) -> None:
+        """Alias for clear() - backward compatibility
+
+        Clears all registrations and singletons.
+        """
+        self.clear()
+
+
+# Migrated from di_container_enhanced.py (Phase 3.5.2a)
+def create_container() -> "DIContainer":
+    """创建依赖注入容器实例并注册所有服务"""
+    container = DIContainer()
+
+    # NOTE: ConfigReloadServiceRegistry removed in Phase 2 refactor
+    # TODO: Replace with new HotReloadManager in Phase 3.5
+    # config_reload_registry = ConfigReloadServiceRegistry()
+
+    # 显式导入接口（避免import *）
+    from .interfaces import IEventService, IConfigService, IStateManager, ISpeechService
+
+    # 服务实现
+    from .services.config.config_service_refactored import RefactoredConfigService
+    from .services.state_manager import StateManager
+    from .services.transcription_service_refactored import (
+        RefactoredTranscriptionService,
+    )
+    from .services.dynamic_event_system import DynamicEventSystem
+    from .services.application_orchestrator import ApplicationOrchestrator
+    from .services.ui_event_bridge import UIEventBridge
+    from ..audio import AudioRecorder
+    from ..ai import AIClientFactory
+    from ..input import SmartTextInput
+    from .services.hotkey_service import HotkeyService
+    from .services.hot_reload_manager import HotReloadManager
+
+    # 事件服务 - 单例（最先创建，因为其他服务依赖它）
+    container.register_singleton(IEventService, DynamicEventSystem)
+
+    # 配置服务 - 单例（需要 EventService）
+    def create_config_service(container):
+        event_service = container.resolve(IEventService)
+        return RefactoredConfigService(config_path=None, event_service=event_service)
+
+    container.register_singleton(
+        IConfigService, factory=lambda: create_config_service(container)
+    )
+
+    # 状态管理器 - 单例（需要 EventService）
+    container.register_singleton(IStateManager, StateManager)
+
+    # Hot Reload Manager - 单例 (Phase 3.5.2b: Registered for VoiceInputApp)
+    container.register_singleton(HotReloadManager, HotReloadManager)
+
+    # TODO (Phase 2.3): Replace with HotReloadManager
+    # 配置重载协调器已删除,将在Phase 2.3实现新的HotReloadManager
+    # def create_config_reload_coordinator(container):
+    #     ...
+    # container.register_singleton(
+    #     IConfigReloadService, factory=create_config_reload_coordinator
+    # )
+
+    # 历史记录服务 - 单例
+    # IMPORTANT: Create instance eagerly and reuse it for true singleton behavior
+    from .services.storage import HistoryStorageService
+
+    def create_history_service(container):
+        global _history_service_instance
+        if _history_service_instance is None:
+            config = container.resolve(IConfigService)
+            _history_service_instance = HistoryStorageService(config)
+        return _history_service_instance
+
+    container.register_singleton(
+        IHistoryStorageService, factory=lambda: create_history_service(container)
+    )
+
+    # Also register concrete class for backward compatibility
+    container.register_singleton(
+        HistoryStorageService, factory=lambda: create_history_service(container)
+    )
+
+    # 音频服务 - 瞬态
+    def create_audio_service(container):
+        config = container.resolve(IConfigService)
+        from .services.config import ConfigKeys
+
+        sample_rate = config.get_setting(ConfigKeys.AUDIO_SAMPLE_RATE, 16000)
+        channels = config.get_setting(ConfigKeys.AUDIO_CHANNELS, 1)
+        chunk_size = config.get_setting(ConfigKeys.AUDIO_CHUNK_SIZE, 1024)
+
+        return AudioRecorder(
+            sample_rate=sample_rate,
+            channels=channels,
+            chunk_size=chunk_size,
+            config_service=config,
+        )
+
+    container.register_transient(
+        IAudioService, factory=lambda: create_audio_service(container)
+    )
+
+    # 语音服务 - 单例（最复杂的服务）
+    def create_speech_service(container):
+        config = container.resolve(IConfigService)
+        event_service = container.resolve(IEventService)
+        from .services.config import ConfigKeys
+
+        # 智能检测：如果配置是 local 但环境不支持，自动切换到云服务
+        provider = config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
+
+        if provider == "local":
+            try:
+                # 检测 sherpa-onnx 是否可用
+                import sherpa_onnx  # noqa: F401
+            except ImportError:
+                # sherpa-onnx 不可用，自动切换到云服务
+                from ..utils import app_logger
+
+                # 查找第一个配置了 API key 的云服务
+                cloud_providers = ["qwen", "groq", "siliconflow"]
+                switched_to = None
+
+                for cloud_provider in cloud_providers:
+                    # Map provider names to ConfigKeys
+                    provider_key_map = {
+                        "qwen": ConfigKeys.TRANSCRIPTION_QWEN_API_KEY,
+                        "groq": ConfigKeys.TRANSCRIPTION_GROQ_API_KEY,
+                        "siliconflow": ConfigKeys.TRANSCRIPTION_SILICONFLOW_API_KEY,
+                    }
+                    api_key = config.get_setting(provider_key_map[cloud_provider], "")
+                    if api_key and api_key.strip():
+                        switched_to = cloud_provider
+                        config.set_setting(
+                            ConfigKeys.TRANSCRIPTION_PROVIDER, cloud_provider
+                        )
+                        break
+
+                if switched_to:
+                    app_logger.log_audio_event(
+                        "Auto-switched from local to cloud provider",
+                        {
+                            "original_provider": "local",
+                            "new_provider": switched_to,
+                            "reason": "sherpa-onnx not installed",
+                            "suggestion": "Install sherpa-onnx for local transcription",
+                        },
+                    )
+                    # 更新 provider 变量
+                    provider = switched_to
+                else:
+                    app_logger.log_audio_event(
+                        "Local provider unavailable and no cloud provider configured",
+                        {
+                            "original_provider": "local",
+                            "reason": "sherpa-onnx not installed",
+                            "action": "Will use stub service",
+                            "suggestion": "Configure a cloud provider API key or install sherpa-onnx",
+                        },
+                    )
+
+        # 使用 SpeechServiceFactory 从配置创建服务
+        from ..speech import SpeechServiceFactory
+
+        # 创建 SpeechService 工厂函数
+        def speech_service_factory():
+            # 使用工厂从配置创建服务（自动选择 local 或 cloud）
+            service = SpeechServiceFactory.create_from_config(config)
+            if service is None:
+                # Fallback 到默认的 SherpaEngine（仅在本地模式）
+                from ..speech.sherpa_engine import SherpaEngine
+
+                return SherpaEngine(model_name="paraformer", language="zh")
+            return service
+
+        # 关键修复：只有本地提供商才包装到 RefactoredTranscriptionService（提供流式支持）
+        # 云提供商直接返回（已实现 ISpeechService.transcribe()）
+        if provider == "local":
+            # 使用RefactoredTranscriptionService包装,提供线程隔离和流式转录（传递 config 用于流式模式配置）
+            transcription_service = RefactoredTranscriptionService(
+                speech_service_factory, event_service, config_service=config
+            )
+
+            # 启动RefactoredTranscriptionService
+            transcription_service.start()
+
+            # 注册到配置重载服务注册中心（带工厂）
+            # TODO: Replace with HotReloadManager
+            # config_reload_registry.register(
+            #     "transcription_service",
+            #     transcription_service,
+            #     factory=lambda: create_speech_service(container)
+            # )
+
+            return transcription_service
+        else:
+            # 云提供商直接返回（Groq/SiliconFlow/Qwen 已实现完整的 ISpeechService）
+            cloud_service = speech_service_factory()
+
+            # 云服务也加载模型（虽然只是标记为已加载）
+            if hasattr(cloud_service, "load_model"):
+                cloud_service.load_model()
+
+            from ..utils import app_logger
+
+            app_logger.log_audio_event(
+                "Cloud speech service created (no RefactoredTranscriptionService wrapper)",
+                {
+                    "provider": provider,
+                    "service_type": type(cloud_service).__name__,
+                },
+            )
+
+            # 注册到配置重载服务注册中心（带工厂）
+            # TODO: Replace with HotReloadManager
+            # config_reload_registry.register(
+            #     "transcription_service",
+            #     cloud_service,
+            #     factory=lambda: create_speech_service(container)
+            # )
+
+            return cloud_service
+
+    container.register_singleton(
+        ISpeechService, factory=lambda: create_speech_service(container)
+    )
+
+    # AI服务 - 瞬态
+    def create_ai_service(container):
+        config = container.resolve(IConfigService)
+        from .services.config import ConfigKeys
+
+        # 使用工厂从配置创建客户端
+        client = AIClientFactory.create_from_config(config)
+
+        # 如果工厂返回 None，创建默认的 OpenRouter 客户端
+        if client is None:
+            from ..ai import OpenRouterClient
+
+            api_key = config.get_setting(ConfigKeys.AI_OPENROUTER_API_KEY, "")
+            return OpenRouterClient(api_key)
+
+        return client
+
+    container.register_transient(
+        IAIService, factory=lambda: create_ai_service(container)
+    )
+
+    # 输入服务 - 瞬态
+    def create_input_service(container):
+        config_service = container.resolve(IConfigService)
+        return SmartTextInput(config_service)
+
+    container.register_transient(
+        IInputService, factory=lambda: create_input_service(container)
+    )
+
+    # 快捷键服务 - 单例（需要热重载支持）
+    def create_hotkey_service(container):
+        # 读取配置以确定使用哪个后端
+        config = container.resolve(IConfigService)
+
+        # 创建一个回调函数（调用录音控制器）
+        # 注意：此时录音控制器可能还未创建，所以使用延迟绑定
+        def hotkey_callback(action: str):
+            # 通过事件系统触发，而不是直接调用录音控制器
+            # 这样可以解耦 HotkeyService 和 VoiceInputApp
+            event_service = container.resolve(IEventService)
+            event_service.emit("hotkey_triggered", {"action": action})
+
+        # 使用 HotkeyService 包装器（支持配置热重载）
+        hotkey_service = HotkeyService(config, hotkey_callback)
+
+        # Note: Do NOT call initialize() here - VoiceInputApp will do it
+
+        # 注册到配置重载服务注册中心（带工厂）
+        # TODO: Replace with HotReloadManager
+        # config_reload_registry.register(
+        #     "hotkey_service",
+        #     hotkey_service,
+        #     factory=lambda: create_hotkey_service(container)
+        # )
+
+        return hotkey_service
+
+    container.register_singleton(
+        IHotkeyService, factory=lambda: create_hotkey_service(container)
+    )
+
+    # 应用编排器 - 单例（依赖多个核心服务）
+    def create_application_orchestrator(container):
+        config = container.resolve(IConfigService)
+        events = container.resolve(IEventService)
+        state = container.resolve(IStateManager)
+
+        return ApplicationOrchestrator(
+            config_service=config,
+            event_service=events,
+            state_manager=state,
+        )
+
+    container.register_singleton(
+        IApplicationOrchestrator,
+        factory=lambda: create_application_orchestrator(container),
+    )
+
+    # Also register concrete class for backward compatibility
+    container.register_singleton(
+        ApplicationOrchestrator,
+        factory=lambda: create_application_orchestrator(container),
+    )
+
+    # UI事件桥接器 - 单例（依赖事件服务）
+    def create_ui_event_bridge(container):
+        events = container.resolve(IEventService)
+        return UIEventBridge(event_service=events)
+
+    container.register_singleton(
+        IUIEventBridge, factory=lambda: create_ui_event_bridge(container)
+    )
+
+    # Also register concrete class for backward compatibility
+    container.register_singleton(
+        UIEventBridge, factory=lambda: create_ui_event_bridge(container)
+    )
+
+    # ========================================================================
+    # UI 服务 - 为UI层提供专门的服务接口（不依赖VoiceInputApp）
+    # ========================================================================
+
+    # UI主窗口服务 - 单例
+    def create_ui_main_service(container):
+        config = container.resolve(IConfigService)
+        events = container.resolve(IEventService)
+        state = container.resolve(IStateManager)
+
+        from .services.ui_services import UIMainService
+
+        return UIMainService(
+            config_service=config, event_service=events, state_manager=state
+        )
+
+    container.register_singleton(
+        IUIMainService, factory=lambda: create_ui_main_service(container)
+    )
+
+    # UI设置服务 - 单例
+    def create_ui_settings_service(container):
+        config = container.resolve(IConfigService)
+        events = container.resolve(IEventService)
+        history = container.resolve(IHistoryStorageService)
+
+        # 尝试获取转录服务和AI控制器(可能还未注册)
+        transcription_service = None
+        ai_processing_controller = None
+        try:
+            transcription_service = container.resolve(ISpeechService)
+        except Exception as e:
+            from ..utils import app_logger
+
+            app_logger.log_audio_event(
+                "ISpeechService not yet registered",
+                {
+                    "context": "Optional dependency for UISettingsService",
+                    "error": str(e),
+                },
+            )
+
+        # AI controller在这个阶段可能还未注册,留空
+
+        from .services.ui_services import UISettingsService
+
+        return UISettingsService(
+            config_service=config,
+            event_service=events,
+            history_service=history,
+            transcription_service=transcription_service,
+            ai_processing_controller=ai_processing_controller,
+        )
+
+    container.register_singleton(
+        IUISettingsService, factory=lambda: create_ui_settings_service(container)
+    )
+
+    # UI模型管理服务 - 单例
+    def create_ui_model_service(container):
+        speech = container.resolve(ISpeechService)
+
+        from .services.ui_services import UIModelService
+
+        return UIModelService(speech_service=speech)
+
+    container.register_singleton(
+        IUIModelService, factory=lambda: create_ui_model_service(container)
+    )
+
+    # UI音频服务 - 单例（无依赖）
+    def create_ui_audio_service(container):
+        from .services.ui_services import UIAudioService
+
+        return UIAudioService()
+
+    container.register_singleton(
+        IUIAudioService, factory=lambda: create_ui_audio_service(container)
+    )
+
+    # UI GPU服务 - 单例（无依赖）
+    def create_ui_gpu_service(container):
+        from .services.ui_services import UIGPUService
+
+        return UIGPUService()
+
+    container.register_singleton(
+        IUIGPUService, factory=lambda: create_ui_gpu_service(container)
+    )
+
+    # ========================================================================
+    # NOTE: cleanup priorities removed in NEW DIContainer API
+    # The NEW API manages cleanup automatically based on dependency order
+    # ========================================================================
+
+    # ========================================================================
+    # Phase 4 Bug Fix: Start LifecycleComponent services after registration
+    # ========================================================================
+    from ..utils import app_logger
+
+    # Services that need to be started (in dependency order)
+    lifecycle_services = [
+        (IConfigService, "ConfigService"),
+        (IStateManager, "StateManager"),
+        (IHotkeyService, "HotkeyService"),
+        (IHistoryStorageService, "HistoryStorageService"),
+    ]
+
+    for service_interface, service_name in lifecycle_services:
+        try:
+            app_logger.log_audio_event(
+                f"Attempting to start {service_name}",
+                {"component": "di_container", "service": service_name},
+            )
+            service = container.resolve(service_interface)
+            has_start_method = hasattr(service, "start")
+            app_logger.log_audio_event(
+                f"{service_name} resolved",
+                {"component": "di_container", "has_start": has_start_method},
+            )
+            if has_start_method:
+                start_result = service.start()
+                if not start_result:
+                    app_logger.log_error(
+                        Exception(f"{service_name} failed to start"),
+                        f"di_container_start_{service_name}",
+                    )
+                else:
+                    app_logger.log_audio_event(
+                        f"{service_name} started successfully",
+                        {"component": "di_container"},
+                    )
+            else:
+                app_logger.log_audio_event(
+                    f"{service_name} has no start() method",
+                    {"component": "di_container"},
+                )
+        except Exception as e:
+            app_logger.log_error(e, f"di_container_start_{service_name}")
+
+    return container

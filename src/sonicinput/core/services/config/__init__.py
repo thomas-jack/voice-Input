@@ -6,6 +6,7 @@ from .config_validator import ConfigValidator
 from .config_migrator import ConfigMigrator
 from .config_backup import ConfigBackupService
 from .config_service_refactored import RefactoredConfigService
+from .config_keys import ConfigKeys, ConfigKeyGroups
 
 __all__ = [
     "ConfigReader",
@@ -14,4 +15,6 @@ __all__ = [
     "ConfigMigrator",
     "ConfigBackupService",
     "RefactoredConfigService",
+    "ConfigKeys",
+    "ConfigKeyGroups",
 ]

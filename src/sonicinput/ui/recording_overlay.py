@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, Signal, QPropertyAnimation
 from ..utils import app_logger
 from ..core.interfaces import IConfigService
+from ..core.services.config import ConfigKeys
 from .overlay import StatusIndicator
 from .overlay_components import (
     AnimationController,
@@ -772,7 +773,7 @@ class RecordingOverlay(QWidget):
 
         # 保存位置（如果有配置服务且开启自动保存）
         if self.config_service and self.config_service.get_setting(
-            "ui.overlay_position.auto_save", True
+            ConfigKeys.UI_OVERLAY_POSITION_AUTO_SAVE, True
         ):
             self.position_manager.save_position()
 
@@ -970,7 +971,7 @@ class RecordingOverlay(QWidget):
         if event.button() == Qt.MouseButton.LeftButton:
             # 拖拽结束后保存位置
             if self.config_service and self.config_service.get_setting(
-                "ui.overlay_position.auto_save", True
+                ConfigKeys.UI_OVERLAY_POSITION_AUTO_SAVE, True
             ):
                 self.position_manager.save_position()
             event.accept()

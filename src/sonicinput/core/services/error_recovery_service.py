@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional, Callable
 from enum import Enum
 from dataclasses import dataclass
 
+from ..base.lifecycle_component import LifecycleComponent
 from ...utils import app_logger
 
 
@@ -55,7 +56,7 @@ class ErrorInfo:
     resolved: bool = False
 
 
-class ErrorRecoveryService:
+class ErrorRecoveryService(LifecycleComponent):
     """错误恢复服务
 
     负责错误分类、恢复策略执行和错误统计。
@@ -68,6 +69,7 @@ class ErrorRecoveryService:
         Args:
             event_service: 事件服务（可选）
         """
+        super().__init__("ErrorRecoveryService")
         self.event_service = event_service
 
         # 错误跟踪
@@ -85,10 +87,24 @@ class ErrorRecoveryService:
             "by_severity": {},
         }
 
+    def _do_start(self) -> None:
+        """启动错误恢复服务
+
+        初始化错误跟踪和注册默认恢复动作
+        """
         # 注册默认恢复动作
         self._register_default_recovery_actions()
+        app_logger.log_audio_event("ErrorRecoveryService started", {})
 
-        app_logger.log_audio_event("ErrorRecoveryService initialized", {})
+    def _do_stop(self) -> None:
+        """停止错误恢复服务
+
+        清理错误历史和恢复动作
+        """
+        self.clear_error_history()
+        self._recovery_actions.clear()
+        self._last_recovery_time.clear()
+        app_logger.log_audio_event("ErrorRecoveryService stopped", {})
 
     def _register_default_recovery_actions(self) -> None:
         """注册默认的恢复动作"""
@@ -637,10 +653,3 @@ class ErrorRecoveryService:
         """清理错误历史"""
         self._error_history.clear()
         app_logger.log_audio_event("Error history cleared", {})
-
-    def cleanup(self) -> None:
-        """清理资源"""
-        self.clear_error_history()
-        self._recovery_actions.clear()
-        self._last_recovery_time.clear()
-        app_logger.log_audio_event("ErrorRecoveryService cleaned up", {})

@@ -15,11 +15,12 @@ from ..interfaces import (
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
 from ...utils import app_logger, logger
+from ..base.lifecycle_component import LifecycleComponent
 from .base_controller import BaseController
 from .text_diff_helper import calculate_text_diff
 
 
-class InputController(BaseController, IInputController):
+class InputController(LifecycleComponent, BaseController, IInputController):
     """输入控制器实现
 
     职责：
@@ -36,8 +37,11 @@ class InputController(BaseController, IInputController):
         event_service: IEventService,
         state_manager: IStateManager,
     ):
-        # Initialize base controller
-        super().__init__(config_service, event_service, state_manager)
+        # Initialize LifecycleComponent first
+        LifecycleComponent.__init__(self, "InputController")
+
+        # Initialize BaseController
+        BaseController.__init__(self, config_service, event_service, state_manager)
 
         # Controller-specific services
         self._input_service = input_service
@@ -367,3 +371,38 @@ class InputController(BaseController, IInputController):
                 )
         except Exception as e:
             app_logger.log_error(e, "_on_transcription_error_restore_clipboard")
+
+    # ========== Lifecycle Methods (NEW API) ==========
+
+    def _do_start(self) -> bool:
+        """启动输入控制器
+
+        输入控制器在初始化时已经完成所有设置（事件监听器注册），
+        因此启动操作为空操作。
+
+        Returns:
+            总是返回 True
+        """
+        # 输入控制器无需额外启动资源
+        # 事件监听器已在 __init__ 中注册
+        return True
+
+    def _do_stop(self) -> bool:
+        """停止输入控制器
+
+        清理状态，确保剪贴板恢复。
+
+        Returns:
+            总是返回 True
+        """
+        # 重置 realtime 文本追踪
+        self._last_realtime_text = ""
+
+        # 确保剪贴板恢复（防止资源泄漏）
+        try:
+            if hasattr(self._input_service, "stop_recording_mode"):
+                self._input_service.stop_recording_mode()
+        except Exception as e:
+            app_logger.log_error(e, "stop_recording_mode_on_stop")
+
+        return True

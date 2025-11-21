@@ -29,6 +29,9 @@ from enum import Enum
 from dataclasses import dataclass, field
 from contextlib import contextmanager
 
+# ConfigKeys import moved to method level to avoid circular import
+# from ..core.services.config import ConfigKeys
+
 
 def _safe_print(message: str, output_stream=sys.stdout) -> None:
     """安全打印，处理Unicode编码错误"""

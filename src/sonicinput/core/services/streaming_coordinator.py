@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ...utils import app_logger
+from ..base.lifecycle_component import LifecycleComponent
 
 # 流式模式类型
 StreamingMode = Literal["chunked", "realtime"]
@@ -28,7 +29,7 @@ class StreamingChunk:
     result_container: Dict[str, Any]
 
 
-class StreamingCoordinator:
+class StreamingCoordinator(LifecycleComponent):
     """流式转录协调器
 
     支持双模式：
@@ -36,6 +37,10 @@ class StreamingCoordinator:
     - realtime: 边到边流式转录，最低延迟
 
     与具体的转录逻辑和模型管理解耦。
+
+    Lifecycle vs Context Manager:
+    - Lifecycle (start/stop): 管理协调器的总体可用性
+    - Context Manager (__enter__/__exit__): 管理单个流式会话
     """
 
     def __init__(self, event_service=None, streaming_mode: StreamingMode = "chunked"):
@@ -45,6 +50,8 @@ class StreamingCoordinator:
             event_service: 事件服务（可选）
             streaming_mode: 流式模式，"chunked" 或 "realtime"
         """
+        super().__init__("StreamingCoordinator")
+
         self.event_service = event_service
 
         # 流式模式配置
@@ -76,6 +83,55 @@ class StreamingCoordinator:
         app_logger.log_audio_event(
             "StreamingCoordinator initialized", {"mode": streaming_mode}
         )
+
+    def _do_start(self) -> bool:
+        """启动协调器（Lifecycle层）
+
+        初始化协调器状态，准备接受流式会话。
+        不会启动实际的流式会话（由__enter__负责）。
+
+        Returns:
+            True 如果启动成功
+        """
+        with self._streaming_lock:
+            # 重置统计数据
+            self._reset_stats()
+
+            app_logger.log_audio_event(
+                "StreamingCoordinator lifecycle started",
+                {"mode": self._streaming_mode_type},
+            )
+
+            return True
+
+    def _do_stop(self) -> bool:
+        """停止协调器（Lifecycle层）
+
+        停止任何活动的流式会话并清理资源。
+
+        Returns:
+            True 如果停止成功
+        """
+        try:
+            # 停止任何活动的流式会话
+            if self._streaming_active:
+                self.stop_streaming()
+
+            # 清理所有资源
+            with self._streaming_lock:
+                self._streaming_chunks.clear()
+                self._realtime_session = None
+
+            app_logger.log_audio_event(
+                "StreamingCoordinator lifecycle stopped",
+                {"mode": self._streaming_mode_type},
+            )
+
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "streaming_coordinator_stop")
+            return False
 
     def start_streaming(self, streaming_session=None) -> None:
         """开始流式转录模式
@@ -138,18 +194,15 @@ class StreamingCoordinator:
 
                     self._streaming_chunks.clear()
 
-            # realtime 模式：获取最终结果并显式清理session
+            # realtime 模式：仅清理session，不获取最终结果
+            # 重要：realtime 模式文本已在录音过程中逐字输入，
+            # 不应该再调用 get_final_result()，否则会导致文本重复
             elif self._streaming_mode_type == "realtime":
                 if self._realtime_session:
-                    try:
-                        final_result = self._realtime_session.get_final_result()
-                        # get_final_result() 返回 dict {"text": ..., "language": ...}
-                        if isinstance(final_result, dict):
-                            self._realtime_partial_text = final_result.get("text", "")
-                        else:
-                            self._realtime_partial_text = str(final_result)
-                    except Exception as e:
-                        app_logger.log_error(e, "realtime_final_result")
+                    app_logger.log_audio_event(
+                        "Realtime mode: keeping partial text, not calling get_final_result",
+                        {"partial_text_length": len(self._realtime_partial_text)},
+                    )
 
                     # 显式清理sherpa-onnx streaming session
                     try:
@@ -261,7 +314,24 @@ class StreamingCoordinator:
             return None
 
         with self._streaming_lock:
+            # [DEBUG] 记录调用
+            app_logger.log_audio_event(
+                "add_realtime_audio called",
+                {
+                    "streaming_active": self._streaming_active,
+                    "has_session": self._realtime_session is not None,
+                    "audio_length": len(audio_data),
+                },
+            )
+
             if not self._streaming_active or not self._realtime_session:
+                app_logger.log_audio_event(
+                    "add_realtime_audio: streaming inactive or no session",
+                    {
+                        "streaming_active": self._streaming_active,
+                        "has_session": self._realtime_session is not None,
+                    },
+                )
                 return None
 
             try:
@@ -270,6 +340,12 @@ class StreamingCoordinator:
 
                 # 获取部分结果
                 partial_result = self._realtime_session.get_partial_result()
+
+                # [DEBUG] 记录部分结果
+                app_logger.log_audio_event(
+                    "add_realtime_audio: got partial result",
+                    {"partial_result": partial_result[:50] if partial_result else ""},
+                )
 
                 # 检查是否有更新
                 if partial_result != self._realtime_partial_text:
@@ -584,11 +660,42 @@ class StreamingCoordinator:
             except Exception as e:
                 app_logger.log_error(e, "emit_streaming_event")
 
-    def cleanup(self) -> None:
-        """清理资源"""
-        self.stop_streaming()
+    def __enter__(self) -> "StreamingCoordinator":
+        """进入上下文管理器 - 启动流式转录
 
-        with self._streaming_lock:
-            self._streaming_chunks.clear()
+        Returns:
+            self (StreamingCoordinator实例)
+        """
+        self.start_streaming()
+        return self
 
-        app_logger.log_audio_event("StreamingCoordinator cleaned up", {})
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+        """退出上下文管理器 - 停止流式转录并清理资源
+
+        保证sherpa-onnx会话被正确释放，即使发生异常。
+
+        Args:
+            exc_type: 异常类型（如果有）
+            exc_val: 异常值（如果有）
+            exc_tb: 异常回溯（如果有）
+
+        Returns:
+            False（不抑制异常，让异常继续传播）
+        """
+        try:
+            # 停止流式转录（内部已有session清理逻辑）
+            self.stop_streaming()
+
+            # 显式额外清理realtime session（防御性编程）
+            with self._streaming_lock:
+                if self._realtime_session is not None:
+                    app_logger.log_audio_event(
+                        "Context manager explicitly releasing realtime session", {}
+                    )
+                    self._realtime_session = None
+
+        except Exception as e:
+            app_logger.log_error(e, "context_manager_exit")
+
+        # 不抑制异常 - 让调用者处理
+        return False

@@ -14,11 +14,12 @@ except ImportError:
     sherpa_onnx = None
 
 from ..core.interfaces.speech import ISpeechService
+from ..core.base.lifecycle_component import LifecycleComponent
 from .sherpa_models import SherpaModelManager
 from .sherpa_streaming import SherpaStreamingSession
 
 
-class SherpaEngine(ISpeechService):
+class SherpaEngine(LifecycleComponent, ISpeechService):
     """sherpa-onnx 引擎实现
 
     特性：
@@ -45,6 +46,8 @@ class SherpaEngine(ISpeechService):
             language: 语言 (zh | en)
             cache_dir: 模型缓存目录
         """
+        super().__init__("SherpaEngine")
+
         if sherpa_onnx is None:
             raise RuntimeError(
                 "sherpa-onnx is not installed. Please install with: uv sync --extra local"
@@ -59,6 +62,23 @@ class SherpaEngine(ISpeechService):
         logger.info(
             f"SherpaEngine initialized with model: {model_name}, language: {language}"
         )
+
+    def _do_start(self) -> bool:
+        """Load sherpa-onnx model (LifecycleComponent API)
+
+        Returns:
+            True if model loaded successfully
+        """
+        return self.load_model()
+
+    def _do_stop(self) -> bool:
+        """Cleanup model resources (LifecycleComponent API)
+
+        Returns:
+            True if cleanup successful
+        """
+        self.unload_model()
+        return True
 
     def load_model(self, model_name: Optional[str] = None) -> bool:
         """加载模型
@@ -90,9 +110,9 @@ class SherpaEngine(ISpeechService):
                     feature_dim=80,
                     decoding_method=model_config["decoding_method"],
                     enable_endpoint_detection=True,
-                    rule1_min_trailing_silence=3.6,  # 从2.4增加到3.6秒，更宽松
-                    rule2_min_trailing_silence=2.0,  # 从1.2增加到2.0秒，更宽松
-                    rule3_min_utterance_length=15,  # 从20减少到15帧，允许短句子
+                    rule1_min_trailing_silence=1.2,  # 1.2秒停顿触发endpoint
+                    rule2_min_trailing_silence=0.8,  # 0.8秒停顿触发endpoint
+                    rule3_min_utterance_length=10,  # 10帧,允许更短句子
                     provider=model_config["provider"],
                 )
             elif model_config["model_type"] == "zipformer":
@@ -107,6 +127,9 @@ class SherpaEngine(ISpeechService):
                     feature_dim=80,
                     decoding_method=model_config["decoding_method"],
                     enable_endpoint_detection=True,
+                    rule1_min_trailing_silence=1.2,  # 1.2秒停顿触发endpoint
+                    rule2_min_trailing_silence=0.8,  # 0.8秒停顿触发endpoint
+                    rule3_min_utterance_length=10,  # 10帧,允许更短句子
                     provider=model_config["provider"],
                 )
             else:

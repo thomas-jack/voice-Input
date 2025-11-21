@@ -39,7 +39,7 @@ class ReloadStrategy(Enum):
     Example:
         >>> strategy = ReloadStrategy.PARAMETER_UPDATE
         >>> if strategy == ReloadStrategy.PARAMETER_UPDATE:
-        ...     print("轻量级更新")
+        ...     pass  # 轻量级更新
     """
 
     PARAMETER_UPDATE = "parameter_update"

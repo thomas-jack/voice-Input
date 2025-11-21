@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union, TypeVar, List
 from datetime import datetime
 
+from ...base.lifecycle_component import LifecycleComponent
 from ...interfaces.config import IConfigService
-from ...interfaces.event import IEventService, EventPriority
+from ...interfaces import IEventService, EventPriority
 from ....utils import ConfigurationError, app_logger
 
 from .config_reader import ConfigReader
@@ -18,11 +19,12 @@ from .config_writer import ConfigWriter
 from .config_validator import ConfigValidator
 from .config_migrator import ConfigMigrator
 from .config_backup import ConfigBackupService
+from .config_keys import ConfigKeys
 
 T = TypeVar("T")
 
 
-class RefactoredConfigService(IConfigService):
+class RefactoredConfigService(LifecycleComponent, IConfigService):
     """重构后的配置服务 - 门面模式
 
     协调多个专职服务提供统一的配置管理接口，保持与原ConfigService完全兼容。
@@ -39,6 +41,7 @@ class RefactoredConfigService(IConfigService):
             config_path: 配置文件路径，None 表示使用默认路径
             event_service: 事件服务实例，用于发送配置变更事件
         """
+        super().__init__("ConfigService")
         self._event_service = event_service
 
         # 设置配置文件路径
@@ -56,27 +59,72 @@ class RefactoredConfigService(IConfigService):
         self._migrator = ConfigMigrator(self.config_path)
         self._backup = ConfigBackupService(self.config_path)
 
-        # 检查并迁移旧配置文件
-        self._migrator.migrate_from_old_app_name()
-
-        # 加载配置
-        self.load_config()
-
         # 初始化上次保存的配置快照（用于计算变更）
-        self._last_saved_config = copy.deepcopy(self._reader._config)
+        self._last_saved_config: Dict[str, Any] = {}
 
-        # 验证和修复配置结构完整性
-        self._validate_and_repair_config_structure()
+        if app_logger:
+            app_logger.log_audio_event(
+                "ConfigService initialized",
+                {
+                    "config_path": str(self.config_path),
+                    "config_exists": self.config_path.exists(),
+                    "event_service_enabled": self._event_service is not None,
+                },
+            )
 
-        app_logger.log_audio_event(
-            "ConfigService initialized",
-            {
-                "config_path": str(self.config_path),
-                "config_exists": self.config_path.exists(),
-                "structure_validated": True,
-                "event_service_enabled": self._event_service is not None,
-            },
-        )
+    def _do_start(self) -> bool:
+        """Start configuration service
+
+        Returns:
+            True if start successful
+        """
+        try:
+            # 检查并迁移旧配置文件
+            self._migrator.migrate_from_old_app_name()
+
+            # 加载配置
+            if not self.load_config():
+                app_logger.log_audio_event(
+                    "ConfigService failed to load config",
+                    {"config_path": str(self.config_path)},
+                )
+                return False
+
+            # 初始化上次保存的配置快照（用于计算变更）
+            self._last_saved_config = copy.deepcopy(self._reader._config)
+
+            # 验证和修复配置结构完整性
+            if not self._validate_and_repair_config_structure():
+                app_logger.log_audio_event(
+                    "ConfigService failed to validate/repair config structure", {}
+                )
+                return False
+
+            app_logger.log_audio_event(
+                "ConfigService started successfully", {"structure_validated": True}
+            )
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "ConfigService_start")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Stop configuration service and cleanup resources
+
+        Returns:
+            True if stop successful
+        """
+        try:
+            # Flush any pending writes
+            self._writer.cleanup()
+
+            app_logger.log_audio_event("ConfigService stopped", {})
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "ConfigService_stop")
+            return False
 
     def get_setting(self, key: str, default: Optional[T] = None) -> T:
         """获取配置项
@@ -324,11 +372,6 @@ class RefactoredConfigService(IConfigService):
 
         return success
 
-    def cleanup(self) -> None:
-        """清理资源"""
-        self._writer.cleanup()
-        app_logger.log_audio_event("ConfigService cleaned up", {})
-
     def _validate_and_repair_config_structure(self) -> bool:
         """验证和修复整个配置结构完整性
 
@@ -386,6 +429,205 @@ class RefactoredConfigService(IConfigService):
                 changed_keys.add(key)
 
         return changed_keys
+
+    def validate_before_save(self, key: str, value: Any) -> tuple[bool, str]:
+        """在保存前验证配置值是否有效
+
+        Args:
+            key: 配置项键名（点分隔路径）
+            value: 要验证的值
+
+        Returns:
+            (is_valid, error_message) 元组。如果有效返回 (True, "")，无效返回 (False, "错误信息")
+        """
+        # 音频设备验证
+        if key == "audio.device_id" or key == ConfigKeys.AUDIO_DEVICE_ID:
+            return self._validate_audio_device(value)
+
+        # 快捷键验证
+        if key == "hotkey" or key.startswith("hotkeys"):
+            # 处理单个快捷键或快捷键列表
+            if isinstance(value, list):
+                for hotkey in value:
+                    is_valid, error = self._validate_hotkey(hotkey)
+                    if not is_valid:
+                        return False, error
+                return True, ""
+            else:
+                return self._validate_hotkey(value)
+
+        # 转录提供商验证
+        if key == "transcription.provider" or key == ConfigKeys.TRANSCRIPTION_PROVIDER:
+            return self._validate_transcription_provider(value)
+
+        # 默认：所有其他配置项都视为有效
+        return True, ""
+
+    def _validate_audio_device(self, device_id: Optional[int]) -> tuple[bool, str]:
+        """验证音频设备 ID 是否有效
+
+        Args:
+            device_id: 设备 ID，None 表示默认设备
+
+        Returns:
+            (is_valid, error_message)
+        """
+        try:
+            # None 表示默认设备，始终有效
+            if device_id is None:
+                return True, ""
+
+            # 必须是整数
+            if not isinstance(device_id, int):
+                return (
+                    False,
+                    f"Audio device ID must be an integer, got {type(device_id).__name__}",
+                )
+
+            # 不能为负数
+            if device_id < 0:
+                return False, f"Audio device ID cannot be negative (got {device_id})"
+
+            # 使用 PyAudio 检查设备是否存在
+            import pyaudio
+
+            audio = None
+            try:
+                audio = pyaudio.PyAudio()
+                device_count = audio.get_device_count()
+
+                # 检查设备索引是否在有效范围内
+                if device_id >= device_count:
+                    return (
+                        False,
+                        f"Audio device ID {device_id} does not exist (only {device_count} devices available)",
+                    )
+
+                # 检查设备是否有输入通道
+                device_info = audio.get_device_info_by_index(device_id)
+                if device_info["maxInputChannels"] <= 0:
+                    return (
+                        False,
+                        f"Audio device {device_id} ({device_info.get('name', 'Unknown')}) has no input channels",
+                    )
+
+                return True, ""
+
+            finally:
+                if audio:
+                    audio.terminate()
+
+        except Exception as e:
+            app_logger.log_error(e, "validate_audio_device")
+            return False, f"Failed to validate audio device: {str(e)}"
+
+    def _validate_hotkey(self, hotkey_str: str) -> tuple[bool, str]:
+        """验证快捷键格式是否可解析
+
+        Args:
+            hotkey_str: 快捷键字符串（如 "ctrl+shift+v"）
+
+        Returns:
+            (is_valid, error_message)
+        """
+        try:
+            if not isinstance(hotkey_str, str):
+                return (
+                    False,
+                    f"Hotkey must be a string, got {type(hotkey_str).__name__}",
+                )
+
+            if not hotkey_str or not hotkey_str.strip():
+                return False, "Hotkey cannot be empty"
+
+            # 规范化快捷键（移除空格，转小写）
+            normalized = hotkey_str.lower().replace(" ", "")
+
+            # 分割修饰键和主键
+            parts = normalized.split("+")
+            if len(parts) < 1:
+                return (
+                    False,
+                    f"Invalid hotkey format: '{hotkey_str}'. Expected format: 'ctrl+shift+key' or similar",
+                )
+
+            # 检查是否有主键（最后一个部分）
+            if len(parts[-1]) == 0:
+                return (
+                    False,
+                    f"Invalid hotkey format: '{hotkey_str}'. Missing main key after '+'",
+                )
+
+            # 验证修饰键（可选）
+            valid_modifiers = {"ctrl", "control", "shift", "alt", "win", "cmd", "meta"}
+            for i, part in enumerate(parts[:-1]):  # 除了最后一个主键外的所有部分
+                if part not in valid_modifiers:
+                    return (
+                        False,
+                        f"Invalid modifier key '{part}' in hotkey '{hotkey_str}'. Valid modifiers: {', '.join(sorted(valid_modifiers))}",
+                    )
+
+            # 基本格式验证通过
+            return True, ""
+
+        except Exception as e:
+            app_logger.log_error(e, "validate_hotkey")
+            return False, f"Failed to validate hotkey: {str(e)}"
+
+    def _validate_transcription_provider(self, provider: str) -> tuple[bool, str]:
+        """验证转录提供商配置
+
+        Args:
+            provider: 提供商名称（local/groq/siliconflow/qwen）
+
+        Returns:
+            (is_valid, error_message)
+        """
+        try:
+            if not isinstance(provider, str):
+                return (
+                    False,
+                    f"Provider must be a string, got {type(provider).__name__}",
+                )
+
+            # 检查提供商是否在支持列表中
+            valid_providers = ["local", "groq", "siliconflow", "qwen"]
+            if provider not in valid_providers:
+                return (
+                    False,
+                    f"Invalid transcription provider '{provider}'. Valid providers: {', '.join(valid_providers)}",
+                )
+
+            # 对于云服务提供商，检查 API 密钥是否已配置
+            if provider == "groq":
+                api_key = self.get_setting("transcription.groq.api_key", "")
+                if not api_key or not api_key.strip():
+                    return (
+                        False,
+                        "Groq provider requires an API key. Please enter your Groq API key in the Transcription tab.",
+                    )
+
+            elif provider == "siliconflow":
+                api_key = self.get_setting("transcription.siliconflow.api_key", "")
+                if not api_key or not api_key.strip():
+                    return (
+                        False,
+                        "SiliconFlow provider requires an API key. Please enter your SiliconFlow API key in the Transcription tab.",
+                    )
+
+            elif provider == "qwen":
+                api_key = self.get_setting("transcription.qwen.api_key", "")
+                if not api_key or not api_key.strip():
+                    return (
+                        False,
+                        "Qwen provider requires an API key. Please enter your Qwen API key in the Transcription tab.",
+                    )
+
+            return True, ""
+
+        except Exception as e:
+            app_logger.log_error(e, "validate_transcription_provider")
+            return False, f"Failed to validate transcription provider: {str(e)}"
 
     def _send_config_saved_event(self) -> None:
         """发送配置保存事件"""

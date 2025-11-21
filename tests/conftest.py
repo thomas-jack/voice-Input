@@ -82,7 +82,7 @@ def mock_audio():
 @pytest.fixture
 def app_with_mocks(mock_whisper, mock_ai, mock_input, mock_audio):
     """创建带 Mock 的完整应用"""
-    from sonicinput.core.di_container_enhanced import create_container
+    from sonicinput.core.di_container import create_container
 
     # 创建完整的容器
     container = create_container()

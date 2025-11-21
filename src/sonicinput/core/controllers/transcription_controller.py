@@ -19,12 +19,16 @@ from ..interfaces import (
 )
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
+from ..services.config import ConfigKeys
 from ...utils import app_logger, ErrorMessageTranslator
 from .base_controller import BaseController
 from .logging_helper import ControllerLogging
+from ..base.lifecycle_component import LifecycleComponent
 
 
-class TranscriptionController(BaseController, ITranscriptionController):
+class TranscriptionController(
+    BaseController, LifecycleComponent, ITranscriptionController
+):
     """转录控制器实现
 
     职责：
@@ -42,8 +46,10 @@ class TranscriptionController(BaseController, ITranscriptionController):
         history_service: IHistoryStorageService,
         audio_service=None,
     ):
-        # Initialize base controller with common services
-        super().__init__(config_service, event_service, state_manager)
+        # Initialize LifecycleComponent FIRST (sets self._state = ComponentState)
+        LifecycleComponent.__init__(self, "TranscriptionController")
+        # Initialize BaseController SECOND (overwrites self._state = state_manager)
+        BaseController.__init__(self, config_service, event_service, state_manager)
 
         # Controller-specific services
         self._speech_service = speech_service
@@ -157,14 +163,16 @@ class TranscriptionController(BaseController, ITranscriptionController):
             transcribe_start = time.time()
 
             # 检查当前提供商类型
-            provider = self._config.get_setting("transcription.provider", "local")
+            provider = self._config.get_setting(
+                ConfigKeys.TRANSCRIPTION_PROVIDER, "local"
+            )
             is_cloud_provider = provider != "local"
 
             # 云提供商直接使用文件转录，不经过流式系统
             if is_cloud_provider:
                 app_logger.log_audio_event(
                     "Cloud provider detected, using file-based transcription directly",
-                    {"provider": provider, "audio_file": self._current_audio_file_path}
+                    {"provider": provider, "audio_file": self._current_audio_file_path},
                 )
                 text = self._transcribe_from_file_for_cloud()
                 streaming_mode = "disabled"  # 云提供商标记为disabled
@@ -184,7 +192,9 @@ class TranscriptionController(BaseController, ITranscriptionController):
                 streaming_mode = stats.get("mode", "chunked")
 
                 # 如果stats中没有mode字段，尝试从streaming_coordinator获取（本地提供商）
-                if streaming_mode == "chunked" and hasattr(self._speech_service, "streaming_coordinator"):
+                if streaming_mode == "chunked" and hasattr(
+                    self._speech_service, "streaming_coordinator"
+                ):
                     streaming_mode = (
                         self._speech_service.streaming_coordinator.get_streaming_mode()
                     )
@@ -210,7 +220,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
             if not text and streaming_mode == "chunked" and self._audio_service:
                 app_logger.log_audio_event(
                     "No text from chunked streaming, falling back to sync transcription",
-                    {"streaming_mode": streaming_mode}
+                    {"streaming_mode": streaming_mode},
                 )
                 text = self._sync_transcribe_last_audio()
 
@@ -277,15 +287,13 @@ class TranscriptionController(BaseController, ITranscriptionController):
         """云提供商：从音频文件转录（不经过流式系统）"""
         if not self._current_audio_file_path:
             app_logger.log_audio_event(
-                "No audio file path available for cloud transcription",
-                {}
+                "No audio file path available for cloud transcription", {}
             )
             return ""
 
         if not hasattr(self._speech_service, "transcribe_sync"):
             app_logger.log_audio_event(
-                "Cloud provider doesn't support transcribe_sync",
-                {}
+                "Cloud provider doesn't support transcribe_sync", {}
             )
             return ""
 
@@ -294,9 +302,11 @@ class TranscriptionController(BaseController, ITranscriptionController):
             import wave
             import numpy as np
 
-            with wave.open(self._current_audio_file_path, 'rb') as wav_file:
+            with wave.open(self._current_audio_file_path, "rb") as wav_file:
                 frames = wav_file.readframes(wav_file.getnframes())
-                audio_data = np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+                audio_data = (
+                    np.frombuffer(frames, dtype=np.int16).astype(np.float32) / 32768.0
+                )
 
             # 使用云提供商的 transcribe_sync
             result = self._speech_service.transcribe_sync(audio_data)
@@ -304,7 +314,7 @@ class TranscriptionController(BaseController, ITranscriptionController):
 
             app_logger.log_audio_event(
                 "Cloud provider file-based transcription completed",
-                {"text_length": len(text), "audio_file": self._current_audio_file_path}
+                {"text_length": len(text), "audio_file": self._current_audio_file_path},
             )
             return text
         except Exception as e:
@@ -366,7 +376,9 @@ class TranscriptionController(BaseController, ITranscriptionController):
         """
         try:
             # 获取转录提供商
-            provider = self._config.get_setting("transcription.provider", "local")
+            provider = self._config.get_setting(
+                ConfigKeys.TRANSCRIPTION_PROVIDER, "local"
+            )
 
             # 创建历史记录
             record = HistoryRecord(
@@ -405,3 +417,43 @@ class TranscriptionController(BaseController, ITranscriptionController):
 
         except Exception as e:
             app_logger.log_error(e, "_save_transcription_record")
+
+    def _do_start(self) -> bool:
+        """Start lifecycle method - Initialize transcription resources
+
+        Returns:
+            True if start successful
+        """
+        try:
+            # TranscriptionController is event-driven, no upfront resources to initialize
+            # Event listeners are already registered in __init__
+            app_logger.log_audio_event(
+                "TranscriptionController started (event-driven mode)",
+                {"component": "TranscriptionController"},
+            )
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "TranscriptionController._do_start")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Stop lifecycle method - Cleanup transcription resources
+
+        Returns:
+            True if stop successful
+        """
+        try:
+            # Reset tracking data
+            self._audio_duration = 0.0
+            self._recording_stop_time = 0.0
+            self._current_record_id = None
+            self._current_audio_file_path = None
+
+            app_logger.log_audio_event(
+                "TranscriptionController stopped and cleaned up",
+                {"component": "TranscriptionController"},
+            )
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "TranscriptionController._do_stop")
+            return False

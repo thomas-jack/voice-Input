@@ -61,7 +61,7 @@ class PluginContext:
                     f"[PluginContext] {message}", {"level": level}
                 )
         except Exception as e:
-            print(f"[PluginContext Error] {message}: {e}")
+            app_logger.log_error(e, f"PluginContext_log_{message[:50]}")
 
     def emit_event(self, event_name: str, data: Any = None) -> None:
         """发送事件"""

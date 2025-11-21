@@ -4,20 +4,10 @@
 """
 
 # 核心服务组件
-from .services import EventBus, Events, ConfigService, StateManager, LifecycleManager
+from .services import EventBus, Events, ConfigService, StateManager
 
-# 接口定义（显式导入，避免import *）
-from .interfaces.ai import IAIService
-from .interfaces.audio import IAudioService
-from .interfaces.config import IConfigService
-from .interfaces.event import IEventService
-from .interfaces.hotkey import IHotkeyService
-from .interfaces.input import IInputService
-from .interfaces.lifecycle import ILifecycleManaged, ILifecycleManager
-from .interfaces.speech import ISpeechService
-from .interfaces.state import IStateManager
-from .interfaces.storage import IStorageService, ICacheService
-from .interfaces.ui import IUIComponent, IOverlayComponent, ITrayComponent
+# 接口定义（仅保留多实现接口）
+from .interfaces import IAIService, ISpeechService, IInputService
 
 # 原有组件（保持向后兼容）
 from .hotkey_manager import HotkeyManager
@@ -28,23 +18,10 @@ __all__ = [
     "Events",
     "ConfigService",
     "StateManager",
-    "LifecycleManager",
-    # 接口
+    # 接口 (仅保留多实现接口)
     "IAIService",
-    "IAudioService",
-    "IConfigService",
-    "IEventService",
-    "IHotkeyService",
-    "IInputService",
-    "ILifecycleManaged",
-    "ILifecycleManager",
     "ISpeechService",
-    "IStateManager",
-    "IStorageService",
-    "ICacheService",
-    "IUIComponent",
-    "IOverlayComponent",
-    "ITrayComponent",
+    "IInputService",
     # 应用组件
     "HotkeyManager",
 ]

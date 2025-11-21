@@ -118,9 +118,9 @@ uv run python -m pytest tests/test_recording_*.py -v
 ## 测试环境配置
 
 ### 依赖注入容器
-测试使用增强版 DI 容器 (`EnhancedDIContainer`)：
+测试使用 DI 容器 (`DIContainer`)：
 ```python
-from sonicinput.core.di_container_enhanced import create_container
+from sonicinput.core.di_container import create_container
 container = create_container()
 ```
 

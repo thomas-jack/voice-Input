@@ -1,13 +1,13 @@
 """录音控制器
 
-负责录音的启动、停止和音频数据处理。
+负责录音的启动、停止和状态管理。
 """
 
 import time
 import uuid
 from typing import Optional
-import numpy as np
 
+from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
     IRecordingController,
     IAudioService,
@@ -19,18 +19,22 @@ from ..interfaces import (
 )
 from ..interfaces.state import RecordingState, AppState
 from ..services.event_bus import Events
+from ..services.config import ConfigKeys
 from ...utils import app_logger, ErrorMessageTranslator
 from .logging_helper import ControllerLogging
+from .streaming_mode_manager import StreamingModeManager
+from .audio_callback_router import AudioCallbackRouter
 
 
-class RecordingController(IRecordingController):
+class RecordingController(LifecycleComponent, IRecordingController):
     """录音控制器实现
 
     职责：
     - 管理录音的启动和停止
-    - 处理音频数据回调
-    - 通过 StateManager 管理录音状态
-    - 通过 EventBus 发送录音事件
+    - 协调 StreamingModeManager 和 AudioCallbackRouter
+    - 管理录音状态转换
+    - 发送录音事件
+    - 保存音频到历史记录
     """
 
     def __init__(
@@ -42,6 +46,8 @@ class RecordingController(IRecordingController):
         speech_service: ISpeechService,
         history_service: IHistoryStorageService,
     ):
+        super().__init__("RecordingController")
+
         self._audio_service = audio_service
         self._config = config_service
         self._events = event_service
@@ -54,7 +60,56 @@ class RecordingController(IRecordingController):
         self._recording_stop_time: Optional[float] = None
         self._last_audio_duration: float = 0.0
 
+        # 创建子组件
+        self._streaming_manager = StreamingModeManager(
+            config_service=config_service,
+            speech_service=speech_service,
+        )
+
+        self._callback_router = AudioCallbackRouter(
+            audio_service=audio_service,
+            event_service=event_service,
+            speech_service=speech_service,
+            history_service=history_service,
+        )
+
         ControllerLogging.log_initialization("RecordingController")
+
+    def _do_start(self) -> bool:
+        """启动录音控制器
+
+        Returns:
+            True 如果启动成功
+        """
+        # 启动子组件
+        if not self._streaming_manager.start():
+            app_logger.log_error(None, "Failed to start StreamingModeManager")
+            return False
+
+        if not self._callback_router.start():
+            app_logger.log_error(None, "Failed to start AudioCallbackRouter")
+            self._streaming_manager.stop()
+            return False
+
+        app_logger.log_audio_event(
+            "RecordingController started", {"component": self._component_name}
+        )
+        return True
+
+    def _do_stop(self) -> bool:
+        """停止录音控制器
+
+        Returns:
+            True 如果停止成功
+        """
+        # 停止子组件
+        self._callback_router.stop()
+        self._streaming_manager.stop()
+
+        app_logger.log_audio_event(
+            "RecordingController stopped", {"component": self._component_name}
+        )
+        return True
 
     def start_recording(self, device_id: Optional[int] = None) -> None:
         """开始录音"""
@@ -101,185 +156,30 @@ class RecordingController(IRecordingController):
         try:
             # 从配置获取设备ID
             if device_id is None:
-                device_id = self._config.get_setting("audio.device_id")
+                device_id = self._config.get_setting(ConfigKeys.AUDIO_DEVICE_ID)
 
-            # 检查是否为本地提供商（只有本地提供商支持流式）
-            provider = self._config.get_setting("transcription.provider", "local")
-            is_local_provider = provider == "local"
-
-            # 每次录音开始时从配置重新读取 streaming_mode（实现配置下次录音生效）
-            # 注意：云提供商强制禁用流式模式
-            if is_local_provider:
-                configured_mode = self._config.get_setting(
-                    "transcription.local.streaming_mode", "chunked"
-                )
-            else:
-                configured_mode = "disabled"  # 云提供商禁用流式
-                app_logger.log_audio_event(
-                    "Streaming disabled for cloud provider",
-                    {"provider": provider},
-                )
-
-            # 尝试更新 streaming coordinator 的模式（仅本地提供商）
-            streaming_mode = configured_mode
-            if is_local_provider and hasattr(self._speech_service, "streaming_coordinator"):
-                coordinator = self._speech_service.streaming_coordinator
-                current_mode = coordinator.get_streaming_mode()
-
-                # 如果配置的模式与当前模式不同，需要切换
-                if configured_mode != current_mode:
-                    app_logger.log_audio_event(
-                        "Streaming mode config changed, preparing to switch",
-                        {
-                            "current_mode": current_mode,
-                            "configured_mode": configured_mode,
-                        },
-                    )
-
-                    # 关键修复：先强制停止之前的流（如果存在）
-                    if coordinator.is_streaming():
-                        app_logger.log_audio_event(
-                            "Stopping previous streaming session before mode switch", {}
-                        )
-                        coordinator.stop_streaming()
-
-                    # 现在可以安全切换模式（流已停止）
-                    switch_success = coordinator.set_streaming_mode(configured_mode)
-                    final_mode = coordinator.get_streaming_mode()
-
-                    app_logger.log_audio_event(
-                        "Streaming mode switch result",
-                        {
-                            "requested_mode": configured_mode,
-                            "switch_success": switch_success,
-                            "final_mode": final_mode,
-                        },
-                    )
-
-                streaming_mode = coordinator.get_streaming_mode()
+            # 获取当前流式模式
+            streaming_mode = self._streaming_manager.get_current_mode()
+            provider = self._config.get_setting(
+                ConfigKeys.TRANSCRIPTION_PROVIDER, "local"
+            )
 
             app_logger.log_audio_event(
                 "Recording starting with streaming mode",
-                {"mode": streaming_mode, "provider": provider}
+                {"mode": streaming_mode, "provider": provider},
             )
 
-            # 根据模式创建不同的会话（仅本地提供商）
-            streaming_session = None
-            if is_local_provider and streaming_mode == "realtime":
-                # Realtime 模式：创建 sherpa streaming session
-                if hasattr(self._speech_service, "model_manager"):
-                    whisper_engine = (
-                        self._speech_service.model_manager.get_whisper_engine()
-                    )
-                    if whisper_engine and hasattr(
-                        whisper_engine, "create_streaming_session"
-                    ):
-                        try:
-                            streaming_session = (
-                                whisper_engine.create_streaming_session()
-                            )
-                            app_logger.log_audio_event(
-                                "Sherpa streaming session created", {}
-                            )
-                        except Exception as e:
-                            app_logger.log_error(e, "create_streaming_session")
+            # 启动流式会话（如果支持）
+            if streaming_mode != "disabled":
+                self._streaming_manager.start_streaming_session()
 
-            # 启用流式转录模式（仅本地提供商）
-            if is_local_provider and hasattr(self._speech_service, "start_streaming"):
-                # 重构后的转录服务，传递 streaming_session
-                if hasattr(self._speech_service, "streaming_coordinator"):
-                    self._speech_service.streaming_coordinator.start_streaming(
-                        streaming_session
-                    )
-                else:
-                    self._speech_service.start_streaming()
-                app_logger.log_audio_event(
-                    "Streaming transcription started",
-                    {"session": streaming_session is not None},
-                )
-            else:
-                app_logger.log_audio_event(
-                    "Streaming not enabled",
-                    {"reason": "cloud_provider" if not is_local_provider else "no_streaming_support"}
-                )
-
-            # 根据模式设置不同的回调（仅本地提供商）
-            if is_local_provider and streaming_mode == "chunked":
-                # Chunked 模式：使用 30 秒块回调
-                if hasattr(self._audio_service, "chunk_callback") and hasattr(
-                    self._speech_service, "add_streaming_chunk"
-                ):
-
-                    def streaming_chunk_callback(audio_data):
-                        """流式转录块回调"""
-                        try:
-                            self._speech_service.add_streaming_chunk(audio_data)
-                            app_logger.log_audio_event(
-                                "Streaming chunk added",
-                                {"audio_length": len(audio_data)},
-                            )
-                        except Exception as e:
-                            app_logger.log_error(e, "streaming_chunk_callback")
-
-                    self._audio_service.chunk_callback = streaming_chunk_callback
-                    app_logger.log_audio_event("Chunked mode: chunk callback set", {})
-                else:
-                    self._audio_service.chunk_callback = None
-                    app_logger.log_audio_event(
-                        "Chunked mode: chunk callback not available", {}
-                    )
-
-                # 设置音频数据回调（用于实时波形显示）
-                if hasattr(self._audio_service, "set_callback"):
-                    self._audio_service.set_callback(self._on_audio_data)
-
-            elif is_local_provider and streaming_mode == "realtime":
-                # Realtime 模式：使用持续音频流回调（仅本地提供商）
-                if hasattr(self._speech_service, "streaming_coordinator"):
-
-                    def realtime_audio_callback(audio_data):
-                        """实时音频流回调"""
-                        try:
-                            # 发送到 streaming coordinator 的 realtime 处理
-                            partial_text = self._speech_service.streaming_coordinator.add_realtime_audio(
-                                audio_data
-                            )
-
-                            # 同时更新音频电平（用于波形显示）
-                            if len(audio_data) > 0:
-                                level = float(np.sqrt(np.mean(audio_data**2)))
-                                self._events.emit(Events.AUDIO_LEVEL_UPDATE, level)
-
-                        except Exception as e:
-                            app_logger.log_error(e, "realtime_audio_callback")
-
-                    # 清除 chunk_callback（realtime 不使用分块）
-                    if hasattr(self._audio_service, "chunk_callback"):
-                        self._audio_service.chunk_callback = None
-
-                    # 设置持续音频回调
-                    if hasattr(self._audio_service, "set_callback"):
-                        self._audio_service.set_callback(realtime_audio_callback)
-                        app_logger.log_audio_event(
-                            "Realtime mode: audio callback set", {}
-                        )
-                else:
-                    app_logger.log_audio_event(
-                        "Realtime mode: streaming coordinator not available", {}
-                    )
-                    # Fallback: 使用基本音频回调
-                    if hasattr(self._audio_service, "set_callback"):
-                        self._audio_service.set_callback(self._on_audio_data)
-            else:
-                # 云provider或disabled模式：仅设置基本音频回调（用于波形显示）
-                if hasattr(self._audio_service, "chunk_callback"):
-                    self._audio_service.chunk_callback = None
-                if hasattr(self._audio_service, "set_callback"):
-                    self._audio_service.set_callback(self._on_audio_data)
-                app_logger.log_audio_event(
-                    "Cloud provider or disabled mode: using basic audio callback only",
-                    {"provider": provider, "streaming_mode": streaming_mode}
-                )
+            # 根据模式注册回调
+            if streaming_mode == "chunked":
+                self._callback_router.register_chunked_callback()
+            elif streaming_mode == "realtime":
+                self._callback_router.register_realtime_callback()
+            else:  # disabled
+                self._callback_router.register_basic_callback()
 
             # 启动录音
             self._audio_service.start_recording(device_id)
@@ -300,7 +200,12 @@ class RecordingController(IRecordingController):
             self._events.emit(Events.RECORDING_STARTED)
 
             app_logger.log_audio_event(
-                "Recording started", {"device_id": device_id, "streaming_enabled": True}
+                "Recording started",
+                {
+                    "device_id": device_id,
+                    "streaming_mode": streaming_mode,
+                    "streaming_enabled": streaming_mode != "disabled",
+                },
             )
 
         except Exception as e:
@@ -353,93 +258,20 @@ class RecordingController(IRecordingController):
             # 发送录音停止事件
             self._events.emit(Events.RECORDING_STOPPED, len(audio_data))
 
-            # 如果有最后一个音频块，提交给转录服务（仅本地提供商）
-            provider = self._config.get_setting("transcription.provider", "local")
-            is_local_provider = provider == "local"
+            # 提交最后音频块（如果是本地提供商）
+            self._submit_final_audio(audio_data)
 
-            if len(audio_data) > 0 and self._speech_service and is_local_provider:
-                # 获取当前流式模式
-                streaming_mode = "chunked"
-                if hasattr(self._speech_service, "streaming_coordinator"):
-                    streaming_mode = (
-                        self._speech_service.streaming_coordinator.get_streaming_mode()
-                    )
+            # 注意：不在这里停止流式会话！
+            # transcription_controller 会在获取转录结果时调用 stop_streaming()
+            # 如果在这里提前停止，pending chunks 会被清空，导致转录失败
+            # 关键修复：移除此处的 stop_streaming_session() 调用
+            # self._streaming_manager.stop_streaming_session()
 
-                try:
-                    if streaming_mode == "realtime":
-                        # realtime 模式：发送到实时流处理
-                        if hasattr(self._speech_service, "streaming_coordinator"):
-                            self._speech_service.streaming_coordinator.add_realtime_audio(
-                                audio_data
-                            )
-                            app_logger.log_audio_event(
-                                "Final realtime audio added",
-                                {"audio_length": len(audio_data)},
-                            )
-                    else:
-                        # chunked 模式：使用分块 API
-                        if hasattr(self._speech_service, "add_streaming_chunk"):
-                            self._speech_service.add_streaming_chunk(audio_data)
-                            app_logger.log_audio_event(
-                                "Final streaming chunk added",
-                                {"audio_length": len(audio_data)},
-                            )
-                except Exception as e:
-                    app_logger.log_error(e, "add_final_audio")
-            elif not is_local_provider:
-                app_logger.log_audio_event(
-                    "Skipping streaming audio for cloud provider",
-                    {"provider": provider, "will_use_complete_audio": True}
-                )
-            else:
-                app_logger.log_audio_event(
-                    "Cannot add final audio - streaming not available", {}
-                )
+            # 注销回调
+            self._callback_router.unregister_callbacks()
 
-            # 保存音频文件到历史记录
-            record_id = str(uuid.uuid4())
-            audio_file_path = None
-
-            try:
-                # 生成音频文件路径
-                audio_file_path = self._history_service.generate_audio_file_path()
-
-                # 保存音频文件
-                if hasattr(self._audio_service, "save_to_file"):
-                    save_success = self._audio_service.save_to_file(audio_file_path)
-                    if save_success:
-                        app_logger.log_audio_event(
-                            "Audio file saved to history",
-                            {
-                                "record_id": record_id,
-                                "file_path": audio_file_path,
-                                "duration": f"{self._last_audio_duration:.1f}s",
-                            },
-                        )
-                    else:
-                        app_logger.log_audio_event(
-                            "Failed to save audio file", {"record_id": record_id}
-                        )
-                        audio_file_path = None
-                else:
-                    app_logger.log_audio_event(
-                        "AudioService does not support save_to_file", {}
-                    )
-                    audio_file_path = None
-            except Exception as e:
-                app_logger.log_error(e, "save_audio_file_to_history")
-                audio_file_path = None
-
-            # 发送转录请求事件（由 TranscriptionController 监听）
-            self._events.emit(
-                "transcription_request",
-                {
-                    "audio_duration": self._last_audio_duration,
-                    "recording_stop_time": self._recording_stop_time,
-                    "record_id": record_id,
-                    "audio_file_path": audio_file_path,
-                },
-            )
+            # 保存音频并发送转录请求
+            self._save_and_request_transcription(audio_data)
 
             app_logger.log_audio_event(
                 "Recording stopped",
@@ -480,18 +312,101 @@ class RecordingController(IRecordingController):
         """获取最后一次录音停止时间（用于性能统计）"""
         return self._recording_stop_time
 
-    def _on_audio_data(self, audio_data: np.ndarray) -> None:
-        """实时音频数据回调
+    def _submit_final_audio(self, audio_data) -> None:
+        """提交最后的音频块到流式转录
 
         Args:
-            audio_data: 音频数据块
+            audio_data: 音频数据
         """
-        try:
-            if self.is_recording():
-                # 计算音频电平
-                level = float(np.sqrt(np.mean(audio_data**2)))
-                # 发送音频电平更新事件（UI可以监听此事件更新波形）
-                self._events.emit(Events.AUDIO_LEVEL_UPDATE, level)
+        provider = self._config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
+        is_local_provider = provider == "local"
 
+        if len(audio_data) == 0 or not is_local_provider:
+            if not is_local_provider:
+                app_logger.log_audio_event(
+                    "Skipping streaming audio for cloud provider",
+                    {"provider": provider, "will_use_complete_audio": True},
+                )
+            return
+
+        if not self._speech_service:
+            app_logger.log_audio_event(
+                "Cannot add final audio - speech service not available", {}
+            )
+            return
+
+        # 获取当前流式模式
+        streaming_mode = self._streaming_manager.get_current_mode()
+
+        try:
+            if streaming_mode == "realtime":
+                # realtime 模式：发送到实时流处理
+                if hasattr(self._speech_service, "streaming_coordinator"):
+                    self._speech_service.streaming_coordinator.add_realtime_audio(
+                        audio_data
+                    )
+                    app_logger.log_audio_event(
+                        "Final realtime audio added",
+                        {"audio_length": len(audio_data)},
+                    )
+            else:  # chunked
+                # chunked 模式：使用分块 API
+                if hasattr(self._speech_service, "add_streaming_chunk"):
+                    self._speech_service.add_streaming_chunk(audio_data)
+                    app_logger.log_audio_event(
+                        "Final streaming chunk added",
+                        {"audio_length": len(audio_data)},
+                    )
         except Exception as e:
-            app_logger.log_error(e, "_on_audio_data")
+            app_logger.log_error(e, "submit_final_audio")
+
+    def _save_and_request_transcription(self, audio_data) -> None:
+        """保存音频文件并发送转录请求
+
+        Args:
+            audio_data: 音频数据
+        """
+        # 保存音频文件到历史记录
+        record_id = str(uuid.uuid4())
+        audio_file_path = None
+
+        try:
+            # 生成音频文件路径
+            audio_file_path = self._history_service.generate_audio_file_path()
+
+            # 保存音频文件
+            if hasattr(self._audio_service, "save_to_file"):
+                save_success = self._audio_service.save_to_file(audio_file_path)
+                if save_success:
+                    app_logger.log_audio_event(
+                        "Audio file saved to history",
+                        {
+                            "record_id": record_id,
+                            "file_path": audio_file_path,
+                            "duration": f"{self._last_audio_duration:.1f}s",
+                        },
+                    )
+                else:
+                    app_logger.log_audio_event(
+                        "Failed to save audio file", {"record_id": record_id}
+                    )
+                    audio_file_path = None
+            else:
+                app_logger.log_audio_event(
+                    "AudioService does not support save_to_file", {}
+                )
+                audio_file_path = None
+        except Exception as e:
+            app_logger.log_error(e, "save_audio_file_to_history")
+            audio_file_path = None
+
+        # 发送转录请求事件（由 TranscriptionController 监听）
+        self._events.emit(
+            "transcription_request",
+            {
+                "audio_duration": self._last_audio_duration,
+                "recording_stop_time": self._recording_stop_time,
+                "record_id": record_id,
+                "audio_file_path": audio_file_path,
+            },
+        )

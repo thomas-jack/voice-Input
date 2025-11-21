@@ -5,25 +5,25 @@
 核心功能：
 - 管理热键注册和监听
 - 支持后端切换（win32/pynput）
-- 实现配置热重载（IConfigReloadable）
+- 实现新架构的热重载协议（IHotReloadable）
 - 处理热键变更和后端变更
 
 设计理念：
 - 服务层封装：隐藏底层管理器实现细节
 - 配置驱动：根据配置自动选择和切换后端
-- 热重载友好：支持无缝切换热键和后端
+- 热重载友好：通过 HotReloadManager 统一管理
 """
 
 from typing import List, Tuple, Dict, Any, Callable, Optional
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces.config_reload import (
-    IConfigReloadable,
     ConfigDiff,
     ReloadResult,
     ReloadStrategy,
 )
 from ..interfaces.config import IConfigService
 from ..interfaces.hotkey import IHotkeyService
+from ..services.config import ConfigKeys
 from ...utils import app_logger
 
 
@@ -45,31 +45,36 @@ class HotkeyService(LifecycleComponent):
             config_service: 配置服务
             callback: 热键触发回调函数
         """
-        super().__init__("HotkeyService", config_service)
+        super().__init__("HotkeyService")
+        self._config_service = config_service
 
         self._callback = callback
         self._manager: Optional[IHotkeyService] = None
         self._current_backend: str = ""
         self._current_keys: List[str] = []
 
-    def _do_initialize(self, config: dict) -> bool:
-        """初始化服务：创建热键管理器
-
-        Args:
-            config: 初始化配置
+    def _do_start(self) -> bool:
+        """启动服务：创建热键管理器并开始监听
 
         Returns:
-            True if initialization successful
+            True if start successful
         """
         try:
             # 读取配置
             if not self._config_service:
-                app_logger.log_error(Exception("Config service is not initialized"), "HotkeyService._do_initialize")
+                app_logger.log_error(
+                    Exception("Config service is not initialized"),
+                    "HotkeyService._do_start",
+                )
                 return False
 
             # 使用 get_setting 获取配置
-            backend: str = self._config_service.get_setting("hotkeys.backend", "pynput")
-            keys: List[str] = self._config_service.get_setting("hotkeys.keys", [])
+            backend: str = self._config_service.get_setting(
+                ConfigKeys.HOTKEYS_BACKEND, "pynput"
+            )
+            keys: List[str] = self._config_service.get_setting(
+                ConfigKeys.HOTKEYS_KEYS, []
+            )
 
             # 创建管理器
             self._create_manager(backend)
@@ -81,94 +86,64 @@ class HotkeyService(LifecycleComponent):
                         self._manager.register_hotkey(key, "toggle_recording")
                     except Exception as e:
                         app_logger.log_error(
-                            e,
-                            f"HotkeyService.initialize: Failed to register {key}"
+                            e, f"HotkeyService.start: Failed to register {key}"
                         )
 
             # 保存当前状态
             self._current_backend = backend
             self._current_keys = keys
 
-            app_logger.log_audio_event(
-                "HotkeyService initialized",
-                {
-                    "backend": backend,
-                    "keys": keys,
-                    "manager_type": type(self._manager).__name__ if self._manager else "None",
-                }
-            )
-
-            return True
-
-        except Exception as e:
-            app_logger.log_error(e, "HotkeyService._do_initialize")
-            return False
-
-    def _do_start(self) -> bool:
-        """启动服务：开始监听热键
-
-        Returns:
-            True if start successful
-        """
-        try:
+            # 开始监听热键
             if self._manager:
                 success = self._manager.start_listening()
                 if success:
                     app_logger.log_audio_event(
-                        "HotkeyService started listening",
-                        {"backend": self._current_backend}
+                        "HotkeyService started",
+                        {
+                            "backend": backend,
+                            "keys": keys,
+                            "manager_type": type(self._manager).__name__,
+                        },
                     )
                     return True
                 else:
                     app_logger.log_audio_event(
                         "HotkeyService failed to start listening",
-                        {"backend": self._current_backend}
+                        {"backend": self._current_backend},
                     )
                     return False
             return False
+
         except Exception as e:
             app_logger.log_error(e, "HotkeyService._do_start")
             return False
 
     def _do_stop(self) -> bool:
-        """停止服务：停止监听热键
+        """停止服务：停止监听热键并清理资源
 
         Returns:
             True if stop successful
         """
         try:
             if self._manager:
+                # 停止监听
                 self._manager.stop_listening()
-                app_logger.log_audio_event(
-                    "HotkeyService stopped listening",
-                    {"backend": self._current_backend}
-                )
-            return True
-        except Exception as e:
-            app_logger.log_error(e, "HotkeyService._do_stop")
-            return False
 
-    def _do_cleanup(self) -> bool:
-        """清理服务：清理热键管理器
-
-        Returns:
-            True if cleanup successful
-        """
-        try:
-            if self._manager:
                 # 注销所有热键
                 if hasattr(self._manager, "unregister_all_hotkeys"):
                     self._manager.unregister_all_hotkeys()
 
+                app_logger.log_audio_event(
+                    "HotkeyService stopped and cleaned up",
+                    {"backend": self._current_backend},
+                )
+
+                # 清理管理器引用
                 self._manager = None
 
-                app_logger.log_audio_event(
-                    "HotkeyService cleaned up",
-                    {"backend": self._current_backend}
-                )
             return True
         except Exception as e:
-            app_logger.log_error(e, "HotkeyService._do_cleanup")
+            app_logger.log_error(e, "HotkeyService._do_stop")
             return False
 
     def _create_manager(self, backend: str) -> None:
@@ -179,17 +154,17 @@ class HotkeyService(LifecycleComponent):
         """
         if backend == "win32":
             from ..hotkey_manager_win32 import Win32HotkeyManager
+
             self._manager = Win32HotkeyManager(self._callback)
             app_logger.log_audio_event(
-                "Created Win32 hotkey manager",
-                {"backend": "win32"}
+                "Created Win32 hotkey manager", {"backend": "win32"}
             )
         elif backend == "pynput":
             from ..hotkey_manager_pynput import PynputHotkeyManager
+
             self._manager = PynputHotkeyManager(self._callback)
             app_logger.log_audio_event(
-                "Created Pynput hotkey manager",
-                {"backend": "pynput"}
+                "Created Pynput hotkey manager", {"backend": "pynput"}
             )
         else:
             raise ValueError(f"Unsupported hotkey backend: {backend}")
@@ -203,8 +178,8 @@ class HotkeyService(LifecycleComponent):
             配置键列表
         """
         return [
-            "hotkeys.keys",
-            "hotkeys.backend",
+            ConfigKeys.HOTKEYS_KEYS,
+            ConfigKeys.HOTKEYS_BACKEND,
         ]
 
     def get_service_dependencies(self) -> List[str]:
@@ -214,6 +189,113 @@ class HotkeyService(LifecycleComponent):
             服务名称列表
         """
         return ["config_service"]
+
+    # ========== IHotReloadable 协议实现（新架构）==========
+
+    def get_config_dependencies(self) -> List[str]:
+        """声明此服务依赖的配置键（IHotReloadable 协议）
+
+        Returns:
+            配置键列表
+        """
+        return ["hotkeys.keys", "hotkeys.backend"]
+
+    def on_config_changed(
+        self, changed_keys: List[str], new_config: Dict[str, Any]
+    ) -> bool:
+        """处理配置变更通知（IHotReloadable 协议）
+
+        由 HotReloadManager 调用，实现统一的热重载流程
+
+        Args:
+            changed_keys: 变更的配置键列表
+            new_config: 新的完整配置字典
+
+        Returns:
+            True 如果重载成功，False 如果失败
+        """
+        try:
+            app_logger.log_audio_event(
+                "HotkeyService: Config change notification received",
+                {"changed_keys": changed_keys},
+            )
+
+            # 获取新热键配置
+            hotkeys_config = new_config.get("hotkeys", {})
+            new_keys = hotkeys_config.get("keys", [])
+            new_backend = hotkeys_config.get("backend", "pynput")
+
+            # 检查是否需要切换后端
+            backend_changed = new_backend != self._current_backend
+
+            if backend_changed:
+                app_logger.log_audio_event(
+                    "Hotkey backend changed, recreating manager",
+                    {"old": self._current_backend, "new": new_backend},
+                )
+
+                # 停止旧管理器
+                if self._manager:
+                    try:
+                        if hasattr(self._manager, "unregister_all_hotkeys"):
+                            self._manager.unregister_all_hotkeys()
+                        if hasattr(self._manager, "stop_listening"):
+                            self._manager.stop_listening()
+                    except Exception as e:
+                        app_logger.log_error(e, "Failed to cleanup old hotkey manager")
+
+                # 创建新管理器
+                self._create_manager(new_backend)
+
+                # 注册新热键
+                if self._manager:
+                    for key in new_keys:
+                        try:
+                            self._manager.register_hotkey(key, "toggle_recording")
+                        except Exception as e:
+                            app_logger.log_error(e, f"Failed to register hotkey: {key}")
+                            return False
+
+                    # 启动新管理器
+                    if hasattr(self._manager, "start_listening"):
+                        if not self._manager.start_listening():
+                            app_logger.log_error(
+                                None, "Failed to start new hotkey manager"
+                            )
+                            return False
+
+                # 更新状态
+                self._current_backend = new_backend
+                self._current_keys = new_keys
+
+                app_logger.log_audio_event(
+                    "Hotkey backend switched successfully",
+                    {"backend": new_backend, "keys": new_keys},
+                )
+
+            else:
+                # 仅热键变更，使用 reload() 方法
+                app_logger.log_audio_event(
+                    "Reloading hotkeys (same backend)",
+                    {"backend": self._current_backend, "new_keys": new_keys},
+                )
+
+                if self._manager and hasattr(self._manager, "reload"):
+                    self._manager.reload(new_keys)
+                    self._current_keys = new_keys
+
+                    app_logger.log_audio_event(
+                        "Hotkeys reloaded successfully", {"keys": new_keys}
+                    )
+                else:
+                    app_logger.log_error(None, "Hotkey manager doesn't support reload")
+                    return False
+
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "HotkeyService.on_config_changed")
+            return False
 
     def get_reload_strategy(self, diff: ConfigDiff) -> ReloadStrategy:
         """根据配置变更决定重载策略
@@ -225,7 +307,7 @@ class HotkeyService(LifecycleComponent):
             重载策略
         """
         # 检查是否切换后端
-        if "hotkeys.backend" in diff.changed_keys:
+        if ConfigKeys.HOTKEYS_BACKEND in diff.changed_keys:
             return ReloadStrategy.RECREATE
 
         # 仅热键变更，重新初始化即可
@@ -258,15 +340,11 @@ class HotkeyService(LifecycleComponent):
 
             # 验证新配置
             if not new_keys:
-                return ReloadResult(
-                    success=False,
-                    message="Hotkeys cannot be empty"
-                )
+                return ReloadResult(success=False, message="Hotkeys cannot be empty")
 
             if new_backend not in ["pynput", "win32"]:
                 return ReloadResult(
-                    success=False,
-                    message=f"Unsupported hotkey backend: {new_backend}"
+                    success=False, message=f"Unsupported hotkey backend: {new_backend}"
                 )
 
             # 保存回滚数据
@@ -283,21 +361,18 @@ class HotkeyService(LifecycleComponent):
                     "new_backend": new_backend,
                     "old_keys": self._current_keys,
                     "new_keys": new_keys,
-                }
+                },
             )
 
             return ReloadResult(
                 success=True,
                 message="Preparation successful",
-                rollback_data=rollback_data
+                rollback_data=rollback_data,
             )
 
         except Exception as e:
             app_logger.log_error(e, "HotkeyService.prepare_reload")
-            return ReloadResult(
-                success=False,
-                message=f"Preparation failed: {str(e)}"
-            )
+            return ReloadResult(success=False, message=f"Preparation failed: {str(e)}")
 
     def commit_reload(self, diff: ConfigDiff) -> ReloadResult:
         """提交重载：应用配置变更
@@ -318,7 +393,7 @@ class HotkeyService(LifecycleComponent):
                 # 仅热键变更，调用管理器的 reload()
                 app_logger.log_audio_event(
                     "Reloading hotkeys (same backend)",
-                    {"backend": self._current_backend, "new_keys": new_keys}
+                    {"backend": self._current_backend, "new_keys": new_keys},
                 )
 
                 if self._manager and hasattr(self._manager, "reload"):
@@ -327,7 +402,7 @@ class HotkeyService(LifecycleComponent):
                 else:
                     return ReloadResult(
                         success=False,
-                        message=f"Manager {self._current_backend} doesn't support reload"
+                        message=f"Manager {self._current_backend} doesn't support reload",
                     )
 
                 return ReloadResult(success=True, message="Hotkeys reloaded")
@@ -337,7 +412,7 @@ class HotkeyService(LifecycleComponent):
                 # 但为了完整性，也实现一下后端切换逻辑
                 app_logger.log_audio_event(
                     "Switching hotkey backend",
-                    {"old": self._current_backend, "new": new_backend}
+                    {"old": self._current_backend, "new": new_backend},
                 )
 
                 # 1. 停止旧管理器
@@ -359,10 +434,7 @@ class HotkeyService(LifecycleComponent):
                         try:
                             self._manager.register_hotkey(key, "toggle_recording")
                         except Exception as e:
-                            app_logger.log_error(
-                                e,
-                                f"Failed to register hotkey: {key}"
-                            )
+                            app_logger.log_error(e, f"Failed to register hotkey: {key}")
 
                     # 4. 启动新管理器
                     if hasattr(self._manager, "start_listening"):
@@ -374,23 +446,19 @@ class HotkeyService(LifecycleComponent):
 
                 app_logger.log_audio_event(
                     "Hotkey backend switched",
-                    {"backend": new_backend, "keys": new_keys}
+                    {"backend": new_backend, "keys": new_keys},
                 )
 
                 return ReloadResult(success=True, message="Backend switched")
 
             else:
                 return ReloadResult(
-                    success=False,
-                    message=f"Unknown strategy: {strategy}"
+                    success=False, message=f"Unknown strategy: {strategy}"
                 )
 
         except Exception as e:
             app_logger.log_error(e, "HotkeyService.commit_reload")
-            return ReloadResult(
-                success=False,
-                message=f"Commit failed: {str(e)}"
-            )
+            return ReloadResult(success=False, message=f"Commit failed: {str(e)}")
 
     def rollback_reload(self, rollback_data: Dict[str, Any]) -> bool:
         """回滚到之前的配置状态
@@ -428,7 +496,7 @@ class HotkeyService(LifecycleComponent):
                 {
                     "backend": self._current_backend,
                     "keys": self._current_keys,
-                }
+                },
             )
 
             return True
