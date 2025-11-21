@@ -88,10 +88,6 @@ v0.4.0 - 架构简化升级
 - 日志: `%AppData%\SonicInput\logs\app.log`
 - 模型: `%AppData%\SonicInput\models/`
 
-**文档**
-- [项目 README](README.md)
-- [CLAUDE.md](CLAUDE.md) - 开发者文档
-
 **问题反馈**
 - GitHub Issues: [提交 Issue](https://github.com/Oxidane-bot/SonicInput/issues)
 
@@ -184,10 +180,6 @@ v0.4.0 - Architecture Simplification
 - Config: `%AppData%\SonicInput\config.json`
 - Logs: `%AppData%\SonicInput\logs\app.log`
 - Models: `%AppData%\SonicInput\models/`
-
-**Documentation**
-- [Project README](README.md)
-- [CLAUDE.md](CLAUDE.md) - Developer documentation
 
 **Issue Reporting**
 - GitHub Issues: [Submit Issue](https://github.com/Oxidane-bot/SonicInput/issues)
