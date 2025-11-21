@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import uuid
 
+from ..base.lifecycle_component import LifecycleComponent
 from ...utils import app_logger
 
 
@@ -57,7 +58,7 @@ class Task:
         return self.created_at < other.created_at  # 时间早的在前
 
 
-class TaskQueueManager:
+class TaskQueueManager(LifecycleComponent):
     """任务队列管理器
 
     负责任务队列管理、工作线程管理和任务执行协调。
@@ -71,6 +72,8 @@ class TaskQueueManager:
             worker_count: 工作线程数量
             event_service: 事件服务（可选）
         """
+        super().__init__("TaskQueueManager")
+
         self.worker_count = worker_count
         self.event_service = event_service
 
@@ -80,7 +83,6 @@ class TaskQueueManager:
 
         # 线程管理
         self._workers: List[threading.Thread] = []
-        self._is_running = False
         self._shutdown_event = threading.Event()
 
         # 统计信息
@@ -115,12 +117,12 @@ class TaskQueueManager:
         self._task_handlers[task_type] = handler
         app_logger.log_audio_event("Task handler registered", {"task_type": task_type})
 
-    def start(self) -> None:
-        """启动任务队列管理器"""
-        if self._is_running:
-            return
+    def _do_start(self) -> bool:
+        """启动任务队列管理器
 
-        self._is_running = True
+        Returns:
+            True if start successful
+        """
         self._shutdown_event.clear()
 
         # 启动工作线程
@@ -140,15 +142,15 @@ class TaskQueueManager:
             "task_queue_started", {"worker_count": len(self._workers)}
         )
 
-    def stop(self, timeout: Optional[float] = 10.0) -> None:
+        return True
+
+    def _do_stop(self) -> bool:
         """停止任务队列管理器
 
-        Args:
-            timeout: 等待工作线程结束的超时时间
+        Returns:
+            True if stop successful
         """
-        if not self._is_running:
-            return
-
+        timeout = 10.0
         app_logger.log_audio_event("TaskQueueManager stopping", {"timeout": timeout})
 
         # 设置关闭事件
@@ -163,12 +165,24 @@ class TaskQueueManager:
             self._running_tasks.clear()
 
         self._workers.clear()
-        self._is_running = False
+
+        # 清空队列 (merged from cleanup())
+        while not self._task_queue.empty():
+            try:
+                self._task_queue.get_nowait()
+                self._task_queue.task_done()
+            except queue.Empty:
+                break
+
+        # 清理注册的处理器 (merged from cleanup())
+        self._task_handlers.clear()
 
         app_logger.log_audio_event("TaskQueueManager stopped", {})
 
         # 发送停止事件
         self._emit_task_event("task_queue_stopped", {})
+
+        return True
 
     def submit_task(
         self,
@@ -194,7 +208,7 @@ class TaskQueueManager:
         Returns:
             任务ID
         """
-        if not self._is_running:
+        if not self.is_running:
             raise RuntimeError("TaskQueueManager is not running")
 
         if task_type not in self._task_handlers:
@@ -299,7 +313,7 @@ class TaskQueueManager:
             stats = self._stats.copy()
             stats["queue_size"] = self._task_queue.qsize()
             stats["running_tasks"] = len(self._running_tasks)
-            stats["is_running"] = self._is_running
+            stats["is_running"] = self.is_running
             return stats
 
     def _worker_loop(self) -> None:
@@ -558,20 +572,3 @@ class TaskQueueManager:
                 self.event_service.emit(event_name, data)
             except Exception as e:
                 app_logger.log_error(e, "emit_task_event")
-
-    def cleanup(self) -> None:
-        """清理资源"""
-        self.stop()
-
-        # 清空队列
-        while not self._task_queue.empty():
-            try:
-                self._task_queue.get_nowait()
-                self._task_queue.task_done()
-            except queue.Empty:
-                break
-
-        # 清理注册的处理器
-        self._task_handlers.clear()
-
-        app_logger.log_audio_event("TaskQueueManager cleaned up", {})

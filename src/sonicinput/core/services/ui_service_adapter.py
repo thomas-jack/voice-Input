@@ -5,7 +5,8 @@ UI组件通过此适配器访问业务逻辑，不直接依赖具体的业务实
 """
 
 from typing import Dict, Any, Optional
-from ..interfaces import IEventService, IConfigService, IHistoryStorageService
+from ..interfaces import IEventService, IConfigService
+from ..services.storage.history_storage_service import HistoryStorageService
 from ...utils import app_logger
 
 
@@ -82,7 +83,7 @@ class UISettingsServiceAdapter:
         self,
         config_service: IConfigService,
         event_service: IEventService,
-        history_service: IHistoryStorageService,
+        history_service: HistoryStorageService,
         transcription_service=None,
         ai_processing_controller=None,
     ):
@@ -144,7 +145,7 @@ class UISettingsServiceAdapter:
         """获取事件服务"""
         return self.event_service
 
-    def get_history_service(self) -> IHistoryStorageService:
+    def get_history_service(self) -> HistoryStorageService:
         """获取历史记录存储服务"""
         return self.history_service
 

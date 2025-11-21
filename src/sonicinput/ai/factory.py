@@ -5,6 +5,7 @@
 
 from typing import Optional
 from ..core.interfaces import IAIService, IConfigService
+from ..core.services.config import ConfigKeys
 from ..utils import app_logger
 
 
@@ -97,35 +98,37 @@ class AIClientFactory:
         """
         try:
             # 读取通用配置
-            provider = config.get_setting("ai.provider", "openrouter")
-            timeout = config.get_setting("ai.timeout", 30)
-            max_retries = config.get_setting("ai.retries", 3)
-            filter_thinking = config.get_setting("ai.filter_thinking", True)
+            provider = config.get_setting(ConfigKeys.AI_PROVIDER, "openrouter")
+            timeout = config.get_setting(ConfigKeys.AI_TIMEOUT, 30)
+            max_retries = config.get_setting(ConfigKeys.AI_RETRIES, 3)
+            filter_thinking = config.get_setting(ConfigKeys.AI_FILTER_THINKING, True)
 
             # 读取提供商特定配置
             if provider == "groq":
-                api_key = config.get_setting("ai.groq.api_key", "")
+                api_key = config.get_setting(ConfigKeys.AI_GROQ_API_KEY, "")
                 return AIClientFactory.create_client(
                     provider, api_key, None, timeout, max_retries, filter_thinking
                 )
 
             elif provider == "nvidia":
-                api_key = config.get_setting("ai.nvidia.api_key", "")
+                api_key = config.get_setting(ConfigKeys.AI_NVIDIA_API_KEY, "")
                 return AIClientFactory.create_client(
                     provider, api_key, None, timeout, max_retries, filter_thinking
                 )
 
             elif provider == "openai_compatible":
-                api_key = config.get_setting("ai.openai_compatible.api_key", "")
+                api_key = config.get_setting(
+                    ConfigKeys.AI_OPENAI_COMPATIBLE_API_KEY, ""
+                )
                 base_url = config.get_setting(
-                    "ai.openai_compatible.base_url", "http://localhost:1234/v1"
+                    ConfigKeys.AI_OPENAI_COMPATIBLE_BASE_URL, "http://localhost:1234/v1"
                 )
                 return AIClientFactory.create_client(
                     provider, api_key, base_url, timeout, max_retries, filter_thinking
                 )
 
             else:  # openrouter (default)
-                api_key = config.get_setting("ai.openrouter.api_key", "")
+                api_key = config.get_setting(ConfigKeys.AI_OPENROUTER_API_KEY, "")
                 return AIClientFactory.create_client(
                     provider, api_key, None, timeout, max_retries, filter_thinking
                 )

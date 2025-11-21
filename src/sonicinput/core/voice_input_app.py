@@ -23,11 +23,11 @@ from .interfaces import (
     ISpeechService,
     IInputService,
     IHotkeyService,
-    IConfigReloadService,
-    IApplicationOrchestrator,
-    IUIEventBridge,
-    IHistoryStorageService,
 )
+from .services.hot_reload_manager import HotReloadManager
+from .services.application_orchestrator import ApplicationOrchestrator
+from .services.ui_event_bridge import UIEventBridge
+from .services.storage.history_storage_service import HistoryStorageService
 from .services.event_bus import Events
 from ..utils import app_logger, logger, VoiceInputError
 
@@ -52,22 +52,20 @@ class VoiceInputApp:
         self.config: IConfigService = self.container.get(IConfigService)
         self.events: IEventService = self.container.get(IEventService)
         self.state: IStateManager = self.container.get(IStateManager)
-        self.config_reload: IConfigReloadService = self.container.get(
-            IConfigReloadService
-        )
+        self.hot_reload_manager: HotReloadManager = self.container.get(HotReloadManager)
 
         # 新增服务 - 应用编排和UI事件桥接
-        self.orchestrator: IApplicationOrchestrator = self.container.get(
-            IApplicationOrchestrator
+        self.orchestrator: ApplicationOrchestrator = self.container.get(
+            ApplicationOrchestrator
         )
-        self.ui_bridge: IUIEventBridge = self.container.get(IUIEventBridge)
+        self.ui_bridge: UIEventBridge = self.container.get(UIEventBridge)
 
         # 业务服务（延迟初始化）
         self._audio_service: Optional[IAudioService] = None
         self._speech_service: Optional[ISpeechService] = None
         self._input_service: Optional[IInputService] = None
         self._hotkey_service: Optional[IHotkeyService] = None
-        self._history_service: Optional[IHistoryStorageService] = None
+        self._history_service: Optional[HistoryStorageService] = None
 
         # 控制器（延迟初始化）
         self._recording_controller: Optional[RecordingController] = None
@@ -107,7 +105,7 @@ class VoiceInputApp:
             self._audio_service = self.container.get(IAudioService)
             self._speech_service = self.container.get(ISpeechService)
             self._input_service = self.container.get(IInputService)
-            self._history_service = self.container.get(IHistoryStorageService)
+            self._history_service = self.container.get(HistoryStorageService)
 
             # 初始化快捷键服务（从 DI 容器获取，确保被注册到 config_reload_registry）
             # HotkeyService 在创建时已经注册了所有热键

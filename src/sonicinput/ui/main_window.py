@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from typing import Optional, Dict, Any
-from ..core.interfaces import IUIMainService, IUISettingsService, IUIModelService
+from ..core.services.ui_services import UIMainService, UISettingsService, UIModelService
 from ..core.services.event_bus import Events
 from ..utils import app_logger
 
@@ -137,9 +137,9 @@ class MainWindow(QMainWindow):
 
     def __init__(
         self,
-        ui_main_service: Optional[IUIMainService] = None,
-        ui_settings_service: Optional[IUISettingsService] = None,
-        ui_model_service: Optional[IUIModelService] = None,
+        ui_main_service: Optional[UIMainService] = None,
+        ui_settings_service: Optional[UISettingsService] = None,
+        ui_model_service: Optional[UIModelService] = None,
         parent=None,
     ):
         """初始化主窗口
@@ -210,9 +210,9 @@ class MainWindow(QMainWindow):
 
     def set_ui_services(
         self,
-        ui_main_service: IUIMainService,
-        ui_settings_service: IUISettingsService,
-        ui_model_service: IUIModelService,
+        ui_main_service: UIMainService,
+        ui_settings_service: UISettingsService,
+        ui_model_service: UIModelService,
     ) -> None:
         """设置UI服务（依赖注入）
 

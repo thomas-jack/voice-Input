@@ -12,8 +12,9 @@ from dataclasses import dataclass, field
 from collections import defaultdict, deque
 from datetime import datetime
 
+from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces.state import IStateManager, AppState, RecordingState
-from ..interfaces.event import IEventService, EventPriority
+from ..interfaces import IEventService, EventPriority
 from ...utils import app_logger
 
 T = TypeVar("T")
@@ -41,7 +42,7 @@ class StateSubscriber:
     last_called: float = 0.0
 
 
-class StateManager(IStateManager):
+class StateManager(LifecycleComponent, IStateManager):
     """状态管理器
 
     提供线程安全的全局状态管理功能。
@@ -57,14 +58,13 @@ class StateManager(IStateManager):
             event_service: 事件服务实例，用于发送状态变更事件
             max_history: 最大状态变更历史记录数量
         """
+        super().__init__("StateManager")
         self._event_service = event_service
+        self._max_history = max_history
         self._states: Dict[str, Any] = {}
         self._subscribers: Dict[str, List[StateSubscriber]] = defaultdict(list)
         self._history: Dict[str, deque] = defaultdict(lambda: deque(maxlen=max_history))
         self._lock = threading.RLock()
-
-        # 初始化预定义状态
-        self._initialize_default_states()
 
         app_logger.log_audio_event(
             "StateManager initialized",
@@ -73,6 +73,52 @@ class StateManager(IStateManager):
                 "event_service_enabled": self._event_service is not None,
             },
         )
+
+    def _do_start(self) -> bool:
+        """Start state manager
+
+        Returns:
+            True if start successful
+        """
+        try:
+            # Initialize default states
+            self._initialize_default_states()
+
+            app_logger.log_audio_event("StateManager started", {})
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "StateManager_start")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Stop state manager and cleanup resources
+
+        Returns:
+            True if stop successful
+        """
+        try:
+            # Unsubscribe all subscribers
+            with self._lock:
+                subscriber_count = sum(len(subs) for subs in self._subscribers.values())
+                self._subscribers.clear()
+
+                # Clear state history
+                history_count = sum(len(hist) for hist in self._history.values())
+                self._history.clear()
+
+            app_logger.log_audio_event(
+                "StateManager stopped",
+                {
+                    "subscribers_cleared": subscriber_count,
+                    "history_cleared": history_count,
+                },
+            )
+            return True
+
+        except Exception as e:
+            app_logger.log_error(e, "StateManager_stop")
+            return False
 
     def _initialize_default_states(self) -> None:
         """初始化默认状态"""

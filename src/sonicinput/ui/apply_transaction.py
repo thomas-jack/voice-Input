@@ -23,11 +23,11 @@
 import copy
 from typing import Any, Dict, Optional
 
-from ..core.interfaces.ui_main_service import (
-    IUIModelService,
-    IUISettingsService,
+from ..core.services.ui_services import (
+    UIModelService,
+    UISettingsService,
 )
-from ..core.interfaces.event import IEventService
+from ..core.interfaces import IEventService
 from ..utils.logger import app_logger
 
 
@@ -77,8 +77,8 @@ class ApplyTransaction:
 
     def __init__(
         self,
-        model_service: IUIModelService,
-        settings_service: IUISettingsService,
+        model_service: UIModelService,
+        settings_service: UISettingsService,
         event_service: IEventService,
     ):
         """初始化事务管理器

@@ -79,12 +79,16 @@ class SherpaStreamingSession:
             is_endpoint = self.recognizer.is_endpoint(self.stream)
 
             if is_endpoint:
-                # 端点检测：句子可能结束
-                # 关键修复：不立即reset，而是标记端点并继续累积
+                # 端点检测：句子结束
+                # 关键修复：立即reset stream避免重复识别
+                # 符合sherpa-onnx官方示例的标准做法
                 if result.strip():
                     self._last_result = result
-                    # 注意：这里不调用 reset()
-                    # reset()延迟到 get_final_result() 或确认无新音频时
+                    # 立即重置stream,清空内部状态,防止下次识别时重复
+                    self.recognizer.reset(self.stream)
+                    logger.debug(
+                        f"Endpoint detected, stream reset. Text length: {len(self._last_result)}"
+                    )
             else:
                 # 部分结果：句子未结束
                 if result.strip():

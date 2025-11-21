@@ -5,6 +5,7 @@
 - 服务依赖协调
 - 生命周期阶段管理
 - 错误处理和回滚
+- 配置热重载协调
 """
 
 from typing import Dict, List, Callable, Any, Optional
@@ -19,6 +20,8 @@ from ..interfaces import (
     IInputService,
     IHotkeyService,
 )
+from ..services.config import ConfigKeys
+from .hot_reload_manager import HotReloadManager
 from ...utils import app_logger, VoiceInputError
 
 
@@ -48,6 +51,7 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
+        hot_reload_manager: Optional[HotReloadManager] = None,
     ):
         """初始化应用编排器
 
@@ -55,10 +59,12 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
             config_service: 配置服务
             event_service: 事件服务
             state_manager: 状态管理器
+            hot_reload_manager: 热重载管理器（可选）
         """
         self.config = config_service
         self.events = event_service
         self.state = state_manager
+        self.hot_reload_manager = hot_reload_manager or HotReloadManager()
 
         # 初始化状态
         self._current_phase = InitializationPhase.NOT_STARTED
@@ -78,6 +84,9 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         # 控制器引用（运行时设置）
         self._controllers: Dict[str, Any] = {}
 
+        # 注册 config.changed 事件监听，实现统一的热重载
+        self.events.on("config.changed", self._on_config_changed)
+
         app_logger.log_audio_event("ApplicationOrchestrator initialized", {})
 
     def set_services(
@@ -87,11 +96,14 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         input_service: IInputService,
         hotkey_service: IHotkeyService,
     ) -> None:
-        """设置服务引用"""
+        """设置服务引用并注册到热重载管理器"""
         self._audio_service = audio_service
         self._speech_service = speech_service
         self._input_service = input_service
         self._hotkey_service = hotkey_service
+
+        # 注册支持热重载的服务
+        self._register_hot_reload_services()
 
     def set_controllers(self, **controllers) -> None:
         """设置控制器引用"""
@@ -278,10 +290,12 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
     def _init_model_loading(self) -> None:
         """初始化模型加载阶段"""
         if self._should_enable_auto_load():
-            provider = self.config.get_setting("transcription.provider", "local")
+            provider = self.config.get_setting(
+                ConfigKeys.TRANSCRIPTION_PROVIDER, "local"
+            )
             if provider == "local":
                 model_name = self.config.get_setting(
-                    "transcription.local.model", "paraformer"
+                    ConfigKeys.TRANSCRIPTION_LOCAL_MODEL, "paraformer"
                 )
                 app_logger.log_audio_event(
                     "Auto-loading model on startup", {"model_name": model_name}
@@ -297,7 +311,7 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
     def _should_enable_auto_load(self) -> bool:
         """判断是否应该启用自动加载"""
         # 检查转录提供商
-        provider = self.config.get_setting("transcription.provider", "local")
+        provider = self.config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
 
         # 如果使用云端转录，不自动加载本地模型
         if provider != "local":
@@ -305,7 +319,7 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
 
         # 否则根据配置决定
         return self.config.get_setting(
-            "transcription.local.auto_load",
+            ConfigKeys.TRANSCRIPTION_LOCAL_AUTO_LOAD,
             self.config.get_setting("whisper.auto_load", True),
         )
 
@@ -352,6 +366,89 @@ class ApplicationOrchestrator(IApplicationOrchestrator):
         self._speech_service.load_model_async(
             model_name=model_name, callback=on_success, error_callback=on_error
         )
+
+    def _register_hot_reload_services(self) -> None:
+        """注册支持热重载的服务到HotReloadManager"""
+        services_to_register = [
+            ("audio", self._audio_service),
+            ("speech", self._speech_service),
+            ("input", self._input_service),
+            ("hotkey", self._hotkey_service),
+        ]
+
+        registered_count = 0
+        for service_name, service in services_to_register:
+            if (
+                service
+                and hasattr(service, "get_config_dependencies")
+                and hasattr(service, "on_config_changed")
+            ):
+                try:
+                    self.hot_reload_manager.register_service(service_name, service)
+                    registered_count += 1
+                    app_logger.log_audio_event(
+                        f"Registered {service_name} for hot reload",
+                        {"config_deps": service.get_config_dependencies()},
+                    )
+                except Exception as e:
+                    app_logger.log_error(e, f"register_hot_reload_{service_name}")
+
+        app_logger.log_audio_event(
+            "Hot reload service registration completed",
+            {"registered_services": registered_count},
+        )
+
+    def _on_config_changed(self, data: Dict[str, Any]) -> None:
+        """配置变更事件处理器（内部方法）
+
+        当 ConfigService 发出 config.changed 事件时自动调用
+
+        Args:
+            data: 事件数据，包含 changed_keys, old_config, new_config
+        """
+        try:
+            changed_keys = data.get("changed_keys", [])
+            new_config = data.get("new_config", {})
+
+            app_logger.log_audio_event(
+                "Config change event received, triggering hot-reload",
+                {"changed_keys": changed_keys},
+            )
+
+            # 调用公共接口进行热重载
+            self.notify_config_changed(changed_keys, new_config)
+
+        except Exception as e:
+            app_logger.log_error(e, "ApplicationOrchestrator._on_config_changed")
+
+    def notify_config_changed(
+        self, changed_keys: List[str], new_config: Dict[str, Any]
+    ) -> bool:
+        """通知配置变更到所有注册的服务
+
+        Args:
+            changed_keys: 变更的配置键列表
+            new_config: 新的配置字典
+
+        Returns:
+            True if all reloads successful, False if any failed
+        """
+        app_logger.log_audio_event(
+            "Notifying config changes to services", {"changed_keys": changed_keys}
+        )
+
+        success = self.hot_reload_manager.notify_config_changed(
+            changed_keys, new_config
+        )
+
+        if success:
+            app_logger.log_audio_event("Config hot-reload completed successfully", {})
+        else:
+            app_logger.log_error(
+                Exception("Config hot-reload failed"), "notify_config_changed"
+            )
+
+        return success
 
     def _rollback_initialization(self) -> None:
         """回滚初始化（错误处理）"""

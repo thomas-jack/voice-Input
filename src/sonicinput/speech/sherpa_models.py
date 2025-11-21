@@ -9,8 +9,19 @@ from typing import Dict, Any, Optional
 from urllib.request import urlopen, Request
 from loguru import logger
 
+try:
+    from PySide6.QtWidgets import QProgressDialog, QApplication
+    from PySide6.QtCore import Qt
 
-class SherpaModelManager:
+    PYSIDE6_AVAILABLE = True
+except ImportError:
+    PYSIDE6_AVAILABLE = False
+    logger.warning("PySide6 not available, progress dialog will not be shown")
+
+from ..core.base.lifecycle_component import LifecycleComponent
+
+
+class SherpaModelManager(LifecycleComponent):
     """sherpa-onnx 模型管理器"""
 
     MODELS = {
@@ -36,14 +47,15 @@ class SherpaModelManager:
         Args:
             cache_dir: 模型缓存目录，默认为 ~/.sonicinput/sherpa_models
         """
+        super().__init__("SherpaModelManager")
+
         if cache_dir:
             self.cache_dir = Path(cache_dir)
         else:
             # 默认缓存到用户目录
             self.cache_dir = Path.home() / ".sonicinput" / "sherpa_models"
 
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Model cache directory: {self.cache_dir}")
+        self._model_cache: Dict[str, Path] = {}  # Cache for model directories
 
     def is_model_cached(self, model_name: str) -> bool:
         """检查模型是否已缓存
@@ -98,9 +110,30 @@ class SherpaModelManager:
 
         model_info = self.MODELS[model_name]
         url = model_info["url"]
+        size_mb = model_info["size_mb"]
 
         logger.info(f"Downloading model {model_name} from {url}")
-        logger.info(f"Size: {model_info['size_mb']} MB")
+        logger.info(f"Size: {size_mb} MB")
+
+        # 创建进度对话框 (如果 PySide6 可用)
+        progress_dialog = None
+        if PYSIDE6_AVAILABLE:
+            try:
+                progress_dialog = QProgressDialog()
+                progress_dialog.setWindowTitle("模型下载")
+                progress_dialog.setLabelText(
+                    f"正在下载模型：{model_name}\n大小：{size_mb} MB"
+                )
+                progress_dialog.setCancelButton(None)  # 隐藏取消按钮
+                progress_dialog.setWindowModality(Qt.WindowModal)
+                progress_dialog.setMinimum(0)
+                progress_dialog.setMaximum(100)
+                progress_dialog.setValue(0)
+                progress_dialog.show()
+                QApplication.processEvents()
+            except Exception as e:
+                logger.warning(f"Failed to create progress dialog: {e}")
+                progress_dialog = None
 
         # 下载到临时文件
         archive_path = self.cache_dir / f"{model_name}.tar.bz2"
@@ -120,6 +153,26 @@ class SherpaModelManager:
                         f.write(chunk)
                         downloaded += len(chunk)
 
+                        # 更新进度对话框
+                        if progress_dialog:
+                            try:
+                                percent = (
+                                    int(downloaded * 100 / total_size)
+                                    if total_size > 0
+                                    else 0
+                                )
+                                progress_dialog.setValue(percent)
+                                downloaded_mb = downloaded / (1024 * 1024)
+                                total_mb = total_size / (1024 * 1024)
+                                progress_dialog.setLabelText(
+                                    f"正在下载模型：{model_name}\n"
+                                    f"进度：{downloaded_mb:.1f} MB / {total_mb:.1f} MB ({percent}%)"
+                                )
+                                QApplication.processEvents()
+                            except Exception as e:
+                                logger.warning(f"Failed to update progress dialog: {e}")
+
+                        # 保持旧的回调接口兼容性
                         if progress_callback:
                             progress_callback(downloaded, total_size)
 
@@ -127,17 +180,61 @@ class SherpaModelManager:
 
             # 解压
             logger.info("Extracting model files...")
+            if progress_dialog:
+                try:
+                    progress_dialog.setValue(95)
+                    progress_dialog.setLabelText(
+                        f"正在解压模型：{model_name}\n请稍候..."
+                    )
+                    QApplication.processEvents()
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to update progress dialog during extraction: {e}"
+                    )
+
             with tarfile.open(archive_path, "r:bz2") as tar:
-                tar.extractall(self.cache_dir)
+                # Securely extract files with path validation (防止路径遍历攻击)
+                safe_members = []
+                for member in tar.getmembers():
+                    # Normalize member path and resolve it relative to cache_dir
+                    member_path = Path(self.cache_dir) / member.name
+                    try:
+                        # Check if resolved path is within cache_dir (防止../类攻击)
+                        member_path.resolve().relative_to(
+                            Path(self.cache_dir).resolve()
+                        )
+                        safe_members.append(member)
+                    except ValueError:
+                        logger.warning(
+                            f"Skipping potentially unsafe tar member: {member.name}"
+                        )
+
+                tar.extractall(self.cache_dir, members=safe_members)
 
             # 删除压缩包
             archive_path.unlink()
             logger.info("Model extraction complete")
 
+            # 关闭进度对话框
+            if progress_dialog:
+                try:
+                    progress_dialog.setValue(100)
+                    progress_dialog.close()
+                except Exception:
+                    pass
+
             return self._get_model_dir(model_name)
 
         except Exception as e:
             logger.error(f"Failed to download model: {e}")
+
+            # 关闭进度对话框
+            if progress_dialog:
+                try:
+                    progress_dialog.close()
+                except Exception:
+                    pass
+
             # 清理失败的下载
             if archive_path.exists():
                 archive_path.unlink()
@@ -246,3 +343,47 @@ class SherpaModelManager:
         else:
             # 通用模式
             return self.cache_dir / f"sherpa-onnx-{model_name}"
+
+    # LifecycleComponent implementation
+
+    def _do_start(self) -> bool:
+        """Initialize model manager - ensure cache directory exists
+
+        Returns:
+            True if initialization successful
+        """
+        try:
+            # Create cache directory
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"Model cache directory: {self.cache_dir}")
+
+            # Verify directory is writable
+            test_file = self.cache_dir / ".test_write"
+            try:
+                test_file.touch()
+                test_file.unlink()
+            except Exception as e:
+                logger.error(f"Cache directory not writable: {e}")
+                return False
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to initialize model manager: {e}")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Cleanup model manager resources
+
+        Returns:
+            True if cleanup successful
+        """
+        try:
+            # Clear cached model directories
+            self._model_cache.clear()
+            logger.info("Model manager stopped, cache cleared")
+            return True
+
+        except Exception as e:
+            logger.error(f"Error stopping model manager: {e}")
+            return False

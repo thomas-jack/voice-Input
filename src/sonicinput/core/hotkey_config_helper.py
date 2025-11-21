@@ -1,6 +1,9 @@
 """Hotkey configuration helper utilities
 
 Provides functions to handle both old and new hotkey configuration formats.
+
+Note: This file uses raw string literals for legacy config keys ("hotkey", "hotkeys")
+to maintain backward compatibility. New code should use ConfigKeys constants.
 """
 
 from typing import List, Tuple

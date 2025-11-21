@@ -21,7 +21,8 @@ from typing import Callable, Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
 from collections import defaultdict
 
-from ..interfaces.event import IEventService, EventPriority
+from ..interfaces import IEventService, EventPriority
+from ..base.lifecycle_component import LifecycleComponent
 
 
 # 延迟导入logger以避免循环依赖
@@ -65,7 +66,7 @@ class EventListener:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class DynamicEventSystem(IEventService):
+class DynamicEventSystem(LifecycleComponent, IEventService):
     """简化的动态事件系统
 
     提供高性能的事件发布/订阅机制，支持优先级、线程安全等核心功能。
@@ -74,6 +75,9 @@ class DynamicEventSystem(IEventService):
 
     def __init__(self):
         """初始化动态事件系统"""
+        # Initialize LifecycleComponent
+        super().__init__("EventBus")
+
         # 基础数据结构
         self._listeners: Dict[str, List[EventListener]] = defaultdict(list)
         self._lock = threading.RLock()
@@ -91,14 +95,54 @@ class DynamicEventSystem(IEventService):
         # 获取logger
         self.logger = _get_logger()
 
-        # 初始化预定义事件
-        self._register_builtin_events()
+    def _do_start(self) -> bool:
+        """Start event system
 
-        if self.logger:
-            self.logger.log_audio_event(
-                "DynamicEventSystem initialized",
-                {"builtin_events": len(self._registered_events)},
-            )
+        Returns:
+            True if start successful
+        """
+        try:
+            # Register builtin events
+            self._register_builtin_events()
+
+            if self.logger:
+                self.logger.log_audio_event(
+                    "DynamicEventSystem initialized",
+                    {"builtin_events": len(self._registered_events)},
+                )
+
+            return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to start EventBus: {e}")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Stop event system and cleanup subscriptions
+
+        Returns:
+            True if stop successful
+        """
+        try:
+            # Clear all listeners
+            self.clear_all_listeners()
+
+            # Clear event metadata and registrations
+            with self._lock:
+                self._event_metadata.clear()
+                self._event_namespaces.clear()
+                self._registered_events.clear()
+                self._sorted_listeners_cache.clear()
+                self._listener_version.clear()
+
+            if self.logger:
+                self.logger.log_audio_event("DynamicEventSystem cleaned up", {})
+
+            return True
+        except Exception as e:
+            if self.logger:
+                self.logger.error(f"Failed to stop EventBus: {e}")
+            return False
 
     def _register_builtin_events(self) -> None:
         """注册内置事件类型"""
@@ -697,22 +741,6 @@ class DynamicEventSystem(IEventService):
 
         if self.logger:
             self.logger.log_audio_event("All event listeners cleared", {})
-
-    def cleanup(self) -> None:
-        """清理资源"""
-        # 清除所有监听器
-        self.clear_all_listeners()
-
-        # 清理数据
-        with self._lock:
-            self._event_metadata.clear()
-            self._event_namespaces.clear()
-            self._registered_events.clear()
-            self._sorted_listeners_cache.clear()
-            self._listener_version.clear()
-
-        if self.logger:
-            self.logger.log_audio_event("DynamicEventSystem cleaned up", {})
 
 
 # 兼容性：提供原有的事件名称枚举

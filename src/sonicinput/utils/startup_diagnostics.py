@@ -154,11 +154,11 @@ class StartupDiagnostics:
                         break
 
                 if version is None:
-                    # Try package metadata
+                    # Try package metadata using importlib.metadata (替代已废弃的pkg_resources)
                     try:
-                        import pkg_resources
+                        from importlib.metadata import version as get_version
 
-                        version = pkg_resources.get_distribution(dep).version
+                        version = get_version(dep)
                     except Exception:
                         version = "Version unknown"
 

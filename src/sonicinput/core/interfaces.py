@@ -2,7 +2,17 @@
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, Callable
+from enum import Enum
 import numpy as np
+
+
+class EventPriority(Enum):
+    """事件优先级"""
+
+    LOW = 1
+    NORMAL = 2
+    HIGH = 3
+    CRITICAL = 4
 
 
 class IAudioService(ABC):

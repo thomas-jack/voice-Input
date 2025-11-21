@@ -19,6 +19,7 @@ import threading
 import queue
 from ..utils import HotkeyRegistrationError, app_logger
 from .interfaces import IHotkeyService
+from .base.lifecycle_component import LifecycleComponent
 
 
 class HotkeyConflictError(Exception):
@@ -66,7 +67,7 @@ class HotkeyConflictError(Exception):
         return suggestions[:3]
 
 
-class Win32HotkeyManager(IHotkeyService):
+class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
     """Windows RegisterHotKey based hotkey manager
 
     Uses Windows RegisterHotKey API for global hotkey detection.
@@ -152,6 +153,7 @@ class Win32HotkeyManager(IHotkeyService):
         Args:
             callback: Callback function called when hotkey is triggered
         """
+        super().__init__("Win32HotkeyManager")
         self.callback = callback
         self._default_action = "toggle_recording"  # 保存默认动作
         self.registered_hotkeys: Dict[
@@ -166,6 +168,23 @@ class Win32HotkeyManager(IHotkeyService):
         app_logger.log_audio_event(
             "Win32 hotkey manager initialized (RegisterHotKey)", {}
         )
+
+    def _do_start(self) -> bool:
+        """Start Win32 hotkey listening (LifecycleComponent API)
+
+        Returns:
+            True if start successful
+        """
+        return self.start_listening()
+
+    def _do_stop(self) -> bool:
+        """Stop Win32 hotkey listening and cleanup (LifecycleComponent API)
+
+        Returns:
+            True if stop successful
+        """
+        self.stop_listening()
+        return True
 
     @property
     def is_listening(self) -> bool:
@@ -443,6 +462,7 @@ class Win32HotkeyManager(IHotkeyService):
 
                         # Check if running as admin
                         import ctypes
+
                         is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
 
                         # Log conflict details
@@ -454,7 +474,7 @@ class Win32HotkeyManager(IHotkeyService):
                                 "error_message": "Hotkey already registered by another application",
                                 "suggestions": registration_error.suggestions,
                                 "running_as_admin": is_admin,
-                                "note": "If error_code is 1409 and running_as_admin is False, the conflicting app may be running with admin privileges. Try running SonicInput as administrator."
+                                "note": "If error_code is 1409 and running_as_admin is False, the conflicting app may be running with admin privileges. Try running SonicInput as administrator.",
                             },
                         )
                         return

@@ -6,30 +6,25 @@ from .sendinput import SendInputMethod
 from ..utils import TextInputError, app_logger
 from ..core.interfaces import IInputService
 from ..core.interfaces.config import IConfigService
+from ..core.services.config import ConfigKeys
+from ..core.base.lifecycle_component import LifecycleComponent
 
 
-class SmartTextInput(IInputService):
+class SmartTextInput(LifecycleComponent, IInputService):
     """智能文本输入管理器"""
 
     def __init__(self, config_service: IConfigService):
+        super().__init__("SmartTextInput")
         self.config_service = config_service
         self.clipboard_input = ClipboardInput()
         self.sendinput_method = SendInputMethod()
 
         # Load settings from config service
         self.preferred_method = self.config_service.get_setting(
-            "input.preferred_method", "sendinput"
+            ConfigKeys.INPUT_PREFERRED_METHOD, "sendinput"
         )
         self.fallback_enabled = self.config_service.get_setting(
-            "input.fallback_enabled", True
-        )
-
-        app_logger.log_audio_event(
-            "Smart text input initialized",
-            {
-                "preferred_method": self.preferred_method,
-                "fallback_enabled": self.fallback_enabled,
-            },
+            ConfigKeys.INPUT_FALLBACK_ENABLED, True
         )
 
         # 故障转移增强：记录方法失败历史
@@ -229,7 +224,7 @@ class SmartTextInput(IInputService):
         import threading
 
         restore_delay = self.config_service.get_setting(
-            "input.clipboard_restore_delay", 1.0
+            ConfigKeys.INPUT_CLIPBOARD_RESTORE_DELAY, 1.0
         )
 
         # 关键修复：将剪贴板内容传递给线程，而不是引用实例变量
@@ -336,3 +331,35 @@ class SmartTextInput(IInputService):
                         "new_count": self._method_failures[method],
                     },
                 )
+
+    def _do_start(self) -> bool:
+        """Initialize input system"""
+        try:
+            app_logger.log_audio_event(
+                "Smart text input initialized",
+                {
+                    "preferred_method": self.preferred_method,
+                    "fallback_enabled": self.fallback_enabled,
+                },
+            )
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "_do_start")
+            return False
+
+    def _do_stop(self) -> bool:
+        """Cleanup input resources"""
+        try:
+            # Stop recording mode if active
+            if self._recording_mode:
+                self.stop_recording_mode()
+
+            # Clear failure tracking
+            self._method_failures.clear()
+            self._last_failure_time.clear()
+
+            app_logger.log_audio_event("Smart text input stopped")
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "_do_stop")
+            return False

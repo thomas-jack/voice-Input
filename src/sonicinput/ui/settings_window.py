@@ -20,7 +20,7 @@ from PySide6.QtCore import Qt, Signal, QObject, QEvent
 from typing import Dict, Any, Optional
 import time
 from ..utils import app_logger
-from ..core.interfaces import IUISettingsService, IUIModelService
+from ..core.services.ui_services import UISettingsService, UIModelService
 from .settings_tabs import (
     ApplicationTab,
     HotkeyTab,
@@ -65,8 +65,8 @@ class SettingsWindow(QMainWindow):
 
     def __init__(
         self,
-        ui_settings_service: IUISettingsService,
-        ui_model_service: IUIModelService,
+        ui_settings_service: UISettingsService,
+        ui_model_service: UIModelService,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -596,6 +596,38 @@ class SettingsWindow(QMainWindow):
 
         # 步骤1: 收集UI设置
         new_config = self.collect_settings_from_ui()
+
+        # 步骤1.5: 验证配置（在保存前捕获错误）
+        flat_config = self._flatten_config(new_config)
+        validation_errors = []
+
+        for key, value in flat_config.items():
+            # 获取ConfigService实例来调用验证方法
+            config_service = (
+                self.ui_settings_service.config_service
+                if hasattr(self.ui_settings_service, "config_service")
+                else None
+            )
+
+            if config_service and hasattr(config_service, "validate_before_save"):
+                is_valid, error_msg = config_service.validate_before_save(key, value)
+                if not is_valid:
+                    validation_errors.append(f"{key}: {error_msg}")
+
+        # 如果有验证错误，显示错误对话框并阻止保存
+        if validation_errors:
+            error_message = "Configuration validation failed:\n\n" + "\n".join(
+                validation_errors
+            )
+            error_message += "\n\nPlease correct the errors and try again."
+
+            QMessageBox.critical(self, "Invalid Configuration", error_message)
+
+            app_logger.log_audio_event(
+                "Configuration validation failed",
+                {"errors": validation_errors, "error_count": len(validation_errors)},
+            )
+            return  # 阻止保存
 
         # 步骤2: 检测模型是否需要变更
         transcription_config = new_config.get("transcription", {})

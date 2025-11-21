@@ -11,20 +11,22 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QSystemTrayIcon, QMessageBox
 from typing import Optional, Dict, Any
 
-from ....core.base.lifecycle_component import LifecycleComponent
 from ....core.interfaces.config import IConfigService
-from ....core.interfaces.event import IEventService, EventPriority
+from ....core.interfaces import IEventService, EventPriority
 from ....core.interfaces.state import IStateManager, AppState, RecordingState
 from .tray_widget import TrayWidget
 from ....utils.constants import Events, ConfigKeys
 from ....utils import app_logger
 
 
-class TrayController(LifecycleComponent):
+class TrayController(QObject):
     """System tray controller
 
     Manages system tray business logic and coordinates between
     the tray widget and application services.
+
+    Note: Inherits from QObject to support Qt signals.
+    Implements LifecycleComponent pattern manually to avoid metaclass conflicts.
     """
 
     # Business logic signals
@@ -39,13 +41,23 @@ class TrayController(LifecycleComponent):
         state_manager: Optional[IStateManager] = None,
         parent: Optional[QObject] = None,
     ):
-        super().__init__(
-            component_name="tray_controller",
-            config_service=config_service,
-            event_service=event_service,
-            state_manager=state_manager,
-            parent=parent,
-        )
+        # Initialize QObject
+        super().__init__(parent)
+
+        # Initialize lifecycle state (manual implementation)
+        self._component_name = "tray_controller"
+        self._is_running = False
+
+        # Import here to avoid circular import
+        import threading
+
+        self._lock = threading.RLock()
+
+        # Store dependencies
+        self._config_service = config_service
+        self._event_service = event_service
+        self._state_manager = state_manager
+        self._parent = parent
 
         # UI widget
         self._tray_widget: Optional[TrayWidget] = None
@@ -54,6 +66,70 @@ class TrayController(LifecycleComponent):
         self._recording_state = RecordingState.IDLE
         self._app_state = AppState.IDLE
         self._notifications_enabled = True
+
+    # ==================== Lifecycle Methods (manual implementation) ====================
+
+    def start(self) -> bool:
+        """Start the component"""
+        if self._is_running:
+            return True
+
+        try:
+            # Initialize
+            if not self._do_initialize({}):
+                return False
+
+            # Start
+            if not self._do_start():
+                return False
+
+            self._is_running = True
+            return True
+        except Exception as e:
+            app_logger.log_error(e, f"{self._component_name}_start")
+            return False
+
+    def stop(self) -> bool:
+        """Stop the component"""
+        if not self._is_running:
+            return True
+
+        try:
+            # Stop
+            if not self._do_stop():
+                return False
+
+            # Cleanup
+            self._do_cleanup()
+
+            self._is_running = False
+            return True
+        except Exception as e:
+            app_logger.log_error(e, f"{self._component_name}_stop")
+            return False
+
+    @property
+    def is_running(self) -> bool:
+        """Check if component is running"""
+        return self._is_running
+
+    def _handle_exception(self, exc: Exception, context: str) -> None:
+        """Handle exception in component"""
+        app_logger.log_error(exc, f"{self._component_name}_{context}")
+
+    def _log_event(self, event_type: str, data: Dict[str, Any]) -> None:
+        """Log component event"""
+        app_logger.log_audio_event(
+            event_type, {**data, "component": self._component_name}
+        )
+
+    def _load_config_setting(self, key: str, default: Any) -> Any:
+        """Load configuration setting with default fallback"""
+        if self._config_service:
+            return self._config_service.get_setting(key, default)
+        return default
+
+    # ==================== Lifecycle Implementation ====================
 
     def _do_initialize(self, config: Dict[str, Any]) -> bool:
         """Initialize the tray controller

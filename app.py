@@ -96,8 +96,8 @@ def setup_cuda_paths():
         print(f"[WARN] Failed to setup CUDA paths: {e}")
 
 
-# Setup CUDA paths immediately (before heavy imports)
-setup_cuda_paths()
+# CUDA setup removed - sherpa-onnx uses CPU-only inference (no GPU/CUDA dependency)
+# setup_cuda_paths()  # Deprecated: Not needed for sherpa-onnx
 
 # ============================================================================
 # Warning Filters
@@ -207,7 +207,7 @@ def run_tests():
         from sonicinput.core.interfaces import IConfigService
 
         # Test dependency injection
-        from sonicinput.core.di_container_enhanced import create_container
+        from sonicinput.core.di_container import create_container
         container = create_container()
         app = VoiceInputApp(container)
 
@@ -648,9 +648,8 @@ def run_gui():
             parent=qt_app
         )
 
-        # Initialize and start tray controller (lifecycle management)
-        tray_controller.initialize({})
-        tray_controller.start()
+        # Start tray controller (lifecycle management)
+        tray_controller.start()  # Note: simplified LifecycleComponent only has start(), not initialize()
         app_logger.debug(f"TrayController initialized and started: {tray_controller}")
 
         # Create recording overlay

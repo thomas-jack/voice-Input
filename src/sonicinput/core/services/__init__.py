@@ -6,7 +6,6 @@
 from .event_bus import EventBus, Events
 from .config_service import ConfigService
 from .state_manager import StateManager
-from .lifecycle_manager import LifecycleManager
 from .transcription_service import TranscriptionService, TranscriptionResult
 from .ai_service import AIService
 
@@ -15,7 +14,6 @@ __all__ = [
     "Events",
     "ConfigService",
     "StateManager",
-    "LifecycleManager",
     "TranscriptionService",
     "TranscriptionResult",
     "AIService",

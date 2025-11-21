@@ -140,9 +140,7 @@ class ServiceRegistry:
             instance = self._services.get(name)
 
             if instance is None:
-                raise ServiceNotFoundError(
-                    f"Service '{name}' not found in registry"
-                )
+                raise ServiceNotFoundError(f"Service '{name}' not found in registry")
 
             # 可选的接口检查
             if interface is not None:

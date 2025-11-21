@@ -6,6 +6,7 @@
 import requests
 from typing import Optional
 
+from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
     IAIProcessingController,
     IAIService,
@@ -15,12 +16,15 @@ from ..interfaces import (
     IHistoryStorageService,
 )
 from ..services.event_bus import Events
+from ..services.config import ConfigKeys
 from ...utils import app_logger, OpenRouterAPIError
 from ...ai import AIClientFactory
 from .base_controller import BaseController
 
 
-class AIProcessingController(BaseController, IAIProcessingController):
+class AIProcessingController(
+    LifecycleComponent, BaseController, IAIProcessingController
+):
     """AI处理控制器实现
 
     职责：
@@ -37,8 +41,11 @@ class AIProcessingController(BaseController, IAIProcessingController):
         state_manager: IStateManager,
         history_service: IHistoryStorageService,
     ):
+        # Initialize LifecycleComponent
+        LifecycleComponent.__init__(self, "AIProcessingController")
+
         # Initialize base controller
-        super().__init__(config_service, event_service, state_manager)
+        BaseController.__init__(self, config_service, event_service, state_manager)
 
         # Controller-specific services
         self._history_service = history_service
@@ -52,6 +59,32 @@ class AIProcessingController(BaseController, IAIProcessingController):
         # Register event listeners and log initialization
         self._register_event_listeners()
         self._log_initialization()
+
+    def _do_start(self) -> bool:
+        """Initialize AI processing resources
+
+        Returns:
+            True if start successful
+        """
+        # AI processing controller has no resources to initialize at start
+        # Event listeners are already registered in __init__
+        app_logger.log_audio_event(
+            "AI processing controller ready", {"ai_enabled": self.is_ai_enabled()}
+        )
+        return True
+
+    def _do_stop(self) -> bool:
+        """Cleanup AI processing resources
+
+        Returns:
+            True if stop successful
+        """
+        # Clear current record ID
+        self._current_record_id = None
+        self._last_ai_tps = 0.0
+
+        app_logger.log_audio_event("AI processing controller stopped", {})
+        return True
 
     def _register_event_listeners(self) -> None:
         """Register event listeners for AI processing events"""
@@ -162,11 +195,12 @@ class AIProcessingController(BaseController, IAIProcessingController):
             self._events.emit(Events.AI_PROCESSING_STARTED)
 
             # 获取配置
-            provider = self._config.get_setting("ai.provider", "openrouter")
+            provider = self._config.get_setting(ConfigKeys.AI_PROVIDER, "openrouter")
             model_key = f"ai.{provider}.model_id"
             model = self._config.get_setting(model_key, "anthropic/claude-3-sonnet")
             prompt_template = self._config.get_setting(
-                "ai.prompt", "Please improve and correct the following text: {text}"
+                ConfigKeys.AI_PROMPT,
+                "Please improve and correct the following text: {text}",
             )
 
             # 动态获取AI服务
@@ -306,7 +340,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
 
     def is_ai_enabled(self) -> bool:
         """AI是否启用"""
-        return self._config.get_setting("ai.enabled", True)
+        return self._config.get_setting(ConfigKeys.AI_ENABLED, True)
 
     def _get_current_ai_service(self) -> Optional[IAIService]:
         """根据当前配置动态获取 AI service 实例 - 使用 AIClientFactory
@@ -350,7 +384,7 @@ class AIProcessingController(BaseController, IAIProcessingController):
                 return
 
             # 获取AI提供商
-            provider = self._config.get_setting("ai.provider", "openrouter")
+            provider = self._config.get_setting(ConfigKeys.AI_PROVIDER, "openrouter")
 
             # 更新AI相关字段
             record.ai_optimized_text = ai_text

@@ -5,10 +5,11 @@ import threading
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Generator
+from typing import List, Optional, Generator
 from contextlib import contextmanager
 from ...base.lifecycle_component import LifecycleComponent
 from ...interfaces import IConfigService, HistoryRecord
+from ...services.config import ConfigKeys
 from ....utils import app_logger
 
 
@@ -25,18 +26,20 @@ class HistoryStorageService(LifecycleComponent):
         Args:
             config_service: 配置服务
         """
-        super().__init__("HistoryStorageService", config_service)
+        super().__init__("HistoryStorageService")
+        self._config_service = config_service
         self._db_path: Optional[Path] = None
         self._storage_path: Optional[Path] = None
         self._local = threading.local()  # 线程本地存储，每个线程独立的数据库连接
 
-    def _do_initialize(self, config: Dict[str, Any]) -> bool:
-        """子类特定的初始化逻辑"""
+    def _do_start(self) -> bool:
+        """Start history storage and initialize database"""
         try:
             # 获取存储路径
             storage_base = self._config_service.get_setting(
-                "history.storage_path", "auto"
+                ConfigKeys.HISTORY_STORAGE_PATH, "auto"
             )
+
             if storage_base == "auto":
                 # 默认使用AppData/Roaming/SonicInput/history
                 from ....utils.helpers import get_app_data_dir
@@ -58,8 +61,18 @@ class HistoryStorageService(LifecycleComponent):
             # 初始化数据库
             self._init_database()
 
+            app_logger.log_audio_event("Database initialized successfully")
+
+            # 清理孤立文件
+            orphaned_count = self.cleanup_orphaned_files()
+
+            if orphaned_count > 0:
+                app_logger.log_audio_event(
+                    "Cleaned up orphaned audio files", {"count": orphaned_count}
+                )
+
             app_logger.log_audio_event(
-                "HistoryStorageService initialized",
+                "HistoryStorageService started",
                 {
                     "storage_path": str(self._storage_path),
                     "db_path": str(self._db_path),
@@ -69,7 +82,17 @@ class HistoryStorageService(LifecycleComponent):
             return True
 
         except Exception as e:
-            app_logger.log_error(e, "HistoryStorageService_do_initialize")
+            app_logger.log_error(
+                e,
+                "HistoryStorageService_do_start",
+                {
+                    "storage_path_set": self._storage_path is not None,
+                    "db_path_set": self._db_path is not None,
+                },
+            )
+            # Reset state on failure to ensure consistent state
+            self._storage_path = None
+            self._db_path = None
             return False
 
     def _init_database(self) -> None:
@@ -121,29 +144,15 @@ class HistoryStorageService(LifecycleComponent):
 
         app_logger.log_audio_event("History database initialized", {"wal_mode": True})
 
-    def _do_start(self) -> bool:
-        """子类特定的启动逻辑"""
-        # 清理孤立文件
-        try:
-            orphaned_count = self.cleanup_orphaned_files()
-            if orphaned_count > 0:
-                app_logger.log_audio_event(
-                    "Cleaned up orphaned audio files", {"count": orphaned_count}
-                )
-            return True
-        except Exception as e:
-            app_logger.log_error(e, "cleanup_orphaned_files_on_start")
-            return False
-
     def _do_stop(self) -> bool:
-        """子类特定的停止逻辑"""
+        """Stop history storage and clean up resources"""
         # 关闭当前线程的数据库连接
         if hasattr(self._local, "conn") and self._local.conn is not None:
             try:
                 self._local.conn.close()
                 self._local.conn = None
                 app_logger.log_audio_event(
-                    "Thread-local DB connection closed on stop",
+                    "Thread-local DB connection closed",
                     {"thread_id": threading.get_ident()},
                 )
             except Exception as e:
@@ -224,20 +233,6 @@ class HistoryStorageService(LifecycleComponent):
             )
             raise
 
-    def _do_cleanup(self) -> None:
-        """子类特定的清理逻辑"""
-        # 关闭当前线程的数据库连接
-        if hasattr(self._local, "conn") and self._local.conn is not None:
-            try:
-                self._local.conn.close()
-                self._local.conn = None
-                app_logger.log_audio_event(
-                    "Thread-local DB connection closed",
-                    {"thread_id": threading.get_ident()},
-                )
-            except Exception as e:
-                app_logger.log_error(e, "close_thread_connection")
-
     def save_record(self, record: HistoryRecord) -> bool:
         """Save history record with safe transaction handling
 
@@ -247,6 +242,13 @@ class HistoryStorageService(LifecycleComponent):
         Returns:
             True if saved successfully, False otherwise
         """
+        if not self._db_path:
+            app_logger.log_audio_event(
+                "HistoryStorageService not initialized (save_record)",
+                {"_db_path": None, "message": "Service _do_start() may have failed"},
+            )
+            return False
+
         try:
             with self._transaction() as cursor:
                 cursor.execute(
@@ -414,6 +416,13 @@ class HistoryStorageService(LifecycleComponent):
 
     def get_record_by_id(self, record_id: str) -> Optional[HistoryRecord]:
         """根据ID获取单条记录（线程安全）"""
+        if not self._db_path:
+            app_logger.log_audio_event(
+                "HistoryStorageService not initialized (get_record_by_id)",
+                {"_db_path": None, "message": "Service _do_start() may have failed"},
+            )
+            return None
+
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -433,6 +442,13 @@ class HistoryStorageService(LifecycleComponent):
         self, limit: int = 50, offset: int = 0, order_by: str = "timestamp DESC"
     ) -> List[HistoryRecord]:
         """分页获取记录列表（线程安全）"""
+        if not self._db_path:
+            app_logger.log_audio_event(
+                "HistoryStorageService not initialized (get_records)",
+                {"_db_path": None, "message": "Service _do_start() may have failed"},
+            )
+            return []
+
         try:
             conn = self._get_connection()
             cursor = conn.cursor()

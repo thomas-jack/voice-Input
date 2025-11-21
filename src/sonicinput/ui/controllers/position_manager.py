@@ -10,7 +10,7 @@ from PySide6.QtGui import QScreen
 from typing import Optional, Tuple, Dict
 
 from ...core.interfaces.config import IConfigService
-from ...core.interfaces.event import IEventService, EventPriority
+from ...core.interfaces import IEventService, EventPriority
 from ...utils.constants import UI, ConfigKeys
 from ...utils import app_logger
 
@@ -435,10 +435,10 @@ class PositionManager:
 
             # 获取保存的屏幕信息
             saved_geometry = self._config_service.get_setting(
-                "ui.overlay_position.last_screen.geometry", ""
+                ConfigKeys.UI_OVERLAY_POSITION_LAST_SCREEN_GEOMETRY, ""
             )
             saved_ratio = self._config_service.get_setting(
-                "ui.overlay_position.last_screen.device_pixel_ratio", 1.0
+                ConfigKeys.UI_OVERLAY_POSITION_LAST_SCREEN_DEVICE_PIXEL_RATIO, 1.0
             )
 
             # 比较当前屏幕信息

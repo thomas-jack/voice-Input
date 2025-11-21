@@ -42,7 +42,10 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
         Args:
             config_service: 配置服务实例
         """
-        super().__init__("AIService", config_service)
+        super().__init__("AIService")
+
+        # 保存配置服务引用
+        self._config_service = config_service
 
         # AI客户端和配置
         self._client: Optional[IAIService] = None
@@ -60,18 +63,18 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
 
     # ==================== LifecycleComponent Implementation ====================
 
-    def _do_initialize(self, config: Dict[str, Any]) -> bool:
-        """初始化AI服务
-
-        Args:
-            config: 配置字典
+    def _do_start(self) -> bool:
+        """启动AI服务并初始化客户端
 
         Returns:
-            是否初始化成功
+            是否启动成功
         """
         try:
-            # 加载配置
+            # 获取配置
+            config = self._config_service.get_config()
             ai_config = config.get("ai", {})
+
+            # 加载配置参数
             self._enabled = ai_config.get("enabled", True)
             self._filter_thinking = ai_config.get("filter_thinking", True)
             self._prompt = ai_config.get("prompt", "")
@@ -85,43 +88,35 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
 
                 if self._client:
                     app_logger.log_audio_event(
-                        "AI client initialized",
-                        {"provider": self._current_provider}
+                        "AI client initialized", {"provider": self._current_provider}
                     )
                 else:
                     app_logger.log_audio_event(
                         "AI client creation failed",
-                        {"provider": self._current_provider}
+                        {"provider": self._current_provider},
                     )
 
             return True
 
         except Exception as e:
-            app_logger.log_error(e, "AIService._do_initialize")
+            app_logger.log_error(e, "AIService._do_start")
             return False
 
-    def _do_start(self) -> bool:
-        """启动AI服务
-
-        Returns:
-            是否启动成功
-        """
-        # AI服务无需特殊启动逻辑
-        return True
-
     def _do_stop(self) -> bool:
-        """停止AI服务
+        """停止AI服务并清理资源
 
         Returns:
             是否停止成功
         """
-        # AI服务无需特殊停止逻辑
-        return True
+        try:
+            # 清理AI客户端
+            self._client = None
+            app_logger.log_audio_event("AI service stopped and cleaned up", {})
+            return True
 
-    def _do_cleanup(self) -> None:
-        """清理AI服务资源"""
-        self._client = None
-        app_logger.log_audio_event("AI service cleaned up", {})
+        except Exception as e:
+            app_logger.log_error(e, "AIService._do_stop")
+            return False
 
     # ==================== AI Service Methods ====================
 
@@ -271,24 +266,21 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
                 api_key = ai_config.get("groq", {}).get("api_key")
                 if not api_key:
                     return ReloadResult(
-                        success=False,
-                        message="Groq provider requires API key"
+                        success=False, message="Groq provider requires API key"
                     )
 
             elif new_provider == "nvidia":
                 api_key = ai_config.get("nvidia", {}).get("api_key")
                 if not api_key:
                     return ReloadResult(
-                        success=False,
-                        message="NVIDIA provider requires API key"
+                        success=False, message="NVIDIA provider requires API key"
                     )
 
             elif new_provider == "openrouter":
                 api_key = ai_config.get("openrouter", {}).get("api_key")
                 if not api_key:
                     return ReloadResult(
-                        success=False,
-                        message="OpenRouter provider requires API key"
+                        success=False, message="OpenRouter provider requires API key"
                     )
 
             elif new_provider == "openai_compatible":
@@ -297,7 +289,7 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
                 if not api_key or not base_url:
                     return ReloadResult(
                         success=False,
-                        message="OpenAI compatible provider requires API key and base URL"
+                        message="OpenAI compatible provider requires API key and base URL",
                     )
 
             # 保存回滚数据
@@ -317,21 +309,18 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
                     "old_provider": self._current_provider,
                     "new_provider": new_provider,
                     "strategy": self.get_reload_strategy(diff).value,
-                }
+                },
             )
 
             return ReloadResult(
                 success=True,
                 message="Preparation successful",
-                rollback_data=rollback_data
+                rollback_data=rollback_data,
             )
 
         except Exception as e:
             app_logger.log_error(e, "AIService.prepare_reload")
-            return ReloadResult(
-                success=False,
-                message=f"Preparation failed: {str(e)}"
-            )
+            return ReloadResult(success=False, message=f"Preparation failed: {str(e)}")
 
     def commit_reload(self, diff: ConfigDiff) -> ReloadResult:
         """提交重载：应用配置变更
@@ -361,7 +350,7 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
                         "enabled": self._enabled,
                         "filter_thinking": self._filter_thinking,
                         "timeout": self._timeout,
-                    }
+                    },
                 )
 
                 return ReloadResult(success=True, message="Parameters updated")
@@ -375,16 +364,14 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
 
                 if not self._config_service:
                     return ReloadResult(
-                        success=False,
-                        message="Config service not available"
+                        success=False, message="Config service not available"
                     )
 
                 new_client = AIClientFactory.create_from_config(self._config_service)
 
                 if new_client is None:
                     return ReloadResult(
-                        success=False,
-                        message="Failed to create new AI client"
+                        success=False, message="Failed to create new AI client"
                     )
 
                 # 替换客户端
@@ -399,8 +386,7 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
                 self._retries = ai_config.get("retries", 3)
 
                 app_logger.log_audio_event(
-                    "AI client reinitialized",
-                    {"provider": self._current_provider}
+                    "AI client reinitialized", {"provider": self._current_provider}
                 )
 
                 return ReloadResult(success=True, message="Client reinitialized")
@@ -408,26 +394,20 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
             elif strategy == ReloadStrategy.RECREATE:
                 # RECREATE 策略由 Coordinator 处理
                 app_logger.log_audio_event(
-                    "RECREATE strategy should be handled by Coordinator",
-                    {}
+                    "RECREATE strategy should be handled by Coordinator", {}
                 )
                 return ReloadResult(
-                    success=True,
-                    message="RECREATE handled by Coordinator"
+                    success=True, message="RECREATE handled by Coordinator"
                 )
 
             else:
                 return ReloadResult(
-                    success=False,
-                    message=f"Unknown strategy: {strategy}"
+                    success=False, message=f"Unknown strategy: {strategy}"
                 )
 
         except Exception as e:
             app_logger.log_error(e, "AIService.commit_reload")
-            return ReloadResult(
-                success=False,
-                message=f"Commit failed: {str(e)}"
-            )
+            return ReloadResult(success=False, message=f"Commit failed: {str(e)}")
 
     def rollback_reload(self, rollback_data: Dict[str, Any]) -> bool:
         """回滚到之前的配置状态
@@ -462,8 +442,7 @@ class AIService(LifecycleComponent):  # type: ignore[metaclass]
                 self._retries = rollback_data["retries"]
 
             app_logger.log_audio_event(
-                "AIService rollback successful",
-                {"provider": self._current_provider}
+                "AIService rollback successful", {"provider": self._current_provider}
             )
 
             return True
