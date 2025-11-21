@@ -83,3 +83,12 @@ test_analysis/
 
 # Release notes (only used for GitHub releases)
 .release-notes-*.md
+
+# OpenSpec change management (local development only)
+openspec/
+AGENTS.md
+
+# Temporary analysis files
+bandit_report.json
+bandit_sherpa_check.json
+test_output.txt
