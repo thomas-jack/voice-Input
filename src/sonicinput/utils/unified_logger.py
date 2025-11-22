@@ -118,7 +118,7 @@ class UnifiedLogger:
         self._lock = threading.RLock()
 
         # 设置日志文件
-        log_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput" / "logs"
+        log_dir = Path(os.environ.get("APPDATA", ".")) / "SonicInput" / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         self._log_file = log_dir / "app.log"
 

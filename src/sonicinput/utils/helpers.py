@@ -33,7 +33,7 @@ def get_app_data_dir() -> Path:
         Path to application data directory
     """
     if platform.system() == "Windows":
-        app_data = os.environ.get("APPDATA", os.path.expanduser("~"))
+        app_data = os.environ.get("APPDATA", str(Path.home()))
         return Path(app_data) / Paths.CONFIG_DIR_NAME
     elif platform.system() == "Darwin":  # macOS
         return Path.home() / "Library" / "Application Support" / Paths.CONFIG_DIR_NAME

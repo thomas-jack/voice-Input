@@ -3,6 +3,7 @@
 import os
 import sys
 import subprocess
+from pathlib import Path
 from typing import Dict, List, Any
 
 # Windows平台窗口隐藏标志
@@ -28,7 +29,7 @@ class DependencyDiagnostics:
 
     def __init__(self):
         self.python_executable = sys.executable
-        self.python_dir = os.path.dirname(sys.executable)
+        self.python_dir = Path(sys.executable).parent
 
     def comprehensive_diagnosis(self) -> Dict[str, Any]:
         """全面诊断系统状态"""
@@ -213,8 +214,8 @@ class DependencyDiagnostics:
 
         # 查找重要的路径
         important_paths = {
-            "python_dir": self.python_dir,
-            "scripts_dir": os.path.join(self.python_dir, "Scripts"),
+            "python_dir": str(self.python_dir),
+            "scripts_dir": str(self.python_dir / "Scripts"),
             "cuda_bin": None,
             "system32": None,
         }
@@ -222,14 +223,14 @@ class DependencyDiagnostics:
         # 检查CUDA路径
         cuda_path = os.environ.get("CUDA_PATH")
         if cuda_path:
-            cuda_bin = os.path.join(cuda_path, "bin")
-            if os.path.exists(cuda_bin):
-                important_paths["cuda_bin"] = cuda_bin
+            cuda_bin = Path(cuda_path) / "bin"
+            if cuda_bin.exists():
+                important_paths["cuda_bin"] = str(cuda_bin)
 
         # 检查system32
-        system32 = os.path.join(os.environ.get("SYSTEMROOT", r"C:\Windows"), "system32")
-        if os.path.exists(system32):
-            important_paths["system32"] = system32
+        system32 = Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "system32"
+        if system32.exists():
+            important_paths["system32"] = str(system32)
 
         # 检查这些路径是否在PATH中
         path_status = {}
@@ -237,7 +238,7 @@ class DependencyDiagnostics:
             if path:
                 path_status[name] = {
                     "path": path,
-                    "exists": os.path.exists(path),
+                    "exists": Path(path).exists(),
                     "in_path": path in paths,
                 }
 

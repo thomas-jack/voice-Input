@@ -450,7 +450,7 @@ class PluginManager:
     def scan_plugins_directory(self, directory: str) -> int:
         """扫描插件目录"""
         try:
-            if not os.path.exists(directory):
+            if not Path(directory).exists():
                 app_logger.log_audio_event(
                     "Plugin directory does not exist", {"directory": directory}
                 )

@@ -26,7 +26,7 @@ class ConfigMigrator:
             return
 
         try:
-            old_config_dir = Path(os.getenv("APPDATA", ".")) / "VoiceInputSoftware"
+            old_config_dir = Path(os.environ.get("APPDATA", ".")) / "VoiceInputSoftware"
             old_config_path = old_config_dir / "config.json"
 
             # 如果新配置已存在，跳过迁移

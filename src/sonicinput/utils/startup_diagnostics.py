@@ -188,7 +188,7 @@ class StartupDiagnostics:
         """Validate file system permissions and access"""
         try:
             # Application data directory
-            app_data_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput"
+            app_data_dir = Path(os.environ.get("APPDATA", ".")) / "SonicInput"
             app_data_dir.mkdir(parents=True, exist_ok=True)
 
             # Test write access
@@ -304,7 +304,7 @@ class StartupDiagnostics:
 
         try:
             # App data directory write test
-            app_data_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput"
+            app_data_dir = Path(os.environ.get("APPDATA", ".")) / "SonicInput"
             app_data_dir.mkdir(parents=True, exist_ok=True)
             test_file = app_data_dir / "temp_write_test.tmp"
             with open(test_file, "w") as f:

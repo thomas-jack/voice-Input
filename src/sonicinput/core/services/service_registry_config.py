@@ -9,6 +9,7 @@
 
 import json
 import os
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from ..interfaces.service_registry_config import IServiceRegistryConfig
 from ...utils import app_logger
@@ -39,7 +40,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
         # 初始化默认配置
         self._initialize_default_configs()
 
-        if config_path and os.path.exists(config_path):
+        if config_path and Path(config_path).exists():
             self.load_config_from_file(config_path)
 
         app_logger.log_audio_event(
@@ -249,7 +250,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
             }
 
             # 确保目录存在
-            os.makedirs(os.path.dirname(config_path), exist_ok=True)
+            Path(config_path).parent.mkdir(parents=True, exist_ok=True)
 
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(config_data, f, indent=2, ensure_ascii=False)
@@ -367,7 +368,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
 
     def reload_from_file(self) -> None:
         """从配置文件重新加载配置"""
-        if self.config_path and os.path.exists(self.config_path):
+        if self.config_path and Path(self.config_path).exists():
             self.load_config_from_file(self.config_path)
         else:
             app_logger.log_audio_event("No config file available for reload", {})

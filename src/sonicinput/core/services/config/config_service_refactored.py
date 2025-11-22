@@ -48,7 +48,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
         if config_path:
             self.config_path = Path(config_path)
         else:
-            config_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput"
+            config_dir = Path(os.environ.get("APPDATA", ".")) / "SonicInput"
             config_dir.mkdir(parents=True, exist_ok=True)
             self.config_path = config_dir / "config.json"
 

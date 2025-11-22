@@ -249,7 +249,7 @@ class EnvironmentValidator:
         """Validate file system permissions for application operation"""
         try:
             # Check write permissions in user directory
-            user_data_dir = Path(os.getenv("APPDATA", ".")) / "SonicInput"
+            user_data_dir = Path(os.environ.get("APPDATA", ".")) / "SonicInput"
             user_data_dir.mkdir(parents=True, exist_ok=True)
 
             # Test write access
