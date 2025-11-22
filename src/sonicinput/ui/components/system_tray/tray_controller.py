@@ -17,6 +17,7 @@ from ....core.interfaces.state import IStateManager, AppState, RecordingState
 from .tray_widget import TrayWidget
 from ....utils.constants import Events, ConfigKeys
 from ....utils import app_logger
+from .... import __version__
 
 
 class TrayController(QObject):
@@ -555,8 +556,8 @@ class TrayController(QObject):
         QMessageBox.about(
             None,
             "About Sonic Input",
-            """
-            <h3>Sonic Input v0.2.0</h3>
+            f"""
+            <h3>Sonic Input v{__version__}</h3>
             <p>An AI-powered voice-to-text input solution for Windows.</p>
             <p><b>Features:</b></p>
             <ul>

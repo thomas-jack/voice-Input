@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from urllib.request import urlopen, Request
 from loguru import logger
+from .. import __version__
 
 try:
     from PySide6.QtWidgets import QProgressDialog, QApplication
@@ -140,7 +141,7 @@ class SherpaModelManager(LifecycleComponent):
 
         try:
             # 下载
-            request = Request(url, headers={"User-Agent": "SonicInput/0.2.0"})
+            request = Request(url, headers={"User-Agent": f"SonicInput/{__version__}"})
             with urlopen(request, timeout=300) as response:
                 total_size = int(response.headers.get("content-length", 0))
                 downloaded = 0
