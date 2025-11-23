@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional, TypeVar
+from typing import Any, Dict, Optional, TypeVar
 
 from ....utils import app_logger
 from .config_defaults import get_default_config

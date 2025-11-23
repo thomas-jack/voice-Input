@@ -1,7 +1,7 @@
 """用户界面模块初始化"""
 
-from .settings_window import SettingsWindow
-from .recording_overlay import RecordingOverlay
 from .main_window import MainWindow
+from .recording_overlay import RecordingOverlay
+from .settings_window import SettingsWindow
 
 __all__ = ["SettingsWindow", "RecordingOverlay", "MainWindow"]

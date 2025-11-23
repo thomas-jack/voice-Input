@@ -5,7 +5,9 @@
 """
 
 from typing import Dict
+
 import requests
+
 from ..utils import app_logger
 
 

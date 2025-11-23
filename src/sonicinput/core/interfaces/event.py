@@ -1,8 +1,8 @@
 """事件服务接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Callable, Any
 from enum import Enum
+from typing import Any, Callable
 
 
 class EventPriority(Enum):

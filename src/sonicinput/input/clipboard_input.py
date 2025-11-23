@@ -1,13 +1,15 @@
 """剪贴板输入方法"""
 
-import pyperclip
-import time
-import win32api
-import win32con
-import win32clipboard
-import win32gui
 import ctypes
-from typing import Optional, Dict, Union
+import time
+from typing import Dict, Optional, Union
+
+import pyperclip
+import win32api
+import win32clipboard
+import win32con
+import win32gui
+
 from ..utils import TextInputError, app_logger
 
 

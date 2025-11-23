@@ -4,6 +4,7 @@
 """
 
 from typing import Optional
+
 from ..core.interfaces import IAIService, IConfigService
 from ..core.services.config import ConfigKeys
 from ..utils import app_logger

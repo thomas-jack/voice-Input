@@ -4,26 +4,27 @@
 """
 
 import time
-import numpy as np
 from datetime import datetime
 from typing import Optional
 
+import numpy as np
+
+from ...utils import ErrorMessageTranslator, app_logger
+from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
-    ITranscriptionController,
-    ISpeechService,
+    HistoryRecord,
     IConfigService,
     IEventService,
-    IStateManager,
     IHistoryStorageService,
-    HistoryRecord,
+    ISpeechService,
+    IStateManager,
+    ITranscriptionController,
 )
 from ..interfaces.state import AppState
-from ..services.event_bus import Events
 from ..services.config import ConfigKeys
-from ...utils import app_logger, ErrorMessageTranslator
+from ..services.event_bus import Events
 from .base_controller import BaseController
 from .logging_helper import ControllerLogging
-from ..base.lifecycle_component import LifecycleComponent
 
 
 class TranscriptionController(
@@ -45,6 +46,7 @@ class TranscriptionController(
         state_manager: IStateManager,
         history_service: IHistoryStorageService,
         audio_service=None,
+        streaming_manager=None,
     ):
         # Initialize LifecycleComponent FIRST (sets self._state = ComponentState)
         LifecycleComponent.__init__(self, "TranscriptionController")
@@ -55,6 +57,7 @@ class TranscriptionController(
         self._speech_service = speech_service
         self._audio_service = audio_service  # 添加音频服务引用，用于fallback
         self._history_service = history_service
+        self._streaming_manager = streaming_manager
 
         # 性能追踪数据（从 RecordingController 接收）
         self._audio_duration: float = 0.0
@@ -162,23 +165,16 @@ class TranscriptionController(
             # 使用新的TranscriptionService API
             transcribe_start = time.time()
 
-            # 检查当前提供商类型
-            provider = self._config.get_setting(
-                ConfigKeys.TRANSCRIPTION_PROVIDER, "local"
-            )
-            is_cloud_provider = provider != "local"
+            # 获取当前���式模式
+            streaming_mode = self._streaming_manager.get_current_mode()
 
-            # 云提供商直接使用文件转录，不经过流式系统
-            if is_cloud_provider:
+            # 根据流式模式决定转录路径（统一处理本地和云提供商）
+            if streaming_mode in ["chunked", "realtime"]:
+                # 流式转录路径（本地和云提供商都支持）
                 app_logger.log_audio_event(
-                    "Cloud provider detected, using file-based transcription directly",
-                    {"provider": provider, "audio_file": self._current_audio_file_path},
+                    "Stopping streaming transcription",
+                    {"streaming_mode": streaming_mode},
                 )
-                text = self._transcribe_from_file_for_cloud()
-                streaming_mode = "disabled"  # 云提供商标记为disabled
-            else:
-                # 本地提供商：使用流式转录系统
-                app_logger.log_audio_event("Stopping streaming transcription", {})
 
                 # 停止流式转录并获取转录文本和统计信息
                 result = self._speech_service.stop_streaming()
@@ -187,22 +183,18 @@ class TranscriptionController(
                 text = result.get("text", "")
                 stats = result.get("stats", {})
 
-                # 获取流式模式（用于后续处理决策）
-                # 优先从stats中获取（字段名是"mode"）
-                streaming_mode = stats.get("mode", "chunked")
-
-                # 如果stats中没有mode字段，尝试从streaming_coordinator获取（本地提供商）
-                if streaming_mode == "chunked" and hasattr(
-                    self._speech_service, "streaming_coordinator"
-                ):
-                    streaming_mode = (
-                        self._speech_service.streaming_coordinator.get_streaming_mode()
-                    )
-
                 app_logger.log_audio_event(
                     "Streaming transcription stopped",
                     {"text_length": len(text), "stats": stats, "mode": streaming_mode},
                 )
+            else:
+                # disabled 模式：使用文件转录
+                app_logger.log_audio_event(
+                    "Streaming disabled, using file-based transcription",
+                    {"streaming_mode": streaming_mode},
+                )
+                text = self._transcribe_from_file_for_cloud()
+                stats = {}
 
             # 关键修复：Realtime模式下，文本已在录音过程中实时输入，清空最终文本避免重复
             if streaming_mode == "realtime":
@@ -300,6 +292,7 @@ class TranscriptionController(
         try:
             # 从文件读取音频数据
             import wave
+
             import numpy as np
 
             with wave.open(self._current_audio_file_path, "rb") as wav_file:

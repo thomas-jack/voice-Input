@@ -1,14 +1,17 @@
 """Position management and persistence for RecordingOverlay"""
 
-from PySide6.QtGui import QGuiApplication, QScreen
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+
 from PySide6.QtCore import QPoint
-from typing import Dict, Any, Optional, Tuple, TYPE_CHECKING
-from ...utils import app_logger
+from PySide6.QtGui import QGuiApplication, QScreen
+
 from ...core.services.config import ConfigKeys
+from ...utils import app_logger
 
 if TYPE_CHECKING:
-    from ...core.interfaces import IConfigService
     from PySide6.QtWidgets import QWidget
+
+    from ...core.interfaces import IConfigService
 
 
 class PositionManager:

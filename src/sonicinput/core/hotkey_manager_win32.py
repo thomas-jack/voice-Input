@@ -13,13 +13,15 @@ Trade-offs:
 - Can conflict with other applications' hotkeys
 """
 
-import win32con
-from typing import Callable, Dict, Optional, List
-import threading
 import queue
+import threading
+from typing import Callable, Dict, List, Optional
+
+import win32con
+
 from ..utils import HotkeyRegistrationError, app_logger
-from .interfaces import IHotkeyService
 from .base.lifecycle_component import LifecycleComponent
+from .interfaces import IHotkeyService
 
 
 class HotkeyConflictError(Exception):

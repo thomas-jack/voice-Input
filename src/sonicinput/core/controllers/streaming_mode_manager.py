@@ -5,10 +5,10 @@
 
 from typing import Literal
 
+from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import IConfigService, ISpeechService
 from ..services.config import ConfigKeys
-from ...utils import app_logger
 
 StreamingMode = Literal["chunked", "realtime", "disabled"]
 
@@ -77,15 +77,23 @@ class StreamingModeManager(LifecycleComponent):
         """
         provider = self._config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
 
-        # 云提供商强制禁用流式
-        if provider != "local":
-            return "disabled"
-
-        # 本地提供商读取配置
+        # 读取配置的流式模式（对所有提供商）
         configured_mode = self._config.get_setting(
             ConfigKeys.TRANSCRIPTION_LOCAL_STREAMING_MODE, "chunked"
         )
 
+        # 云提供商：仅支持 chunked 模式（不支持 realtime）
+        if provider != "local":
+            if configured_mode == "realtime":
+                app_logger.log_audio_event(
+                    "Cloud provider does not support realtime mode, using chunked",
+                    {"provider": provider}
+                )
+                return "chunked"
+            # 允许 chunked 或 disabled
+            return configured_mode
+
+        # 本地提供商：支持所有模式
         return configured_mode
 
     def start_streaming_session(self) -> bool:
@@ -103,14 +111,48 @@ class StreamingModeManager(LifecycleComponent):
 
         if mode == "disabled":
             app_logger.log_audio_event(
-                "Streaming disabled for cloud provider", {"mode": mode}
+                "Streaming disabled", {"mode": mode}
             )
             return False
 
-        # 检查 speech_service 是否支持流式
+        # 检查提供商类型
+        provider = self._config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
+
+        # 云提供商：使用 CloudChunkAccumulator 进行分块流式转录
+        # 不同于本地提供商的 StreamingCoordinator，云提供商直接调用 start_streaming()
+        if provider != "local":
+            if mode == "chunked":
+                try:
+                    # CloudTranscriptionBase 实现了 start_streaming() 方法
+                    # 创建 CloudChunkAccumulator 实例用于缓冲和异步转录音频分块
+                    if hasattr(self._speech_service, "start_streaming"):
+                        self._speech_service.start_streaming()  # type: ignore
+                        app_logger.log_audio_event(
+                            "Cloud provider streaming started",
+                            {"provider": provider, "mode": mode}
+                        )
+                        return True
+                    else:
+                        app_logger.log_audio_event(
+                            "Cloud provider does not support streaming",
+                            {"provider": provider}
+                        )
+                        return False
+                except Exception as e:
+                    app_logger.log_error(e, "cloud_start_streaming")
+                    return False
+            else:
+                # 云提供商不支持 realtime 模式（仅本地 sherpa-onnx 支持）
+                app_logger.log_audio_event(
+                    "Cloud provider does not support realtime mode",
+                    {"provider": provider, "mode": mode}
+                )
+                return False
+
+        # 本地提供商：使用 coordinator（原有逻辑）
         if not hasattr(self._speech_service, "streaming_coordinator"):
             app_logger.log_audio_event(
-                "Speech service does not support streaming", {"mode": mode}
+                "Local speech service does not support streaming", {"mode": mode}
             )
             return False
 
@@ -155,6 +197,18 @@ class StreamingModeManager(LifecycleComponent):
 
     def stop_streaming_session(self) -> None:
         """停止流式转录会话并清理资源"""
+        # 检查提供商类型
+        provider = self._config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
+
+        # 云提供商：不需要停止（由 TranscriptionController 在获取结果时调用 stop_streaming）
+        if provider != "local":
+            app_logger.log_audio_event(
+                "Cloud provider streaming session lifecycle managed by TranscriptionController",
+                {"provider": provider}
+            )
+            return
+
+        # 本地提供商：使用 coordinator
         if self._coordinator is None:
             return
 
@@ -185,7 +239,7 @@ class StreamingModeManager(LifecycleComponent):
             self._coordinator = coordinator
 
             # 显式调用 __enter__() 启动流式转录
-            self._coordinator.__enter__()
+            self._coordinator.__enter__()  # type: ignore
 
             app_logger.log_audio_event(
                 "Chunked mode streaming started via context manager", {"session": None}
@@ -237,7 +291,7 @@ class StreamingModeManager(LifecycleComponent):
 
             # 显式调用 __enter__() 启动流式转录（传递 session）
             # 注意：必须在设置 session 之前调用 start_streaming
-            self._coordinator.start_streaming(streaming_session=streaming_session)
+            self._coordinator.start_streaming(streaming_session=streaming_session)  # type: ignore
 
             app_logger.log_audio_event(
                 "Realtime mode streaming started via context manager", {"session": True}

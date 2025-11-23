@@ -35,76 +35,75 @@ Audio = AudioLegacy
 del _constants_module
 
 from .audio import (
-    # Sample Rates
-    SAMPLE_RATE_16KHZ,
-    SAMPLE_RATE_44KHZ,
-    SAMPLE_RATE_48KHZ,
-    # Chunk Sizes
-    CHUNK_SIZE_DEFAULT,
-    CHUNK_SIZE_LARGE,
-    CHUNK_SIZE_SMALL,
-    # Audio Conversion
-    INT16_MAX,
-    INT16_MAX_INT,
-    INT32_MAX,
-    # Streaming
-    STREAMING_CHUNK_DURATION_DEFAULT,
-    STREAMING_CHUNK_DURATION_SHORT,
-    STREAMING_CHUNK_DURATION_LONG,
-    # Audio Processing
-    NORMALIZATION_TARGET_LEVEL,
-    NORMALIZATION_MAX_GAIN,
-    SILENCE_THRESHOLD_DEFAULT,
-    SILENCE_MIN_DURATION,
-    FRAME_LENGTH_MS,
-    HOP_LENGTH_MS,
+    AUDIO_CLEANUP_TIMEOUT,
     # Audio Levels
     AUDIO_LEVEL_LOW_THRESHOLD,
     AUDIO_LEVEL_MED_THRESHOLD,
     AUDIO_LEVEL_QUIET,
-    # Resampling
-    RESAMPLE_LARGE_AUDIO_THRESHOLD,
-    RESAMPLE_CHUNK_SIZE,
-    RESAMPLE_RATIO_TOLERANCE,
     # Timeouts
     AUDIO_THREAD_JOIN_TIMEOUT,
     AUDIO_THREAD_JOIN_TIMEOUT_LONG,
-    AUDIO_CLEANUP_TIMEOUT,
+    # Chunk Sizes
+    CHUNK_SIZE_DEFAULT,
+    CHUNK_SIZE_LARGE,
+    CHUNK_SIZE_SMALL,
+    FRAME_LENGTH_MS,
+    HOP_LENGTH_MS,
+    # Audio Conversion
+    INT16_MAX,
+    INT16_MAX_INT,
+    INT32_MAX,
+    NORMALIZATION_MAX_GAIN,
+    # Audio Processing
+    NORMALIZATION_TARGET_LEVEL,
+    RESAMPLE_CHUNK_SIZE,
+    # Resampling
+    RESAMPLE_LARGE_AUDIO_THRESHOLD,
+    RESAMPLE_RATIO_TOLERANCE,
+    # Sample Rates
+    SAMPLE_RATE_16KHZ,
+    SAMPLE_RATE_44KHZ,
+    SAMPLE_RATE_48KHZ,
+    SILENCE_MIN_DURATION,
+    SILENCE_THRESHOLD_DEFAULT,
+    # Streaming
+    STREAMING_CHUNK_DURATION_DEFAULT,
+    STREAMING_CHUNK_DURATION_LONG,
+    STREAMING_CHUNK_DURATION_SHORT,
 )
-
 from .hotkeys import (
+    # Configuration
+    ALLOWED_SINGLE_KEYS,
+    HOTKEY_REGISTRATION_TIMEOUT,
+    # Timing Constants
+    HOTKEY_TIME_WINDOW_MS,
+    HOTKEY_TIMEOUT_CLEANUP_MS,
     # Windows Modifiers
     MOD_ALT,
     MOD_CONTROL,
     MOD_SHIFT,
     MOD_WIN,
+    SYSTEM_RESERVED_HOTKEYS,
+    # Virtual Key Code Mappings
+    VK_FUNCTION_KEYS,
+    VK_LCONTROL,
+    # Virtual Key Codes - Modifiers
+    VK_LMENU,
+    VK_LSHIFT,
+    VK_LWIN,
+    VK_RCONTROL,
+    VK_RMENU,
+    VK_RSHIFT,
+    VK_RWIN,
+    VK_SPECIAL_KEYS,
+    WM_HOTKEY,
     # Windows Messages
     WM_KEYDOWN,
     WM_KEYUP,
-    WM_SYSKEYDOWN,
-    WM_SYSKEYUP,
-    WM_HOTKEY,
     WM_NULL,
     WM_QUIT,
-    # Virtual Key Codes - Modifiers
-    VK_LMENU,
-    VK_RMENU,
-    VK_LCONTROL,
-    VK_RCONTROL,
-    VK_LSHIFT,
-    VK_RSHIFT,
-    VK_LWIN,
-    VK_RWIN,
-    # Virtual Key Code Mappings
-    VK_FUNCTION_KEYS,
-    VK_SPECIAL_KEYS,
-    # Timing Constants
-    HOTKEY_TIME_WINDOW_MS,
-    HOTKEY_TIMEOUT_CLEANUP_MS,
-    HOTKEY_REGISTRATION_TIMEOUT,
-    # Configuration
-    ALLOWED_SINGLE_KEYS,
-    SYSTEM_RESERVED_HOTKEYS,
+    WM_SYSKEYDOWN,
+    WM_SYSKEYUP,
 )
 
 __all__ = [

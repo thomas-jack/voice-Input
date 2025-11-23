@@ -4,14 +4,15 @@ Provides common initialization, event handling, and logging patterns
 to eliminate code duplication across controllers.
 """
 
-from typing import Optional, Dict, Any
 from abc import ABC
+from typing import Any, Dict, Optional
+
+from ...utils import app_logger
 from ..interfaces import (
     IConfigService,
     IEventService,
     IStateManager,
 )
-from ...utils import app_logger
 from .logging_helper import ControllerLogging
 
 

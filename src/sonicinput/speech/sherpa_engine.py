@@ -3,8 +3,9 @@
 基于 sherpa-onnx 的轻量级本地语音识别实现
 """
 
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-from typing import Dict, Any, Optional, List
 from loguru import logger
 
 try:
@@ -13,8 +14,8 @@ except ImportError:
     logger.error("sherpa-onnx not installed. Please run: uv sync --extra local")
     sherpa_onnx = None
 
-from ..core.interfaces.speech import ISpeechService
 from ..core.base.lifecycle_component import LifecycleComponent
+from ..core.interfaces.speech import ISpeechService
 from .sherpa_models import SherpaModelManager
 from .sherpa_streaming import SherpaStreamingSession
 

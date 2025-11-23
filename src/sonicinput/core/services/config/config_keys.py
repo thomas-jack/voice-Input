@@ -149,6 +149,9 @@ class ConfigKeys:
     AUDIO_CHUNK_SIZE = "audio.chunk_size"
     """音频分块大小 (int)"""
 
+    AUDIO_STREAMING_CHUNK_DURATION = "audio.streaming.chunk_duration"
+    """流式转录分块时长 (float): 默认15秒"""
+
     # ==================== UI (界面配置) ====================
     UI_SHOW_OVERLAY = "ui.show_overlay"
     """显示录音悬浮窗 (bool)"""

@@ -1,23 +1,25 @@
 """历史记录标签页"""
 
+from typing import Any, Dict, List
+
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtWidgets import (
-    QVBoxLayout,
+    QAbstractItemView,
+    QDialog,
+    QGroupBox,
     QHBoxLayout,
+    QHeaderView,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QPushButton,
-    QMessageBox,
-    QHeaderView,
-    QAbstractItemView,
-    QLineEdit,
-    QLabel,
-    QGroupBox,
-    QDialog,
     QTextEdit,
-    QProgressDialog,
+    QVBoxLayout,
 )
-from PySide6.QtCore import Qt, QThread, Signal
-from typing import Dict, Any, List
+
 from .base_tab import BaseSettingsTab
 
 
@@ -267,6 +269,7 @@ class BatchReprocessingWorker(QThread):
     def run(self):
         """后台线程执行批量重处理流程"""
         import time
+
         from ...utils import app_logger
 
         total_records = len(self.records)

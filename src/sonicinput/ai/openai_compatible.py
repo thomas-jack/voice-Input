@@ -8,7 +8,8 @@
 - 以及其他自托管服务
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from ..utils.exceptions import OpenAICompatibleAPIError
 from .base_client import BaseAIClient
 

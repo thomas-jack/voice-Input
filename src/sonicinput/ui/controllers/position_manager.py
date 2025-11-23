@@ -4,15 +4,16 @@
 支持多屏幕、DPI缩放、预设位置和自动保存功能。
 """
 
-from PySide6.QtWidgets import QWidget, QApplication
+from typing import Dict, Optional, Tuple
+
 from PySide6.QtCore import QRect
 from PySide6.QtGui import QScreen
-from typing import Optional, Tuple, Dict
+from PySide6.QtWidgets import QApplication, QWidget
 
+from ...core.interfaces import EventPriority, IEventService
 from ...core.interfaces.config import IConfigService
-from ...core.interfaces import IEventService, EventPriority
-from ...utils.constants import UI, ConfigKeys
 from ...utils import app_logger
+from ...utils.constants import UI, ConfigKeys
 
 
 class PositionManager:

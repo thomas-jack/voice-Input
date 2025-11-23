@@ -1,7 +1,8 @@
 """UI组件接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Tuple, Callable
+from typing import Any, Callable, Dict, Optional, Tuple
+
 from PySide6.QtWidgets import QWidget
 
 

@@ -1,12 +1,12 @@
 """错误恢复服务 - 负责转录错误的恢复和处理"""
 
 import time
-from typing import Dict, Any, List, Optional, Callable
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
-from ..base.lifecycle_component import LifecycleComponent
 from ...utils import app_logger
+from ..base.lifecycle_component import LifecycleComponent
 
 
 class ErrorSeverity(Enum):

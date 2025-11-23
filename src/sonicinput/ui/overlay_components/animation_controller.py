@@ -1,7 +1,8 @@
 """动画控制器 - 单一职责：管理所有动画效果"""
 
 import math
-from PySide6.QtCore import QTimer, QPropertyAnimation, QEasingCurve
+
+from PySide6.QtCore import QEasingCurve, QPropertyAnimation, QTimer
 from PySide6.QtWidgets import QWidget
 
 from ...utils import app_logger

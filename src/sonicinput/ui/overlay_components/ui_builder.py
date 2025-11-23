@@ -1,19 +1,20 @@
 """UI构建器 - 单一职责：构建RecordingOverlay的UI界面"""
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QLabel,
     QFrame,
     QGraphicsDropShadowEffect,
+    QHBoxLayout,
+    QLabel,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QColor
 
 from ...utils import app_logger
-from ..overlay import StatusIndicator, CloseButton
+from ..overlay import CloseButton, StatusIndicator
 from .position_manager import PositionManager
 
 

@@ -2,6 +2,7 @@
 
 import math
 from typing import List
+
 from PySide6.QtWidgets import QLabel
 
 from ...utils import app_logger

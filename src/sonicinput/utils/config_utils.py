@@ -4,9 +4,9 @@ Provides shared configuration patterns to eliminate code duplication
 across the codebase.
 """
 
-from typing import Any, Dict, Optional
-from pathlib import Path
 import json
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 
 class ConfigMerger:

@@ -8,28 +8,29 @@
 """
 
 from typing import Optional
-from .di_container import DIContainer
+
+from ..utils import VoiceInputError, app_logger, logger
 from .controllers import (
-    RecordingController,
-    TranscriptionController,
     AIProcessingController,
     InputController,
+    RecordingController,
+    TranscriptionController,
 )
+from .di_container import DIContainer
 from .interfaces import (
+    IAudioService,
     IConfigService,
     IEventService,
-    IStateManager,
-    IAudioService,
-    ISpeechService,
-    IInputService,
     IHotkeyService,
+    IInputService,
+    ISpeechService,
+    IStateManager,
 )
-from .services.hot_reload_manager import HotReloadManager
 from .services.application_orchestrator import ApplicationOrchestrator
-from .services.ui_event_bridge import UIEventBridge
-from .services.storage.history_storage_service import HistoryStorageService
 from .services.event_bus import Events
-from ..utils import app_logger, logger, VoiceInputError
+from .services.hot_reload_manager import HotReloadManager
+from .services.storage.history_storage_service import HistoryStorageService
+from .services.ui_event_bridge import UIEventBridge
 
 
 class VoiceInputApp:
@@ -178,13 +179,14 @@ class VoiceInputApp:
             history_service=self._history_service,
         )
 
-        # 转录控制器
+        # 转录控制器（共享 RecordingController 的 streaming_manager）
         self._transcription_controller = TranscriptionController(
             speech_service=self._speech_service,
             config_service=self.config,
             event_service=self.events,
             state_manager=self.state,
             history_service=self._history_service,
+            streaming_manager=self._recording_controller.streaming_manager,
         )
 
         # AI处理控制器
@@ -238,9 +240,9 @@ class VoiceInputApp:
                 self._hotkey_service.unregister_all_hotkeys()
 
                 # 从配置读取新快捷键列表（支持新旧格式）
+                from ..utils import HotkeyRegistrationError
                 from .hotkey_config_helper import get_hotkeys_from_config
                 from .hotkey_manager_win32 import HotkeyConflictError
-                from ..utils import HotkeyRegistrationError
 
                 hotkeys, backend = get_hotkeys_from_config(self.config)
 

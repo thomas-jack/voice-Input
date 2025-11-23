@@ -1,26 +1,28 @@
 """AI设置标签页"""
 
+import threading
+import time
+from typing import Any, Dict
+
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QGroupBox,
-    QFormLayout,
-    QHBoxLayout,
+    QApplication,
     QCheckBox,
     QComboBox,
-    QSpinBox,
-    QLineEdit,
-    QPushButton,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
     QLabel,
-    QTextEdit,
+    QLineEdit,
     QMessageBox,
-    QApplication,
+    QPushButton,
+    QSpinBox,
+    QTextEdit,
+    QVBoxLayout,
 )
-from PySide6.QtCore import QTimer
-from typing import Dict, Any
-import time
-import threading
-from .base_tab import BaseSettingsTab
+
 from ...utils import app_logger
+from .base_tab import BaseSettingsTab
 
 
 class AITab(BaseSettingsTab):

@@ -1,8 +1,9 @@
 """核心服务接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable
 from enum import Enum
+from typing import Any, Callable, Dict, Optional
+
 import numpy as np
 
 

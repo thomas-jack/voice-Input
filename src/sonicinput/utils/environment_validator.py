@@ -1,11 +1,12 @@
 """Environment validation and diagnostic utilities for GUI startup"""
 
-import os
-import sys
-import platform
 import importlib
-from typing import Dict, Any, Tuple, List
+import os
+import platform
+import sys
 from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
 from ..utils.logger import app_logger
 
 # Windows平台窗口隐藏标志

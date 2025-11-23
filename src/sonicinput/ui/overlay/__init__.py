@@ -1,5 +1,5 @@
 """Recording overlay package"""
 
-from .components import StatusIndicator, CloseButton
+from .components import CloseButton, StatusIndicator
 
 __all__ = ["StatusIndicator", "CloseButton"]

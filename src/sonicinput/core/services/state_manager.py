@@ -7,15 +7,15 @@
 import threading
 import time
 import uuid
-from typing import Any, Dict, Optional, Callable, TypeVar, List
-from dataclasses import dataclass, field
 from collections import defaultdict, deque
+from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, TypeVar
 
-from ..base.lifecycle_component import LifecycleComponent
-from ..interfaces.state import IStateManager, AppState, RecordingState
-from ..interfaces import IEventService, EventPriority
 from ...utils import app_logger
+from ..base.lifecycle_component import LifecycleComponent
+from ..interfaces import EventPriority, IEventService
+from ..interfaces.state import AppState, IStateManager, RecordingState
 
 T = TypeVar("T")
 

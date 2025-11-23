@@ -5,8 +5,8 @@ error codes, and recovery suggestions.
 """
 
 import time
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class ErrorSeverity(Enum):

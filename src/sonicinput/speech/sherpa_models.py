@@ -5,14 +5,16 @@
 
 import tarfile
 from pathlib import Path
-from typing import Dict, Any, Optional
-from urllib.request import urlopen, Request
+from typing import Any, Dict, Optional
+from urllib.request import Request, urlopen
+
 from loguru import logger
+
 from .. import __version__
 
 try:
-    from PySide6.QtWidgets import QProgressDialog, QApplication
     from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QProgressDialog
 
     PYSIDE6_AVAILABLE = True
 except ImportError:

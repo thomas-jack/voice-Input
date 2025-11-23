@@ -3,23 +3,22 @@
 使用门面模式（Facade Pattern）协调多个专职服务，保持向后兼容的API。
 """
 
-import os
 import copy
-from pathlib import Path
-from typing import Dict, Any, Optional, Union, TypeVar, List
+import os
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
-from ...base.lifecycle_component import LifecycleComponent
-from ...interfaces.config import IConfigService
-from ...interfaces import IEventService, EventPriority
 from ....utils import ConfigurationError, app_logger
-
-from .config_reader import ConfigReader
-from .config_writer import ConfigWriter
-from .config_validator import ConfigValidator
-from .config_migrator import ConfigMigrator
+from ...base.lifecycle_component import LifecycleComponent
+from ...interfaces import EventPriority, IEventService
+from ...interfaces.config import IConfigService
 from .config_backup import ConfigBackupService
 from .config_keys import ConfigKeys
+from .config_migrator import ConfigMigrator
+from .config_reader import ConfigReader
+from .config_validator import ConfigValidator
+from .config_writer import ConfigWriter
 
 T = TypeVar("T")
 

@@ -1,21 +1,23 @@
 """Transcription设置标签页"""
 
+from typing import Any, Dict
+
 from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QGroupBox,
-    QFormLayout,
+    QApplication,
     QCheckBox,
     QComboBox,
-    QSpinBox,
-    QPushButton,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
-    QProgressBar,
     QLineEdit,
     QMessageBox,
-    QApplication,
+    QProgressBar,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
-from typing import Dict, Any
+
 from .base_tab import BaseSettingsTab
 
 
@@ -446,9 +448,10 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _test_groq_api(self) -> None:
         """测试 Groq API 连接（异步，不阻塞UI）"""
-        from PySide6.QtCore import QTimer
         import threading
         import time
+
+        from PySide6.QtCore import QTimer
 
         # 检查 API key
         api_key = self.groq_api_key_edit.text().strip()
@@ -565,9 +568,10 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _test_siliconflow_api(self) -> None:
         """测试 SiliconFlow API 连接（异步，不阻塞UI）"""
-        from PySide6.QtCore import QTimer
         import threading
         import time
+
+        from PySide6.QtCore import QTimer
 
         # 检查 API key
         api_key = self.siliconflow_api_key_edit.text().strip()
@@ -828,9 +832,10 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _test_qwen_api(self) -> None:
         """测试 Qwen API 连接（异步，不阻塞UI）"""
-        from PySide6.QtCore import QTimer
         import threading
         import time
+
+        from PySide6.QtCore import QTimer
 
         # 检查 API key
         api_key = self.qwen_api_key_edit.text().strip()

@@ -2,6 +2,7 @@
 
 import warnings
 from typing import Callable
+
 from PySide6.QtCore import QTimer
 
 from ...utils import app_logger

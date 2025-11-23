@@ -1,7 +1,8 @@
 """语音识别服务接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 
 

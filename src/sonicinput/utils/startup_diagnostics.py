@@ -1,13 +1,15 @@
 """Startup diagnostic utilities for comprehensive application health checking"""
 
-import os
-import sys
-import platform
 import importlib
-from typing import Dict, Any
-from pathlib import Path
+import os
+import platform
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict
+
 from sonicinput.utils.logger import app_logger
+
 from .environment_validator import environment_validator
 
 

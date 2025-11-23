@@ -1,16 +1,18 @@
 """音频录制器"""
 
-import pyaudio
-import numpy as np
 import threading
 import time
 import wave
 from pathlib import Path
-from typing import Optional, Callable, List, Dict, Any
-from ..utils import AudioRecordingError, app_logger
+from typing import Any, Callable, Dict, List, Optional
+
+import numpy as np
+import pyaudio
+
+from ..core.base.lifecycle_component import LifecycleComponent
 from ..core.interfaces import IAudioService
 from ..core.services.config import ConfigKeys
-from ..core.base.lifecycle_component import LifecycleComponent
+from ..utils import AudioRecordingError, app_logger
 
 
 class AudioRecorder(LifecycleComponent, IAudioService):
@@ -43,13 +45,13 @@ class AudioRecorder(LifecycleComponent, IAudioService):
         # 线程安全：保护 _audio_data 的并发访问
         self._data_lock = threading.Lock()
 
-        # 流式转录块大小（从配置读取，默认30秒）
+        # 流式转录块时长（从配置读取，默认15秒）
         if config_service:
             self.chunk_duration = config_service.get_setting(
-                ConfigKeys.AUDIO_CHUNK_SIZE, 30.0
+                ConfigKeys.AUDIO_STREAMING_CHUNK_DURATION, 15.0
             )
         else:
-            self.chunk_duration = 30.0
+            self.chunk_duration = 15.0
         self.chunk_callback = None  # 外部回调，用于流式转录块
         self._chunked_samples_sent = 0  # 追踪已发送给chunk_callback的样本数量
 
@@ -573,6 +575,36 @@ class AudioRecorder(LifecycleComponent, IAudioService):
             if self._audio_data:
                 return np.concatenate(self._audio_data)
             return np.array([])
+
+    def get_remaining_audio_for_streaming(self) -> np.ndarray:
+        """获取剩余未发送到流式转录的音频数据
+
+        Returns:
+            剩余的音频数据（自上次 chunk_callback 以来的增量）
+        """
+        with self._data_lock:
+            if not self._audio_data:
+                return np.array([])
+
+            # 拼接所有音频数据
+            full_audio = np.concatenate(self._audio_data, axis=0).flatten()
+            total_samples = len(full_audio)
+
+            # 返回未发送的部分
+            if total_samples > self._chunked_samples_sent:
+                remaining_audio = full_audio[self._chunked_samples_sent:].copy()
+                app_logger.log_audio_event(
+                    "Remaining audio extracted for final chunk",
+                    {
+                        "remaining_samples": len(remaining_audio),
+                        "remaining_duration_seconds": len(remaining_audio) / self._sample_rate,
+                        "already_sent_samples": self._chunked_samples_sent,
+                        "total_samples": total_samples,
+                    },
+                )
+                return remaining_audio
+            else:
+                return np.array([])
 
     def save_to_file(
         self, file_path: str, audio_data: Optional[np.ndarray] = None

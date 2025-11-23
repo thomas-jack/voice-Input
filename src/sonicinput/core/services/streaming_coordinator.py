@@ -7,8 +7,9 @@
 
 import threading
 import time
-from typing import Dict, Any, List, Optional, Literal
 from dataclasses import dataclass
+from typing import Any, Dict, List, Literal, Optional
+
 import numpy as np
 
 from ...utils import app_logger

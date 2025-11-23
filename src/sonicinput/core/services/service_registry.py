@@ -4,8 +4,8 @@
 支持配置热重载场景下的服务实例原子替换。
 """
 
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, cast
 from threading import RLock
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, cast
 
 from loguru import logger
 

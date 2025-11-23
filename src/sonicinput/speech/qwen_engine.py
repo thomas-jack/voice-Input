@@ -4,10 +4,12 @@ Cloud-based speech recognition service powered by Alibaba's Qwen large model.
 Supports emotion detection and language identification.
 """
 
-import numpy as np
-import time
 import base64
-from typing import Optional, Dict, Any
+import time
+from typing import Any, Dict, Optional
+
+import numpy as np
+
 from ..utils import app_logger
 from .cloud_base import CloudTranscriptionBase
 
@@ -39,6 +41,7 @@ class QwenEngine(CloudTranscriptionBase):
         model: str = "qwen3-asr-flash",
         base_url: Optional[str] = None,
         enable_itn: bool = True,
+        config_service=None,
     ):
         """Initialize Qwen ASR Engine
 
@@ -47,6 +50,7 @@ class QwenEngine(CloudTranscriptionBase):
             model: ASR model to use (default: qwen3-asr-flash)
             base_url: Optional custom base URL for API
             enable_itn: Enable Inverse Text Normalization (convert "一千" to "1000")
+            config_service: Optional config service for streaming chunk duration
         """
         # Note: Don't call super().__init__() - need custom session setup
         self.api_key = api_key
@@ -57,6 +61,7 @@ class QwenEngine(CloudTranscriptionBase):
         self._is_model_loaded = False
         self.device = "cloud"
         self.use_gpu = False
+        self._config_service = config_service
 
         # HTTP session with connection pooling
         self._session = None
@@ -66,6 +71,9 @@ class QwenEngine(CloudTranscriptionBase):
         self._request_count = 0
         self._total_request_time = 0.0
         self._error_count = 0
+
+        # Cloud chunk accumulator for streaming mode
+        self._chunk_accumulator = None
 
     def _get_session(self):  # type: ignore
         """Get or create HTTP session"""

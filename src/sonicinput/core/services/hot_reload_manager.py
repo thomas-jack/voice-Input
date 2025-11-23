@@ -4,7 +4,7 @@ Minimal hot-reload system following YAGNI principle.
 Uses simple callback pattern with hard-coded reload order.
 """
 
-from typing import Protocol, List, Dict, Any
+from typing import Any, Dict, List, Protocol
 
 from ...utils import app_logger
 

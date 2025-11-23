@@ -3,13 +3,13 @@
 import queue
 import threading
 import time
-from typing import Optional, Dict, Any, Callable, List
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
-import uuid
+from typing import Any, Callable, Dict, List, Optional
 
-from ..base.lifecycle_component import LifecycleComponent
 from ...utils import app_logger
+from ..base.lifecycle_component import LifecycleComponent
 
 
 class TaskPriority(Enum):

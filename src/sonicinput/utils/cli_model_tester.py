@@ -6,7 +6,8 @@ reusing the same test logic as the UI implementation.
 """
 
 import time
-from typing import Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, Optional
+
 import numpy as np
 
 from sonicinput.core.interfaces import ISpeechService

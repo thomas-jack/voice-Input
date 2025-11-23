@@ -1,8 +1,8 @@
 """模型管理器 - 负责Whisper模型的生命周期管理"""
 
 import time
-from typing import Optional, Dict, Any
 from enum import Enum
+from typing import Any, Dict, Optional
 
 from ...utils import app_logger
 

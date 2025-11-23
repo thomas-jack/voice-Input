@@ -2,6 +2,7 @@
 
 import numpy as np
 from scipy import signal
+
 from ..utils import AudioRecordingError, app_logger
 
 

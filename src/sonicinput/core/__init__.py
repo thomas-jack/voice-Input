@@ -4,13 +4,12 @@
 """
 
 # 核心服务组件
-from .services import EventBus, Events, ConfigService, StateManager
-
-# 接口定义（仅保留多实现接口）
-from .interfaces import IAIService, ISpeechService, IInputService
-
 # 原有组件（保持向后兼容）
 from .hotkey_manager import HotkeyManager
+
+# 接口定义（仅保留多实现接口）
+from .interfaces import IAIService, IInputService, ISpeechService
+from .services import ConfigService, EventBus, Events, StateManager
 
 __all__ = [
     # 核心服务组件

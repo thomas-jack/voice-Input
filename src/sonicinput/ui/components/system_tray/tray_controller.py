@@ -7,17 +7,18 @@ Handles the business logic for system tray operations including:
 - Integration with other services
 """
 
-from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QSystemTrayIcon, QMessageBox
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
-from ....core.interfaces.config import IConfigService
-from ....core.interfaces import IEventService, EventPriority
-from ....core.interfaces.state import IStateManager, AppState, RecordingState
-from .tray_widget import TrayWidget
-from ....utils.constants import Events, ConfigKeys
-from ....utils import app_logger
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
+
 from .... import __version__
+from ....core.interfaces import EventPriority, IEventService
+from ....core.interfaces.config import IConfigService
+from ....core.interfaces.state import AppState, IStateManager, RecordingState
+from ....utils import app_logger
+from ....utils.constants import ConfigKeys, Events
+from .tray_widget import TrayWidget
 
 
 class TrayController(QObject):

@@ -4,13 +4,14 @@
 支持淡入淡出、滑动、弹跳等动画效果。
 """
 
-from PySide6.QtCore import QObject, QPropertyAnimation, QEasingCurve, Signal
-from PySide6.QtWidgets import QWidget, QGraphicsOpacityEffect
-from typing import Optional, Callable, Dict
 from enum import Enum
+from typing import Callable, Dict, Optional
 
-from ...utils.constants import UI
+from PySide6.QtCore import QEasingCurve, QObject, QPropertyAnimation, Signal
+from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
+
 from ...utils import app_logger
+from ...utils.constants import UI
 
 
 class AnimationType(Enum):

@@ -1,10 +1,10 @@
 """诊断和修复工具"""
 
 import os
-import sys
 import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 # Windows平台窗口隐藏标志
 if sys.platform == "win32":

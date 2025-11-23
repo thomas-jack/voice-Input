@@ -8,11 +8,11 @@
 """
 
 import json
-import os
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from ..interfaces.service_registry_config import IServiceRegistryConfig
+from typing import Any, Dict, List, Optional
+
 from ...utils import app_logger
+from ..interfaces.service_registry_config import IServiceRegistryConfig
 
 
 class ServiceRegistryConfig(IServiceRegistryConfig):
@@ -324,7 +324,7 @@ class ServiceRegistryConfig(IServiceRegistryConfig):
                     in_degree[service] += 1
 
         # 使用优先队列，按priority排序
-        from heapq import heappush, heappop
+        from heapq import heappop, heappush
 
         queue = []
         for service, degree in in_degree.items():

@@ -4,12 +4,13 @@ Provides shared operational patterns to eliminate code duplication
 across the codebase.
 """
 
-import time
 import threading
-from typing import Any, Dict, Optional, Callable, TypeVar, Generic
-from pathlib import Path
+import time
 from contextlib import contextmanager
-from PySide6.QtCore import QTimer, QObject
+from pathlib import Path
+from typing import Any, Callable, Dict, Generic, Optional, TypeVar
+
+from PySide6.QtCore import QObject, QTimer
 
 from ..utils import app_logger
 

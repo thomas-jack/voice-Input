@@ -4,36 +4,36 @@
 所有服务和组件都应该依赖接口而不是具体实现。
 """
 
-from .config import IConfigService
-from .audio import IAudioService
-from .speech import ISpeechService
-from .ai import IAIService
-from .input import IInputService
-from .hotkey import IHotkeyService
-from .event import IEventService, EventPriority
-from .ui import IUIComponent, IOverlayComponent, ITrayComponent
-from .storage import IStorageService, ICacheService
-from .lifecycle import ILifecycleManaged, ILifecycleManager
-from .state import IStateManager, AppState, RecordingState
-from .lifecycle import ComponentState
-from .controller import (
-    IRecordingController,
-    ITranscriptionController,
-    IAIProcessingController,
-    IInputController,
-)
-from .ui_main_service import (
-    IUIMainService,
-    IUISettingsService,
-    IUIModelService,
-    IUIAudioService,
-    IUIGPUService,
-)
-
-# Interfaces added after Phase 1.2 cleanup (missing definitions)
-from typing import Protocol, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
+
+# Interfaces added after Phase 1.2 cleanup (missing definitions)
+from typing import List, Optional, Protocol
+
+from .ai import IAIService
+from .audio import IAudioService
+from .config import IConfigService
+from .controller import (
+    IAIProcessingController,
+    IInputController,
+    IRecordingController,
+    ITranscriptionController,
+)
+from .event import EventPriority, IEventService
+from .hotkey import IHotkeyService
+from .input import IInputService
+from .lifecycle import ComponentState, ILifecycleManaged, ILifecycleManager
+from .speech import ISpeechService
+from .state import AppState, IStateManager, RecordingState
+from .storage import ICacheService, IStorageService
+from .ui import IOverlayComponent, ITrayComponent, IUIComponent
+from .ui_main_service import (
+    IUIAudioService,
+    IUIGPUService,
+    IUIMainService,
+    IUIModelService,
+    IUISettingsService,
+)
 
 
 @dataclass

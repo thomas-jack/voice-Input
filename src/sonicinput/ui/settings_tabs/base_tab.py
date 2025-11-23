@@ -3,8 +3,9 @@
 提供所有设置标签页的通用功能和接口。
 """
 
+from typing import Any, Dict, Optional
+
 from PySide6.QtWidgets import QWidget
-from typing import Dict, Any, Optional
 
 
 class BaseSettingsTab:

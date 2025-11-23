@@ -23,11 +23,11 @@
 import copy
 from typing import Any, Dict, Optional
 
+from ..core.interfaces import IEventService
 from ..core.services.ui_services import (
     UIModelService,
     UISettingsService,
 )
-from ..core.interfaces import IEventService
 from ..utils.logger import app_logger
 
 

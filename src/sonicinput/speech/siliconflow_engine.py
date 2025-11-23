@@ -4,7 +4,8 @@
 支持 SenseVoiceSmall 和 TeleSpeechASR 模型，具有超低延迟和方言识别能力。
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 from ..utils import app_logger
 from .cloud_base import CloudTranscriptionBase
 
@@ -36,6 +37,7 @@ class SiliconFlowEngine(CloudTranscriptionBase):
         api_key: str = "",
         model_name: str = "FunAudioLLM/SenseVoiceSmall",
         base_url: Optional[str] = None,
+        config_service=None,
     ):
         """初始化硅基流动引擎
 
@@ -43,8 +45,9 @@ class SiliconFlowEngine(CloudTranscriptionBase):
             api_key: 硅基流动API密钥 (default: empty, must be set via initialize)
             model_name: 模型名称，默认使用 SenseVoiceSmall
             base_url: 可选的自定义API端点
+            config_service: 可选的配置服务，用于流式分块时长
         """
-        super().__init__(api_key)
+        super().__init__(api_key, config_service)
         self.model_name = model_name
         self.base_url = base_url if base_url else "https://api.siliconflow.cn/v1"
 

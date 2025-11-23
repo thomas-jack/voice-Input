@@ -4,25 +4,25 @@ Minimal DI container following YAGNI principle.
 Only provides essential features actually needed by the application.
 """
 
-from typing import Dict, Type, TypeVar, Callable, Any
 from enum import Enum
+from typing import Any, Callable, Dict, Type, TypeVar
 
 # Interface imports for create_container()
 from .interfaces import (
     IAIService,
-    IInputService,
-    IHotkeyService,
-    IHistoryStorageService,
     IApplicationOrchestrator,
+    IHistoryStorageService,
+    IHotkeyService,
+    IInputService,
     IUIEventBridge,
 )
 from .interfaces.audio import IAudioService
 from .interfaces.ui_main_service import (
-    IUIMainService,
-    IUISettingsService,
-    IUIModelService,
     IUIAudioService,
     IUIGPUService,
+    IUIMainService,
+    IUIModelService,
+    IUISettingsService,
 )
 
 # Global singleton instance for HistoryStorageService
@@ -229,22 +229,22 @@ def create_container() -> "DIContainer":
     # config_reload_registry = ConfigReloadServiceRegistry()
 
     # 显式导入接口（避免import *）
-    from .interfaces import IEventService, IConfigService, IStateManager, ISpeechService
+    from ..ai import AIClientFactory
+    from ..audio import AudioRecorder
+    from ..input import SmartTextInput
+    from .interfaces import IConfigService, IEventService, ISpeechService, IStateManager
+    from .services.application_orchestrator import ApplicationOrchestrator
 
     # 服务实现
     from .services.config.config_service_refactored import RefactoredConfigService
+    from .services.dynamic_event_system import DynamicEventSystem
+    from .services.hot_reload_manager import HotReloadManager
+    from .services.hotkey_service import HotkeyService
     from .services.state_manager import StateManager
     from .services.transcription_service_refactored import (
         RefactoredTranscriptionService,
     )
-    from .services.dynamic_event_system import DynamicEventSystem
-    from .services.application_orchestrator import ApplicationOrchestrator
     from .services.ui_event_bridge import UIEventBridge
-    from ..audio import AudioRecorder
-    from ..ai import AIClientFactory
-    from ..input import SmartTextInput
-    from .services.hotkey_service import HotkeyService
-    from .services.hot_reload_manager import HotReloadManager
 
     # 事件服务 - 单例（最先创建，因为其他服务依赖它）
     container.register_singleton(IEventService, DynamicEventSystem)

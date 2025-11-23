@@ -36,20 +36,21 @@ stats = service.stop_streaming()
 """
 
 # 直接导入重构后的实现
-from .transcription_service_refactored import RefactoredTranscriptionService
-
-# 导出新的类名和类型
-from .transcription_core import TranscriptionCore
-from .model_manager import ModelManager, ModelState
-from .streaming_coordinator import StreamingCoordinator, StreamingChunk
-from .task_queue_manager import TaskQueueManager, TaskPriority, TaskStatus
-from .error_recovery_service import ErrorRecoveryService, ErrorSeverity, ErrorCategory
-
 # 导出任务相关类型
 from dataclasses import dataclass
 from enum import Enum
+from typing import Callable, Optional
+
 import numpy as np
-from typing import Optional, Callable
+
+from .error_recovery_service import ErrorCategory, ErrorRecoveryService, ErrorSeverity
+from .model_manager import ModelManager, ModelState
+from .streaming_coordinator import StreamingChunk, StreamingCoordinator
+from .task_queue_manager import TaskPriority, TaskQueueManager, TaskStatus
+
+# 导出新的类名和类型
+from .transcription_core import TranscriptionCore
+from .transcription_service_refactored import RefactoredTranscriptionService
 
 
 class TranscriptionTaskType(Enum):

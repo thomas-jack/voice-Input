@@ -4,17 +4,18 @@
 """
 
 from typing import Optional
+
 import numpy as np
 
+from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
     IAudioService,
     IEventService,
-    ISpeechService,
     IHistoryStorageService,
+    ISpeechService,
 )
 from ..services.event_bus import Events
-from ...utils import app_logger
 
 
 class AudioCallbackRouter(LifecycleComponent):

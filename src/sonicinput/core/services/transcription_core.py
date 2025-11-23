@@ -1,10 +1,11 @@
 """重构后的转录核心模块 - 纯转录功能"""
 
 import time
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
 import numpy as np
 
-from ...utils import app_logger, WhisperLoadError
+from ...utils import WhisperLoadError, app_logger
 
 
 class TranscriptionCore:

@@ -4,20 +4,20 @@ Provides common utility functions, formatters, converters,
 and other helper functions used throughout the application.
 """
 
-import os
-import sys
-import time
-import json
+import functools
 import hashlib
+import json
+import os
 import platform
 import subprocess
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, Callable
-from pathlib import Path
+import sys
 import threading
-import functools
+import time
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from .constants import Paths, Defaults
+from .constants import Defaults, Paths
 
 # Windows平台窗口隐藏标志
 if sys.platform == "win32":

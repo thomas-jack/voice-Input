@@ -1,20 +1,22 @@
 """主窗口组件 - 最小化GUI实现（使用依赖注入）"""
 
+from typing import Any, Dict, Optional
+
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QPushButton,
-    QLabel,
-    QSystemTrayIcon,
-    QProgressDialog,
-    QMessageBox,
     QApplication,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QProgressDialog,
+    QPushButton,
+    QSystemTrayIcon,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QThread, QTimer
-from typing import Optional, Dict, Any
-from ..core.services.ui_services import UIMainService, UISettingsService, UIModelService
+
 from ..core.services.event_bus import Events
+from ..core.services.ui_services import UIMainService, UIModelService, UISettingsService
 from ..utils import app_logger
 
 

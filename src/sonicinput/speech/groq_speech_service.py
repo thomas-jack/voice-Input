@@ -1,6 +1,7 @@
 """Groq Cloud Speech Service - Simplified implementation"""
 
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 from ..utils import app_logger
 from .cloud_base import CloudTranscriptionBase
 
@@ -41,6 +42,7 @@ class GroqSpeechService(CloudTranscriptionBase):
         api_key: str = "",
         model: str = "whisper-large-v3-turbo",
         base_url: Optional[str] = None,
+        config_service=None,
     ):
         """Initialize Groq Speech Service
 
@@ -48,8 +50,9 @@ class GroqSpeechService(CloudTranscriptionBase):
             api_key: Groq API key (default: empty, must be set via initialize)
             model: Whisper model to use
             base_url: Optional custom base URL for Groq API
+            config_service: Optional config service for streaming chunk duration
         """
-        super().__init__(api_key)
+        super().__init__(api_key, config_service)
         self.model = model
         self.model_name = model  # Alias for compatibility
         self.base_url = base_url

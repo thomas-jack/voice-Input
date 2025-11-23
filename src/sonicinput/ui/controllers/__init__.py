@@ -4,9 +4,9 @@
 实现UI和业务逻辑的完全分离。
 """
 
+from .animation_engine import AnimationDirection, AnimationEngine, AnimationType
 from .overlay_controller import OverlayController
 from .position_manager import PositionManager
-from .animation_engine import AnimationEngine, AnimationType, AnimationDirection
 
 __all__ = [
     "OverlayController",

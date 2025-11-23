@@ -1,19 +1,21 @@
 """应用设置标签页 (合并 General + UI)"""
 
+from typing import Any, Dict
+
 from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QGroupBox,
-    QFormLayout,
     QCheckBox,
     QComboBox,
-    QSpinBox,
-    QPushButton,
-    QHBoxLayout,
-    QMessageBox,
     QFileDialog,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
     QLabel,
+    QMessageBox,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
-from typing import Dict, Any
+
 from .base_tab import BaseSettingsTab
 
 

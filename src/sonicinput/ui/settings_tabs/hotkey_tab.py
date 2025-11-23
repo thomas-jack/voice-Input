@@ -1,20 +1,22 @@
 """快捷键设置标签页"""
 
+from typing import Any, Dict
+
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import (
-    QVBoxLayout,
+    QComboBox,
     QGroupBox,
     QHBoxLayout,
-    QPushButton,
+    QLabel,
     QLineEdit,
     QListWidget,
-    QLabel,
     QMessageBox,
-    QComboBox,
+    QPushButton,
+    QVBoxLayout,
 )
-from PySide6.QtCore import QTimer
-from typing import Dict, Any
-from .base_tab import BaseSettingsTab
+
 from ...utils import app_logger
+from .base_tab import BaseSettingsTab
 
 
 class HotkeyTab(BaseSettingsTab):

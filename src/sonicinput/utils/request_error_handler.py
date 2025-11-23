@@ -1,10 +1,12 @@
 """Centralized HTTP request error handling utilities"""
 
-from typing import Optional, Dict, Any
-import requests
 import json
-from .exceptions import NetworkError
+from typing import Any, Dict, Optional
+
+import requests
+
 from . import app_logger
+from .exceptions import NetworkError
 
 
 class RequestErrorHandler:

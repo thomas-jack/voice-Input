@@ -4,13 +4,15 @@ Unified base class for all cloud-based transcription services.
 Provides common HTTP request handling, audio conversion, and retry logic.
 """
 
-import numpy as np
-import time
-import threading
-import requests
-import wave
 import io
-from typing import Optional, Dict, Any
+import threading
+import time
+import wave
+from typing import Any, Dict, Optional
+
+import numpy as np
+import requests
+
 from ..core.interfaces import ISpeechService
 from ..utils import app_logger
 
@@ -28,16 +30,18 @@ class CloudTranscriptionBase(ISpeechService):
     description: str = ""
     api_endpoint: str = ""
 
-    def __init__(self, api_key: str = ""):
+    def __init__(self, api_key: str = "", config_service=None):
         """Initialize cloud transcription service
 
         Args:
             api_key: API key for the service (can be set later via initialize)
+            config_service: Optional config service for streaming chunk duration
         """
         self.api_key = api_key
         self._is_model_loaded = False
         self.device = "cloud"
         self.use_gpu = False
+        self._config_service = config_service
 
         # HTTP session with connection pooling
         self._session = None
@@ -47,6 +51,9 @@ class CloudTranscriptionBase(ISpeechService):
         self._request_count = 0
         self._total_request_time = 0.0
         self._error_count = 0
+
+        # Cloud chunk accumulator for streaming mode
+        self._chunk_accumulator: Optional[Any] = None  # CloudChunkAccumulator instance
 
     # ========== Abstract Methods (must be implemented by subclasses) ==========
 
@@ -563,55 +570,108 @@ class CloudTranscriptionBase(ISpeechService):
             temperature=temperature,
         )
 
-    # ========== Streaming API Stubs (cloud providers don't support streaming) ==========
+    # ========== Streaming API (cloud chunked streaming support) ==========
 
     def start_streaming(self) -> None:
-        """Start streaming mode (no-op for cloud providers)
+        """Start cloud streaming mode (chunked accumulation).
 
-        Cloud providers process complete audio files, not streaming audio.
-        This is a compatibility stub for the ISpeechService interface.
+        Creates a CloudChunkAccumulator instance to buffer and transcribe audio chunks
+        asynchronously during recording. This avoids API rate limits on long recordings
+        by distributing transcription requests over time.
+
+        The chunk duration is read from config (audio.streaming.chunk_duration, default 15s).
+        Each chunk is transcribed independently in a thread pool, with results combined
+        when stop_streaming() is called.
         """
+        from .cloud_chunk_accumulator import CloudChunkAccumulator
+
+        # Get chunk duration from config (default 15 seconds)
+        chunk_duration = 15.0
+        if self._config_service:
+            # Read from nested config: audio.streaming.chunk_duration
+            chunk_duration = self._config_service.get_setting(
+                "audio.streaming.chunk_duration", 15.0
+            )
+
+        self._chunk_accumulator = CloudChunkAccumulator(
+            speech_service=self,
+            chunk_duration=chunk_duration,
+            sample_rate=16000,
+        )
+
         app_logger.log_audio_event(
-            "Streaming mode not supported for cloud provider",
+            "Cloud provider streaming started (chunked mode)",
             {
                 "provider": self.provider_id,
-                "note": "Cloud providers process complete audio files only",
+                "chunk_duration": chunk_duration,
             },
         )
 
     def stop_streaming(self) -> Dict[str, Any]:
-        """Stop streaming mode (no-op for cloud providers)
+        """Stop streaming and get combined results from all chunks.
+
+        Waits for all pending chunk transcriptions to complete (with 30s timeout per chunk),
+        combines the results in order by chunk ID, and cleans up the accumulator.
 
         Returns:
-            Empty statistics dictionary
+            Dictionary with keys:
+                - text: Combined transcription text from all successful chunks
+                - stats: Statistics including total_chunks, successful_chunks,
+                        failed_chunks, failed_chunk_ids, streaming_mode, provider
         """
-        return {
-            "text": "",
-            "stats": {
-                "total_chunks": 0,
-                "streaming_mode": "not_supported",
-                "provider": self.provider_id,
-            },
-        }
+        if not self._chunk_accumulator:
+            return {
+                "text": "",
+                "stats": {
+                    "total_chunks": 0,
+                    "streaming_mode": "disabled",
+                    "provider": self.provider_id,
+                },
+            }
 
-    def add_streaming_chunk(self, audio_chunk: np.ndarray) -> Optional[str]:
-        """Add streaming audio chunk (no-op for cloud providers)
+        # Get results from accumulator
+        result = self._chunk_accumulator.get_results(timeout=30.0)
 
-        Args:
-            audio_chunk: Audio chunk data
+        # Cleanup
+        self._chunk_accumulator.shutdown()
+        self._chunk_accumulator = None
 
-        Returns:
-            None (cloud providers don't support streaming)
-        """
         app_logger.log_audio_event(
-            "Streaming chunk ignored by cloud provider",
+            "Cloud provider streaming stopped",
             {
                 "provider": self.provider_id,
-                "chunk_length": len(audio_chunk),
-                "note": "Use complete audio transcription instead",
+                "text_length": len(result.get("text", "")),
+                "stats": result.get("stats", {}),
             },
         )
-        return None
+
+        return result
+
+    def add_streaming_chunk(self, audio_chunk: np.ndarray) -> Optional[str]:
+        """Add streaming audio chunk to accumulator.
+
+        Forwards the audio chunk to CloudChunkAccumulator, which immediately triggers
+        asynchronous transcription. This is called periodically (every ~15s) during
+        recording to send audio chunks to the API.
+
+        Args:
+            audio_chunk: Audio chunk data as numpy array (typically 15s of audio)
+
+        Returns:
+            None (chunk is transcribed asynchronously, results collected in stop_streaming())
+        """
+        if not self._chunk_accumulator:
+            app_logger.log_audio_event(
+                "Cloud streaming not started, ignoring chunk",
+                {
+                    "provider": self.provider_id,
+                    "chunk_length": len(audio_chunk),
+                },
+            )
+            return None
+
+        self._chunk_accumulator.add_audio(audio_chunk)
+        return None  # Results returned in stop_streaming()
 
     def __del__(self):
         """Cleanup on destruction"""

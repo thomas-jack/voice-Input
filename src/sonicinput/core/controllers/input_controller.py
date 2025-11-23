@@ -5,17 +5,17 @@
 
 import time
 
+from ...utils import app_logger, logger
+from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
-    IInputController,
-    IInputService,
     IConfigService,
     IEventService,
+    IInputController,
+    IInputService,
     IStateManager,
 )
 from ..interfaces.state import AppState
 from ..services.event_bus import Events
-from ...utils import app_logger, logger
-from ..base.lifecycle_component import LifecycleComponent
 from .base_controller import BaseController
 from .text_diff_helper import calculate_text_diff
 

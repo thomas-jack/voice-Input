@@ -5,6 +5,7 @@ Provides icon loading from pre-generated resources.
 
 from pathlib import Path
 from typing import Dict
+
 from PySide6.QtGui import QIcon
 
 # Icon cache to avoid repeated file loading

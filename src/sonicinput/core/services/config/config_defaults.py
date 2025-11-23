@@ -1,6 +1,6 @@
 """配置默认值定义 - 单一职责：提供默认配置"""
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def get_default_config() -> Dict[str, Any]:

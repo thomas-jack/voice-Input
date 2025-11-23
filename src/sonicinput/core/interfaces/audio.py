@@ -1,7 +1,8 @@
 """音频服务接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, List, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
+
 import numpy as np
 
 

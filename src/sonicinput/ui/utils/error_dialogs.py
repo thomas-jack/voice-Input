@@ -3,7 +3,8 @@
 Provides user-friendly error dialogs with actionable suggestions
 """
 
-from typing import Optional, List
+from typing import List, Optional
+
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 

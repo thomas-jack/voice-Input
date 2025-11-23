@@ -4,27 +4,27 @@
 职责单一，专注于组件协调而非具体实现。
 """
 
-import time
 import threading
-from typing import Optional, Dict, Any, Callable, List, Tuple
+import time
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
 
-from .transcription_core import TranscriptionCore
-from .model_manager import ModelManager
-from .streaming_coordinator import StreamingCoordinator
-from .task_queue_manager import TaskQueueManager, TaskPriority
-from .error_recovery_service import ErrorRecoveryService
-
-from ...utils import app_logger, WhisperLoadError
-from ...core.interfaces.speech import ISpeechService
 from ...core.base.lifecycle_component import LifecycleComponent
+from ...core.interfaces.speech import ISpeechService
+from ...utils import WhisperLoadError, app_logger
 from ..interfaces.config_reload import (
-    IConfigReloadable,
     ConfigDiff,
+    IConfigReloadable,
     ReloadResult,
     ReloadStrategy,
 )
 from .config import ConfigKeys
+from .error_recovery_service import ErrorRecoveryService
+from .model_manager import ModelManager
+from .streaming_coordinator import StreamingCoordinator
+from .task_queue_manager import TaskPriority, TaskQueueManager
+from .transcription_core import TranscriptionCore
 
 
 class RefactoredTranscriptionService(

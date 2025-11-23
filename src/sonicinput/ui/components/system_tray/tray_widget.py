@@ -4,10 +4,11 @@ Handles only the visual aspects of the system tray icon and menu.
 No business logic or state management.
 """
 
-from PySide6.QtWidgets import QSystemTrayIcon, QMenu
+from typing import Dict, Optional
+
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor, QAction
-from typing import Optional, Dict
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 
 class TrayWidget(QObject):
@@ -68,7 +69,7 @@ class TrayWidget(QObject):
         Returns:
             QIcon for the tray
         """
-        from PySide6.QtCore import Qt, QRectF
+        from PySide6.QtCore import QRectF, Qt
         from PySide6.QtGui import QLinearGradient
 
         size = 32

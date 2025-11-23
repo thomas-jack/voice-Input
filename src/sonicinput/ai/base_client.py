@@ -4,14 +4,16 @@
 所有 AI 提供商客户端应继承此基类。
 """
 
-from abc import abstractmethod
-from typing import Dict, Any, Optional, Tuple
-import requests
-import time
 import re
+import time
+from abc import abstractmethod
+from typing import Any, Dict, Optional, Tuple
+
+import requests
+
+from ..core.interfaces import IAIService
 from ..utils import app_logger
 from ..utils.request_error_handler import RequestErrorHandler
-from ..core.interfaces import IAIService
 from .http_client_manager import HTTPClientManager
 from .performance_monitor import AIPerformanceMonitor
 

@@ -4,15 +4,15 @@ Provides unified error reporting, handling, and recovery patterns
 across the Sonic Input codebase.
 """
 
-import traceback
 import threading
-from typing import Dict, Any, List, Optional, Callable, TypeVar, Union
+import traceback
 from contextlib import contextmanager
 from datetime import datetime
+from typing import Any, Callable, Dict, List, Optional, TypeVar, Union
 
-from .exceptions import VoiceInputError, ErrorSeverity, wrap_exception
-from .common_utils import EventCounter, ComponentTracker, log_with_context
 from ..utils import app_logger
+from .common_utils import ComponentTracker, EventCounter, log_with_context
+from .exceptions import ErrorSeverity, VoiceInputError, wrap_exception
 
 T = TypeVar("T")
 

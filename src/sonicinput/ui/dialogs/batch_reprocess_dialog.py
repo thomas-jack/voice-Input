@@ -8,13 +8,13 @@
 
 from PySide6.QtWidgets import (
     QDialog,
-    QVBoxLayout,
+    QFormLayout,
+    QGroupBox,
     QHBoxLayout,
     QLabel,
-    QSpinBox,
     QPushButton,
-    QGroupBox,
-    QFormLayout,
+    QSpinBox,
+    QVBoxLayout,
 )
 
 

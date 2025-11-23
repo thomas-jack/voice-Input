@@ -3,9 +3,9 @@
 import json
 import threading
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
-from ....utils import app_logger, ConfigurationError
+from ....utils import ConfigurationError, app_logger
 
 
 class ConfigWriter:

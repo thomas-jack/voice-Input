@@ -14,17 +14,18 @@
 - 热重载友好：通过 HotReloadManager 统一管理
 """
 
-from typing import List, Tuple, Dict, Any, Callable, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
+from ..interfaces.config import IConfigService
 from ..interfaces.config_reload import (
     ConfigDiff,
     ReloadResult,
     ReloadStrategy,
 )
-from ..interfaces.config import IConfigService
 from ..interfaces.hotkey import IHotkeyService
 from ..services.config import ConfigKeys
-from ...utils import app_logger
 
 
 class HotkeyService(LifecycleComponent):

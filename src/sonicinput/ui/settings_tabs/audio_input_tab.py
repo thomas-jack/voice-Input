@@ -1,18 +1,20 @@
 """音频和输入设置标签页 (合并 Audio + Input)"""
 
+from typing import Any, Dict
+
 from PySide6.QtWidgets import (
-    QVBoxLayout,
-    QGroupBox,
-    QFormLayout,
-    QHBoxLayout,
     QCheckBox,
     QComboBox,
-    QSpinBox,
     QDoubleSpinBox,
-    QPushButton,
+    QFormLayout,
+    QGroupBox,
+    QHBoxLayout,
     QLabel,
+    QPushButton,
+    QSpinBox,
+    QVBoxLayout,
 )
-from typing import Dict, Any
+
 from .base_tab import BaseSettingsTab
 
 

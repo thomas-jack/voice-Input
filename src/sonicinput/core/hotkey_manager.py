@@ -10,6 +10,7 @@ Available backends:
 """
 
 from typing import Callable, Optional
+
 from ..utils import app_logger
 from .interfaces import IHotkeyService
 

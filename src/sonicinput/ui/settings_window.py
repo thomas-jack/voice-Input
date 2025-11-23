@@ -1,35 +1,37 @@
 """设置窗口"""
 
-from PySide6.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QTabWidget,
-    QPushButton,
-    QComboBox,
-    QSpinBox,
-    QDoubleSpinBox,
-    QMessageBox,
-    QFileDialog,
-    QApplication,
-    QScrollArea,
-    QFrame,
-)
-from PySide6.QtCore import Qt, Signal, QObject, QEvent
-from typing import Dict, Any, Optional
 import time
+from typing import Any, Dict, Optional
+
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
+from PySide6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QTabWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ..core.services.ui_services import UIModelService, UISettingsService
 from ..utils import app_logger
-from ..core.services.ui_services import UISettingsService, UIModelService
+from .apply_transaction import ApplyTransaction, TransactionError
 from .settings_tabs import (
-    ApplicationTab,
-    HotkeyTab,
-    TranscriptionTab,
     AITab,
+    ApplicationTab,
     AudioInputTab,
     HistoryTab,
+    HotkeyTab,
+    TranscriptionTab,
 )
-from .apply_transaction import ApplyTransaction, TransactionError
 
 
 class WheelEventFilter(QObject):
@@ -591,8 +593,8 @@ class SettingsWindow(QMainWindow):
 
     def apply_settings(self) -> None:
         """应用设置（原子操作，使用事务确保全成功或全失败）"""
-        from PySide6.QtWidgets import QProgressDialog
         from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import QProgressDialog
 
         # 步骤1: 收集UI设置
         new_config = self.collect_settings_from_ui()
@@ -1253,9 +1255,10 @@ class SettingsWindow(QMainWindow):
     def _send_test_input(self) -> None:
         """Send test input using Windows SendInput"""
         try:
+            import time
+
             import win32api
             import win32con
-            import time
 
             test_text = "Sonic Input SendInput Test"
 

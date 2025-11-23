@@ -3,11 +3,11 @@
 包含应用程序的核心业务服务,实现高内聚、低耦合的服务架构。
 """
 
-from .event_bus import EventBus, Events
-from .config_service import ConfigService
-from .state_manager import StateManager
-from .transcription_service import TranscriptionService, TranscriptionResult
 from .ai_service import AIService
+from .config_service import ConfigService
+from .event_bus import EventBus, Events
+from .state_manager import StateManager
+from .transcription_service import TranscriptionResult, TranscriptionService
 
 __all__ = [
     "EventBus",

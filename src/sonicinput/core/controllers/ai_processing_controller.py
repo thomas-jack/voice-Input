@@ -3,22 +3,23 @@
 负责AI文本优化处理。
 """
 
-import requests
 from typing import Optional
 
+import requests
+
+from ...ai import AIClientFactory
+from ...utils import OpenRouterAPIError, app_logger
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
     IAIProcessingController,
     IAIService,
     IConfigService,
     IEventService,
-    IStateManager,
     IHistoryStorageService,
+    IStateManager,
 )
-from ..services.event_bus import Events
 from ..services.config import ConfigKeys
-from ...utils import app_logger, OpenRouterAPIError
-from ...ai import AIClientFactory
+from ..services.event_bus import Events
 from .base_controller import BaseController
 
 
@@ -123,6 +124,26 @@ class AIProcessingController(
                 app_logger.log_audio_event(
                     "Chunked mode: AI disabled, skipping", {"text_length": len(text)}
                 )
+        elif streaming_mode == "disabled":
+            # Disabled 模式（云提供商）：尊重 AI 开关
+            should_use_ai = self.is_ai_enabled()
+            if should_use_ai:
+                app_logger.log_audio_event(
+                    "Disabled streaming mode (cloud provider): AI enabled, will optimize",
+                    {"text_length": len(text)},
+                )
+            else:
+                app_logger.log_audio_event(
+                    "Disabled streaming mode (cloud provider): AI disabled, skipping",
+                    {"text_length": len(text)}
+                )
+        else:
+            # 未知模式：默认尊重 AI 开关（防御性编程）
+            should_use_ai = self.is_ai_enabled()
+            app_logger.log_audio_event(
+                f"Unknown streaming_mode '{streaming_mode}': defaulting to respect AI switch",
+                {"ai_enabled": should_use_ai, "text_length": len(text)}
+            )
 
         # 根据策略决定是否使用 AI
         if should_use_ai and text.strip():

@@ -2,7 +2,9 @@
 
 import ctypes
 from ctypes import wintypes
+
 import win32gui
+
 from ..utils import TextInputError, app_logger
 
 # Define constants from Windows API

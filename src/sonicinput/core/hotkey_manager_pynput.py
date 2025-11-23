@@ -14,13 +14,15 @@ Trade-offs:
 Recommended for users running the application in administrator mode.
 """
 
-from pynput import keyboard
-from pynput.keyboard import Key, KeyCode, HotKey
 import time
-from typing import Callable, Dict, Set, Optional, Any, Union, List
+from typing import Any, Callable, Dict, List, Optional, Set, Union
+
+from pynput import keyboard
+from pynput.keyboard import HotKey, Key, KeyCode
+
 from ..utils import HotkeyRegistrationError, app_logger
-from .interfaces import IHotkeyService
 from .base.lifecycle_component import LifecycleComponent
+from .interfaces import IHotkeyService
 
 # Windows 虚拟键码常量
 WM_KEYDOWN = 0x0100

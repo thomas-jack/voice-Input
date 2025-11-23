@@ -3,8 +3,9 @@
 支持真正的实时流式转录
 """
 
+from typing import Any, Dict
+
 import numpy as np
-from typing import Dict, Any
 from loguru import logger
 
 

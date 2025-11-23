@@ -3,7 +3,8 @@
 定义UI主窗口所需的核心服务接口，实现UI层与业务逻辑的解耦。
 """
 
-from typing import Protocol, Dict, Any, Optional
+from typing import Any, Dict, Optional, Protocol
+
 from .event import IEventService
 
 

@@ -8,21 +8,22 @@
 - 配置热重载协调
 """
 
-from typing import Dict, List, Callable, Any, Optional
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
+
+from ...utils import VoiceInputError, app_logger
 from ..interfaces import (
     IApplicationOrchestrator,
+    IAudioService,
     IConfigService,
     IEventService,
-    IStateManager,
-    IAudioService,
-    ISpeechService,
-    IInputService,
     IHotkeyService,
+    IInputService,
+    ISpeechService,
+    IStateManager,
 )
 from ..services.config import ConfigKeys
 from .hot_reload_manager import HotReloadManager
-from ...utils import app_logger, VoiceInputError
 
 
 class InitializationPhase(Enum):

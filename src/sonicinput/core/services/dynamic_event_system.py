@@ -17,12 +17,12 @@
 import threading
 import time
 import uuid
-from typing import Callable, Dict, List, Any, Optional, Set
-from dataclasses import dataclass, field
 from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional, Set
 
-from ..interfaces import IEventService, EventPriority
 from ..base.lifecycle_component import LifecycleComponent
+from ..interfaces import EventPriority, IEventService
 
 
 # 延迟导入logger以避免循环依赖

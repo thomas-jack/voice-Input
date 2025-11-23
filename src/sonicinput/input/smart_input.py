@@ -1,13 +1,14 @@
 """智能文本输入策略选择器"""
 
-from typing import Optional, Dict
-from .clipboard_input import ClipboardInput
-from .sendinput import SendInputMethod
-from ..utils import TextInputError, app_logger
+from typing import Dict, Optional
+
+from ..core.base.lifecycle_component import LifecycleComponent
 from ..core.interfaces import IInputService
 from ..core.interfaces.config import IConfigService
 from ..core.services.config import ConfigKeys
-from ..core.base.lifecycle_component import LifecycleComponent
+from ..utils import TextInputError, app_logger
+from .clipboard_input import ClipboardInput
+from .sendinput import SendInputMethod
 
 
 class SmartTextInput(LifecycleComponent, IInputService):
@@ -220,8 +221,8 @@ class SmartTextInput(LifecycleComponent, IInputService):
         self.clipboard_input.set_recording_mode(False)
 
         # 延迟恢复剪贴板，给文本输入时间完成
-        import time
         import threading
+        import time
 
         restore_delay = self.config_service.get_setting(
             ConfigKeys.INPUT_CLIPBOARD_RESTORE_DELAY, 1.0

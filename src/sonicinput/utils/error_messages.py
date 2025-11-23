@@ -3,8 +3,8 @@
 将技术性错误转换为用户可理解的消息
 """
 
-from typing import Optional
 import re
+from typing import Optional
 
 
 class ErrorMessageTranslator:

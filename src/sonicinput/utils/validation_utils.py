@@ -4,7 +4,8 @@ Provides shared validation patterns to eliminate code duplication
 across the codebase.
 """
 
-from typing import Any, Type, Union, List, Callable
+from typing import Any, Callable, List, Type, Union
+
 from .validators import ValidationResult
 
 

@@ -4,7 +4,8 @@ Unified speech service creation logic, supporting dynamic switching between prov
 """
 
 from typing import Optional
-from ..core.interfaces import ISpeechService, IConfigService
+
+from ..core.interfaces import IConfigService, ISpeechService
 from ..core.services.config import ConfigKeys
 from ..utils import app_logger
 
@@ -167,15 +168,17 @@ class SpeechServiceFactory:
                         )
                         return None
 
+                # Create Groq service with config_service injection
+                from .groq_speech_service import GroqSpeechService
+
                 # Only pass base_url if it's not the default (to use SDK's default)
-                if base_url == "https://api.groq.com/openai/v1":
-                    return SpeechServiceFactory.create_service(
-                        provider="groq", api_key=api_key, model=model, base_url=None
-                    )
-                else:
-                    return SpeechServiceFactory.create_service(
-                        provider="groq", api_key=api_key, model=model, base_url=base_url
-                    )
+                service = GroqSpeechService(
+                    api_key=api_key,
+                    model=model,
+                    base_url=None if base_url == "https://api.groq.com/openai/v1" else base_url,
+                    config_service=config,
+                )
+                return service
 
             elif provider == "siliconflow":
                 # Read SiliconFlow configuration
@@ -198,21 +201,16 @@ class SpeechServiceFactory:
                     )
                     return None
 
-                # Only pass base_url if it's not the default (to use engine's default)
-                if base_url == "https://api.siliconflow.cn/v1":
-                    return SpeechServiceFactory.create_service(
-                        provider="siliconflow",
-                        api_key=api_key,
-                        model=model,
-                        base_url=None,
-                    )
-                else:
-                    return SpeechServiceFactory.create_service(
-                        provider="siliconflow",
-                        api_key=api_key,
-                        model=model,
-                        base_url=base_url,
-                    )
+                # Create SiliconFlow service with config_service injection
+                from .siliconflow_engine import SiliconFlowEngine
+
+                service = SiliconFlowEngine(
+                    api_key=api_key,
+                    model_name=model,
+                    base_url=None if base_url == "https://api.siliconflow.cn/v1" else base_url,
+                    config_service=config,
+                )
+                return service
 
             elif provider == "qwen":
                 # Read Qwen configuration
@@ -235,23 +233,17 @@ class SpeechServiceFactory:
                     )
                     return None
 
-                # Only pass base_url if it's not the default (to use engine's default)
-                if base_url == "https://dashscope.aliyuncs.com":
-                    return SpeechServiceFactory.create_service(
-                        provider="qwen",
-                        api_key=api_key,
-                        model=model,
-                        base_url=None,
-                        enable_itn=enable_itn,
-                    )
-                else:
-                    return SpeechServiceFactory.create_service(
-                        provider="qwen",
-                        api_key=api_key,
-                        model=model,
-                        base_url=base_url,
-                        enable_itn=enable_itn,
-                    )
+                # Create Qwen service with config_service injection
+                from .qwen_engine import QwenEngine
+
+                service = QwenEngine(
+                    api_key=api_key,
+                    model=model,
+                    base_url=None if base_url == "https://dashscope.aliyuncs.com" else base_url,
+                    enable_itn=enable_itn,
+                    config_service=config,
+                )
+                return service
 
             else:
                 app_logger.log_audio_event("Unknown provider", {"provider": provider})

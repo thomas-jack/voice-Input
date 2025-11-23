@@ -1,11 +1,11 @@
 """AI优化模块初始化"""
 
 from .base_client import BaseAIClient
-from .openrouter import OpenRouterClient
+from .factory import AIClientFactory
 from .groq import GroqClient
 from .nvidia import NvidiaClient
 from .openai_compatible import OpenAICompatibleClient
-from .factory import AIClientFactory
+from .openrouter import OpenRouterClient
 
 __all__ = [
     "BaseAIClient",

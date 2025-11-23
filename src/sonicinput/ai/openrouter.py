@@ -1,6 +1,7 @@
 """OpenRouter API客户端"""
 
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from ..utils import OpenRouterAPIError
 from .base_client import BaseAIClient
 

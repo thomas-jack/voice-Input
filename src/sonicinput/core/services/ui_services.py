@@ -4,15 +4,16 @@
 采用纯依赖注入模式，符合SOLID原则。
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+from ...utils import app_logger
 from ..interfaces import (
-    IEventService,
     IConfigService,
-    IStateManager,
+    IEventService,
     ISpeechService,
+    IStateManager,
 )
 from ..services.storage.history_storage_service import HistoryStorageService
-from ...utils import app_logger
 
 
 class UIMainService:

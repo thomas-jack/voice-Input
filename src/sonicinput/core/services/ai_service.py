@@ -3,18 +3,18 @@
 负责AI文本优化处理，支持配置热重载。
 """
 
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
+from ...ai.factory import AIClientFactory
+from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
-from ..interfaces.config import IConfigService
 from ..interfaces.ai import IAIService
+from ..interfaces.config import IConfigService
 from ..interfaces.config_reload import (
     ConfigDiff,
     ReloadResult,
     ReloadStrategy,
 )
-from ...ai.factory import AIClientFactory
-from ...utils import app_logger
 
 
 class AIService(LifecycleComponent):  # type: ignore[metaclass]

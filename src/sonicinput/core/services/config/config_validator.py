@@ -1,7 +1,7 @@
 """配置验证服务 - 单一职责：配置验证和修复"""
 
-from typing import Dict, Any
 from datetime import datetime
+from typing import Any, Dict
 
 from ....utils import app_logger
 

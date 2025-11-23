@@ -4,7 +4,8 @@ Simple provider metadata system to replace the complex provider interface.
 Provides basic information about each transcription provider.
 """
 
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from ..core.interfaces import ISpeechService
 
 

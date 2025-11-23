@@ -7,23 +7,23 @@ import time
 import uuid
 from typing import Optional
 
+from ...utils import ErrorMessageTranslator, app_logger
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
-    IRecordingController,
     IAudioService,
     IConfigService,
     IEventService,
-    IStateManager,
-    ISpeechService,
     IHistoryStorageService,
+    IRecordingController,
+    ISpeechService,
+    IStateManager,
 )
-from ..interfaces.state import RecordingState, AppState
-from ..services.event_bus import Events
+from ..interfaces.state import AppState, RecordingState
 from ..services.config import ConfigKeys
-from ...utils import app_logger, ErrorMessageTranslator
+from ..services.event_bus import Events
+from .audio_callback_router import AudioCallbackRouter
 from .logging_helper import ControllerLogging
 from .streaming_mode_manager import StreamingModeManager
-from .audio_callback_router import AudioCallbackRouter
 
 
 class RecordingController(LifecycleComponent, IRecordingController):
@@ -74,6 +74,11 @@ class RecordingController(LifecycleComponent, IRecordingController):
         )
 
         ControllerLogging.log_initialization("RecordingController")
+
+    @property
+    def streaming_manager(self):
+        """获取流式模式管理器（供其他控制器共享）"""
+        return self._streaming_manager
 
     def _do_start(self) -> bool:
         """启动录音控制器
@@ -316,17 +321,13 @@ class RecordingController(LifecycleComponent, IRecordingController):
         """提交最后的音频块到流式转录
 
         Args:
-            audio_data: 音频数据
+            audio_data: 完整音频数据（用于 realtime 模式）
         """
-        provider = self._config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
-        is_local_provider = provider == "local"
+        # 获取当前流式模式
+        streaming_mode = self._streaming_manager.get_current_mode()
 
-        if len(audio_data) == 0 or not is_local_provider:
-            if not is_local_provider:
-                app_logger.log_audio_event(
-                    "Skipping streaming audio for cloud provider",
-                    {"provider": provider, "will_use_complete_audio": True},
-                )
+        # 如果流式模式被禁用，跳过
+        if streaming_mode == "disabled":
             return
 
         if not self._speech_service:
@@ -335,12 +336,11 @@ class RecordingController(LifecycleComponent, IRecordingController):
             )
             return
 
-        # 获取当前流式模式
-        streaming_mode = self._streaming_manager.get_current_mode()
-
         try:
             if streaming_mode == "realtime":
-                # realtime 模式：发送到实时流处理
+                # realtime 模式：发送完整音频到实时流处理
+                if len(audio_data) == 0:
+                    return
                 if hasattr(self._speech_service, "streaming_coordinator"):
                     self._speech_service.streaming_coordinator.add_realtime_audio(
                         audio_data
@@ -350,13 +350,20 @@ class RecordingController(LifecycleComponent, IRecordingController):
                         {"audio_length": len(audio_data)},
                     )
             else:  # chunked
-                # chunked 模式：使用分块 API
-                if hasattr(self._speech_service, "add_streaming_chunk"):
-                    self._speech_service.add_streaming_chunk(audio_data)
-                    app_logger.log_audio_event(
-                        "Final streaming chunk added",
-                        {"audio_length": len(audio_data)},
-                    )
+                # chunked 模式：只发送剩余未发送的增量音频
+                if hasattr(self._audio_service, "get_remaining_audio_for_streaming"):
+                    remaining_audio = self._audio_service.get_remaining_audio_for_streaming()
+                    if len(remaining_audio) > 0 and hasattr(self._speech_service, "add_streaming_chunk"):
+                        self._speech_service.add_streaming_chunk(remaining_audio)
+                        app_logger.log_audio_event(
+                            "Final streaming chunk added (remaining audio only)",
+                            {"audio_length": len(remaining_audio)},
+                        )
+                    else:
+                        app_logger.log_audio_event(
+                            "No remaining audio to send for final chunk",
+                            {}
+                        )
         except Exception as e:
             app_logger.log_error(e, "submit_final_audio")
 
