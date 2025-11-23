@@ -57,9 +57,8 @@ class AIProcessingController(
         # 当前处理的记录ID
         self._current_record_id: Optional[str] = None
 
-        # Register event listeners and log initialization
-        self._register_event_listeners()
-        self._log_initialization()
+        # NOTE: Event listener registration moved to _do_start() for hot reload support
+        # NOTE: Initialization logging moved to _do_start() for hot reload support
 
     def _do_start(self) -> bool:
         """Initialize AI processing resources
@@ -67,12 +66,20 @@ class AIProcessingController(
         Returns:
             True if start successful
         """
-        # AI processing controller has no resources to initialize at start
-        # Event listeners are already registered in __init__
-        app_logger.log_audio_event(
-            "AI processing controller ready", {"ai_enabled": self.is_ai_enabled()}
-        )
-        return True
+        try:
+            # Register event listeners (supports hot reload)
+            self._register_event_listeners()
+
+            # Log initialization
+            self._log_initialization()
+
+            app_logger.log_audio_event(
+                "AI processing controller ready", {"ai_enabled": self.is_ai_enabled()}
+            )
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "AIProcessingController._do_start")
+            return False
 
     def _do_stop(self) -> bool:
         """Cleanup AI processing resources
@@ -80,16 +87,27 @@ class AIProcessingController(
         Returns:
             True if stop successful
         """
-        # Clear current record ID
-        self._current_record_id = None
-        self._last_ai_tps = 0.0
+        try:
+            # Cleanup event listeners (supports hot reload)
+            self._cleanup_event_listeners()
 
-        app_logger.log_audio_event("AI processing controller stopped", {})
-        return True
+            # Clear current record ID
+            self._current_record_id = None
+            self._last_ai_tps = 0.0
+
+            app_logger.log_audio_event("AI processing controller stopped", {})
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "AIProcessingController._do_stop")
+            return False
 
     def _register_event_listeners(self) -> None:
-        """Register event listeners for AI processing events"""
-        self._events.on(
+        """Register event listeners for AI processing events
+
+        NOTE: Called from _do_start() to support hot reload.
+        Uses _track_listener() to enable proper cleanup.
+        """
+        self._track_listener(
             Events.TRANSCRIPTION_COMPLETED, self._on_transcription_completed
         )
 

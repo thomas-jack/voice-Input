@@ -155,6 +155,48 @@ class DIContainer:
         # Transient: create new instance
         return creator()
 
+    def update_singleton(self, interface: Type[T], new_instance: T) -> None:
+        """Update a singleton instance at runtime
+
+        This method allows replacing an existing singleton instance with a new one,
+        useful for hot reload scenarios.
+
+        Args:
+            interface: The interface/type to update
+            new_instance: The new singleton instance
+
+        Raises:
+            ValueError: If interface not currently registered as singleton
+
+        Example:
+            new_service = create_new_speech_service()
+            container.update_singleton(ISpeechService, new_service)
+        """
+        if interface not in self._singletons:
+            raise ValueError(
+                f"No singleton registered for {interface.__name__}. "
+                f"Only existing singletons can be updated."
+            )
+
+        old_instance = self._singletons[interface]
+        self._singletons[interface] = new_instance
+
+        # Log the update (import locally to avoid circular dependency)
+        try:
+            from ..utils import app_logger
+
+            app_logger.log_audio_event(
+                "DI container singleton updated",
+                {
+                    "interface": str(interface),
+                    "old_type": type(old_instance).__name__,
+                    "new_type": type(new_instance).__name__,
+                },
+            )
+        except Exception:
+            # Don't fail if logging fails
+            pass
+
     def _create(self, service_type: Type[T]) -> T:
         """Create service instance with dependency resolution
 
@@ -249,10 +291,12 @@ def create_container() -> "DIContainer":
     # 事件服务 - 单例（最先创建，因为其他服务依赖它）
     container.register_singleton(IEventService, DynamicEventSystem)
 
-    # 配置服务 - 单例（需要 EventService）
+    # 配置服务 - 单例（需要 EventService 和 Container）
     def create_config_service(container):
         event_service = container.resolve(IEventService)
-        return RefactoredConfigService(config_path=None, event_service=event_service)
+        return RefactoredConfigService(
+            config_path=None, event_service=event_service, container=container
+        )
 
     container.register_singleton(
         IConfigService, factory=lambda: create_config_service(container)

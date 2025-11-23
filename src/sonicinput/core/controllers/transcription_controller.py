@@ -67,13 +67,16 @@ class TranscriptionController(
         self._current_record_id: Optional[str] = None
         self._current_audio_file_path: Optional[str] = None
 
-        # Register event listeners and log initialization
-        self._register_event_listeners()
-        self._log_initialization()
+        # NOTE: Event listener registration moved to _do_start() for hot reload support
+        # NOTE: Initialization logging moved to _do_start() for hot reload support
 
     def _register_event_listeners(self) -> None:
-        """Register event listeners for transcription events"""
-        self._events.on("transcription_request", self._on_transcription_request)
+        """Register event listeners for transcription events
+
+        NOTE: Called from _do_start() to support hot reload.
+        Uses _track_listener() to enable proper cleanup.
+        """
+        self._track_listener("transcription_request", self._on_transcription_request)
 
     def _on_transcription_request(self, data: dict) -> None:
         """处理转录请求事件
@@ -111,7 +114,7 @@ class TranscriptionController(
                 AppState.PROCESSING,
                 {"mode": "sync_transcription"},
             )
-            self._state.set_app_state(AppState.PROCESSING)
+            self._state_manager.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
 
             # 获取语言配置
@@ -148,7 +151,7 @@ class TranscriptionController(
                 {"reason": "transcription_error"},
                 is_forced=True,
             )
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
 
     def process_streaming_transcription(self) -> None:
         """处理流式转录（使用新的TranscriptionService API）"""
@@ -159,7 +162,7 @@ class TranscriptionController(
                 AppState.PROCESSING,
                 {"mode": "streaming_transcription"},
             )
-            self._state.set_app_state(AppState.PROCESSING)
+            self._state_manager.set_app_state(AppState.PROCESSING)
             self._events.emit(Events.TRANSCRIPTION_STARTED)
 
             # 使用新的TranscriptionService API
@@ -206,7 +209,7 @@ class TranscriptionController(
 
                 # 关键修复：realtime 模式下手动触发完成流程，让 RecordingOverlay 能够隐藏
                 self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
-                self._state.set_app_state(AppState.IDLE)
+                self._state_manager.set_app_state(AppState.IDLE)
 
             # 仅针对本地提供商的chunked模式：如果流式转录失败，fallback到同步转录
             if not text and streaming_mode == "chunked" and self._audio_service:
@@ -252,7 +255,7 @@ class TranscriptionController(
                 AppState.IDLE,
                 {"duration": f"{transcribe_duration:.3f}s"},
             )
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
 
         except Exception as e:
             app_logger.log_error(e, "process_streaming_transcription")
@@ -273,7 +276,7 @@ class TranscriptionController(
                 {"reason": "streaming_transcription_error"},
                 is_forced=True,
             )
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
 
     def _transcribe_from_file_for_cloud(self) -> str:
         """云提供商：从音频文件转录（不经过流式系统）"""
@@ -418,8 +421,12 @@ class TranscriptionController(
             True if start successful
         """
         try:
-            # TranscriptionController is event-driven, no upfront resources to initialize
-            # Event listeners are already registered in __init__
+            # Register event listeners (supports hot reload)
+            self._register_event_listeners()
+
+            # Log initialization
+            self._log_initialization()
+
             app_logger.log_audio_event(
                 "TranscriptionController started (event-driven mode)",
                 {"component": "TranscriptionController"},
@@ -436,6 +443,9 @@ class TranscriptionController(
             True if stop successful
         """
         try:
+            # Cleanup event listeners (supports hot reload)
+            self._cleanup_event_listeners()
+
             # Reset tracking data
             self._audio_duration = 0.0
             self._recording_stop_time = 0.0

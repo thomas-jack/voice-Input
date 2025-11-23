@@ -5,7 +5,7 @@ to eliminate code duplication across controllers.
 """
 
 from abc import ABC
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from ...utils import app_logger
 from ..interfaces import (
@@ -54,10 +54,13 @@ class BaseController(ABC):
         # Required services (all controllers use these)
         self._config = config_service
         self._events = event_service
-        self._state = state_manager
+        self._state_manager = state_manager  # Renamed to avoid conflict with LifecycleComponent._state
 
         # Component name (for logging)
         self._component_name = self.__class__.__name__
+
+        # Event listener tracking for cleanup (hot reload support)
+        self._event_listener_ids: List[Tuple[str, str]] = []
 
     # ========== Template Methods (for subclass override) ==========
 
@@ -186,3 +189,49 @@ class BaseController(ABC):
         except Exception as e:
             app_logger.log_error(e, "set_config_setting", context={"key": key})
             return False
+
+    def _track_listener(self, event_name: str, handler: Callable) -> str:
+        """Register and track an event listener for cleanup
+
+        This method registers an event listener and stores its ID for later cleanup.
+        Use this instead of calling self._events.on() directly to ensure proper
+        cleanup during hot reload.
+
+        Args:
+            event_name: Name of the event to listen for
+            handler: Callback function to handle the event
+
+        Returns:
+            The listener ID from the event service
+
+        Example:
+            self._track_listener("transcription_request", self._on_transcription_request)
+            self._track_listener(Events.RECORDING_STARTED, self._on_recording_started)
+        """
+        listener_id = self._events.on(event_name, handler)
+        self._event_listener_ids.append((event_name, listener_id))
+        return listener_id
+
+    def _cleanup_event_listeners(self) -> None:
+        """Unregister all tracked event listeners
+
+        This method unregisters all event listeners that were registered via
+        _track_listener(). Call this in your _do_stop() method to ensure proper
+        cleanup during hot reload.
+
+        Example:
+            def _do_stop(self) -> bool:
+                self._cleanup_event_listeners()
+                # ... other cleanup code
+                return True
+        """
+        for event_name, listener_id in self._event_listener_ids:
+            try:
+                self._events.off(event_name, listener_id)
+            except Exception as e:
+                app_logger.log_error(
+                    e,
+                    "cleanup_event_listener",
+                    context={"event": event_name, "listener_id": listener_id},
+                )
+        self._event_listener_ids.clear()

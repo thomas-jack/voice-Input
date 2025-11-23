@@ -16,7 +16,7 @@
 使用方法：
 ```python
 # 创建服务
-service = RefactoredTranscriptionService(whisper_engine_factory, event_service)
+service = RefactoredTranscriptionService(speech_service_factory, event_service)
 
 # 基本转录
 result = service.transcribe_sync(audio_data, language="zh", temperature=0.0)

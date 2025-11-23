@@ -702,8 +702,62 @@ class SettingsWindow(QMainWindow):
                         raise  # 重新抛出异常，由外层事务处理
 
                 # 应用配置变更
+                # 检查是否涉及提供商切换，显示进度对话框
                 flat_config = self._flatten_config(new_config)
-                transaction.apply_config_changes(flat_config)
+                provider_changing = "transcription.provider" in flat_config
+                model_changing_local = "transcription.local.model" in flat_config
+
+                if provider_changing or model_changing_local:
+                    progress = QProgressDialog(
+                        "Switching transcription provider...\nThis may take a few seconds.",
+                        None,  # No cancel button
+                        0,
+                        0,  # Indeterminate progress
+                        self,
+                    )
+                    progress.setWindowTitle("Applying Settings")
+                    progress.setWindowModality(Qt.WindowModality.WindowModal)
+                    progress.setMinimumDuration(0)
+                    progress.setCancelButton(None)
+                    progress.show()
+
+                    # 强制刷新UI
+                    QApplication.processEvents()
+
+                    try:
+                        # 应用配置变更（可能触发热重载）
+                        transaction.apply_config_changes(flat_config)
+                        progress.close()
+
+                        app_logger.log_audio_event(
+                            "Transcription provider switched successfully",
+                            {"config_changes": flat_config},
+                        )
+
+                    except RuntimeError as reload_error:
+                        # 热重载被阻止（录音进行中）
+                        try:
+                            progress.close()
+                        except:
+                            pass
+
+                        # 显示友好的错误信息
+                        QMessageBox.warning(
+                            self,
+                            "Cannot Change Provider",
+                            str(reload_error),
+                        )
+                        return  # 不继续执行，不提交事务
+                    except Exception:
+                        # 其他错误
+                        try:
+                            progress.close()
+                        except:
+                            pass
+                        raise  # 重新抛出，由外层事务处理
+                else:
+                    # 普通配置变更，不涉及提供商切换
+                    transaction.apply_config_changes(flat_config)
 
                 # 提交事务
                 transaction.commit()

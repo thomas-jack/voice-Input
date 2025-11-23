@@ -116,6 +116,9 @@ class VoiceInputApp:
             # 订阅热键触发事件
             self.events.subscribe("hotkey_triggered", self._on_hotkey_triggered)
 
+            # 订阅 speech service 热重载事件
+            self.events.subscribe("speech_service.reloaded", self._on_speech_service_reloaded)
+
             # 获取后端信息用于日志
             from .hotkey_config_helper import get_hotkeys_from_config
 
@@ -205,6 +208,12 @@ class VoiceInputApp:
             state_manager=self.state,
         )
 
+        # 启动所有控制器（触发 _do_start() 注册事件监听器）
+        self._recording_controller.start()
+        self._transcription_controller.start()
+        self._ai_controller.start()
+        self._input_controller.start()
+
         app_logger.log_audio_event("All controllers initialized", {})
 
     def _on_hotkey_triggered(self, event_data: dict) -> None:
@@ -216,6 +225,86 @@ class VoiceInputApp:
         action = event_data.get("action", "toggle_recording")
         if action == "toggle_recording":
             self.toggle_recording()
+
+    def _on_speech_service_reloaded(self, event_data: dict) -> None:
+        """处理 speech service 热重载事件
+
+        Args:
+            event_data: 事件数据，包含 old_provider, new_provider, changed_key
+        """
+        app_logger.log_audio_event(
+            "VoiceInputApp received speech service reload event", event_data
+        )
+
+        # 更新引用和重建控制器
+        self._update_speech_service_references()
+
+    def _update_speech_service_references(self) -> None:
+        """更新 speech service 引用并重建控制器"""
+        try:
+            # 1. 从 DI 容器获取新的 speech service
+            self._speech_service = self.container.get(ISpeechService)
+
+            # 2. 更新 orchestrator 的引用
+            if self.orchestrator:
+                self.orchestrator._speech_service = self._speech_service
+
+            # 3. 重建控制器
+            self._recreate_controllers()
+
+            app_logger.log_audio_event("Speech service references updated", {})
+
+        except Exception as e:
+            app_logger.log_error(e, "update_speech_service_references")
+            raise
+
+    def _recreate_controllers(self) -> None:
+        """重建控制器（使用新的 speech service）"""
+        try:
+            # 停止旧控制器
+            if self._recording_controller:
+                self._recording_controller.stop()
+            if self._transcription_controller:
+                self._transcription_controller.stop()
+
+            # 重建录音控制器
+            self._recording_controller = RecordingController(
+                audio_service=self._audio_service,
+                config_service=self.config,
+                event_service=self.events,
+                state_manager=self.state,
+                speech_service=self._speech_service,
+                history_service=self._history_service,
+            )
+
+            # 重建转录控制器（共享 RecordingController 的 streaming_manager）
+            self._transcription_controller = TranscriptionController(
+                speech_service=self._speech_service,
+                config_service=self.config,
+                event_service=self.events,
+                state_manager=self.state,
+                history_service=self._history_service,
+                streaming_manager=self._recording_controller.streaming_manager,
+            )
+
+            # 启动新控制器
+            self._recording_controller.start()
+            self._transcription_controller.start()
+
+            # 更新 orchestrator 中的控制器引用
+            if self.orchestrator:
+                self.orchestrator.set_controllers(
+                    recording=self._recording_controller,
+                    transcription=self._transcription_controller,
+                    ai=self._ai_controller,
+                    input=self._input_controller,
+                )
+
+            app_logger.log_audio_event("Controllers recreated successfully", {})
+
+        except Exception as e:
+            app_logger.log_error(e, "recreate_controllers")
+            raise
 
     def toggle_recording(self) -> None:
         """切换录音状态"""

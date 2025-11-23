@@ -22,6 +22,12 @@ from .config_writer import ConfigWriter
 
 T = TypeVar("T")
 
+# Reload triggers for speech service hot reload
+SPEECH_SERVICE_RELOAD_TRIGGERS = [
+    ConfigKeys.TRANSCRIPTION_PROVIDER,  # local ↔ cloud, cloud ↔ cloud
+    ConfigKeys.TRANSCRIPTION_LOCAL_MODEL,  # paraformer ↔ zipformer
+]
+
 
 class RefactoredConfigService(LifecycleComponent, IConfigService):
     """重构后的配置服务 - 门面模式
@@ -33,15 +39,18 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
         self,
         config_path: Optional[str] = None,
         event_service: Optional[IEventService] = None,
+        container = None,
     ):
         """初始化配置服务
 
         Args:
             config_path: 配置文件路径，None 表示使用默认路径
             event_service: 事件服务实例，用于发送配置变更事件
+            container: DI容器实例，用于热重载服务（可选）
         """
         super().__init__("ConfigService")
         self._event_service = event_service
+        self._container = container
 
         # 设置配置文件路径
         if config_path:
@@ -147,6 +156,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
 
         Raises:
             ConfigurationError: 配置项无效或类型不匹配时
+            RuntimeError: 热重载失败时（例如录音进行中）
         """
         old_value = self.get_setting(key)
 
@@ -176,6 +186,66 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
                     f"Failed to save configuration after setting '{key}'"
                 )
             self._send_config_saved_event()
+
+            # 检查是否需要热重载 speech service（保存后执行）
+            if key in SPEECH_SERVICE_RELOAD_TRIGGERS:
+                self._reload_speech_service(key, value)
+        else:
+            self._writer.schedule_save()
+
+    def set_settings_batch(
+        self, changes: dict[str, Any], immediate: bool = False
+    ) -> None:
+        """批量设置配置项（避免重复热重载）
+
+        Args:
+            changes: 配置变更字典 {key: value}
+            immediate: 是否立即保存并触发热重载
+
+        Raises:
+            ConfigurationError: 配置项无效时
+            RuntimeError: 热重载失败时
+        """
+        if not changes:
+            return
+
+        # 1. 批量更新所有配置项
+        for key, value in changes.items():
+            old_value = self.get_setting(key)
+
+            # 更新配置
+            self._writer.set_setting(key, value)
+
+            # 发送配置变更事件
+            if self._event_service:
+                self._event_service.emit(
+                    "config_changed",
+                    {
+                        "key": key,
+                        "old_value": old_value,
+                        "new_value": value,
+                        "timestamp": datetime.now().isoformat(),
+                    },
+                    EventPriority.NORMAL,
+                )
+
+        # 2. 同步到读取器（一次性）
+        self._reader._config = copy.deepcopy(self._writer._config)
+
+        # 3. 保存配置并处理热重载
+        if immediate:
+            if not self._writer.save_config():
+                raise ConfigurationError("Failed to save configuration in batch mode")
+            self._send_config_saved_event()
+
+            # 4. 检查是否需要热重载（去重后仅触发一次）
+            reload_triggers = [
+                key for key in changes.keys() if key in SPEECH_SERVICE_RELOAD_TRIGGERS
+            ]
+            if reload_triggers:
+                # 仅使用第一个触发器的值进行重载（所有触发器针对同一服务）
+                first_trigger = reload_triggers[0]
+                self._reload_speech_service(first_trigger, changes[first_trigger])
         else:
             self._writer.schedule_save()
 
@@ -627,6 +697,196 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
         except Exception as e:
             app_logger.log_error(e, "validate_transcription_provider")
             return False, f"Failed to validate transcription provider: {str(e)}"
+
+    def _reload_speech_service(self, changed_key: str, new_value: Any) -> None:
+        """热重载 speech service当提供商或模型变更时
+
+        Args:
+            changed_key: 触发重载的配置键
+            new_value: 新的配置值
+
+        Raises:
+            RuntimeError: 录音进行中时不允许重载
+        """
+        # 检查是否有 DI 容器（可能在早期初始化时未提供）
+        if not self._container:
+            app_logger.log_audio_event(
+                "Speech service reload skipped - DI container not available",
+                {"changed_key": changed_key, "new_value": new_value},
+            )
+            return
+
+        try:
+            # 1. 检查录音状态
+            from ...interfaces import IStateManager
+
+            state_manager = self._container.resolve(IStateManager)
+            if state_manager.is_recording():
+                raise RuntimeError(
+                    "Cannot change transcription provider while recording. "
+                    "Please stop recording first."
+                )
+
+            # 2. 获取旧服务实例
+            from ...interfaces import ISpeechService
+
+            old_service = self._container.resolve(ISpeechService)
+            old_provider = type(old_service).__name__
+
+            app_logger.log_audio_event(
+                "Starting speech service reload",
+                {
+                    "changed_key": changed_key,
+                    "new_value": new_value,
+                    "old_provider": old_provider,
+                },
+            )
+
+            # 3. 清理旧服务资源
+            self._cleanup_speech_service(old_service)
+
+            # 4. 创建新服务
+            new_service = self._create_speech_service()
+            new_provider = type(new_service).__name__
+
+            # 5. 更新 DI 容器的单例
+            self._container.update_singleton(ISpeechService, new_service)
+
+            # 6. 发送重载完成事件
+            if self._event_service:
+                self._event_service.emit(
+                    "speech_service.reloaded",
+                    {
+                        "changed_key": changed_key,
+                        "old_provider": old_provider,
+                        "new_provider": new_provider,
+                    },
+                    EventPriority.HIGH,
+                )
+
+            app_logger.log_audio_event(
+                "Speech service reloaded successfully",
+                {"from": old_provider, "to": new_provider, "trigger": changed_key},
+            )
+
+        except RuntimeError:
+            # 重新抛出录音状态错误（用户需要看到）
+            raise
+        except Exception as e:
+            app_logger.log_error(e, "speech_service_reload")
+            raise ConfigurationError(
+                f"Failed to reload speech service: {str(e)}"
+            ) from e
+
+    def _cleanup_speech_service(self, service: Any) -> None:
+        """清理旧 speech service 的资源
+
+        Args:
+            service: 要清理的旧服务实例
+        """
+        try:
+            # 1. 停止 LifecycleComponent (本地提供商)
+            if hasattr(service, "stop") and callable(service.stop):
+                service.stop()
+                app_logger.log_audio_event("Stopped old speech service", {})
+
+            # 2. 停止流式协调器（如果活跃）
+            if hasattr(service, "streaming_coordinator"):
+                coordinator = service.streaming_coordinator
+                if coordinator and hasattr(coordinator, "is_streaming"):
+                    if coordinator.is_streaming():
+                        coordinator.stop_streaming()
+                        app_logger.log_audio_event("Stopped streaming coordinator", {})
+
+            # 3. 卸载模型（本地提供商）
+            if hasattr(service, "unload_model"):
+                service.unload_model()
+                app_logger.log_audio_event("Unloaded speech model", {})
+
+            # 4. 关闭线程池（云提供商）
+            if hasattr(service, "_chunk_accumulator"):
+                accumulator = service._chunk_accumulator
+                if accumulator and hasattr(accumulator, "shutdown"):
+                    accumulator.shutdown()
+                    app_logger.log_audio_event("Shutdown chunk accumulator", {})
+
+        except Exception as e:
+            app_logger.log_error(e, "speech_service_cleanup")
+            # 尽力清理，不抛出异常
+
+    def _create_speech_service(self) -> Any:
+        """根据当前配置创建新的 speech service
+
+        Returns:
+            新的 speech service 实例
+
+        Raises:
+            Exception: 服务创建失败时
+        """
+
+        provider = self.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
+
+        # 使用 SpeechServiceFactory 从配置创建服务
+        from ....speech import SpeechServiceFactory
+
+        if provider == "local":
+            # 本地提供商：需要包装在 RefactoredTranscriptionService 中
+            base_service = SpeechServiceFactory.create_from_config(self)
+
+            # 包装到 RefactoredTranscriptionService（提供流式支持）
+            from ..transcription_service_refactored import (
+                RefactoredTranscriptionService,
+            )
+
+            wrapped_service = RefactoredTranscriptionService(
+                speech_service_factory=lambda: base_service,
+                event_service=self._event_service,
+                config_service=self,
+            )
+
+            # 启动服务
+            wrapped_service.start()
+
+            # 热重载后自动加载模型（如果 auto_load 启用）
+            if self.get_setting(ConfigKeys.TRANSCRIPTION_LOCAL_AUTO_LOAD, True):
+                model_name = self.get_setting(
+                    ConfigKeys.TRANSCRIPTION_LOCAL_MODEL, "paraformer"
+                )
+                app_logger.log_audio_event(
+                    "Auto-loading model after hot reload",
+                    {"model": model_name, "trigger": "hot_reload"},
+                )
+                # 异步加载模型，避免阻塞UI
+                wrapped_service.load_model_async(
+                    model_name=model_name,
+                    callback=lambda result: app_logger.log_audio_event(
+                        "Model reloaded after hot-reload", result
+                    ),
+                    error_callback=lambda err: app_logger.log_error(
+                        err, "model_reload_after_hot_reload"
+                    ),
+                )
+
+            app_logger.log_audio_event(
+                "Created local speech service",
+                {"provider": provider, "service_type": type(wrapped_service).__name__},
+            )
+
+            return wrapped_service
+        else:
+            # 云提供商：直接返回
+            cloud_service = SpeechServiceFactory.create_from_config(self)
+
+            # 云服务加载模型（标记为已加载）
+            if hasattr(cloud_service, "load_model"):
+                cloud_service.load_model()
+
+            app_logger.log_audio_event(
+                "Created cloud speech service",
+                {"provider": provider, "service_type": type(cloud_service).__name__},
+            )
+
+            return cloud_service
 
     def _send_config_saved_event(self) -> None:
         """发送配置保存事件"""

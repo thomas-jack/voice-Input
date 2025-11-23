@@ -24,14 +24,14 @@ class ModelManager:
     与具体的转录逻辑解耦。
     """
 
-    def __init__(self, whisper_engine_factory, event_service=None):
+    def __init__(self, speech_service_factory, event_service=None):
         """初始化模型管理器
 
         Args:
-            whisper_engine_factory: Whisper引擎工厂函数
+            speech_service_factory: 语音服务工厂函数
             event_service: 事件服务（可选）
         """
-        self.whisper_engine_factory = whisper_engine_factory
+        self.speech_service_factory = speech_service_factory
         self.event_service = event_service
 
         # 模型状态管理
@@ -53,7 +53,7 @@ class ModelManager:
         self._state_lock = threading.Lock()
 
         # 初始化引擎实例
-        self._whisper_engine = self.whisper_engine_factory()
+        self._whisper_engine = self.speech_service_factory()
         self._current_model_name = self._whisper_engine.model_name
 
         app_logger.log_audio_event(
@@ -125,7 +125,7 @@ class ModelManager:
             if (
                 model_name and model_name != self._current_model_name
             ) or not self._whisper_engine:
-                self._whisper_engine = self.whisper_engine_factory()
+                self._whisper_engine = self.speech_service_factory()
                 self._current_model_name = target_model_name
 
             # 执行模型加载

@@ -285,19 +285,22 @@ class ApplyTransaction:
             changes: 要保存的配置变更，使用点分隔的键名
 
         Raises:
+            RuntimeError: 如果热重载被阻止（例如录音进行中）
             Exception: 如果配置保存失败
         """
         try:
             app_logger.debug(f"事务式保存配置: {len(changes)} 项")
 
-            # 直接使用 config_service 的 set_setting 并指定 immediate=True
-            # 这样每次设置都会立即保存并触发 config.changed 事件，确保热重载立即生效
+            # 使用批量设置 API 避免重复热重载
+            # 批量更新所有配置项，仅触发一次热重载事件
             config_service = self._settings_service.config_service
-            for key, value in changes.items():
-                # 使用 immediate=True 确保立即保存并触发热重载事件
-                config_service.set_setting(key, value, immediate=True)
+            config_service.set_settings_batch(changes, immediate=True)
 
-            app_logger.debug("配置保存成功（已触发热重载事件）")
+            app_logger.debug("配置保存成功（批量模式，已触发热重载事件）")
+        except RuntimeError as e:
+            # 热重载被阻止（录音进行中）- 重新抛出供 UI 处理
+            app_logger.warning(f"配置热重载被阻止: {e}")
+            raise
         except Exception as e:
             app_logger.error(f"配置保存失败: {e}")
             raise

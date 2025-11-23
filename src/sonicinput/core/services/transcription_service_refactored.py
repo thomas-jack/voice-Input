@@ -42,11 +42,11 @@ class RefactoredTranscriptionService(
     这个类主要负责组件间的协调和对外提供统一的API接口。
     """
 
-    def __init__(self, whisper_engine_factory, event_service=None, config_service=None):
+    def __init__(self, speech_service_factory, event_service=None, config_service=None):
         """初始化重构后的转录服务
 
         Args:
-            whisper_engine_factory: Whisper引擎工厂函数
+            speech_service_factory: 语音服务工厂函数
             event_service: 事件服务（可选）
             config_service: 配置服务（可选）
         """
@@ -84,7 +84,7 @@ class RefactoredTranscriptionService(
             )
 
         # 创建专职组件
-        self.model_manager = ModelManager(whisper_engine_factory, event_service)
+        self.model_manager = ModelManager(speech_service_factory, event_service)
         self.transcription_core = None  # 将在model加载后创建
         self.streaming_coordinator = StreamingCoordinator(event_service, streaming_mode)
         self.task_queue_manager = TaskQueueManager(
@@ -181,8 +181,8 @@ class RefactoredTranscriptionService(
         """
         with self._service_lock:
             try:
-                # 停止流式转录
-                self.streaming_coordinator.cleanup()
+                # 停止流式转录 (LifecycleComponent)
+                self.streaming_coordinator.stop()
 
                 # 停止任务队列
                 self.task_queue_manager.stop()
@@ -193,8 +193,8 @@ class RefactoredTranscriptionService(
                 # 清理转录核心
                 self.transcription_core = None
 
-                # 清理错误恢复服务（合并 cleanup() 逻辑）
-                self.error_recovery_service.cleanup()
+                # 停止错误恢复服务 (LifecycleComponent)
+                self.error_recovery_service.stop()
 
                 app_logger.audio("RefactoredTranscriptionService stopped", {})
 

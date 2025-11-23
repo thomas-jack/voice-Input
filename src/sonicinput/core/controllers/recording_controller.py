@@ -51,7 +51,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
         self._audio_service = audio_service
         self._config = config_service
         self._events = event_service
-        self._state = state_manager
+        self._state_manager = state_manager  # Renamed to avoid conflict with LifecycleComponent._state
         self._speech_service = speech_service
         self._history_service = history_service
 
@@ -119,13 +119,13 @@ class RecordingController(LifecycleComponent, IRecordingController):
     def start_recording(self, device_id: Optional[int] = None) -> None:
         """开始录音"""
         # 检查状态并强制重置卡住的状态
-        current_app_state = self._state.get_app_state()
+        current_app_state = self._state_manager.get_app_state()
         if current_app_state == AppState.PROCESSING:
             app_logger.log_audio_event(
                 "Detected stuck PROCESSING state, forcing reset",
                 {
                     "current_app_state": current_app_state.name,
-                    "recording_state": self._state.get_recording_state().name,
+                    "recording_state": self._state_manager.get_recording_state().name,
                 },
             )
             # 强制重置状态
@@ -136,24 +136,24 @@ class RecordingController(LifecycleComponent, IRecordingController):
                 {"reason": "detected_stuck_state"},
                 is_forced=True,
             )
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
             ControllerLogging.log_state_change(
                 "recording",
-                self._state.get_recording_state(),
+                self._state_manager.get_recording_state(),
                 RecordingState.IDLE,
                 is_forced=True,
             )
-            self._state.set_recording_state(RecordingState.IDLE)
+            self._state_manager.set_recording_state(RecordingState.IDLE)
 
         # 再次检查状态
-        if self.is_recording() or self._state.is_processing():
+        if self.is_recording() or self._state_manager.is_processing():
             app_logger.log_audio_event(
                 "Cannot start recording - already recording or processing",
                 {
                     "is_recording": self.is_recording(),
-                    "is_processing": self._state.is_processing(),
-                    "app_state": self._state.get_app_state().name,
-                    "recording_state": self._state.get_recording_state().name,
+                    "is_processing": self._state_manager.is_processing(),
+                    "app_state": self._state_manager.get_app_state().name,
+                    "recording_state": self._state_manager.get_recording_state().name,
                 },
             )
             return
@@ -199,7 +199,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
                 RecordingState.RECORDING,
                 {"device_id": device_id},
             )
-            self._state.set_recording_state(RecordingState.RECORDING)
+            self._state_manager.set_recording_state(RecordingState.RECORDING)
 
             # 发送事件
             self._events.emit(Events.RECORDING_STARTED)
@@ -258,7 +258,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
                 RecordingState.IDLE,
                 {"duration": f"{self._last_audio_duration:.1f}s"},
             )
-            self._state.set_recording_state(RecordingState.IDLE)
+            self._state_manager.set_recording_state(RecordingState.IDLE)
 
             # 发送录音停止事件
             self._events.emit(Events.RECORDING_STOPPED, len(audio_data))
@@ -294,7 +294,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
                 {"reason": "error_recovery"},
                 is_forced=True,
             )
-            self._state.set_recording_state(RecordingState.IDLE)
+            self._state_manager.set_recording_state(RecordingState.IDLE)
             app_logger.log_error(e, "stop_recording")
             self._events.emit(Events.RECORDING_ERROR, str(e))
 
@@ -307,7 +307,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
 
     def is_recording(self) -> bool:
         """是否正在录音"""
-        return self._state.get_recording_state() == RecordingState.RECORDING
+        return self._state_manager.get_recording_state() == RecordingState.RECORDING
 
     def get_last_audio_duration(self) -> float:
         """获取最后一次录音的时长（用于性能统计）"""

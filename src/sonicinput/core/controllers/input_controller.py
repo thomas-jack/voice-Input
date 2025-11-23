@@ -49,24 +49,27 @@ class InputController(LifecycleComponent, BaseController, IInputController):
         # Realtime 模式状态追踪（用于实时文本差量更新）
         self._last_realtime_text: str = ""  # 上一次输入的实时文本
 
-        # Register event listeners and log initialization
-        self._register_event_listeners()
-        self._log_initialization()
+        # NOTE: Event listener registration moved to _do_start() for hot reload support
+        # NOTE: Initialization logging moved to _do_start() for hot reload support
 
     def _register_event_listeners(self) -> None:
-        """Register event listeners for input events"""
+        """Register event listeners for input events
+
+        NOTE: Called from _do_start() to support hot reload.
+        Uses _track_listener() to enable proper cleanup.
+        """
         # AI 处理完成的文本（chunked 模式）
-        self._events.on("ai_processed_text", self._on_text_ready_for_input)
+        self._track_listener("ai_processed_text", self._on_text_ready_for_input)
 
         # 实时文本更新（realtime 模式）
-        self._events.on("realtime_text_updated", self._on_realtime_text_updated)
+        self._track_listener("realtime_text_updated", self._on_realtime_text_updated)
 
         # 录音开始/停止事件（用于重置状态）
-        self._events.on(Events.RECORDING_STARTED, self._on_recording_started)
-        self._events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
+        self._track_listener(Events.RECORDING_STARTED, self._on_recording_started)
+        self._track_listener(Events.RECORDING_STOPPED, self._on_recording_stopped)
 
         # 转录错误事件（用于恢复剪贴板）
-        self._events.on(
+        self._track_listener(
             Events.TRANSCRIPTION_ERROR, self._on_transcription_error_restore_clipboard
         )
 
@@ -97,7 +100,7 @@ class InputController(LifecycleComponent, BaseController, IInputController):
             # 关键修复：即使跳过文本输入，也要触发完成事件和设置状态
             # 让 RecordingOverlay 能够正常隐藏
             self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
 
             # 记录整体性能日志
             self._log_performance(data)
@@ -123,7 +126,7 @@ class InputController(LifecycleComponent, BaseController, IInputController):
             # 触发完成事件
             self._events.emit(Events.TEXT_INPUT_COMPLETED, "")
             # 设置状态为 IDLE
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
             # 记录性能日志
             self._log_performance(data)
 
@@ -152,7 +155,7 @@ class InputController(LifecycleComponent, BaseController, IInputController):
                     self._input_service.stop_recording_mode()
 
                 # 重置应用状态为 IDLE（完成整个语音输入流程）
-                self._state.set_app_state(AppState.IDLE)
+                self._state_manager.set_app_state(AppState.IDLE)
 
                 app_logger.log_audio_event(
                     "Text input completed",
@@ -171,7 +174,7 @@ class InputController(LifecycleComponent, BaseController, IInputController):
                     self._input_service.stop_recording_mode()
 
                 # 即使失败也要重置状态，否则无法进行下一次录音
-                self._state.set_app_state(AppState.IDLE)
+                self._state_manager.set_app_state(AppState.IDLE)
 
                 return False
 
@@ -184,7 +187,7 @@ class InputController(LifecycleComponent, BaseController, IInputController):
                 self._input_service.stop_recording_mode()
 
             # 异常时也要重置状态
-            self._state.set_app_state(AppState.IDLE)
+            self._state_manager.set_app_state(AppState.IDLE)
 
             return False
 
@@ -377,15 +380,24 @@ class InputController(LifecycleComponent, BaseController, IInputController):
     def _do_start(self) -> bool:
         """启动输入控制器
 
-        输入控制器在初始化时已经完成所有设置（事件监听器注册），
-        因此启动操作为空操作。
-
         Returns:
             总是返回 True
         """
-        # 输入控制器无需额外启动资源
-        # 事件监听器已在 __init__ 中注册
-        return True
+        try:
+            # Register event listeners (supports hot reload)
+            self._register_event_listeners()
+
+            # Log initialization
+            self._log_initialization()
+
+            app_logger.log_audio_event(
+                "InputController started (event-driven mode)",
+                {"component": "InputController"},
+            )
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "InputController._do_start")
+            return False
 
     def _do_stop(self) -> bool:
         """停止输入控制器
@@ -395,14 +407,22 @@ class InputController(LifecycleComponent, BaseController, IInputController):
         Returns:
             总是返回 True
         """
-        # 重置 realtime 文本追踪
-        self._last_realtime_text = ""
-
-        # 确保剪贴板恢复（防止资源泄漏）
         try:
+            # Cleanup event listeners (supports hot reload)
+            self._cleanup_event_listeners()
+
+            # 重置 realtime 文本追踪
+            self._last_realtime_text = ""
+
+            # 确保剪贴板恢复（防止资源泄漏）
             if hasattr(self._input_service, "stop_recording_mode"):
                 self._input_service.stop_recording_mode()
-        except Exception as e:
-            app_logger.log_error(e, "stop_recording_mode_on_stop")
 
-        return True
+            app_logger.log_audio_event(
+                "InputController stopped and cleaned up",
+                {"component": "InputController"},
+            )
+            return True
+        except Exception as e:
+            app_logger.log_error(e, "InputController._do_stop")
+            return False
