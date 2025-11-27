@@ -632,6 +632,7 @@ def create_container() -> "DIContainer":
             history_service=history,
             transcription_service=transcription_service,
             ai_processing_controller=ai_processing_controller,
+            container=container,  # Pass container for dynamic service resolution after hot reload
         )
 
     container.register_singleton(

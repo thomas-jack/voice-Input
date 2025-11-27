@@ -282,6 +282,10 @@ class RefactoredTranscriptionService(
     ) -> Dict[str, Any]:
         """转录音频（同步）
 
+        支持两种使用场景：
+        1. 服务已启动（正常录音流程）
+        2. 独立调用（retry、批量处理等，只要模型可用即可）
+
         Args:
             audio_data: 音频数据
             language: 指定语言（可选）
@@ -290,12 +294,16 @@ class RefactoredTranscriptionService(
 
         Returns:
             转录结果
-        """
-        if not self.is_running:
-            raise RuntimeError("Transcription service is not started")
 
-        if not self.transcription_core:
-            raise WhisperLoadError("Transcription core not available")
+        Raises:
+            WhisperLoadError: 如果转录核心不可用
+        """
+        # 检查核心资源（而非服务状态）
+        if not self.ensure_transcription_core():
+            raise WhisperLoadError(
+                "Transcription core not available. "
+                "Please ensure the model is loaded or the service is started."
+            )
 
         try:
             # 使用转录核心进行同步转录
@@ -617,27 +625,75 @@ class RefactoredTranscriptionService(
         )
 
     def ensure_transcription_core(self) -> bool:
-        """确保转录核心可用
+        """确保转录核心可用（支持独立调用场景）
+
+        检查并尝试恢复转录核心资源。支持以下场景：
+        1. 核心已存在 - 直接返回 True
+        2. 核心丢失但模型可用 - 自动恢复（如热重载后）
+        3. 模型未加载（本地提供商）- 自动加载模型然后创建核心
+        4. 无法恢复 - 返回 False，记录详细诊断信息
 
         Returns:
-            True如果转录核心可用
-        """
-        if not self.transcription_core:
-            try:
-                whisper_engine = self.model_manager.get_whisper_engine()
-                if whisper_engine:
-                    self.transcription_core = TranscriptionCore(whisper_engine)
-                    app_logger.audio("Transcription core recreated successfully", {})
-                    return True
-            except Exception as e:
-                app_logger.error(
-                    "Transcription core recreation failed",
-                    e,
-                    context={"error_type": "transcription_core_recreation_failed"},
-                )
-                return False
+            True如果转录核心可用，False表示无法恢复
 
-        return self.transcription_core is not None
+        Usage:
+            在独立调用场景（如 retry、测试）中使用此方法验证资源可用性，
+            而不是检查服务生命周期状态（is_running）。
+        """
+        # 1. 核心已存在
+        if self.transcription_core:
+            return True
+
+        try:
+            # 2. 尝试从已加载的引擎恢复
+            whisper_engine = self.model_manager.get_whisper_engine()
+            if whisper_engine:
+                self.transcription_core = TranscriptionCore(whisper_engine)
+                app_logger.audio(
+                    "Transcription core recreated successfully",
+                    {"context": "ensure_transcription_core"}
+                )
+                return True
+
+            # 3. 模型未加载，尝试自动加载（仅本地提供商）
+            if self.config_service:
+                provider = self.config_service.get_setting(
+                    "transcription.provider", "local"
+                )
+                if provider == "local":
+                    app_logger.audio(
+                        "Model not loaded, attempting auto-load for retry",
+                        {"provider": provider}
+                    )
+                    # 尝试加载模型
+                    if self.model_manager.load_model():
+                        whisper_engine = self.model_manager.get_whisper_engine()
+                        if whisper_engine:
+                            self.transcription_core = TranscriptionCore(whisper_engine)
+                            app_logger.audio(
+                                "Model auto-loaded for retry, transcription core created",
+                                {"context": "ensure_transcription_core"}
+                            )
+                            return True
+
+            # 4. 无法恢复 - 记录详细诊断信息
+            app_logger.warning(
+                "Cannot recreate transcription core: whisper engine unavailable",
+                context={
+                    "is_running": self.is_running,
+                    "has_model_manager": self.model_manager is not None,
+                    "model_loaded": self.model_manager.is_model_loaded() if self.model_manager else False,
+                }
+            )
+            return False
+
+        except Exception as e:
+            app_logger.error(
+                "Transcription core recreation failed",
+                e,
+                context={"error_type": "transcription_core_recreation_failed"},
+            )
+            return False
 
     def _handle_transcribe_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """处理转录任务

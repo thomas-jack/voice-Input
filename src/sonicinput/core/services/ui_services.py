@@ -121,6 +121,7 @@ class UISettingsService:
         history_service: HistoryStorageService,
         transcription_service=None,
         ai_processing_controller=None,
+        container=None,
     ):
         """初始化UI设置服务
 
@@ -130,12 +131,14 @@ class UISettingsService:
             history_service: 历史记录存储服务
             transcription_service: 转录服务(可选,用于retry processing)
             ai_processing_controller: AI处理控制器(可选,用于retry processing)
+            container: DI容器(可选,用于热重载后获取最新服务)
         """
         self.config_service = config_service
         self.event_service = event_service
         self.history_service = history_service
-        self.transcription_service = transcription_service
+        self._transcription_service = transcription_service
         self.ai_processing_controller = ai_processing_controller
+        self._container = container
         app_logger.log_audio_event("UISettingsService initialized", {})
 
     def get_all_settings(self) -> Dict[str, Any]:
@@ -202,8 +205,21 @@ class UISettingsService:
         return self.history_service
 
     def get_transcription_service(self):
-        """获取转录服务"""
-        return self.transcription_service
+        """获取转录服务
+
+        优先从DI容器动态获取最新服务（支持热重载后获取新实例），
+        如果容器不可用则返回初始化时保存的引用。
+        """
+        # 优先从容器获取最新服务（热重载后会更新）
+        if self._container:
+            try:
+                fresh_service = self._container.resolve(ISpeechService)
+                if fresh_service:
+                    return fresh_service
+            except Exception:
+                pass
+        # 回退到初始化时保存的引用
+        return self._transcription_service
 
     def get_ai_processing_controller(self):
         """获取AI处理控制器"""
