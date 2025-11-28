@@ -48,7 +48,7 @@ v0.4.3 - 热键热重载修复
 - 直接替换即可使用
 
 **已知限制**
-- **Win32 后端管理员权限要求**：Win32 热键后端需要管理员权限才能正常工作��如果未以管理员身份运行应用，请在"热键设置"标签页手动切换到 pynput 后端，否则部分按键可能无法响应
+- **Pynput 后端管理员权限要求**：Pynput 热键后端需要管理员权限才能正常工作。如果未以管理员身份运行应用，请在"热键设置"标签页手动切换到 Win32 后端，否则部分按键可能无法响应
 
 ### 系统要求
 
@@ -124,7 +124,7 @@ v0.4.3 - Hotkey Hot Reload Fix
 - Direct replacement ready to use
 
 **Known Limitations**
-- **Win32 Backend Administrator Privilege Requirement**: Win32 hotkey backend requires administrator privileges to function properly. If the application is not run as administrator, please manually switch to pynput backend in the "Hotkey Settings" tab, otherwise some keys may not respond
+- **Pynput Backend Administrator Privilege Requirement**: Pynput hotkey backend requires administrator privileges to function properly. If the application is not run as administrator, please manually switch to Win32 backend in the "Hotkey Settings" tab, otherwise some keys may not respond
 
 ### System Requirements
 
