@@ -32,177 +32,97 @@
 
 ## 🚀 Quick Start
 
-### Option 0: Direct Download Executable (Easiest)
+### Beginners (Recommended)
 
-**Recommended for beginners** - No Python environment required, ready to use.
+1. **Download Executable**
+   - Visit [Releases page](https://github.com/Oxidane-bot/SonicInput/releases)
+   - Download `SonicInput-vX.X.X-win64.exe` (65MB single file)
 
-1. **Download Latest Version**
-   Visit [Releases page](https://github.com/Oxidane-bot/SonicInput/releases) and download `SonicInput-vX.X.X-win64.exe`
+2. **Configure Groq API**
+   - Register free account: https://console.groq.com/keys
+   - Double-click tray icon to open settings → **"Transcription Settings"** tab
+   - Select `groq` provider and enter API Key → Click **"Apply"**
 
-2. **Run the Program**
-   Double-click the exe file to start, configuration file will be created automatically on first run
-
-3. **Configure Groq API** (Required)
-   - Register for free account: https://console.groq.com/keys
-   - Double-click tray icon to open settings window
-   - Switch to **"Transcription Settings"** tab
-   - Select `groq` in **Transcription Provider** dropdown
-   - Enter API Key and click **"Apply"** button
-
-4. **Start Using**
+3. **Start Using**
    Press `F12` or `Alt+H` to start recording, release to transcribe and input automatically
 
-**Important Notes**:
-- **Hotkey Backend Selection**:
-  - Default uses `pynput` backend, but **requires administrator privileges**
-  - If not running as administrator, switch to `win32` in **"Hotkey Settings"** tab
-  - Win32 backend doesn't require admin privileges, but some key combinations may not work
+<details>
+<summary><b>Important Notes</b> (click to expand)</summary>
 
-- **Streaming Mode Selection** (Local transcription only):
-  - Find **"Streaming Mode"** option in **"Transcription Settings"** tab
-  - `realtime`: Real-time input, low latency (recommended for daily use)
-  - `chunked`: Supports AI text optimization, but waits for complete transcription
+**Hotkey Backend Selection**:
+- Default `pynput` **requires administrator privileges**
+- If not running as admin, switch to `win32` in **"Hotkey Settings"** tab
 
-**Features**:
-- ✅ 65MB single file, no installation required
-- ✅ Pure cloud mode, no GPU required
-- ✅ Supports Windows 10/11 (64-bit)
-- ✅ Internet connection required
+**Streaming Mode** (Local transcription only):
+- `realtime`: Real-time input, low latency (recommended)
+- `chunked`: Supports AI optimization, waits for complete transcription
+- Switch in **"Transcription Settings"** tab
+
+</details>
 
 ---
 
-### Deployment Mode Selection (Developer Mode)
+### Developer Mode
 
-SonicInput provides two deployment modes:
-
-| Mode | Advantages | Use Cases |
-|------|-----------|-----------|
-| **☁️ Cloud Transcription Mode** | Easy installation, no model download, small size (~100MB) | First-time experience, lightweight usage, stable network |
-| **💻 Local Transcription Mode** | Offline available, privacy protection, no API limits, CPU-efficient | Long-term use, high privacy requirements, offline environments |
-
----
-
-### Option 1: Cloud Transcription Mode (Recommended for Beginners)
-
-Lightweight deployment using Groq API for cloud speech recognition, no need to download large models and CUDA dependencies.
-
-#### 1. Install UV Package Manager
+**Prerequisites**: Python 3.10+, UV package manager
 
 ```powershell
-# Windows (using Chocolatey)
+# Install UV (Chocolatey)
 choco install uv
 
-# Or use official installation script
+# Or use official script
 powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-#### 2. Clone Project and Install Core Dependencies
-
+**Installation**:
 ```bash
 git clone https://github.com/Oxidane-bot/SonicInput.git
 cd SonicInput
-uv sync  # Install core dependencies only (~200MB)
+
+# Cloud mode (lightweight, ~100MB)
+uv sync
+
+# Local mode (offline, ~250MB)
+uv sync --extra local
 ```
 
-#### 3. Configure Groq API
+**Configuration**: Refer to "Beginners" steps 2-3 above
 
-1. Visit [Groq Console](https://console.groq.com/keys) to get free API Key
-2. Start application:
-   ```bash
-   uv run python app.py --gui
-   ```
-3. Double-click tray icon to open settings window
-4. Switch to **"Transcription Settings"** tab
-5. Select `groq` in **Transcription Provider** dropdown
-6. Enter API Key and click **"Apply"** button
-
-#### 4. Start Using
-
-Press F12 to start recording, press again to stop and transcribe automatically.
-
----
-
-### Option 2: Local Transcription Mode (Offline Available)
-
-Use local sherpa-onnx models for offline speech recognition with CPU-efficient inference.
-
-#### 1. Install UV Package Manager
-
-```powershell
-# Windows (using Chocolatey)
-choco install uv
-
-# Or use official installation script
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
-
-#### 2. Clone Project and Install Full Dependencies
-
+**Launch**:
 ```bash
-git clone https://github.com/Oxidane-bot/SonicInput.git
-cd SonicInput
-uv sync --extra local --extra dev  # Install local transcription and dev dependencies (~250MB)
-```
-
-#### 3. First Launch (Automatic Model Download)
-
-```bash
+# Test model download (local mode first time only)
 uv run python app.py --test
-```
 
-First launch will automatically download Paraformer model (226MB) to `%APPDATA%/SonicInput/models/`.
-
-Confirm output includes:
-```
-Model download completed
-Model loaded successfully
-Transcription Time: ~0.1s (for 2s audio)
-RTF (Real-Time Factor): ~0.06-0.21
-```
-
-Performance metrics: sherpa-onnx CPU inference RTF typically 0.06-0.21 (5-16x faster than real-time)
-
-#### 4. Start Application
-
-```bash
+# Start GUI
 uv run python app.py --gui
 ```
 
-In settings window's **"Transcription Settings"** tab, change **Transcription Provider** to `local` to use local sherpa-onnx transcription.
+<details>
+<summary><b>Mode Comparison</b> (click to expand)</summary>
 
-#### 5. (Optional) Configure AI Text Optimization
-
-1. Double-click tray icon to open settings window
-2. Switch to **"AI Settings"** tab
-3. Enable **"Enable AI Optimization"** toggle
-4. Select AI provider (Groq/OpenRouter/NVIDIA)
-5. Enter corresponding API Key
-6. Click **"Apply"** to save
-
-**Recommended AI Services** (all have free tiers):
-- **Groq**: https://console.groq.com/keys
-- **NVIDIA**: https://build.nvidia.com
-- **OpenRouter**: https://openrouter.ai
-
----
-
-### Mode Comparison
-
-| Feature | Cloud Transcription Mode | Local Transcription Mode |
-|---------|-------------------------|-------------------------|
+| Feature | Cloud Mode | Local Mode |
+|---------|-----------|------------|
 | Installation Size | ~100MB | ~250MB |
-| GPU Requirement | None | None (CPU-efficient) |
 | Network Requirement | Internet required | Offline available |
 | API Cost | Groq free tier | None |
 | Transcription Speed | Network dependent | CPU 5-16x faster |
-| Privacy | Audio uploaded | Fully local processing |
-| Use Cases | First-time experience, lightweight usage | Long-term use, high privacy requirements |
+| Privacy | Audio uploaded | Fully local |
 
-**Switching Modes**:
-- Cloud → Local: Run `uv sync --extra local` and select `local` in settings
-- Local → Cloud: Change Provider to `groq` in settings and configure API Key
+**Switching**: Cloud→Local run `uv sync --extra local` and select `local` in settings
 
----
+</details>
+
+<details>
+<summary><b>AI Text Optimization</b> (optional, click to expand)</summary>
+
+Settings window → **"AI Settings"** tab → Enable optimization → Select provider (Groq/NVIDIA/OpenRouter) → Enter API Key
+
+**Free services**:
+- Groq: https://console.groq.com/keys
+- NVIDIA: https://build.nvidia.com
+- OpenRouter: https://openrouter.ai
+
+</details>
 
 ## 📖 Usage
 
@@ -218,97 +138,34 @@ In settings window's **"Transcription Settings"** tab, change **Transcription Pr
 - **Exit**: Right-click tray icon → Exit
 
 ---
-
 ## 🔧 Common Issues
 
 ### Hotkey Not Working
 
-**Symptoms**: F12 or Alt+H has no response
-
-**Troubleshooting Steps**:
-
-1. **Check Hotkey Backend and Administrator Privileges** (Most common cause)
-   - Open settings window (double-click tray icon)
-   - Switch to **"Hotkey Settings"** tab
-   - Check current **"Hotkey Backend"** setting:
-     - If `pynput` and not running as administrator → Switch to `win32`
-     - If `win32` and still not working → Try running app as administrator
-   - Click **"Apply"** to save changes
-
-2. **Check Hotkey Conflicts**
-   - View current hotkeys in **"Hotkey Settings"** tab
-   - Try changing to different combination (e.g., `Ctrl+Shift+V`)
-   - Ensure no other apps are using the same hotkey
-
-3. **Restart Application**
-   - Right-click tray icon → **"Exit"**
-   - Restart application
+1. **Check backend privileges**: Settings → **"Hotkey Settings"** → If using `pynput` without admin, switch to `win32`
+2. **Check conflicts**: Try different hotkey combination (e.g., `Ctrl+Shift+V`), ensure no other apps using the same key
 
 ### Cannot Record
 
-**Symptoms**: No recording overlay or no sound after pressing hotkey
+1. **Check permissions**: Windows Settings → Privacy → Microphone → Allow apps to access
+2. **Check device**: Right-click taskbar volume → Sound settings → Select correct microphone and test
 
-**Troubleshooting Steps**:
+### API Error
 
-1. **Check Microphone Permissions**
-   - Windows Settings → Privacy → Microphone
-   - Ensure "Allow apps to access microphone" is enabled
-   - Ensure Python/SonicInput has microphone permission
+1. **Check Key**: Settings → **"Transcription Settings"** → Confirm provider is `groq` and API Key is correct
+2. **Check network**: Ensure groq.com is accessible, check firewall and free quota
 
-2. **Check Microphone Device**
-   - Right-click volume icon in taskbar → Sound settings
-   - Select correct microphone as input device
-   - Test if microphone works (volume bar should fluctuate when speaking)
+<details>
+<summary><b>More Troubleshooting</b> (click to expand)</summary>
 
-3. **Check Audio Device Configuration** (Advanced)
-   - Open settings window → **"Audio Settings"** tab
-   - Click **"Refresh Device List"**
-   - Select correct input device
-   - Click **"Apply"** to save
+**Transcription Inaccurate**:
+- Improve recording quality (speak close to mic, reduce noise)
+- Enable AI optimization (Settings → **"AI Settings"**)
+- Switch transcription provider (local/cloud mode)
 
-### Groq API Error
+**Full documentation**: [GitHub Issues](https://github.com/Oxidane-bot/SonicInput/issues)
 
-**Symptoms**: Transcription fails with API error
-
-**Troubleshooting Steps**:
-
-1. **Check API Key**
-   - Open settings window → **"Transcription Settings"** tab
-   - Confirm **Transcription Provider** is `groq`
-   - Check API Key is correct (no extra spaces)
-   - Visit [Groq Console](https://console.groq.com/keys) to regenerate
-
-2. **Check Network Connection**
-   - Ensure computer can access groq.com
-   - Check if firewall is blocking the application
-
-3. **Check Free Quota**
-   - Login to Groq Console to check API usage
-   - Free accounts have rate limits
-
-### Transcription Inaccurate
-
-**Symptoms**: Recognition errors or incomplete output
-
-**Solutions**:
-
-1. **Improve Recording Quality**
-   - Speak clearly close to microphone
-   - Reduce ambient noise
-
-2. **Enable AI Text Optimization** (Local transcription mode)
-   - Settings window → **"AI Settings"** tab
-   - Enable AI optimization and configure API Key
-   - In **"Transcription Settings"** change streaming mode to `chunked`
-
-3. **Switch Transcription Provider**
-   - Local mode: `local` (sherpa-onnx)
-   - Cloud mode: `groq` / `siliconflow` / `qwen`
-   - Switch in **"Transcription Settings"** tab
-
-### More Issues
-
-Check [GitHub Issues](https://github.com/Oxidane-bot/SonicInput/issues)
+</details>
 
 ---
 
