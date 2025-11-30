@@ -153,14 +153,14 @@ class AIProcessingController(
             else:
                 app_logger.log_audio_event(
                     "Disabled streaming mode (cloud provider): AI disabled, skipping",
-                    {"text_length": len(text)}
+                    {"text_length": len(text)},
                 )
         else:
             # 未知模式：默认尊重 AI 开关（防御性编程）
             should_use_ai = self.is_ai_enabled()
             app_logger.log_audio_event(
                 f"Unknown streaming_mode '{streaming_mode}': defaulting to respect AI switch",
-                {"ai_enabled": should_use_ai, "text_length": len(text)}
+                {"ai_enabled": should_use_ai, "text_length": len(text)},
             )
 
         # 根据策略决定是否使用 AI

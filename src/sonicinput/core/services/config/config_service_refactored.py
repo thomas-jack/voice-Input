@@ -39,7 +39,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
         self,
         config_path: Optional[str] = None,
         event_service: Optional[IEventService] = None,
-        container = None,
+        container=None,
     ):
         """初始化配置服务
 

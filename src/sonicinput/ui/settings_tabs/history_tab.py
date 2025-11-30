@@ -714,7 +714,9 @@ class HistoryDetailDialog(QDialog):
             # 关闭进度对话框 (先断开信号避免触发canceled)
             if self.progress_dialog:
                 try:
-                    self.progress_dialog.canceled.disconnect(self._on_reprocessing_canceled)
+                    self.progress_dialog.canceled.disconnect(
+                        self._on_reprocessing_canceled
+                    )
                 except RuntimeError:
                     # 信号可能已经断开
                     pass
@@ -772,7 +774,9 @@ class HistoryDetailDialog(QDialog):
             # 关闭进度对话框 (先断开信号避免触发canceled)
             if self.progress_dialog:
                 try:
-                    self.progress_dialog.canceled.disconnect(self._on_reprocessing_canceled)
+                    self.progress_dialog.canceled.disconnect(
+                        self._on_reprocessing_canceled
+                    )
                 except RuntimeError:
                     pass
                 self.progress_dialog.close()

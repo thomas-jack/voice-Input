@@ -117,7 +117,9 @@ class VoiceInputApp:
             self.events.subscribe("hotkey_triggered", self._on_hotkey_triggered)
 
             # 订阅 speech service 热重载事件
-            self.events.subscribe("speech_service.reloaded", self._on_speech_service_reloaded)
+            self.events.subscribe(
+                "speech_service.reloaded", self._on_speech_service_reloaded
+            )
 
             # 获取后端信息用于日志
             from .hotkey_config_helper import get_hotkeys_from_config

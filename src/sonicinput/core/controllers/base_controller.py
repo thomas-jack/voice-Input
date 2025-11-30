@@ -54,7 +54,9 @@ class BaseController(ABC):
         # Required services (all controllers use these)
         self._config = config_service
         self._events = event_service
-        self._state_manager = state_manager  # Renamed to avoid conflict with LifecycleComponent._state
+        self._state_manager = (
+            state_manager  # Renamed to avoid conflict with LifecycleComponent._state
+        )
 
         # Component name (for logging)
         self._component_name = self.__class__.__name__

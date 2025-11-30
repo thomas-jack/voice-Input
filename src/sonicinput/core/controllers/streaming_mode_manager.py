@@ -87,7 +87,7 @@ class StreamingModeManager(LifecycleComponent):
             if configured_mode == "realtime":
                 app_logger.log_audio_event(
                     "Cloud provider does not support realtime mode, using chunked",
-                    {"provider": provider}
+                    {"provider": provider},
                 )
                 return "chunked"
             # 允许 chunked 或 disabled
@@ -110,9 +110,7 @@ class StreamingModeManager(LifecycleComponent):
         mode = self.get_current_mode()
 
         if mode == "disabled":
-            app_logger.log_audio_event(
-                "Streaming disabled", {"mode": mode}
-            )
+            app_logger.log_audio_event("Streaming disabled", {"mode": mode})
             return False
 
         # 检查提供商类型
@@ -129,13 +127,13 @@ class StreamingModeManager(LifecycleComponent):
                         self._speech_service.start_streaming()  # type: ignore
                         app_logger.log_audio_event(
                             "Cloud provider streaming started",
-                            {"provider": provider, "mode": mode}
+                            {"provider": provider, "mode": mode},
                         )
                         return True
                     else:
                         app_logger.log_audio_event(
                             "Cloud provider does not support streaming",
-                            {"provider": provider}
+                            {"provider": provider},
                         )
                         return False
                 except Exception as e:
@@ -145,7 +143,7 @@ class StreamingModeManager(LifecycleComponent):
                 # 云提供商不支持 realtime 模式（仅本地 sherpa-onnx 支持）
                 app_logger.log_audio_event(
                     "Cloud provider does not support realtime mode",
-                    {"provider": provider, "mode": mode}
+                    {"provider": provider, "mode": mode},
                 )
                 return False
 
@@ -204,7 +202,7 @@ class StreamingModeManager(LifecycleComponent):
         if provider != "local":
             app_logger.log_audio_event(
                 "Cloud provider streaming session lifecycle managed by TranscriptionController",
-                {"provider": provider}
+                {"provider": provider},
             )
             return
 

@@ -175,7 +175,9 @@ class SpeechServiceFactory:
                 service = GroqSpeechService(
                     api_key=api_key,
                     model=model,
-                    base_url=None if base_url == "https://api.groq.com/openai/v1" else base_url,
+                    base_url=None
+                    if base_url == "https://api.groq.com/openai/v1"
+                    else base_url,
                     config_service=config,
                 )
                 return service
@@ -207,7 +209,9 @@ class SpeechServiceFactory:
                 service = SiliconFlowEngine(
                     api_key=api_key,
                     model_name=model,
-                    base_url=None if base_url == "https://api.siliconflow.cn/v1" else base_url,
+                    base_url=None
+                    if base_url == "https://api.siliconflow.cn/v1"
+                    else base_url,
                     config_service=config,
                 )
                 return service
@@ -239,7 +243,9 @@ class SpeechServiceFactory:
                 service = QwenEngine(
                     api_key=api_key,
                     model=model,
-                    base_url=None if base_url == "https://dashscope.aliyuncs.com" else base_url,
+                    base_url=None
+                    if base_url == "https://dashscope.aliyuncs.com"
+                    else base_url,
                     enable_itn=enable_itn,
                     config_service=config,
                 )

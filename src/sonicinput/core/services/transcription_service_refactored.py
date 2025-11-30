@@ -651,7 +651,7 @@ class RefactoredTranscriptionService(
                 self.transcription_core = TranscriptionCore(whisper_engine)
                 app_logger.audio(
                     "Transcription core recreated successfully",
-                    {"context": "ensure_transcription_core"}
+                    {"context": "ensure_transcription_core"},
                 )
                 return True
 
@@ -663,7 +663,7 @@ class RefactoredTranscriptionService(
                 if provider == "local":
                     app_logger.audio(
                         "Model not loaded, attempting auto-load for retry",
-                        {"provider": provider}
+                        {"provider": provider},
                     )
                     # 尝试加载模型
                     if self.model_manager.load_model():
@@ -672,7 +672,7 @@ class RefactoredTranscriptionService(
                             self.transcription_core = TranscriptionCore(whisper_engine)
                             app_logger.audio(
                                 "Model auto-loaded for retry, transcription core created",
-                                {"context": "ensure_transcription_core"}
+                                {"context": "ensure_transcription_core"},
                             )
                             return True
 
@@ -682,8 +682,10 @@ class RefactoredTranscriptionService(
                 context={
                     "is_running": self.is_running,
                     "has_model_manager": self.model_manager is not None,
-                    "model_loaded": self.model_manager.is_model_loaded() if self.model_manager else False,
-                }
+                    "model_loaded": self.model_manager.is_model_loaded()
+                    if self.model_manager
+                    else False,
+                },
             )
             return False
 

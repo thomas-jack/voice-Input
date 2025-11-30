@@ -592,12 +592,13 @@ class AudioRecorder(LifecycleComponent, IAudioService):
 
             # 返回未发送的部分
             if total_samples > self._chunked_samples_sent:
-                remaining_audio = full_audio[self._chunked_samples_sent:].copy()
+                remaining_audio = full_audio[self._chunked_samples_sent :].copy()
                 app_logger.log_audio_event(
                     "Remaining audio extracted for final chunk",
                     {
                         "remaining_samples": len(remaining_audio),
-                        "remaining_duration_seconds": len(remaining_audio) / self._sample_rate,
+                        "remaining_duration_seconds": len(remaining_audio)
+                        / self._sample_rate,
                         "already_sent_samples": self._chunked_samples_sent,
                         "total_samples": total_samples,
                     },

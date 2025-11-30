@@ -51,7 +51,9 @@ class RecordingController(LifecycleComponent, IRecordingController):
         self._audio_service = audio_service
         self._config = config_service
         self._events = event_service
-        self._state_manager = state_manager  # Renamed to avoid conflict with LifecycleComponent._state
+        self._state_manager = (
+            state_manager  # Renamed to avoid conflict with LifecycleComponent._state
+        )
         self._speech_service = speech_service
         self._history_service = history_service
 
@@ -352,8 +354,12 @@ class RecordingController(LifecycleComponent, IRecordingController):
             else:  # chunked
                 # chunked 模式：只发送剩余未发送的增量音频
                 if hasattr(self._audio_service, "get_remaining_audio_for_streaming"):
-                    remaining_audio = self._audio_service.get_remaining_audio_for_streaming()
-                    if len(remaining_audio) > 0 and hasattr(self._speech_service, "add_streaming_chunk"):
+                    remaining_audio = (
+                        self._audio_service.get_remaining_audio_for_streaming()
+                    )
+                    if len(remaining_audio) > 0 and hasattr(
+                        self._speech_service, "add_streaming_chunk"
+                    ):
                         self._speech_service.add_streaming_chunk(remaining_audio)
                         app_logger.log_audio_event(
                             "Final streaming chunk added (remaining audio only)",
@@ -361,8 +367,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
                         )
                     else:
                         app_logger.log_audio_event(
-                            "No remaining audio to send for final chunk",
-                            {}
+                            "No remaining audio to send for final chunk", {}
                         )
         except Exception as e:
             app_logger.log_error(e, "submit_final_audio")
