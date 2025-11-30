@@ -92,3 +92,11 @@ AGENTS.md
 bandit_report.json
 bandit_sherpa_check.json
 test_output.txt
+verify_*.py
+
+# Old release notes (keep only latest version)
+RELEASE_NOTES_v0.*.md
+!RELEASE_NOTES_v0.4.3.md
+
+# Packaging documentation (superseded by BUILD.md)
+PACKAGING_SUMMARY.md
