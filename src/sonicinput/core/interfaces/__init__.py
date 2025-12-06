@@ -27,13 +27,6 @@ from .speech import ISpeechService
 from .state import AppState, IStateManager, RecordingState
 from .storage import ICacheService, IStorageService
 from .ui import IOverlayComponent, ITrayComponent, IUIComponent
-from .ui_main_service import (
-    IUIAudioService,
-    IUIGPUService,
-    IUIMainService,
-    IUIModelService,
-    IUISettingsService,
-)
 
 
 @dataclass
@@ -61,26 +54,6 @@ class HistoryRecord:
     ai_status: str = "pending"
     ai_error: Optional[str] = None
     final_text: str = ""
-
-
-class IHistoryStorageService(Protocol):
-    """历史存储服务接口"""
-
-    def save_record(self, record: HistoryRecord) -> bool: ...
-
-    def get_records(self, limit: int = 100) -> List[HistoryRecord]: ...
-
-
-class IApplicationOrchestrator(Protocol):
-    """应用编排器接口"""
-
-    pass
-
-
-class IUIEventBridge(Protocol):
-    """UI事件桥接接口"""
-
-    pass
 
 
 __all__ = [
@@ -113,15 +86,6 @@ __all__ = [
     "ITranscriptionController",
     "IAIProcessingController",
     "IInputController",
-    # 新增接口
-    "IHistoryStorageService",
+    # Data types
     "HistoryRecord",
-    "IApplicationOrchestrator",
-    "IUIEventBridge",
-    # UI服务接口
-    "IUIMainService",
-    "IUISettingsService",
-    "IUIModelService",
-    "IUIAudioService",
-    "IUIGPUService",
 ]

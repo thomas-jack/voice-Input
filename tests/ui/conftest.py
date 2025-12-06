@@ -112,6 +112,9 @@ def mock_config_service(isolated_config):
         event_service=None  # UI测试不需要事件服务
     )
 
+    # 必须调用 load_config() 或 start() 来加载配置
+    config_service.load_config()
+
     return config_service
 
 
@@ -124,7 +127,7 @@ def verify_real_config_untouched():
     initial_state = {
         "exists": real_config_path.exists(),
         "mtime": real_config_path.stat().st_mtime if real_config_path.exists() else None,
-        "content": real_config_path.read_text() if real_config_path.exists() else None
+        "content": real_config_path.read_text(encoding='utf-8') if real_config_path.exists() else None
     }
 
     yield
@@ -134,7 +137,7 @@ def verify_real_config_untouched():
         assert real_config_path.exists(), "Real config file was deleted during test!"
         assert real_config_path.stat().st_mtime == initial_state["mtime"], \
             "Real config file was modified during test!"
-        assert real_config_path.read_text() == initial_state["content"], \
+        assert real_config_path.read_text(encoding='utf-8') == initial_state["content"], \
             "Real config file content was changed during test!"
 
 

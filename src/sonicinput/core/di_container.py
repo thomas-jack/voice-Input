@@ -10,19 +10,16 @@ from typing import Any, Callable, Dict, Type, TypeVar
 # Interface imports for create_container()
 from .interfaces import (
     IAIService,
-    IApplicationOrchestrator,
-    IHistoryStorageService,
     IHotkeyService,
     IInputService,
-    IUIEventBridge,
 )
 from .interfaces.audio import IAudioService
-from .interfaces.ui_main_service import (
-    IUIAudioService,
-    IUIGPUService,
-    IUIMainService,
-    IUIModelService,
-    IUISettingsService,
+from .services.ui_services import (
+    UIAudioService,
+    UIGPUService,
+    UIMainService,
+    UIModelService,
+    UISettingsService,
 )
 
 # Global singleton instance for HistoryStorageService
@@ -328,11 +325,6 @@ def create_container() -> "DIContainer":
         return _history_service_instance
 
     container.register_singleton(
-        IHistoryStorageService, factory=lambda: create_history_service(container)
-    )
-
-    # Also register concrete class for backward compatibility
-    container.register_singleton(
         HistoryStorageService, factory=lambda: create_history_service(container)
     )
 
@@ -556,12 +548,6 @@ def create_container() -> "DIContainer":
         )
 
     container.register_singleton(
-        IApplicationOrchestrator,
-        factory=lambda: create_application_orchestrator(container),
-    )
-
-    # Also register concrete class for backward compatibility
-    container.register_singleton(
         ApplicationOrchestrator,
         factory=lambda: create_application_orchestrator(container),
     )
@@ -571,11 +557,6 @@ def create_container() -> "DIContainer":
         events = container.resolve(IEventService)
         return UIEventBridge(event_service=events)
 
-    container.register_singleton(
-        IUIEventBridge, factory=lambda: create_ui_event_bridge(container)
-    )
-
-    # Also register concrete class for backward compatibility
     container.register_singleton(
         UIEventBridge, factory=lambda: create_ui_event_bridge(container)
     )
@@ -597,14 +578,14 @@ def create_container() -> "DIContainer":
         )
 
     container.register_singleton(
-        IUIMainService, factory=lambda: create_ui_main_service(container)
+        UIMainService, factory=lambda: create_ui_main_service(container)
     )
 
     # UI设置服务 - 单例
     def create_ui_settings_service(container):
         config = container.resolve(IConfigService)
         events = container.resolve(IEventService)
-        history = container.resolve(IHistoryStorageService)
+        history = container.resolve(HistoryStorageService)
 
         # 尝试获取转录服务和AI控制器(可能还未注册)
         transcription_service = None
@@ -636,7 +617,7 @@ def create_container() -> "DIContainer":
         )
 
     container.register_singleton(
-        IUISettingsService, factory=lambda: create_ui_settings_service(container)
+        UISettingsService, factory=lambda: create_ui_settings_service(container)
     )
 
     # UI模型管理服务 - 单例
@@ -648,7 +629,7 @@ def create_container() -> "DIContainer":
         return UIModelService(speech_service=speech)
 
     container.register_singleton(
-        IUIModelService, factory=lambda: create_ui_model_service(container)
+        UIModelService, factory=lambda: create_ui_model_service(container)
     )
 
     # UI音频服务 - 单例（无依赖）
@@ -658,7 +639,7 @@ def create_container() -> "DIContainer":
         return UIAudioService()
 
     container.register_singleton(
-        IUIAudioService, factory=lambda: create_ui_audio_service(container)
+        UIAudioService, factory=lambda: create_ui_audio_service(container)
     )
 
     # UI GPU服务 - 单例（无依赖）
@@ -668,7 +649,7 @@ def create_container() -> "DIContainer":
         return UIGPUService()
 
     container.register_singleton(
-        IUIGPUService, factory=lambda: create_ui_gpu_service(container)
+        UIGPUService, factory=lambda: create_ui_gpu_service(container)
     )
 
     # ========================================================================
@@ -686,7 +667,7 @@ def create_container() -> "DIContainer":
         (IConfigService, "ConfigService"),
         (IStateManager, "StateManager"),
         (IHotkeyService, "HotkeyService"),
-        (IHistoryStorageService, "HistoryStorageService"),
+        (HistoryStorageService, "HistoryStorageService"),
     ]
 
     for service_interface, service_name in lifecycle_services:

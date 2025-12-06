@@ -13,7 +13,6 @@ from ..interfaces import (
     IAudioService,
     IConfigService,
     IEventService,
-    IHistoryStorageService,
     IRecordingController,
     ISpeechService,
     IStateManager,
@@ -21,6 +20,7 @@ from ..interfaces import (
 from ..interfaces.state import AppState, RecordingState
 from ..services.config import ConfigKeys
 from ..services.event_bus import Events
+from ..services.storage import HistoryStorageService
 from .audio_callback_router import AudioCallbackRouter
 from .logging_helper import ControllerLogging
 from .streaming_mode_manager import StreamingModeManager
@@ -44,7 +44,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
         event_service: IEventService,
         state_manager: IStateManager,
         speech_service: ISpeechService,
-        history_service: IHistoryStorageService,
+        history_service: HistoryStorageService,
     ):
         super().__init__("RecordingController")
 

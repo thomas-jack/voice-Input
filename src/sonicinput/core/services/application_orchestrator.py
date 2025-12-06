@@ -13,7 +13,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from ...utils import VoiceInputError, app_logger
 from ..interfaces import (
-    IApplicationOrchestrator,
     IAudioService,
     IConfigService,
     IEventService,
@@ -37,7 +36,7 @@ class InitializationPhase(Enum):
     COMPLETED = "completed"
 
 
-class ApplicationOrchestrator(IApplicationOrchestrator):
+class ApplicationOrchestrator:
     """应用编排器实现
 
     职责：

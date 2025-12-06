@@ -515,10 +515,10 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
 
         # 快捷键后端验证
         if key == "hotkeys.backend" or key == ConfigKeys.HOTKEYS_BACKEND:
-            if value not in ["pynput", "win32"]:
+            if value not in ["auto", "pynput", "win32"]:
                 return (
                     False,
-                    f"Invalid hotkey backend: '{value}'. Must be 'pynput' or 'win32'",
+                    f"Invalid hotkey backend: '{value}'. Must be 'auto', 'pynput' or 'win32'",
                 )
             return True, ""
 
