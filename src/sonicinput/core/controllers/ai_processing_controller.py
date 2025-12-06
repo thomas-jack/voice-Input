@@ -15,11 +15,11 @@ from ..interfaces import (
     IAIService,
     IConfigService,
     IEventService,
-    IHistoryStorageService,
     IStateManager,
 )
 from ..services.config import ConfigKeys
 from ..services.event_bus import Events
+from ..services.storage import HistoryStorageService
 from .base_controller import BaseController
 
 
@@ -40,7 +40,7 @@ class AIProcessingController(
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
-        history_service: IHistoryStorageService,
+        history_service: HistoryStorageService,
     ):
         # Initialize LifecycleComponent
         LifecycleComponent.__init__(self, "AIProcessingController")

@@ -161,7 +161,7 @@ class TestSettingsWindowConfigIsolation:
 
         if real_config_path.exists():
             original_mtime = real_config_path.stat().st_mtime
-            original_content = real_config_path.read_text()
+            original_content = real_config_path.read_text(encoding='utf-8')
 
             # 显示窗口
             settings_window.show()
@@ -183,7 +183,7 @@ class TestSettingsWindowConfigIsolation:
 
             # 验证真实配置未被修改
             assert real_config_path.stat().st_mtime == original_mtime
-            assert real_config_path.read_text() == original_content
+            assert real_config_path.read_text(encoding='utf-8') == original_content
 
 
 @pytest.mark.gui
@@ -647,7 +647,7 @@ class TestConfigManagementIntegration:
 
         # Change multiple settings
         settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
-        settings_window.application_tab.apply_button.click()
+        settings_window.apply_button.click()  # Use window-level apply button
         qtbot.wait(100)
 
         # Reset to defaults

@@ -15,7 +15,6 @@ from ..interfaces import (
     HistoryRecord,
     IConfigService,
     IEventService,
-    IHistoryStorageService,
     ISpeechService,
     IStateManager,
     ITranscriptionController,
@@ -23,6 +22,7 @@ from ..interfaces import (
 from ..interfaces.state import AppState
 from ..services.config import ConfigKeys
 from ..services.event_bus import Events
+from ..services.storage import HistoryStorageService
 from .base_controller import BaseController
 from .logging_helper import ControllerLogging
 
@@ -44,7 +44,7 @@ class TranscriptionController(
         config_service: IConfigService,
         event_service: IEventService,
         state_manager: IStateManager,
-        history_service: IHistoryStorageService,
+        history_service: HistoryStorageService,
         audio_service=None,
         streaming_manager=None,
     ):

@@ -596,12 +596,12 @@ def run_gui():
         _qt_app_instance = qt_app
 
         # Get UI services from container (Pure DI - no VoiceInputApp dependency)
-        from sonicinput.core.interfaces import (
-            IUIMainService, IUISettingsService, IUIModelService
+        from sonicinput.core.services.ui_services import (
+            UIMainService, UISettingsService, UIModelService
         )
-        ui_main_service = container.get(IUIMainService)
-        ui_settings_service = container.get(IUISettingsService)
-        ui_model_service = container.get(IUIModelService)
+        ui_main_service = container.get(UIMainService)
+        ui_settings_service = container.get(UISettingsService)
+        ui_model_service = container.get(UIModelService)
 
         # CRITICAL FIX: Update UISettingsService with AI controller after VoiceInputApp initialization
         # AI controller is created in voice_app._init_controllers() but UISettingsService was

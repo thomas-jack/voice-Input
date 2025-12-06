@@ -10,10 +10,10 @@
 from typing import Any, Callable, Dict
 
 from ...utils import app_logger
-from ..interfaces import IEventService, IUIEventBridge
+from ..interfaces import IEventService
 
 
-class UIEventBridge(IUIEventBridge):
+class UIEventBridge:
     """UI事件桥接器实现
 
     职责：

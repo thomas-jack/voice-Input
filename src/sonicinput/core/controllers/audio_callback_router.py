@@ -12,10 +12,10 @@ from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import (
     IAudioService,
     IEventService,
-    IHistoryStorageService,
     ISpeechService,
 )
 from ..services.event_bus import Events
+from ..services.storage import HistoryStorageService
 
 
 class AudioCallbackRouter(LifecycleComponent):
@@ -34,7 +34,7 @@ class AudioCallbackRouter(LifecycleComponent):
         audio_service: IAudioService,
         event_service: IEventService,
         speech_service: ISpeechService,
-        history_service: IHistoryStorageService,
+        history_service: HistoryStorageService,
     ):
         """初始化音频回调路由器
 
