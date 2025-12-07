@@ -163,6 +163,7 @@ class SettingsWindow(QMainWindow):
 
         # 创建标签页
         self.tab_widget = QTabWidget()
+        self.tab_widget.setObjectName("tab_widget")
 
         # 使用独立的标签页模块
         self._create_scrollable_tab(self.application_tab.create(), "Application")
@@ -220,6 +221,7 @@ class SettingsWindow(QMainWindow):
 
         # 重置按钮
         self.reset_button = QPushButton("Reset Tab")
+        self.reset_button.setObjectName("reset_btn")
         self.reset_button.clicked.connect(self.reset_current_tab)
         button_layout.addWidget(self.reset_button)
 
@@ -227,16 +229,19 @@ class SettingsWindow(QMainWindow):
 
         # 应用按钮
         self.apply_button = QPushButton("Apply")
+        self.apply_button.setObjectName("apply_btn")
         self.apply_button.clicked.connect(self.apply_settings)
         button_layout.addWidget(self.apply_button)
 
         # 确定按钮
         self.ok_button = QPushButton("OK")
+        self.ok_button.setObjectName("ok_btn")
         self.ok_button.clicked.connect(self.accept_settings)
         button_layout.addWidget(self.ok_button)
 
         # 取消按钮
         self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setObjectName("cancel_btn")
         self.cancel_button.clicked.connect(self.close)
         button_layout.addWidget(self.cancel_button)
 
