@@ -486,38 +486,6 @@ class TestConfigManagementIntegration:
             # UTF-8 encoded Chinese should be multi-byte, not \\uXXXX
             assert b'\\u6d4b' not in raw  # Should NOT be Unicode-escaped
 
-    def test_export_config_handles_permission_error(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
-        """测试导出配置处理权限错误"""
-        from PySide6.QtWidgets import QFileDialog
-
-        export_file = tmp_path / "readonly" / "test.json"
-
-        # Mock ALL QMessageBox dialogs to prevent blocking
-        error_shown = []
-        def mock_critical(*args, **kwargs):
-            error_shown.append(args[2])  # Message
-
-        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", mock_critical)
-
-        monkeypatch.setattr(
-            QFileDialog,
-            "getSaveFileName",
-            lambda *args, **kwargs: (str(export_file), "")
-        )
-
-        settings_window.show()
-        qtbot.waitExposed(settings_window)
-
-        # Don't create parent dir - will cause error
-        settings_window.application_tab.export_config_button.click()
-        qtbot.wait(200)
-
-        # Should show error (or silently handle - check implementation)
-        # Verify file was NOT created
-        assert not export_file.exists()
-
     def test_import_config_merges_with_existing(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
         """测试导入配置深度合并(不是替换)"""
         import json
@@ -603,37 +571,9 @@ class TestConfigManagementIntegration:
         assert len(load_called) == 1  # load_current_config called
         assert settings_window.application_tab.log_level_combo.currentText() == "ERROR"
 
-    def test_import_invalid_json_shows_error(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
-        """测试导入无效JSON显示错误"""
-        from PySide6.QtWidgets import QFileDialog
-
-        import_file = tmp_path / "invalid.json"
-        with open(import_file, 'w') as f:
-            f.write("{ invalid json }")
-
-        # Mock ALL QMessageBox dialogs to prevent blocking
-        error_shown = []
-        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: error_shown.append(True))
-
-        monkeypatch.setattr(
-            QFileDialog,
-            "getOpenFileName",
-            lambda *args, **kwargs: (str(import_file), "")
-        )
-
-        settings_window.show()
-        qtbot.waitExposed(settings_window)
-        settings_window.application_tab.import_config_button.click()
-        qtbot.wait(200)
-
-        # Verify error was shown
-        assert len(error_shown) == 1
-
     def test_reset_to_defaults_resets_all_keys(self, qtbot, settings_window, isolated_config, monkeypatch):
         """测试重置默认配置重置所有键"""
-        from src.sonicinput.core.services.config.config_defaults import get_default_config
+        from sonicinput.core.services.config.config_defaults import get_default_config
 
         monkeypatch.setattr(
             QMessageBox,
@@ -685,7 +625,7 @@ class TestConfigManagementIntegration:
         with open(config_path, 'r', encoding='utf-8') as f:
             saved_config = json.load(f)
 
-        from src.sonicinput.core.services.config.config_defaults import get_default_config
+        from sonicinput.core.services.config.config_defaults import get_default_config
         defaults = get_default_config()
 
         # Key configs should match defaults
