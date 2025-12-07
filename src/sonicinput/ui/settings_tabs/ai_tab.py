@@ -42,6 +42,7 @@ class AITab(BaseSettingsTab):
         # AI Provider Selection
         provider_layout = QFormLayout()
         self.ai_provider_combo = QComboBox()
+        self.ai_provider_combo.setObjectName("ai_provider_combo")
         self.ai_provider_combo.addItems(
             ["OpenRouter", "Groq", "NVIDIA", "OpenAI Compatible"]
         )
@@ -56,6 +57,7 @@ class AITab(BaseSettingsTab):
         # API密钥
         api_key_layout = QHBoxLayout()
         self.api_key_input = QLineEdit()
+        self.api_key_input.setObjectName("api_key_input")
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.api_key_input.setPlaceholderText("Enter your OpenRouter API key")
         api_key_layout.addWidget(self.api_key_input)
@@ -82,6 +84,7 @@ class AITab(BaseSettingsTab):
         # API Key
         groq_api_key_layout = QHBoxLayout()
         self.groq_api_key_input = QLineEdit()
+        self.groq_api_key_input.setObjectName("groq_api_key_input")
         self.groq_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.groq_api_key_input.setPlaceholderText("Enter your Groq API key")
         groq_api_key_layout.addWidget(self.groq_api_key_input)
@@ -108,6 +111,7 @@ class AITab(BaseSettingsTab):
         # API Key
         nvidia_api_key_layout = QHBoxLayout()
         self.nvidia_api_key_input = QLineEdit()
+        self.nvidia_api_key_input.setObjectName("nvidia_api_key_input")
         self.nvidia_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.nvidia_api_key_input.setPlaceholderText("Enter your NVIDIA API key")
         nvidia_api_key_layout.addWidget(self.nvidia_api_key_input)
@@ -135,6 +139,7 @@ class AITab(BaseSettingsTab):
 
         # Base URL
         self.openai_compatible_base_url_input = QLineEdit()
+        self.openai_compatible_base_url_input.setObjectName("openai_compatible_base_url_input")
         self.openai_compatible_base_url_input.setPlaceholderText(
             "http://localhost:1234/v1"
         )
@@ -145,6 +150,7 @@ class AITab(BaseSettingsTab):
         # API Key (optional)
         openai_compatible_api_key_layout = QHBoxLayout()
         self.openai_compatible_api_key_input = QLineEdit()
+        self.openai_compatible_api_key_input.setObjectName("openai_compatible_api_key_input")
         self.openai_compatible_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.openai_compatible_api_key_input.setPlaceholderText(
             "Optional (for services requiring auth)"
@@ -205,6 +211,7 @@ class AITab(BaseSettingsTab):
         test_group = QGroupBox("API Testing")
         test_layout = QVBoxLayout(test_group)
         self.test_connection_button = QPushButton("Test Connection")
+        self.test_connection_button.setObjectName("test_connection_btn")
         self.test_connection_button.clicked.connect(self._test_api_connection)
         test_layout.addWidget(self.test_connection_button)
         self.api_status_label = QLabel("Not tested")

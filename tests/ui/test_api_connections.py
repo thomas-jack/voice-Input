@@ -8,7 +8,7 @@
 """
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QComboBox, QLineEdit, QPushButton
 from PySide6.QtCore import Qt
 
 
@@ -39,15 +39,18 @@ class TestAITabAPIConnections:
             ai_tab = settings_window.ai_tab
 
             # 切换到OpenRouter提供商
-            ai_tab.ai_provider_combo.setCurrentText("OpenRouter")
+            ai_provider_combo = ai_tab.widget.findChild(QComboBox, "ai_provider_combo")
+            ai_provider_combo.setCurrentText("OpenRouter")
             qtbot.wait(100)  # 等待provider切换完成
 
             # 设置API key
-            ai_tab.api_key_input.setText("test-openrouter-key-12345")
+            api_key_input = ai_tab.widget.findChild(QLineEdit, "api_key_input")
+            api_key_input.setText("test-openrouter-key-12345")
             qtbot.wait(50)
 
             # 点击测试按钮(启动真实线程)
-            ai_tab.test_connection_button.click()
+            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn.click()
             qtbot.wait(100)  # 线程启动延迟
 
             # 等待线程完成并显示对话框
@@ -87,15 +90,18 @@ class TestAITabAPIConnections:
             ai_tab = settings_window.ai_tab
 
             # 切换到Groq提供商
-            ai_tab.ai_provider_combo.setCurrentText("Groq")
+            ai_provider_combo = ai_tab.widget.findChild(QComboBox, "ai_provider_combo")
+            ai_provider_combo.setCurrentText("Groq")
             qtbot.wait(100)  # 等待provider切换完成
 
             # 设置API key
-            ai_tab.groq_api_key_input.setText("test-groq-key-67890")
+            groq_api_key_input = ai_tab.widget.findChild(QLineEdit, "groq_api_key_input")
+            groq_api_key_input.setText("test-groq-key-67890")
             qtbot.wait(50)
 
             # 点击测试按钮
-            ai_tab.test_connection_button.click()
+            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
@@ -132,15 +138,18 @@ class TestAITabAPIConnections:
             ai_tab = settings_window.ai_tab
 
             # 切换到NVIDIA提供商
-            ai_tab.ai_provider_combo.setCurrentText("NVIDIA")
+            ai_provider_combo = ai_tab.widget.findChild(QComboBox, "ai_provider_combo")
+            ai_provider_combo.setCurrentText("NVIDIA")
             qtbot.wait(100)
 
             # 设置API key
-            ai_tab.nvidia_api_key_input.setText("invalid-nvidia-key")
+            nvidia_api_key_input = ai_tab.widget.findChild(QLineEdit, "nvidia_api_key_input")
+            nvidia_api_key_input.setText("invalid-nvidia-key")
             qtbot.wait(50)
 
             # 点击测试按钮
-            ai_tab.test_connection_button.click()
+            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待失败对话框
@@ -177,16 +186,20 @@ class TestAITabAPIConnections:
             ai_tab = settings_window.ai_tab
 
             # 切换到OpenAI Compatible提供商
-            ai_tab.ai_provider_combo.setCurrentText("OpenAI Compatible")
+            ai_provider_combo = ai_tab.widget.findChild(QComboBox, "ai_provider_combo")
+            ai_provider_combo.setCurrentText("OpenAI Compatible")
             qtbot.wait(100)
 
             # 设置Base URL和API key
-            ai_tab.openai_compatible_base_url_input.setText("https://api.example.com/v1")
-            ai_tab.openai_compatible_api_key_input.setText("test-openai-compatible-key")
+            openai_compatible_base_url_input = ai_tab.widget.findChild(QLineEdit, "openai_compatible_base_url_input")
+            openai_compatible_base_url_input.setText("https://api.example.com/v1")
+            openai_compatible_api_key_input = ai_tab.widget.findChild(QLineEdit, "openai_compatible_api_key_input")
+            openai_compatible_api_key_input.setText("test-openai-compatible-key")
             qtbot.wait(50)
 
             # 点击测试按钮
-            ai_tab.test_connection_button.click()
+            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
@@ -227,15 +240,18 @@ class TestTranscriptionTabAPIConnections:
             transcription_tab = settings_window.transcription_tab
 
             # 切换到groq提供商
-            transcription_tab.transcription_provider_combo.setCurrentText("groq")
+            transcription_provider_combo = transcription_tab.widget.findChild(QComboBox, "transcription_provider_combo")
+            transcription_provider_combo.setCurrentText("groq")
             qtbot.wait(100)  # 等待provider切换完成
 
             # 设置API key
-            transcription_tab.groq_api_key_edit.setText("test-groq-transcription-key")
+            groq_api_key_edit = transcription_tab.widget.findChild(QLineEdit, "groq_api_key_edit")
+            groq_api_key_edit.setText("test-groq-transcription-key")
             qtbot.wait(50)
 
             # 点击测试按钮 (Groq uses test_model_button)
-            transcription_tab.test_model_button.click()
+            test_model_btn = transcription_tab.widget.findChild(QPushButton, "test_model_btn")
+            test_model_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
@@ -272,15 +288,18 @@ class TestTranscriptionTabAPIConnections:
             transcription_tab = settings_window.transcription_tab
 
             # 切换到siliconflow提供商
-            transcription_tab.transcription_provider_combo.setCurrentText("siliconflow")
+            transcription_provider_combo = transcription_tab.widget.findChild(QComboBox, "transcription_provider_combo")
+            transcription_provider_combo.setCurrentText("siliconflow")
             qtbot.wait(100)
 
             # 设置API key
-            transcription_tab.siliconflow_api_key_edit.setText("test-siliconflow-key")
+            siliconflow_api_key_edit = transcription_tab.widget.findChild(QLineEdit, "siliconflow_api_key_edit")
+            siliconflow_api_key_edit.setText("test-siliconflow-key")
             qtbot.wait(50)
 
             # 点击测试按钮 (SiliconFlow uses test_model_button)
-            transcription_tab.test_model_button.click()
+            test_model_btn = transcription_tab.widget.findChild(QPushButton, "test_model_btn")
+            test_model_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
@@ -317,15 +336,18 @@ class TestTranscriptionTabAPIConnections:
             transcription_tab = settings_window.transcription_tab
 
             # 切换到qwen提供商
-            transcription_tab.transcription_provider_combo.setCurrentText("qwen")
+            transcription_provider_combo = transcription_tab.widget.findChild(QComboBox, "transcription_provider_combo")
+            transcription_provider_combo.setCurrentText("qwen")
             qtbot.wait(100)
 
             # 设置API key
-            transcription_tab.qwen_api_key_edit.setText("test-qwen-dashscope-key")
+            qwen_api_key_edit = transcription_tab.widget.findChild(QLineEdit, "qwen_api_key_edit")
+            qwen_api_key_edit.setText("test-qwen-dashscope-key")
             qtbot.wait(50)
 
             # 点击测试按钮 (Qwen uses test_model_button)
-            transcription_tab.test_model_button.click()
+            test_model_btn = transcription_tab.widget.findChild(QPushButton, "test_model_btn")
+            test_model_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
@@ -369,15 +391,18 @@ class TestTranscriptionTabAPIConnections:
             ai_tab = settings_window.ai_tab
 
             # 切换到OpenRouter
-            ai_tab.ai_provider_combo.setCurrentText("OpenRouter")
+            ai_provider_combo = ai_tab.widget.findChild(QComboBox, "ai_provider_combo")
+            ai_provider_combo.setCurrentText("OpenRouter")
             qtbot.wait(100)
 
             # 设置API key
-            ai_tab.api_key_input.setText("test-key")
+            api_key_input = ai_tab.widget.findChild(QLineEdit, "api_key_input")
+            api_key_input.setText("test-key")
             qtbot.wait(50)
 
             # 点击测试按钮
-            ai_tab.test_connection_button.click()
+            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待线程完成

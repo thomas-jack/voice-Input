@@ -40,6 +40,7 @@ class TranscriptionTab(BaseSettingsTab):
         provider_layout = QFormLayout(provider_group)
 
         self.transcription_provider_combo = QComboBox()
+        self.transcription_provider_combo.setObjectName("transcription_provider_combo")
         self.transcription_provider_combo.addItems(
             ["local", "groq", "siliconflow", "qwen"]
         )
@@ -101,6 +102,7 @@ class TranscriptionTab(BaseSettingsTab):
         model_buttons_layout.addWidget(self.unload_model_button)
 
         self.test_model_button = QPushButton("Test Model")
+        self.test_model_button.setObjectName("test_model_btn")
         self.test_model_button.clicked.connect(self._test_model)
         model_buttons_layout.addWidget(self.test_model_button)
 
@@ -120,6 +122,7 @@ class TranscriptionTab(BaseSettingsTab):
 
         # API Key
         self.groq_api_key_edit = QLineEdit()
+        self.groq_api_key_edit.setObjectName("groq_api_key_edit")
         self.groq_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.groq_api_key_edit.setPlaceholderText("Enter Groq API key")
         self.groq_api_key_edit.textChanged.connect(self._on_groq_api_key_changed)
@@ -158,6 +161,7 @@ class TranscriptionTab(BaseSettingsTab):
 
         # API Key
         self.siliconflow_api_key_edit = QLineEdit()
+        self.siliconflow_api_key_edit.setObjectName("siliconflow_api_key_edit")
         self.siliconflow_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.siliconflow_api_key_edit.setPlaceholderText("Enter SiliconFlow API key")
         self.siliconflow_api_key_edit.textChanged.connect(
@@ -203,6 +207,7 @@ class TranscriptionTab(BaseSettingsTab):
 
         # API Key
         self.qwen_api_key_edit = QLineEdit()
+        self.qwen_api_key_edit.setObjectName("qwen_api_key_edit")
         self.qwen_api_key_edit.setEchoMode(QLineEdit.EchoMode.Password)
         self.qwen_api_key_edit.setPlaceholderText("Enter DashScope API key")
         self.qwen_api_key_edit.textChanged.connect(self._on_qwen_api_key_changed)
