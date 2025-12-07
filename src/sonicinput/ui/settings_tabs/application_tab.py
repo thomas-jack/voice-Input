@@ -100,6 +100,7 @@ class ApplicationTab(BaseSettingsTab):
 
         # 日志级别
         self.log_level_combo = QComboBox()
+        self.log_level_combo.setObjectName("log_level_combo")
         self.log_level_combo.addItems(["DEBUG", "INFO", "WARNING", "ERROR"])
         log_layout.addRow("Log Level:", self.log_level_combo)
 
@@ -122,14 +123,17 @@ class ApplicationTab(BaseSettingsTab):
         config_buttons_layout = QHBoxLayout()
 
         self.export_config_button = QPushButton("Export Settings")
+        self.export_config_button.setObjectName("export_config_btn")
         self.export_config_button.clicked.connect(self._export_config)
         config_buttons_layout.addWidget(self.export_config_button)
 
         self.import_config_button = QPushButton("Import Settings")
+        self.import_config_button.setObjectName("import_config_btn")
         self.import_config_button.clicked.connect(self._import_config)
         config_buttons_layout.addWidget(self.import_config_button)
 
         self.reset_config_button = QPushButton("Reset to Defaults")
+        self.reset_config_button.setObjectName("reset_config_btn")
         self.reset_config_button.clicked.connect(self._reset_config)
         config_buttons_layout.addWidget(self.reset_config_button)
 

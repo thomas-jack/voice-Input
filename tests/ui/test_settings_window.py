@@ -4,7 +4,7 @@
 """
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox, QPushButton
+from PySide6.QtWidgets import QMessageBox, QPushButton, QComboBox
 from pathlib import Path
 import os
 
