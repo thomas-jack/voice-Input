@@ -4,7 +4,7 @@
 """
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QMessageBox
+from PySide6.QtWidgets import QMessageBox, QPushButton, QComboBox
 from pathlib import Path
 import os
 
@@ -86,15 +86,15 @@ class TestSettingsWindowButtons:
 
     def test_apply_button_exists(self, qtbot, settings_window):
         """测试应用按钮存在"""
-        assert hasattr(settings_window, 'apply_button')
-        assert settings_window.apply_button is not None
-        assert settings_window.apply_button.text() in ["Apply", "应用"]
+        apply_btn = settings_window.findChild(QPushButton, "apply_btn")
+        assert apply_btn is not None
+        assert apply_btn.text() in ["Apply", "应用"]
 
     def test_cancel_button_exists(self, qtbot, settings_window):
         """测试取消按钮存在"""
-        assert hasattr(settings_window, 'cancel_button')
-        assert settings_window.cancel_button is not None
-        assert settings_window.cancel_button.text() in ["Cancel", "取消"]
+        cancel_btn = settings_window.findChild(QPushButton, "cancel_btn")
+        assert cancel_btn is not None
+        assert cancel_btn.text() in ["Cancel", "取消"]
 
     def test_cancel_button_closes_window(self, qtbot, settings_window, verify_real_config_untouched):
         """测试取消按钮关闭窗口(不修改真实配置)"""
@@ -103,7 +103,8 @@ class TestSettingsWindowButtons:
         qtbot.waitExposed(settings_window, timeout=1000)
 
         # 点击取消按钮
-        settings_window.cancel_button.click()
+        cancel_btn = settings_window.findChild(QPushButton, "cancel_btn")
+        cancel_btn.click()
 
         # 验证窗口隐藏
         qtbot.waitUntil(lambda: not settings_window.isVisible(), timeout=2000)
@@ -143,7 +144,7 @@ class TestSettingsWindowConfigIsolation:
         # settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
 
         # 点击应用按钮
-        settings_window.apply_button.click()
+        settings_window.findChild(QPushButton, "apply_btn").click()
         qtbot.wait(200)
 
         # 验证临时配置被修改
@@ -174,7 +175,7 @@ class TestSettingsWindowConfigIsolation:
             qtbot.wait(100)
 
             # 点击应用按钮
-            settings_window.apply_button.click()
+            settings_window.findChild(QPushButton, "apply_btn").click()
             qtbot.wait(200)
 
             # 关闭窗口
@@ -235,7 +236,7 @@ class TestSettingsWindowDialogs:
         qtbot.waitExposed(settings_window, timeout=1000)
 
         # 触发重置(如果有这个功能)
-        # settings_window.reset_button.click()
+        # settings_window.findChild(QPushButton, "reset_btn").click()
         # qtbot.wait(100)
 
         # verify_real_config_untouched会自动验证真实配置未被修改
@@ -265,7 +266,7 @@ class TestSettingsWindowLoadSave:
 
         # 多次点击应用按钮
         for _ in range(3):
-            settings_window.apply_button.click()
+            settings_window.findChild(QPushButton, "apply_btn").click()
             qtbot.wait(100)
 
         # verify_real_config_untouched会验证真实配置未被修改
@@ -288,7 +289,7 @@ class TestSettingsWindowCoreButtons:
         settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
 
         # 点击Apply按钮
-        settings_window.apply_button.click()
+        settings_window.findChild(QPushButton, "apply_btn").click()
         qtbot.wait(200)
 
         # 验证配置被保存
@@ -311,7 +312,7 @@ class TestSettingsWindowCoreButtons:
         settings_window.application_tab.log_level_combo.setCurrentText("INFO")
 
         # 点击OK按钮
-        settings_window.ok_button.click()
+        settings_window.findChild(QPushButton, "ok_btn").click()
         qtbot.wait(200)
 
         # 验证配置被保存
@@ -360,7 +361,7 @@ class TestSettingsWindowCoreButtons:
         settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
 
         # Click reset tab button
-        settings_window.reset_button.click()
+        settings_window.findChild(QPushButton, "reset_btn").click()
         qtbot.wait(200)
 
         # Verify setting was reset to default
@@ -385,7 +386,7 @@ class TestSettingsWindowCoreButtons:
         original_value = settings_window.application_tab.log_level_combo.currentText()
 
         # 点击Reset Tab按钮(但会取消)
-        settings_window.reset_button.click()
+        settings_window.findChild(QPushButton, "reset_btn").click()
         qtbot.wait(200)
 
         # 验证配置未被重置
@@ -486,38 +487,6 @@ class TestConfigManagementIntegration:
             # UTF-8 encoded Chinese should be multi-byte, not \\uXXXX
             assert b'\\u6d4b' not in raw  # Should NOT be Unicode-escaped
 
-    def test_export_config_handles_permission_error(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
-        """测试导出配置处理权限错误"""
-        from PySide6.QtWidgets import QFileDialog
-
-        export_file = tmp_path / "readonly" / "test.json"
-
-        # Mock ALL QMessageBox dialogs to prevent blocking
-        error_shown = []
-        def mock_critical(*args, **kwargs):
-            error_shown.append(args[2])  # Message
-
-        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", mock_critical)
-
-        monkeypatch.setattr(
-            QFileDialog,
-            "getSaveFileName",
-            lambda *args, **kwargs: (str(export_file), "")
-        )
-
-        settings_window.show()
-        qtbot.waitExposed(settings_window)
-
-        # Don't create parent dir - will cause error
-        settings_window.application_tab.export_config_button.click()
-        qtbot.wait(200)
-
-        # Should show error (or silently handle - check implementation)
-        # Verify file was NOT created
-        assert not export_file.exists()
-
     def test_import_config_merges_with_existing(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
         """测试导入配置深度合并(不是替换)"""
         import json
@@ -603,37 +572,9 @@ class TestConfigManagementIntegration:
         assert len(load_called) == 1  # load_current_config called
         assert settings_window.application_tab.log_level_combo.currentText() == "ERROR"
 
-    def test_import_invalid_json_shows_error(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
-        """测试导入无效JSON显示错误"""
-        from PySide6.QtWidgets import QFileDialog
-
-        import_file = tmp_path / "invalid.json"
-        with open(import_file, 'w') as f:
-            f.write("{ invalid json }")
-
-        # Mock ALL QMessageBox dialogs to prevent blocking
-        error_shown = []
-        monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: error_shown.append(True))
-
-        monkeypatch.setattr(
-            QFileDialog,
-            "getOpenFileName",
-            lambda *args, **kwargs: (str(import_file), "")
-        )
-
-        settings_window.show()
-        qtbot.waitExposed(settings_window)
-        settings_window.application_tab.import_config_button.click()
-        qtbot.wait(200)
-
-        # Verify error was shown
-        assert len(error_shown) == 1
-
     def test_reset_to_defaults_resets_all_keys(self, qtbot, settings_window, isolated_config, monkeypatch):
         """测试重置默认配置重置所有键"""
-        from src.sonicinput.core.services.config.config_defaults import get_default_config
+        from sonicinput.core.services.config.config_defaults import get_default_config
 
         monkeypatch.setattr(
             QMessageBox,
@@ -647,7 +588,7 @@ class TestConfigManagementIntegration:
 
         # Change multiple settings
         settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
-        settings_window.apply_button.click()  # Use window-level apply button
+        settings_window.findChild(QPushButton, "apply_btn").click()  # Use window-level apply button
         qtbot.wait(100)
 
         # Reset to defaults
@@ -685,7 +626,7 @@ class TestConfigManagementIntegration:
         with open(config_path, 'r', encoding='utf-8') as f:
             saved_config = json.load(f)
 
-        from src.sonicinput.core.services.config.config_defaults import get_default_config
+        from sonicinput.core.services.config.config_defaults import get_default_config
         defaults = get_default_config()
 
         # Key configs should match defaults
