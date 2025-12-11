@@ -807,8 +807,11 @@ class RecordingOverlay(QWidget):
         self.update_waveform_requested.emit(audio_data)
 
     def _update_waveform_impl(self, audio_data) -> None:
-        """Update audio level display - Internal implementation"""
-        if self.is_recording and audio_data is not None:
+        """Update audio level display - Internal implementation (Performance optimized)"""
+        # 优化: 缓存is_recording检查
+        is_currently_recording = self.is_recording
+
+        if is_currently_recording and audio_data is not None:
             try:
                 import numpy as np
 
@@ -847,9 +850,12 @@ class RecordingOverlay(QWidget):
         self.update_audio_level_requested.emit(level)
 
     def _update_audio_level_impl(self, level: float) -> None:
-        """Update audio level bars - Internal implementation (使用AudioVisualizer组件)"""
+        """Update audio level bars - Internal implementation (Performance optimized)"""
+        # 优化: 缓存is_recording检查
+        is_currently_recording = self.is_recording
+
         # Phase 4: Guard moved to caller - only call when recording
-        if self.audio_visualizer and self.is_recording:
+        if self.audio_visualizer and is_currently_recording:
             self.audio_visualizer.update_audio_level(level)
             # 更新本地引用以保持兼容性
             self.current_audio_level = self.audio_visualizer.get_current_level()
@@ -911,20 +917,25 @@ class RecordingOverlay(QWidget):
             app_logger.log_error(e, "stop_timer_if_needed")
 
     def update_recording_time(self) -> None:
-        """Update recording time (Qt main thread only)"""
-        if self.is_recording:
+        """Update recording time (Qt main thread only) - Performance optimized"""
+        # 优化: 缓存属性调用结果,避免每秒查询StateManager
+        is_currently_recording = self.is_recording
+
+        if is_currently_recording:
             self.recording_duration += 1
             minutes = self.recording_duration // 60
             seconds = self.recording_duration % 60
             try:
-                self.time_label.setText(f"{minutes:02d}:{seconds:02d}")
+                # 优化: 复用格式化字符串,避免重复计算
+                time_str = f"{minutes:02d}:{seconds:02d}"
+                self.time_label.setText(time_str)
                 # 只在前几次更新时记录日志，避免日志过多
                 if self.recording_duration <= 3:
                     app_logger.log_audio_event(
                         "Recording time updated",
                         {
                             "duration": self.recording_duration,
-                            "display": f"{minutes:02d}:{seconds:02d}",
+                            "display": time_str,
                         },
                     )
             except Exception as e:

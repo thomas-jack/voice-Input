@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 # Interfaces added after Phase 1.2 cleanup (missing definitions)
-from typing import List, Optional, Protocol
+from typing import Optional
 
 from .ai import IAIService
 from .audio import IAudioService

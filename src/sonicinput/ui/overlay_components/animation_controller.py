@@ -172,8 +172,11 @@ class AnimationController:
             # 尝试断开信号连接
             try:
                 self.breathing_timer.timeout.disconnect()
-            except:
-                pass
+            except Exception as e:
+                # Log disconnect failure for debugging
+                app_logger.log_audio_event(
+                    "Failed to disconnect breathing timer signal", {"error": str(e)}
+                )
 
             app_logger.log_audio_event("AnimationController cleaned up", {})
 

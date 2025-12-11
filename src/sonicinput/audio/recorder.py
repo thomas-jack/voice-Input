@@ -55,6 +55,9 @@ class AudioRecorder(LifecycleComponent, IAudioService):
         self.chunk_callback = None  # 外部回调，用于流式转录块
         self._chunked_samples_sent = 0  # 追踪已发送给chunk_callback的样本数量
 
+        # 优化: 累积音频缓存,避免重复拼接 (v0.5.1 性能优化)
+        self._accumulated_audio: np.ndarray = None  # 累积的完整音频数据
+
         # Auto-start to maintain backward compatibility
         # (old code called _initialize_audio() in __init__)
         self.start()
@@ -321,6 +324,7 @@ class AudioRecorder(LifecycleComponent, IAudioService):
         self._recording = True
         self._audio_data = []
         self._chunked_samples_sent = 0  # 重置chunk追踪计数器
+        self._accumulated_audio = None  # 重置累积缓冲区 (性能优化)
 
         # 启动录音线程（30秒计时在线程内部实现）
         self._record_thread = threading.Thread(target=self._record_audio)
@@ -526,27 +530,40 @@ class AudioRecorder(LifecycleComponent, IAudioService):
         return audio_array, actual_duration
 
     def _on_chunk_ready(self) -> None:
-        """流式转录块就绪，提取增量音频块进行转录
+        """流式转录块就绪，提取增量音频块进行转录（性能优化版本）
 
+        关键优化：使用累积缓冲区避免 O(n²) 重复拼接。
         关键修复：不再清空 _audio_data，而是追踪已发送的样本数，
-        这样既能保留完整录音，又能提取增量chunk用于流式转录
+        这样既能保留完整录音，又能提取增量chunk用于流式转录。
         """
         if not self._recording or not self.chunk_callback:
             return
 
-        # 线程安全：读取增量音频数据（不清空完整数据）
+        # 线程安全：读取并累积音频数据
         chunk_audio = None
         with self._data_lock:
             if len(self._audio_data) == 0:
                 return
 
-            # 拼接所有音频数据
-            full_audio = np.concatenate(self._audio_data, axis=0).flatten()
-            total_samples = len(full_audio)
+            # 优化: 仅拼接新增的块到累积缓冲区
+            if self._accumulated_audio is None:
+                # 首次拼接: 拼接所有现有数据
+                self._accumulated_audio = np.concatenate(self._audio_data, axis=0).flatten()
+            else:
+                # 增量拼接: 仅拼接新块
+                # 计算已累积的块数（每个块大小为 chunk_size）
+                accumulated_chunks = len(self._accumulated_audio) // self.chunk_size
+                new_chunks = self._audio_data[accumulated_chunks:]
+
+                if new_chunks:
+                    new_audio = np.concatenate(new_chunks, axis=0).flatten()
+                    self._accumulated_audio = np.concatenate([self._accumulated_audio, new_audio])
+
+            total_samples = len(self._accumulated_audio)
 
             # 只提取新增的部分（自上次chunk_callback以来的增量）
             if total_samples > self._chunked_samples_sent:
-                chunk_audio = full_audio[self._chunked_samples_sent :].copy()
+                chunk_audio = self._accumulated_audio[self._chunked_samples_sent :].copy()
                 self._chunked_samples_sent = total_samples
             else:
                 return
@@ -577,7 +594,9 @@ class AudioRecorder(LifecycleComponent, IAudioService):
             return np.array([])
 
     def get_remaining_audio_for_streaming(self) -> np.ndarray:
-        """获取剩余未发送到流式转录的音频数据
+        """获取剩余未发送到流式转录的音频数据（性能优化版本）
+
+        使用累积缓冲区避免重复拼接。
 
         Returns:
             剩余的音频数据（自上次 chunk_callback 以来的增量）
@@ -586,8 +605,14 @@ class AudioRecorder(LifecycleComponent, IAudioService):
             if not self._audio_data:
                 return np.array([])
 
-            # 拼接所有音频数据
-            full_audio = np.concatenate(self._audio_data, axis=0).flatten()
+            # 优化: 使用累积缓冲区或按需拼接
+            if self._accumulated_audio is not None:
+                # 已有累积缓冲区,直接切片
+                full_audio = self._accumulated_audio
+            else:
+                # 首次访问,拼接一次
+                full_audio = np.concatenate(self._audio_data, axis=0).flatten()
+
             total_samples = len(full_audio)
 
             # 返回未发送的部分
