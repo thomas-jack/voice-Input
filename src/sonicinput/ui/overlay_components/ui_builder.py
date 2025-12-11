@@ -137,6 +137,7 @@ class OverlayUIBuilder:
             bar.setFixedSize(4, 18)
             bar.setStyleSheet("""
                 QLabel {
+                    background-color: rgba(80, 80, 90, 100);
                     border-radius: 2px;
                 }
             """)
