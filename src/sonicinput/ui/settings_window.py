@@ -702,7 +702,7 @@ class SettingsWindow(QMainWindow):
                         # 确保进度对话框关闭
                         try:
                             progress.close()
-                        except:
+                        except Exception:
                             pass
                         raise  # 重新抛出异常，由外层事务处理
 
@@ -743,7 +743,7 @@ class SettingsWindow(QMainWindow):
                         # 热重载被阻止（录音进行中）
                         try:
                             progress.close()
-                        except:
+                        except Exception:
                             pass
 
                         # 显示友好的错误信息
@@ -757,7 +757,7 @@ class SettingsWindow(QMainWindow):
                         # 其他错误
                         try:
                             progress.close()
-                        except:
+                        except Exception:
                             pass
                         raise  # 重新抛出，由外层事务处理
                 else:

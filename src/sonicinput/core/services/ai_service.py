@@ -3,7 +3,7 @@
 负责AI文本优化处理，支持配置热重载。
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional
 
 from ...ai.factory import AIClientFactory
 from ...utils import app_logger

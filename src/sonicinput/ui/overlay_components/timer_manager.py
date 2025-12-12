@@ -188,12 +188,12 @@ class TimerManager:
                 warnings.simplefilter("ignore", RuntimeWarning)
                 try:
                     self.update_timer.timeout.disconnect()
-                except:
+                except Exception:
                     pass
 
                 try:
                     self.delayed_hide_timer.timeout.disconnect()
-                except:
+                except Exception:
                     pass
 
             app_logger.log_audio_event("TimerManager cleaned up", {})

@@ -206,7 +206,7 @@ class ClipboardInput:
             text_content = ""
             try:
                 text_content = pyperclip.paste()
-            except:
+            except Exception:
                 pass
 
             app_logger.log_audio_event(
@@ -481,7 +481,7 @@ class ClipboardInput:
                 text_content = ""
                 try:
                     text_content = pyperclip.paste()
-                except:
+                except Exception:
                     pass
 
                 app_logger.log_audio_event(

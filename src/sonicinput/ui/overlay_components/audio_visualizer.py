@@ -32,6 +32,9 @@ class AudioVisualizer:
         # 敏感度倍数（正常说话音量能显示）
         self.sensitivity_multiplier = 20
 
+        # 性能优化: 仅在级别变化时更新UI (v0.5.1)
+        self._last_bar_state = [False] * 5  # 追踪每个bar的上次激活状态
+
         app_logger.log_audio_event(
             "AudioVisualizer initialized",
             {
@@ -77,7 +80,9 @@ class AudioVisualizer:
             app_logger.log_error(e, "audio_visualizer_update")
 
     def _update_level_bars(self, level: float) -> None:
-        """更新音频级别条显示（内部方法）
+        """更新音频级别条显示（性能优化版本）
+
+        仅更新状态发生变化的bar,避免不必要的UI重绘。
 
         Args:
             level: 标准化后的级别（0.0-1.0）
@@ -86,25 +91,32 @@ class AudioVisualizer:
             # 计算应该点亮的级别条数量
             active_bars = int(level * len(self.audio_level_bars))
 
-            # 更新每个级别条
+            # 性能优化: 仅更新状态变化的bar
             for i, bar in enumerate(self.audio_level_bars):
-                if i < active_bars:
-                    # 活跃的级别条 - 绿色→黄色→红色渐变
-                    color = self._get_bar_color(i)
-                    bar.setStyleSheet(f"""
-                        QLabel {{
-                            background-color: {color};
-                            border-radius: 2px;
-                        }}
-                    """)
-                else:
-                    # 非活跃的级别条 - 灰色
-                    bar.setStyleSheet("""
-                        QLabel {
-                            background-color: rgba(80, 80, 90, 100);
-                            border-radius: 2px;
-                        }
-                    """)
+                is_active = i < active_bars
+
+                # 仅当状态变化时才更新样式
+                if is_active != self._last_bar_state[i]:
+                    if is_active:
+                        # 活跃的级别条 - 绿色→黄色→红色渐变
+                        color = self._get_bar_color(i)
+                        bar.setStyleSheet(f"""
+                            QLabel {{
+                                background-color: {color};
+                                border-radius: 2px;
+                            }}
+                        """)
+                    else:
+                        # 非活跃的级别条 - 灰色
+                        bar.setStyleSheet("""
+                            QLabel {
+                                background-color: rgba(80, 80, 90, 100);
+                                border-radius: 2px;
+                            }
+                        """)
+
+                    # 更新追踪状态
+                    self._last_bar_state[i] = is_active
 
         except Exception as e:
             app_logger.log_error(e, "update_level_bars")
