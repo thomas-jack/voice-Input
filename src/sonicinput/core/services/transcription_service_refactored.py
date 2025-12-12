@@ -400,30 +400,35 @@ class RefactoredTranscriptionService(LifecycleComponent, ISpeechService):
                     {"chunk_id": chunk.chunk_id, "audio_length": len(chunk.audio_data)},
                 )
 
-            # 等待所有块完成转录(最多等待30秒)
-            timeout = 30.0
-            start_time = time.time()
-
+            # 逐块等待结果，允许每个块使用更合理的超时时间
+            timed_out_chunks: List[int] = []
             for chunk in pending_chunk_refs:
-                remaining_time = timeout - (time.time() - start_time)
-                if remaining_time <= 0:
-                    app_logger.audio(
-                        "Timeout waiting for chunk completion",
-                        {"chunk_id": chunk.chunk_id},
-                    )
-                    break
+                # 根据音频长度动态计算等待时间，至少30秒
+                audio_duration = len(chunk.audio_data) / 16000 if len(chunk.audio_data) > 0 else 0.0
+                per_chunk_timeout = max(30.0, audio_duration * 2.0)
 
-                if not chunk.result_event.wait(timeout=remaining_time):
+                if not chunk.result_event.wait(timeout=per_chunk_timeout):
+                    timed_out_chunks.append(chunk.chunk_id)
                     app_logger.audio(
                         "Chunk processing timeout",
-                        {"chunk_id": chunk.chunk_id, "timeout": remaining_time},
+                        {
+                            "chunk_id": chunk.chunk_id,
+                            "timeout": per_chunk_timeout,
+                            "audio_duration": audio_duration,
+                        },
                     )
+
+            if timed_out_chunks:
+                app_logger.audio(
+                    "Chunks still pending after timeout",
+                    {"chunk_ids": timed_out_chunks},
+                )
 
             # 从保存的块引用中提取转录文本
             text_parts = []
             completed_count = 0
 
-            for chunk in pending_chunk_refs:
+            for chunk in sorted(pending_chunk_refs, key=lambda c: c.chunk_id):
                 result = chunk.result_container
                 if result.get("success"):
                     completed_count += 1
