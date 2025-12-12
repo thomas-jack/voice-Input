@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sonicinput"
-version = "0.5.0"
-description = "High-speed voice input tool powered by Whisper AI"
+version = "0.5.1"
+description = "Lightweight voice input tool powered by sherpa-onnx and cloud ASR"
 requires-python = ">=3.10"
 
 # 核心依赖 - 所有模式都需要
