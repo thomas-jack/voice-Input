@@ -48,8 +48,8 @@ class CloudChunkAccumulator:
         self._buffer: List[np.ndarray] = []
         self._buffer_duration = 0.0
 
-        # Chunk tracking
-        self._chunks: List[Tuple[int, Future]] = []
+        # Chunk tracking: (chunk_id, future, audio_length)
+        self._chunks: List[Tuple[int, Future, int]] = []
         self._chunk_counter = 0
 
         # Thread pool for async transcription (max 3 concurrent chunks)
@@ -106,9 +106,9 @@ class CloudChunkAccumulator:
             },
         )
 
-        # Submit async transcription
+        # Submit async transcription and store audio length for dynamic timeout
         future = self._executor.submit(self._transcribe_chunk, chunk_id, chunk_audio)
-        self._chunks.append((chunk_id, future))
+        self._chunks.append((chunk_id, future, len(chunk_audio)))
 
         # Reset buffer
         self._buffer = []
@@ -182,10 +182,10 @@ class CloudChunkAccumulator:
         Wait for all chunks to complete and combine results.
 
         Flushes any remaining buffered audio, waits for all chunk transcriptions
-        to complete (with timeout), and combines the results in order.
+        to complete (with dynamic timeout per chunk), and combines the results in order.
 
         Args:
-            timeout: Maximum wait time in seconds for each chunk
+            timeout: Minimum wait time in seconds (actual timeout is dynamic based on audio length)
 
         Returns:
             Dictionary with keys:
@@ -195,18 +195,28 @@ class CloudChunkAccumulator:
         # Flush any remaining audio
         self._flush_chunk()
 
-        # Wait for all futures and collect results
+        # Wait for all futures and collect results with dynamic timeout per chunk
         results: List[Tuple[int, str]] = []
         failed_chunks: List[int] = []
+        timed_out_chunks: List[int] = []
 
-        for chunk_id, future in self._chunks:
+        for chunk_id, future, audio_length in self._chunks:
+            # Calculate dynamic timeout based on audio length (at least 30 seconds)
+            audio_duration = audio_length / self._sample_rate if audio_length > 0 else 0.0
+            per_chunk_timeout = max(timeout, audio_duration * 2.0)
+
             try:
-                chunk_result = future.result(timeout=timeout)
+                chunk_result = future.result(timeout=per_chunk_timeout)
                 results.append(chunk_result)
             except TimeoutError:
+                timed_out_chunks.append(chunk_id)
                 app_logger.log_audio_event(
                     "Cloud chunk transcription timeout",
-                    {"chunk_id": chunk_id, "timeout": timeout},
+                    {
+                        "chunk_id": chunk_id,
+                        "timeout": per_chunk_timeout,
+                        "audio_duration": audio_duration,
+                    },
                 )
                 failed_chunks.append(chunk_id)
             except Exception as e:
@@ -215,6 +225,12 @@ class CloudChunkAccumulator:
                     f"cloud_chunk_{chunk_id}_transcription_failed",
                 )
                 failed_chunks.append(chunk_id)
+
+        if timed_out_chunks:
+            app_logger.log_audio_event(
+                "Cloud chunks timed out",
+                {"chunk_ids": timed_out_chunks},
+            )
 
         # Sort by chunk_id and combine text
         results.sort(key=lambda x: x[0])
