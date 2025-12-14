@@ -613,6 +613,21 @@ class AudioRecorder(LifecycleComponent, IAudioService):
                 # 首次访问,拼接一次
                 full_audio = np.concatenate(self._audio_data, axis=0).flatten()
 
+            # 关键修复：stop_recording 可能发生在两个 chunk 回调之间，
+            # 此时 _accumulated_audio 只包含上一次 _on_chunk_ready() 时刻的数据。
+            # 如果这里直接复用 _accumulated_audio，会误判“无剩余音频”，导致最后一个分块不被发送。
+            if self._accumulated_audio is not None and self.chunk_size > 0:
+                accumulated_chunks = len(self._accumulated_audio) // self.chunk_size
+                if accumulated_chunks < len(self._audio_data):
+                    new_chunks = self._audio_data[accumulated_chunks:]
+                    if new_chunks:
+                        new_audio = np.concatenate(new_chunks, axis=0).flatten()
+                        if len(new_audio) > 0:
+                            self._accumulated_audio = np.concatenate(
+                                [self._accumulated_audio, new_audio]
+                            )
+                            full_audio = self._accumulated_audio
+
             total_samples = len(full_audio)
 
             # 返回未发送的部分
