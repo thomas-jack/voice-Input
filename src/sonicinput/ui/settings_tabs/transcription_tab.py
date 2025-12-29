@@ -249,11 +249,6 @@ class TranscriptionTab(BaseSettingsTab):
         self.qwen_max_retries_spinbox.setValue(3)
         qwen_layout.addRow("Max Retries:", self.qwen_max_retries_spinbox)
 
-        # Test button
-        test_qwen_button = QPushButton("Test Qwen API Connection")
-        test_qwen_button.clicked.connect(self._test_qwen_api)
-        qwen_layout.addRow("", test_qwen_button)
-
         layout.addWidget(qwen_group)
         self.qwen_group = qwen_group
 

@@ -94,11 +94,17 @@ class AudioInputTab(BaseSettingsTab):
         # 首选方法
         self.input_method_combo = QComboBox()
         self.input_method_combo.addItems(["clipboard", "sendinput"])
+        self.input_method_combo.currentTextChanged.connect(
+            self._update_input_method_visibility
+        )
         method_layout.addRow("Preferred Method:", self.input_method_combo)
 
         # 启用回退
         self.fallback_enabled_checkbox = QCheckBox(
             "Enable fallback to alternative method"
+        )
+        self.fallback_enabled_checkbox.toggled.connect(
+            self._update_input_method_visibility
         )
         method_layout.addRow("", self.fallback_enabled_checkbox)
 
@@ -109,8 +115,8 @@ class AudioInputTab(BaseSettingsTab):
         layout.addWidget(method_group)
 
         # 剪贴板设置组
-        clipboard_group = QGroupBox("Clipboard Settings")
-        clipboard_layout = QFormLayout(clipboard_group)
+        self.clipboard_group = QGroupBox("Clipboard Settings")
+        clipboard_layout = QFormLayout(self.clipboard_group)
 
         # 恢复延迟
         self.clipboard_delay_spinbox = QDoubleSpinBox()
@@ -119,11 +125,11 @@ class AudioInputTab(BaseSettingsTab):
         self.clipboard_delay_spinbox.setSuffix(" seconds")
         clipboard_layout.addRow("Restore Delay:", self.clipboard_delay_spinbox)
 
-        layout.addWidget(clipboard_group)
+        layout.addWidget(self.clipboard_group)
 
         # SendInput设置组
-        sendinput_group = QGroupBox("SendInput Settings")
-        sendinput_layout = QFormLayout(sendinput_group)
+        self.sendinput_group = QGroupBox("SendInput Settings")
+        sendinput_layout = QFormLayout(self.sendinput_group)
 
         # 输入延迟
         self.typing_delay_spinbox = QDoubleSpinBox()
@@ -133,11 +139,11 @@ class AudioInputTab(BaseSettingsTab):
         self.typing_delay_spinbox.setSuffix(" seconds")
         sendinput_layout.addRow("Typing Delay:", self.typing_delay_spinbox)
 
-        layout.addWidget(sendinput_group)
+        layout.addWidget(self.sendinput_group)
 
         # 兼容性测试组
-        test_group = QGroupBox("Compatibility Testing")
-        test_layout = QVBoxLayout(test_group)
+        self.test_group = QGroupBox("Compatibility Testing")
+        test_layout = QVBoxLayout(self.test_group)
 
         test_buttons_layout = QHBoxLayout()
 
@@ -154,7 +160,7 @@ class AudioInputTab(BaseSettingsTab):
         self.input_test_status_label = QLabel("Not tested")
         test_layout.addWidget(self.input_test_status_label)
 
-        layout.addWidget(test_group)
+        layout.addWidget(self.test_group)
 
         layout.addStretch()
 
@@ -187,6 +193,8 @@ class AudioInputTab(BaseSettingsTab):
         self.parent_window.clipboard_delay_spinbox = self.clipboard_delay_spinbox
         self.parent_window.typing_delay_spinbox = self.typing_delay_spinbox
         self.parent_window.input_test_status_label = self.input_test_status_label
+
+        self._update_input_method_visibility()
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -233,6 +241,7 @@ class AudioInputTab(BaseSettingsTab):
             input_config.get("clipboard_restore_delay", 0.5)
         )
         self.typing_delay_spinbox.setValue(input_config.get("typing_delay", 0.01))
+        self._update_input_method_visibility()
 
     def save_config(self) -> Dict[str, Any]:
         """保存UI状态到配置
@@ -263,6 +272,20 @@ class AudioInputTab(BaseSettingsTab):
         }
 
         return config
+
+    def _update_input_method_visibility(self) -> None:
+        preferred_method = self.input_method_combo.currentText()
+        fallback_enabled = self.fallback_enabled_checkbox.isChecked()
+
+        show_clipboard = fallback_enabled or preferred_method == "clipboard"
+        show_sendinput = fallback_enabled or preferred_method == "sendinput"
+
+        self.clipboard_group.setVisible(show_clipboard)
+        self.sendinput_group.setVisible(show_sendinput)
+        self.test_group.setVisible(show_clipboard or show_sendinput)
+
+        self.test_clipboard_button.setVisible(show_clipboard)
+        self.test_sendinput_button.setVisible(show_sendinput)
 
     def _refresh_audio_devices(self) -> None:
         """刷新音频设备列表 - 调用父窗口的方法"""

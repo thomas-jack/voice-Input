@@ -5,7 +5,6 @@
 """
 
 import threading
-import time
 from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
@@ -13,6 +12,7 @@ import numpy as np
 from ...core.base.lifecycle_component import LifecycleComponent
 from ...core.interfaces.speech import ISpeechService
 from ...utils import WhisperLoadError, app_logger
+
 # IConfigReloadable removed - using service rebuild pattern instead
 from .config import ConfigKeys
 from .error_recovery_service import ErrorRecoveryService
@@ -404,7 +404,9 @@ class RefactoredTranscriptionService(LifecycleComponent, ISpeechService):
             timed_out_chunks: List[int] = []
             for chunk in pending_chunk_refs:
                 # 根据音频长度动态计算等待时间，至少30秒
-                audio_duration = len(chunk.audio_data) / 16000 if len(chunk.audio_data) > 0 else 0.0
+                audio_duration = (
+                    len(chunk.audio_data) / 16000 if len(chunk.audio_data) > 0 else 0.0
+                )
                 per_chunk_timeout = max(30.0, audio_duration * 2.0)
 
                 if not chunk.result_event.wait(timeout=per_chunk_timeout):

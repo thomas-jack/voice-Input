@@ -4,9 +4,6 @@
 这个插件支持OpenAI Whisper API作为语音识别后端。
 """
 
-import json
-import time
-import requests
 from typing import Dict, Any, Optional, List
 from sonicinput.core.interfaces import BasePlugin, PluginType, IPluginContext
 
@@ -63,7 +60,9 @@ class WhisperOpenAIPlugin(BasePlugin):
             return False
 
         self._model = context.get_config("whisper_openai.model", "whisper-1")
-        self._base_url = context.get_config("whisper_openai.base_url", "https://api.openai.com/v1/audio/transcriptions")
+        self._base_url = context.get_config(
+            "whisper_openai.base_url", "https://api.openai.com/v1/audio/transcriptions"
+        )
 
         # 测试连接
         if self._test_connection():
@@ -108,20 +107,20 @@ class WhisperOpenAIPlugin(BasePlugin):
     def get_info(self) -> Dict[str, Any]:
         """获取插件信息"""
         info = super().get_info()
-        info.update({
-            "features": [
-                "OpenAI Whisper API支持",
-                "高精度语音识别",
-                "多语言支持",
-                "实时转录"
-            ],
-            "supported_formats": [
-                "wav", "mp3", "m4a", "webm", "ogg"
-            ],
-            "model": self._model,
-            "base_url": self._base_url,
-            "is_available": self._is_available
-        })
+        info.update(
+            {
+                "features": [
+                    "OpenAI Whisper API支持",
+                    "高精度语音识别",
+                    "多语言支持",
+                    "实时转录",
+                ],
+                "supported_formats": ["wav", "mp3", "m4a", "webm", "ogg"],
+                "model": self._model,
+                "base_url": self._base_url,
+                "is_available": self._is_available,
+            }
+        )
         return info
 
     def get_config_schema(self) -> Optional[Dict[str, Any]]:
@@ -129,63 +128,60 @@ class WhisperOpenAIPlugin(BasePlugin):
         return {
             "type": "object",
             "properties": {
-                "api_key": {
-                    "type": "string",
-                    "description": "OpenAI API密钥"
-                },
+                "api_key": {"type": "string", "description": "OpenAI API密钥"},
                 "model": {
                     "type": "string",
                     "default": "whisper-1",
-                    "description": "Whisper模型名称"
+                    "description": "Whisper模型名称",
                 },
                 "base_url": {
                     "type": "string",
                     "default": "https://api.openai.com/v1/audio/transcriptions",
-                    "description": "API基础URL"
+                    "description": "API基础URL",
                 },
                 "language": {
                     "type": "string",
                     "default": "auto",
-                    "description": "转录语言"
+                    "description": "转录语言",
                 },
                 "temperature": {
                     "type": "number",
                     "default": 0.0,
                     "minimum": 0.0,
                     "maximum": 1.0,
-                    "description": "转录温度参数"
+                    "description": "转录温度参数",
                 },
                 "timeout": {
                     "type": "number",
                     "default": 30,
-                    "description": "请求超时时间（秒）"
-                }
+                    "description": "请求超时时间（秒）",
+                },
             },
-            "required": ["api_key"]
+            "required": ["api_key"],
         }
 
-    def transcribe(self, audio_data: bytes, sample_rate: int = 16000) -> Optional[Dict[str, Any]]:
+    def transcribe(
+        self, audio_data: bytes, sample_rate: int = 16000
+    ) -> Optional[Dict[str, Any]]:
         """转录音频数据"""
         if not self._is_available or not self._api_key:
             return None
 
         try:
             # 创建请求
-            headers = {
-                "Authorization": f"Bearer {self._api_key}"
-            }
+            headers = {"Authorization": f"Bearer {self._api_key}"}
 
-            files = {
-                "file": ("audio.wav", audio_data, "audio/wav")
-            }
+            files = {"file": ("audio.wav", audio_data, "audio/wav")}
 
             data = {
                 "model": self._model,
                 "language": self.get_config("language", "auto"),
-                "temperature": self.get_config("temperature", 0.0)
+                "temperature": self.get_config("temperature", 0.0),
             }
 
-            self.log(f"Transcribing audio with OpenAI Whisper ({len(audio_data)} bytes)")
+            self.log(
+                f"Transcribing audio with OpenAI Whisper ({len(audio_data)} bytes)"
+            )
 
             # 发送请求
             response = self._session.post(
@@ -193,7 +189,7 @@ class WhisperOpenAIPlugin(BasePlugin):
                 headers=headers,
                 files=files,
                 data=data,
-                timeout=self.get_config("timeout", 30)
+                timeout=self.get_config("timeout", 30),
             )
 
             if response.status_code == 200:
@@ -211,23 +207,19 @@ class WhisperOpenAIPlugin(BasePlugin):
     def _test_connection(self) -> bool:
         """测试API连接"""
         try:
-            headers = {
-                "Authorization": f"Bearer {self._api_key}"
-            }
+            headers = {"Authorization": f"Bearer {self._api_key}"}
 
             # 创建测试音频数据（很短的静音）
-            test_audio = b'\x00\x00\x00\x00\x00' * 1000  # 1KB of silence
+            test_audio = b"\x00\x00\x00\x00\x00" * 1000  # 1KB of silence
 
-            files = {
-                "file": ("test.wav", test_audio, "audio/wav")
-            }
+            files = {"file": ("test.wav", test_audio, "audio/wav")}
 
             response = self._session.post(
                 self._base_url,
                 headers=headers,
                 files=files,
                 data={"model": self._model},
-                timeout=10
+                timeout=10,
             )
 
             return response.status_code == 200

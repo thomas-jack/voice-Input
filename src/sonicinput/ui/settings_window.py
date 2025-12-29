@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QDoubleSpinBox,
-    QFileDialog,
     QFrame,
     QHBoxLayout,
     QMainWindow,
@@ -879,52 +878,6 @@ class SettingsWindow(QMainWindow):
                     config[key] = value
 
         return config
-
-    def export_config(self) -> None:
-        """导出配置"""
-        file_path, _ = QFileDialog.getSaveFileName(
-            self, "Export Settings", "voice_input_settings.json", "JSON Files (*.json)"
-        )
-        if file_path:
-            try:
-                self.ui_settings_service.export_config(file_path)
-                QMessageBox.information(
-                    self, "Export", "Settings exported successfully!"
-                )
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to export settings: {e}")
-
-    def import_config(self) -> None:
-        """导入配置"""
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "Import Settings", "", "JSON Files (*.json)"
-        )
-        if file_path:
-            try:
-                self.ui_settings_service.import_config(file_path)
-                self.load_current_config()
-                QMessageBox.information(
-                    self, "Import", "Settings imported successfully!"
-                )
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to import settings: {e}")
-
-    def reset_config(self) -> None:
-        """重置配置"""
-        reply = QMessageBox.question(
-            self,
-            "Reset Settings",
-            "Are you sure you want to reset all settings to default values?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            try:
-                self.ui_settings_service.reset_to_defaults()
-                self.load_current_config()
-                QMessageBox.information(self, "Reset", "Settings reset to defaults!")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to reset settings: {e}")
 
     def load_model(self) -> None:
         """加载模型"""

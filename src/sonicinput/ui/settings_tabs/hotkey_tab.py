@@ -45,10 +45,6 @@ class HotkeyTab(BaseSettingsTab):
         # 列表操作按钮
         list_buttons_layout = QHBoxLayout()
 
-        self.add_hotkey_button = QPushButton("Add Hotkey")
-        self.add_hotkey_button.clicked.connect(self._add_new_hotkey)
-        list_buttons_layout.addWidget(self.add_hotkey_button)
-
         self.remove_hotkey_button = QPushButton("Remove Selected")
         self.remove_hotkey_button.clicked.connect(self._remove_selected_hotkey)
         list_buttons_layout.addWidget(self.remove_hotkey_button)
@@ -172,9 +168,7 @@ class HotkeyTab(BaseSettingsTab):
         hotkeys_list = []
         for i in range(self.hotkeys_list.count()):
             hotkey_text = self.hotkeys_list.item(i).text().strip()
-            if hotkey_text and not hotkey_text.startswith(
-                "(New hotkey"
-            ):  # 跳过未编辑的新项
+            if hotkey_text:
                 hotkeys_list.append(hotkey_text)
 
         # 获取后端设置
@@ -189,10 +183,6 @@ class HotkeyTab(BaseSettingsTab):
         }
 
         return config
-
-    def _add_new_hotkey(self) -> None:
-        """添加新的空白快捷键到列表"""
-        self.hotkeys_list.addItem("(New hotkey - double click to edit)")
 
     def _remove_selected_hotkey(self) -> None:
         """移除选中的快捷键"""

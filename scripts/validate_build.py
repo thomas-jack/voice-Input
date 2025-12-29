@@ -8,9 +8,9 @@ import os
 import sys
 import re
 import subprocess
-import json
 from pathlib import Path
 from typing import Dict, Any, Tuple
+
 
 def load_pyproject_version() -> str:
     """Extract version from pyproject.toml"""
@@ -18,12 +18,13 @@ def load_pyproject_version() -> str:
     if not pyproject_path.exists():
         return None, "pyproject.toml not found"
 
-    content = pyproject_path.read_text(encoding='utf-8')
+    content = pyproject_path.read_text(encoding="utf-8")
     match = re.search(r'version\s*=\s*["\']([^"\']+)["\']', content)
     if match:
         return match.group(1), None
     else:
         return None, "Could not extract version from pyproject.toml"
+
 
 def validate_ci_workflow() -> Tuple[bool, str]:
     """Validate CI workflow configuration"""
@@ -33,19 +34,20 @@ def validate_ci_workflow() -> Tuple[bool, str]:
 
     # Basic YAML syntax check
     try:
-        content = ci_path.read_text(encoding='utf-8')
-        if 'jobs:' not in content:
+        content = ci_path.read_text(encoding="utf-8")
+        if "jobs:" not in content:
             return False, "CI workflow missing jobs section"
 
         # Check for required jobs
-        required_jobs = ['lint', 'test', 'quick-test']
+        required_jobs = ["lint", "test", "quick-test"]
         for job in required_jobs:
-            if f'{job}:' not in content:
+            if f"{job}:" not in content:
                 return False, f"CI workflow missing {job} job"
 
         return True, "CI workflow validation passed"
     except Exception as e:
         return False, f"CI workflow validation error: {e}"
+
 
 def validate_build_workflow() -> Tuple[bool, str]:
     """Validate build workflow configuration"""
@@ -54,19 +56,20 @@ def validate_build_workflow() -> Tuple[bool, str]:
         return False, "Build workflow file not found"
 
     try:
-        content = build_path.read_text(encoding='utf-8')
+        content = build_path.read_text(encoding="utf-8")
 
         # Check for version extraction step
-        if 'Extract version from pyproject.toml' not in content:
+        if "Extract version from pyproject.toml" not in content:
             return False, "Build workflow missing version extraction step"
 
         # Check for proper executable naming
-        if 'SonicInput-v$version-win64.exe' not in content:
+        if "SonicInput-v$version-win64.exe" not in content:
             return False, "Build workflow missing optimized executable naming"
 
         return True, "Build workflow validation passed"
     except Exception as e:
         return False, f"Build workflow validation error: {e}"
+
 
 def validate_icon_file() -> Tuple[bool, str]:
     """Validate that icon file exists"""
@@ -80,22 +83,23 @@ def validate_icon_file() -> Tuple[bool, str]:
 
     return True, f"Icon file valid ({size} bytes)"
 
+
 def validate_dependencies() -> Tuple[bool, str]:
     """Validate that required dependencies are available"""
     try:
         # Check if uv is available
-        result = subprocess.run(['uv', '--version'], capture_output=True, text=True)
+        result = subprocess.run(["uv", "--version"], capture_output=True, text=True)
         if result.returncode != 0:
             return False, "uv is not available"
 
         # Check if we can read dependencies
-        result = subprocess.run(['uv', 'pip', 'list'], capture_output=True, text=True)
+        result = subprocess.run(["uv", "pip", "list"], capture_output=True, text=True)
         if result.returncode != 0:
             return False, "Cannot list uv packages"
 
         # Check for key dependencies
         packages = result.stdout.lower()
-        required_packages = ['pyside6', 'requests', 'pydantic']
+        required_packages = ["pyside6", "requests", "pydantic"]
         missing = []
         for pkg in required_packages:
             if pkg not in packages:
@@ -108,6 +112,7 @@ def validate_dependencies() -> Tuple[bool, str]:
     except Exception as e:
         return False, f"Dependency validation error: {e}"
 
+
 def validate_ci_tests() -> Tuple[bool, str]:
     """Validate CI test suite"""
     test_dir = Path("tests/ci")
@@ -117,7 +122,7 @@ def validate_ci_tests() -> Tuple[bool, str]:
     required_files = [
         "tests/ci/run_ci_tests.py",
         "tests/ci/conftest.py",
-        "tests/ci/pytest.ini"
+        "tests/ci/pytest.ini",
     ]
 
     missing_files = []
@@ -131,9 +136,12 @@ def validate_ci_tests() -> Tuple[bool, str]:
     # Try running the CI tests
     try:
         os.chdir("tests/ci")
-        result = subprocess.run([
-            'uv', 'run', 'python', 'run_ci_tests.py', '--quick'
-        ], capture_output=True, text=True, timeout=60)
+        result = subprocess.run(
+            ["uv", "run", "python", "run_ci_tests.py", "--quick"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         os.chdir("../..")
 
         if result.returncode == 0:
@@ -145,12 +153,13 @@ def validate_ci_tests() -> Tuple[bool, str]:
     except Exception as e:
         return False, f"CI test validation error: {e}"
 
+
 def validate_nuitka() -> Tuple[bool, str]:
     """Validate Nuitka installation"""
     try:
-        result = subprocess.run([
-            'uv', 'run', 'nuitka', '--version'
-        ], capture_output=True, text=True)
+        result = subprocess.run(
+            ["uv", "run", "nuitka", "--version"], capture_output=True, text=True
+        )
 
         if result.returncode == 0:
             version = result.stdout.strip()
@@ -159,6 +168,7 @@ def validate_nuitka() -> Tuple[bool, str]:
             return False, "Nuitka not found or not working"
     except Exception as e:
         return False, f"Nuitka validation error: {e}"
+
 
 def generate_build_info() -> Dict[str, Any]:
     """Generate build information"""
@@ -172,8 +182,9 @@ def generate_build_info() -> Dict[str, Any]:
         "build_mode": "cloud",
         "python_version": sys.version.split()[0],
         "platform": sys.platform,
-        "working_directory": os.getcwd()
+        "working_directory": os.getcwd(),
     }
+
 
 def main():
     """Main validation function"""
@@ -184,7 +195,11 @@ def main():
     version, version_error = load_pyproject_version()
 
     validations = [
-        ("Version Configuration", version is not None, version_error if version is None else f"Version {version}"),
+        (
+            "Version Configuration",
+            version is not None,
+            version_error if version is None else f"Version {version}",
+        ),
         ("CI Workflow", *validate_ci_workflow()),
         ("Build Workflow", *validate_build_workflow()),
         ("Icon File", *validate_icon_file()),
@@ -221,6 +236,7 @@ def main():
         print("=== Some validations failed! ===")
         print("Please fix the issues before pushing to GitHub.")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
