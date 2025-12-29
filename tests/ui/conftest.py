@@ -1,4 +1,5 @@
 """UI测试的配置和fixtures - 确保配置文件完全隔离"""
+
 import pytest
 import os
 import json
@@ -8,6 +9,7 @@ from PySide6.QtWidgets import QApplication
 
 
 # ============= 配置隔离 Fixtures =============
+
 
 @pytest.fixture
 def isolated_config(tmp_path):
@@ -25,7 +27,7 @@ def isolated_config(tmp_path):
     real_config = {}
     if real_config_path.exists():
         try:
-            with open(real_config_path, 'r', encoding='utf-8') as f:
+            with open(real_config_path, "r", encoding="utf-8") as f:
                 real_config = json.load(f)
         except:
             pass
@@ -35,61 +37,54 @@ def isolated_config(tmp_path):
         "hotkeys": ["f12"],
         "transcription": {
             "provider": "local",
-            "local": real_config.get("transcription", {}).get("local", {
-                "model": "paraformer",
-                "language": "zh",
-                "auto_load": False,
-                "streaming_mode": "chunked"
-            }),
-            "groq": real_config.get("transcription", {}).get("groq", {
-                "api_key": "",
-                "model": "whisper-large-v3-turbo"
-            }),
-            "siliconflow": real_config.get("transcription", {}).get("siliconflow", {
-                "api_key": "",
-                "model": "FunAudioLLM/SenseVoiceSmall"
-            }),
-            "qwen": real_config.get("transcription", {}).get("qwen", {
-                "api_key": "",
-                "model": "qwen3-asr-flash"
-            })
+            "local": real_config.get("transcription", {}).get(
+                "local",
+                {
+                    "model": "paraformer",
+                    "language": "zh",
+                    "auto_load": False,
+                    "streaming_mode": "chunked",
+                },
+            ),
+            "groq": real_config.get("transcription", {}).get(
+                "groq", {"api_key": "", "model": "whisper-large-v3-turbo"}
+            ),
+            "siliconflow": real_config.get("transcription", {}).get(
+                "siliconflow", {"api_key": "", "model": "FunAudioLLM/SenseVoiceSmall"}
+            ),
+            "qwen": real_config.get("transcription", {}).get(
+                "qwen", {"api_key": "", "model": "qwen3-asr-flash"}
+            ),
         },
         "ai": {
             "enabled": False,
             "provider": "openrouter",
-            "openrouter": real_config.get("ai", {}).get("openrouter", {
-                "api_key": "",
-                "model_id": "anthropic/claude-3-sonnet"
-            }),
-            "groq": real_config.get("ai", {}).get("groq", {
-                "api_key": "",
-                "model_id": "llama3-70b-8192"
-            }),
-            "nvidia": real_config.get("ai", {}).get("nvidia", {
-                "api_key": "",
-                "model_id": "nvidia/llama-3.1-nemotron-70b-instruct"
-            }),
-            "openai_compatible": real_config.get("ai", {}).get("openai_compatible", {
-                "api_key": "",
-                "base_url": "",
-                "model_id": ""
-            })
+            "openrouter": real_config.get("ai", {}).get(
+                "openrouter", {"api_key": "", "model_id": "anthropic/claude-3-sonnet"}
+            ),
+            "groq": real_config.get("ai", {}).get(
+                "groq", {"api_key": "", "model_id": "llama3-70b-8192"}
+            ),
+            "nvidia": real_config.get("ai", {}).get(
+                "nvidia",
+                {"api_key": "", "model_id": "nvidia/llama-3.1-nemotron-70b-instruct"},
+            ),
+            "openai_compatible": real_config.get("ai", {}).get(
+                "openai_compatible", {"api_key": "", "base_url": "", "model_id": ""}
+            ),
         },
         "audio": {
             "sample_rate": 16000,
             "channels": 1,
             "auto_stop_enabled": True,
-            "max_recording_duration": 60
+            "max_recording_duration": 60,
         },
         "ui": {
             "start_minimized": False,
             "tray_notifications": True,
-            "show_overlay": True
+            "show_overlay": True,
         },
-        "logging": {
-            "level": "WARNING",
-            "console_output": False
-        }
+        "logging": {"level": "WARNING", "console_output": False},
     }
 
     # 写入配置文件
@@ -104,12 +99,14 @@ def mock_config_service(isolated_config):
 
     这个mock确保UI组件使用隔离的配置,不会触碰真实配置。
     """
-    from sonicinput.core.services.config.config_service_refactored import RefactoredConfigService
+    from sonicinput.core.services.config.config_service_refactored import (
+        RefactoredConfigService,
+    )
 
     # 创建使用临时配置文件的ConfigService
     config_service = RefactoredConfigService(
         config_path=str(isolated_config),
-        event_service=None  # UI测试不需要事件服务
+        event_service=None,  # UI测试不需要事件服务
     )
 
     # 必须调用 load_config() 或 start() 来加载配置
@@ -126,8 +123,12 @@ def verify_real_config_untouched():
     # 记录初始状态
     initial_state = {
         "exists": real_config_path.exists(),
-        "mtime": real_config_path.stat().st_mtime if real_config_path.exists() else None,
-        "content": real_config_path.read_text(encoding='utf-8') if real_config_path.exists() else None
+        "mtime": real_config_path.stat().st_mtime
+        if real_config_path.exists()
+        else None,
+        "content": real_config_path.read_text(encoding="utf-8")
+        if real_config_path.exists()
+        else None,
     }
 
     yield
@@ -135,13 +136,16 @@ def verify_real_config_untouched():
     # 验证配置文件未被修改
     if initial_state["exists"]:
         assert real_config_path.exists(), "Real config file was deleted during test!"
-        assert real_config_path.stat().st_mtime == initial_state["mtime"], \
+        assert real_config_path.stat().st_mtime == initial_state["mtime"], (
             "Real config file was modified during test!"
-        assert real_config_path.read_text(encoding='utf-8') == initial_state["content"], \
-            "Real config file content was changed during test!"
+        )
+        assert (
+            real_config_path.read_text(encoding="utf-8") == initial_state["content"]
+        ), "Real config file content was changed during test!"
 
 
 # ============= UI组件 Mock Services =============
+
 
 @pytest.fixture
 def mock_ui_services():
@@ -164,6 +168,7 @@ def mock_ui_services():
 
 
 # ============= RecordingOverlay Fixtures =============
+
 
 @pytest.fixture
 def recording_overlay(qtbot):
@@ -190,6 +195,7 @@ def recording_overlay(qtbot):
 
 # ============= SettingsWindow Fixtures =============
 
+
 @pytest.fixture
 def settings_window(qtbot, mock_config_service):
     """创建 SettingsWindow 实例(使用隔离配置)
@@ -201,7 +207,9 @@ def settings_window(qtbot, mock_config_service):
     # 创建mock UI服务,但使用真实的配置服务方法
     mock_ui_settings_service = MagicMock()
     mock_ui_settings_service.config_path = mock_config_service.config_path
-    mock_ui_settings_service.config_service = mock_config_service  # Expose config_service for tests
+    mock_ui_settings_service.config_service = (
+        mock_config_service  # Expose config_service for tests
+    )
 
     # 使用真实配置服务的方法
     mock_ui_settings_service.get_setting = mock_config_service.get_setting
@@ -210,7 +218,9 @@ def settings_window(qtbot, mock_config_service):
     mock_ui_settings_service.save_config = mock_config_service.save_config
     mock_ui_settings_service.export_config = mock_config_service.export_config
     mock_ui_settings_service.import_config = mock_config_service.import_config
-    mock_ui_settings_service.reset_to_defaults = mock_config_service.reset_to_default  # Note: method is reset_to_default not reset_to_defaults
+    mock_ui_settings_service.reset_to_defaults = (
+        mock_config_service.reset_to_default
+    )  # Note: method is reset_to_default not reset_to_defaults
 
     # Mock其他方法
     mock_event_service = MagicMock()
@@ -227,7 +237,7 @@ def settings_window(qtbot, mock_config_service):
     # 创建设置窗口
     window = SettingsWindow(
         ui_settings_service=mock_ui_settings_service,
-        ui_model_service=mock_ui_model_service
+        ui_model_service=mock_ui_model_service,
     )
 
     qtbot.addWidget(window)
@@ -240,6 +250,7 @@ def settings_window(qtbot, mock_config_service):
 
 
 # ============= SystemTray Fixtures =============
+
 
 @pytest.fixture
 def system_tray_widget(qtbot, mock_config_service):
@@ -257,6 +268,7 @@ def system_tray_widget(qtbot, mock_config_service):
 
 
 # ============= pytest-qt 配置 =============
+
 
 @pytest.fixture(scope="session")
 def qapp_args():

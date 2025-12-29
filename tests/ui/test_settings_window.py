@@ -2,6 +2,7 @@
 
 测试SettingsWindow的功能,确保使用临时配置文件,不修改真实配置。
 """
+
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox, QPushButton, QComboBox
@@ -13,7 +14,9 @@ import os
 class TestSettingsWindowCreation:
     """SettingsWindow创建和初始化测试"""
 
-    def test_settings_window_creation(self, qtbot, settings_window, verify_real_config_untouched):
+    def test_settings_window_creation(
+        self, qtbot, settings_window, verify_real_config_untouched
+    ):
         """测试设置窗口可以被创建(不修改真实配置)"""
         assert settings_window is not None
         assert not settings_window.isVisible()
@@ -30,7 +33,7 @@ class TestSettingsWindowCreation:
 
     def test_tabs_exist(self, qtbot, settings_window):
         """测试所有标签页存在"""
-        assert hasattr(settings_window, 'tab_widget')
+        assert hasattr(settings_window, "tab_widget")
         assert settings_window.tab_widget is not None
         assert settings_window.tab_widget.count() > 0
 
@@ -41,32 +44,32 @@ class TestSettingsWindowTabs:
 
     def test_application_tab_exists(self, qtbot, settings_window):
         """测试应用程序标签页存在"""
-        assert hasattr(settings_window, 'application_tab')
+        assert hasattr(settings_window, "application_tab")
         assert settings_window.application_tab is not None
 
     def test_hotkey_tab_exists(self, qtbot, settings_window):
         """测试热键标签页存在"""
-        assert hasattr(settings_window, 'hotkey_tab')
+        assert hasattr(settings_window, "hotkey_tab")
         assert settings_window.hotkey_tab is not None
 
     def test_transcription_tab_exists(self, qtbot, settings_window):
         """测试转录标签页存在"""
-        assert hasattr(settings_window, 'transcription_tab')
+        assert hasattr(settings_window, "transcription_tab")
         assert settings_window.transcription_tab is not None
 
     def test_ai_tab_exists(self, qtbot, settings_window):
         """测试AI标签页存在"""
-        assert hasattr(settings_window, 'ai_tab')
+        assert hasattr(settings_window, "ai_tab")
         assert settings_window.ai_tab is not None
 
     def test_audio_input_tab_exists(self, qtbot, settings_window):
         """测试音频输入标签页存在"""
-        assert hasattr(settings_window, 'audio_input_tab')
+        assert hasattr(settings_window, "audio_input_tab")
         assert settings_window.audio_input_tab is not None
 
     def test_history_tab_exists(self, qtbot, settings_window):
         """测试历史记录标签页存在"""
-        assert hasattr(settings_window, 'history_tab')
+        assert hasattr(settings_window, "history_tab")
         assert settings_window.history_tab is not None
 
     def test_tab_switching(self, qtbot, settings_window, verify_real_config_untouched):
@@ -96,7 +99,9 @@ class TestSettingsWindowButtons:
         assert cancel_btn is not None
         assert cancel_btn.text() in ["Cancel", "取消"]
 
-    def test_cancel_button_closes_window(self, qtbot, settings_window, verify_real_config_untouched):
+    def test_cancel_button_closes_window(
+        self, qtbot, settings_window, verify_real_config_untouched
+    ):
         """测试取消按钮关闭窗口(不修改真实配置)"""
         # 显示窗口
         settings_window.show()
@@ -121,13 +126,22 @@ class TestSettingsWindowConfigIsolation:
         config_path = settings_window.ui_settings_service.config_path
 
         # 验证不是真实配置路径
-        real_config_path = Path(os.getenv("APPDATA", ".")) / "SonicInput" / "config.json"
+        real_config_path = (
+            Path(os.getenv("APPDATA", ".")) / "SonicInput" / "config.json"
+        )
         assert str(config_path) != str(real_config_path)
 
         # 验证是临时路径
         assert str(config_path) == str(isolated_config)
 
-    def test_apply_writes_to_temp_config(self, qtbot, settings_window, isolated_config, verify_real_config_untouched, monkeypatch):
+    def test_apply_writes_to_temp_config(
+        self,
+        qtbot,
+        settings_window,
+        isolated_config,
+        verify_real_config_untouched,
+        monkeypatch,
+    ):
         """测试应用设置写入临时配置文件,不修改真实配置"""
         # Mock QMessageBox to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
@@ -153,16 +167,20 @@ class TestSettingsWindowConfigIsolation:
 
         # verify_real_config_untouched fixture会自动验证真实配置未被修改
 
-    def test_real_config_never_touched(self, qtbot, settings_window, verify_real_config_untouched, monkeypatch):
+    def test_real_config_never_touched(
+        self, qtbot, settings_window, verify_real_config_untouched, monkeypatch
+    ):
         """显式测试:真实配置文件永远不被触碰"""
         # Mock QMessageBox to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
-        real_config_path = Path(os.getenv("APPDATA", ".")) / "SonicInput" / "config.json"
+        real_config_path = (
+            Path(os.getenv("APPDATA", ".")) / "SonicInput" / "config.json"
+        )
 
         if real_config_path.exists():
             original_mtime = real_config_path.stat().st_mtime
-            original_content = real_config_path.read_text(encoding='utf-8')
+            original_content = real_config_path.read_text(encoding="utf-8")
 
             # 显示窗口
             settings_window.show()
@@ -184,7 +202,7 @@ class TestSettingsWindowConfigIsolation:
 
             # 验证真实配置未被修改
             assert real_config_path.stat().st_mtime == original_mtime
-            assert real_config_path.read_text(encoding='utf-8') == original_content
+            assert real_config_path.read_text(encoding="utf-8") == original_content
 
 
 @pytest.mark.gui
@@ -193,14 +211,18 @@ class TestSettingsWindowSignals:
 
     def test_settings_changed_signal(self, qtbot, settings_window):
         """测试设置变更信号"""
-        with qtbot.waitSignal(settings_window.settings_changed, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            settings_window.settings_changed, timeout=1000
+        ) as blocker:
             settings_window.settings_changed.emit("test_key", "test_value")
 
         assert blocker.args == ["test_key", "test_value"]
 
     def test_hotkey_test_signal(self, qtbot, settings_window):
         """测试热键测试信号"""
-        with qtbot.waitSignal(settings_window.hotkey_test_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            settings_window.hotkey_test_requested, timeout=1000
+        ) as blocker:
             settings_window.hotkey_test_requested.emit("f12")
 
         assert blocker.args == ["f12"]
@@ -212,7 +234,9 @@ class TestSettingsWindowSignals:
 
     def test_model_load_signal(self, qtbot, settings_window):
         """测试模型加载信号"""
-        with qtbot.waitSignal(settings_window.model_load_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            settings_window.model_load_requested, timeout=1000
+        ) as blocker:
             settings_window.model_load_requested.emit("base")
 
         assert blocker.args == ["base"]
@@ -222,13 +246,15 @@ class TestSettingsWindowSignals:
 class TestSettingsWindowDialogs:
     """SettingsWindow对话框测试 - 使用mock避免阻塞"""
 
-    def test_reset_settings_confirmation(self, qtbot, settings_window, monkeypatch, verify_real_config_untouched):
+    def test_reset_settings_confirmation(
+        self, qtbot, settings_window, monkeypatch, verify_real_config_untouched
+    ):
         """测试重置设置确认对话框(mock)"""
         # Mock QMessageBox.question to always return Yes
         monkeypatch.setattr(
             QMessageBox,
             "question",
-            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
         )
 
         # 显示窗口
@@ -254,9 +280,16 @@ class TestSettingsWindowLoadSave:
         qtbot.wait(100)
 
         # 验证配置被加载(检查内部状态)
-        assert hasattr(settings_window, 'current_config')
+        assert hasattr(settings_window, "current_config")
 
-    def test_multiple_save_operations(self, qtbot, settings_window, isolated_config, verify_real_config_untouched, monkeypatch):
+    def test_multiple_save_operations(
+        self,
+        qtbot,
+        settings_window,
+        isolated_config,
+        verify_real_config_untouched,
+        monkeypatch,
+    ):
         """测试多次保存操作只修改临时配置"""
         # Mock QMessageBox to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
@@ -276,7 +309,9 @@ class TestSettingsWindowLoadSave:
 class TestSettingsWindowCoreButtons:
     """SettingsWindow核心按钮功能测试"""
 
-    def test_apply_button_saves_config_and_keeps_open(self, qtbot, settings_window, isolated_config, monkeypatch):
+    def test_apply_button_saves_config_and_keeps_open(
+        self, qtbot, settings_window, isolated_config, monkeypatch
+    ):
         """测试Apply按钮保存配置且窗口保持打开"""
         # Mock QMessageBox to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
@@ -299,7 +334,9 @@ class TestSettingsWindowCoreButtons:
         # 验证窗口仍然可见
         assert settings_window.isVisible()
 
-    def test_ok_button_saves_and_closes(self, qtbot, settings_window, isolated_config, monkeypatch):
+    def test_ok_button_saves_and_closes(
+        self, qtbot, settings_window, isolated_config, monkeypatch
+    ):
         """测试OK按钮保存配置并关闭窗口"""
         # Mock QMessageBox to avoid blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
@@ -323,7 +360,9 @@ class TestSettingsWindowCoreButtons:
         qtbot.waitUntil(lambda: not settings_window.isVisible(), timeout=2000)
         assert not settings_window.isVisible()
 
-    def test_reset_tab_button_resets_config(self, qtbot, settings_window, isolated_config, monkeypatch):
+    def test_reset_tab_button_resets_config(
+        self, qtbot, settings_window, isolated_config, monkeypatch
+    ):
         """测试Reset Tab按钮实际重置配置"""
         # Mock get_default_config to return plain dict (avoid pickle issue)
         plain_default_config = {
@@ -342,14 +381,14 @@ class TestSettingsWindowCoreButtons:
         monkeypatch.setattr(
             settings_window.ui_settings_service,
             "get_default_config",
-            lambda: plain_default_config
+            lambda: plain_default_config,
         )
 
         # Mock confirmation dialog - return Yes
         monkeypatch.setattr(
             QMessageBox,
             "question",
-            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
         )
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
@@ -367,13 +406,15 @@ class TestSettingsWindowCoreButtons:
         # Verify setting was reset to default
         assert settings_window.application_tab.log_level_combo.currentText() == "INFO"
 
-    def test_reset_tab_button_cancel(self, qtbot, settings_window, isolated_config, monkeypatch):
+    def test_reset_tab_button_cancel(
+        self, qtbot, settings_window, isolated_config, monkeypatch
+    ):
         """测试取消Reset Tab操作"""
         # Mock QMessageBox.question to return No (cancel)
         monkeypatch.setattr(
             QMessageBox,
             "question",
-            lambda *args, **kwargs: QMessageBox.StandardButton.No
+            lambda *args, **kwargs: QMessageBox.StandardButton.No,
         )
 
         # 显示窗口
@@ -398,7 +439,9 @@ class TestSettingsWindowCoreButtons:
 class TestConfigManagementIntegration:
     """配置管理集成测试 - 使用真实文件I/O"""
 
-    def test_export_config_creates_json_with_envelope(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+    def test_export_config_creates_json_with_envelope(
+        self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch
+    ):
         """测试导出配置创建带envelope的JSON"""
         import json
         from PySide6.QtWidgets import QFileDialog
@@ -407,6 +450,7 @@ class TestConfigManagementIntegration:
 
         # Track any errors
         errors = []
+
         def mock_critical(*args, **kwargs):
             errors.append(str(args))
 
@@ -419,7 +463,7 @@ class TestConfigManagementIntegration:
         monkeypatch.setattr(
             QFileDialog,
             "getSaveFileName",
-            lambda *args, **kwargs: (str(export_file), "JSON Files (*.json)")
+            lambda *args, **kwargs: (str(export_file), "JSON Files (*.json)"),
         )
 
         settings_window.show()
@@ -437,7 +481,7 @@ class TestConfigManagementIntegration:
         assert export_file.exists()
 
         # Verify JSON structure
-        with open(export_file, 'r', encoding='utf-8') as f:
+        with open(export_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
         assert "version" in data
@@ -448,9 +492,12 @@ class TestConfigManagementIntegration:
 
         # Verify exported_at is ISO format
         from datetime import datetime
+
         datetime.fromisoformat(data["exported_at"])  # Should not raise
 
-    def test_export_config_writes_utf8_correctly(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+    def test_export_config_writes_utf8_correctly(
+        self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch
+    ):
         """测试导出配置正确写入UTF-8编码"""
         import json
         from PySide6.QtWidgets import QFileDialog
@@ -465,7 +512,7 @@ class TestConfigManagementIntegration:
         monkeypatch.setattr(
             QFileDialog,
             "getSaveFileName",
-            lambda *args, **kwargs: (str(export_file), "")
+            lambda *args, **kwargs: (str(export_file), ""),
         )
 
         # Set some config with Chinese characters
@@ -477,17 +524,19 @@ class TestConfigManagementIntegration:
         qtbot.wait(200)
 
         # Read and verify UTF-8
-        with open(export_file, 'r', encoding='utf-8') as f:
+        with open(export_file, "r", encoding="utf-8") as f:
             content = f.read()
             assert "测试中文" in content  # Should be readable
 
         # Verify ensure_ascii=False (Chinese chars not escaped)
-        with open(export_file, 'rb') as f:
+        with open(export_file, "rb") as f:
             raw = f.read()
             # UTF-8 encoded Chinese should be multi-byte, not \\uXXXX
-            assert b'\\u6d4b' not in raw  # Should NOT be Unicode-escaped
+            assert b"\\u6d4b" not in raw  # Should NOT be Unicode-escaped
 
-    def test_import_config_merges_with_existing(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+    def test_import_config_merges_with_existing(
+        self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch
+    ):
         """测试导入配置深度合并(不是替换)"""
         import json
         from PySide6.QtWidgets import QFileDialog
@@ -497,14 +546,9 @@ class TestConfigManagementIntegration:
         import_data = {
             "version": "1.0",
             "exported_at": "2025-11-12T10:00:00",
-            "config": {
-                "logging": {
-                    "level": "DEBUG"
-                },
-                "new_key": "new_value"
-            }
+            "config": {"logging": {"level": "DEBUG"}, "new_key": "new_value"},
         }
-        with open(import_file, 'w', encoding='utf-8') as f:
+        with open(import_file, "w", encoding="utf-8") as f:
             json.dump(import_data, f)
 
         # Get current config state
@@ -518,7 +562,7 @@ class TestConfigManagementIntegration:
         monkeypatch.setattr(
             QFileDialog,
             "getOpenFileName",
-            lambda *args, **kwargs: (str(import_file), "")
+            lambda *args, **kwargs: (str(import_file), ""),
         )
 
         settings_window.show()
@@ -527,11 +571,18 @@ class TestConfigManagementIntegration:
         qtbot.wait(200)
 
         # Verify merge: new key added, existing keys preserved
-        assert settings_window.ui_settings_service.get_setting("logging.level") == "DEBUG"
+        assert (
+            settings_window.ui_settings_service.get_setting("logging.level") == "DEBUG"
+        )
         assert settings_window.ui_settings_service.get_setting("new_key") == "new_value"
-        assert settings_window.ui_settings_service.get_setting("hotkeys") == original_hotkeys
+        assert (
+            settings_window.ui_settings_service.get_setting("hotkeys")
+            == original_hotkeys
+        )
 
-    def test_import_config_updates_ui(self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch):
+    def test_import_config_updates_ui(
+        self, qtbot, settings_window, isolated_config, tmp_path, monkeypatch
+    ):
         """测试导入配置后更新UI"""
         import json
         from PySide6.QtWidgets import QFileDialog
@@ -540,11 +591,9 @@ class TestConfigManagementIntegration:
         import_data = {
             "version": "1.0",
             "exported_at": "2025-11-12T10:00:00",
-            "config": {
-                "logging": {"level": "ERROR"}
-            }
+            "config": {"logging": {"level": "ERROR"}},
         }
-        with open(import_file, 'w', encoding='utf-8') as f:
+        with open(import_file, "w", encoding="utf-8") as f:
             json.dump(import_data, f)
 
         # Mock ALL QMessageBox dialogs to prevent blocking
@@ -555,13 +604,16 @@ class TestConfigManagementIntegration:
         monkeypatch.setattr(
             QFileDialog,
             "getOpenFileName",
-            lambda *args, **kwargs: (str(import_file), "")
+            lambda *args, **kwargs: (str(import_file), ""),
         )
 
         # Track if load_current_config was called
         load_called = []
         original_load = settings_window.load_current_config
-        settings_window.load_current_config = lambda: (load_called.append(True), original_load())[1]
+        settings_window.load_current_config = lambda: (
+            load_called.append(True),
+            original_load(),
+        )[1]
 
         settings_window.show()
         qtbot.waitExposed(settings_window)
@@ -572,14 +624,16 @@ class TestConfigManagementIntegration:
         assert len(load_called) == 1  # load_current_config called
         assert settings_window.application_tab.log_level_combo.currentText() == "ERROR"
 
-    def test_reset_to_defaults_resets_all_keys(self, qtbot, settings_window, isolated_config, monkeypatch):
+    def test_reset_to_defaults_resets_all_keys(
+        self, qtbot, settings_window, isolated_config, monkeypatch
+    ):
         """测试重置默认配置重置所有键"""
         from sonicinput.core.services.config.config_defaults import get_default_config
 
         monkeypatch.setattr(
             QMessageBox,
             "question",
-            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
         )
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
@@ -588,7 +642,9 @@ class TestConfigManagementIntegration:
 
         # Change multiple settings
         settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
-        settings_window.findChild(QPushButton, "apply_btn").click()  # Use window-level apply button
+        settings_window.findChild(
+            QPushButton, "apply_btn"
+        ).click()  # Use window-level apply button
         qtbot.wait(100)
 
         # Reset to defaults
@@ -601,14 +657,16 @@ class TestConfigManagementIntegration:
 
         assert current_config["logging"]["level"] == defaults["logging"]["level"]
 
-    def test_reset_to_defaults_saves_to_disk(self, qtbot, settings_window, isolated_config, monkeypatch):
+    def test_reset_to_defaults_saves_to_disk(
+        self, qtbot, settings_window, isolated_config, monkeypatch
+    ):
         """测试重置默认配置保存到磁盘"""
         import json
 
         monkeypatch.setattr(
             QMessageBox,
             "question",
-            lambda *args, **kwargs: QMessageBox.StandardButton.Yes
+            lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
         )
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
 
@@ -623,16 +681,19 @@ class TestConfigManagementIntegration:
 
         # Verify file exists and contains default config
         assert config_path.exists()
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             saved_config = json.load(f)
 
         from sonicinput.core.services.config.config_defaults import get_default_config
+
         defaults = get_default_config()
 
         # Key configs should match defaults
         assert saved_config["logging"] == defaults["logging"]
 
-    def test_reset_to_defaults_shows_confirmation(self, qtbot, settings_window, monkeypatch):
+    def test_reset_to_defaults_shows_confirmation(
+        self, qtbot, settings_window, monkeypatch
+    ):
         """测试重置默认配置显示确认对话框"""
         dialog_called = []
 
@@ -650,5 +711,3 @@ class TestConfigManagementIntegration:
 
         # Verify confirmation dialog was shown
         assert len(dialog_called) == 1
-
-

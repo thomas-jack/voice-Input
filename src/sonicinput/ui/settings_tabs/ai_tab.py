@@ -139,7 +139,9 @@ class AITab(BaseSettingsTab):
 
         # Base URL
         self.openai_compatible_base_url_input = QLineEdit()
-        self.openai_compatible_base_url_input.setObjectName("openai_compatible_base_url_input")
+        self.openai_compatible_base_url_input.setObjectName(
+            "openai_compatible_base_url_input"
+        )
         self.openai_compatible_base_url_input.setPlaceholderText(
             "http://localhost:1234/v1"
         )
@@ -150,7 +152,9 @@ class AITab(BaseSettingsTab):
         # API Key (optional)
         openai_compatible_api_key_layout = QHBoxLayout()
         self.openai_compatible_api_key_input = QLineEdit()
-        self.openai_compatible_api_key_input.setObjectName("openai_compatible_api_key_input")
+        self.openai_compatible_api_key_input.setObjectName(
+            "openai_compatible_api_key_input"
+        )
         self.openai_compatible_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
         self.openai_compatible_api_key_input.setPlaceholderText(
             "Optional (for services requiring auth)"

@@ -3,6 +3,7 @@
 Tests for LifecycleComponent base class that manages component start/stop lifecycle.
 This is a critical foundation for all stateful services in the application.
 """
+
 import pytest
 from unittest.mock import Mock, patch
 
@@ -313,6 +314,7 @@ class TestLifecycleWithResources:
 
     def test_resource_acquisition_on_start(self):
         """Test resources are acquired on start"""
+
         class ResourceComponent(LifecycleComponent):
             def __init__(self):
                 super().__init__("ResourceComponent")
@@ -333,6 +335,7 @@ class TestLifecycleWithResources:
 
     def test_resource_release_on_stop(self):
         """Test resources are released on stop"""
+
         class ResourceComponent(LifecycleComponent):
             def __init__(self):
                 super().__init__("ResourceComponent")
@@ -354,6 +357,7 @@ class TestLifecycleWithResources:
 
     def test_resource_cleanup_on_failed_start(self):
         """Test resources are cleaned up on failed start"""
+
         class ResourceComponent(LifecycleComponent):
             def __init__(self):
                 super().__init__("ResourceComponent")

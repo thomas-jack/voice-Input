@@ -3,6 +3,7 @@
 Tests for configuration hot reload functionality across all services.
 This is a critical feature that allows users to change settings without restarting.
 """
+
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 from typing import List, Dict, Any
@@ -25,7 +26,9 @@ class MockReloadableService:
     def get_config_dependencies(self) -> List[str]:
         return self.config_deps
 
-    def on_config_changed(self, changed_keys: List[str], new_config: Dict[str, Any]) -> bool:
+    def on_config_changed(
+        self, changed_keys: List[str], new_config: Dict[str, Any]
+    ) -> bool:
         self.reload_called = True
         self.reload_count += 1
         self.last_changed_keys = changed_keys
@@ -129,11 +132,10 @@ class TestHotReloadManager:
         new_config = {
             "audio": {"device_id": 2},
             "transcription": {"provider": "groq"},
-            "hotkeys": {"keys": ["f9"]}
+            "hotkeys": {"keys": ["f9"]},
         }
         manager.notify_config_changed(
-            ["audio.device_id", "transcription.provider", "hotkeys.keys"],
-            new_config
+            ["audio.device_id", "transcription.provider", "hotkeys.keys"], new_config
         )
 
         # Verify reload order matches RELOAD_ORDER
@@ -198,7 +200,10 @@ class TestHotkeyHotReload:
     def mock_hotkey_service(self):
         """Create mock hotkey service"""
         service = Mock()
-        service.get_config_dependencies.return_value = ["hotkeys.keys", "hotkeys.backend"]
+        service.get_config_dependencies.return_value = [
+            "hotkeys.keys",
+            "hotkeys.backend",
+        ]
         service.on_config_changed.return_value = True
         return service
 
@@ -235,7 +240,10 @@ class TestAudioDeviceHotReload:
     def mock_audio_service(self):
         """Create mock audio service"""
         service = Mock()
-        service.get_config_dependencies.return_value = ["audio.device_id", "audio.sample_rate"]
+        service.get_config_dependencies.return_value = [
+            "audio.device_id",
+            "audio.sample_rate",
+        ]
         service.on_config_changed.return_value = True
         return service
 
@@ -272,7 +280,7 @@ class TestTranscriptionProviderHotReload:
         service.get_config_dependencies.return_value = [
             "transcription.provider",
             "transcription.local.model",
-            "transcription.groq.api_key"
+            "transcription.groq.api_key",
         ]
         service.on_config_changed.return_value = True
         return service
@@ -294,7 +302,9 @@ class TestTranscriptionProviderHotReload:
         manager.register_service("speech", mock_speech_service)
 
         new_config = {"transcription": {"local": {"model": "zipformer"}}}
-        result = manager.notify_config_changed(["transcription.local.model"], new_config)
+        result = manager.notify_config_changed(
+            ["transcription.local.model"], new_config
+        )
 
         assert result is True
         mock_speech_service.on_config_changed.assert_called_once()
@@ -305,7 +315,9 @@ class TestTranscriptionProviderHotReload:
         manager.register_service("speech", mock_speech_service)
 
         new_config = {"transcription": {"groq": {"api_key": "new-key"}}}
-        result = manager.notify_config_changed(["transcription.groq.api_key"], new_config)
+        result = manager.notify_config_changed(
+            ["transcription.groq.api_key"], new_config
+        )
 
         assert result is True
         mock_speech_service.on_config_changed.assert_called_once()
@@ -321,7 +333,7 @@ class TestAIProviderHotReload:
         service.get_config_dependencies.return_value = [
             "ai.enabled",
             "ai.provider",
-            "ai.openrouter.api_key"
+            "ai.openrouter.api_key",
         ]
         service.on_config_changed.return_value = True
         return service
@@ -387,11 +399,10 @@ class TestMultiServiceHotReload:
         new_config = {
             "audio": {"device_id": 2},
             "transcription": {"provider": "groq"},
-            "hotkeys": {"keys": ["f9"]}
+            "hotkeys": {"keys": ["f9"]},
         }
         result = manager.notify_config_changed(
-            ["audio.device_id", "transcription.provider", "hotkeys.keys"],
-            new_config
+            ["audio.device_id", "transcription.provider", "hotkeys.keys"], new_config
         )
 
         assert result is True

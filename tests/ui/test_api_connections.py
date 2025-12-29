@@ -6,6 +6,7 @@
 - 使用qtbot.waitUntil()等待线程完成
 - 验证成功/失败对话框的显示
 """
+
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from PySide6.QtWidgets import QMessageBox, QComboBox, QLineEdit, QPushButton
@@ -15,7 +16,9 @@ from PySide6.QtCore import Qt
 class TestAITabAPIConnections:
     """AI Tab API连接测试"""
 
-    def test_openrouter_api_connection_success(self, qtbot, settings_window, monkeypatch):
+    def test_openrouter_api_connection_success(
+        self, qtbot, settings_window, monkeypatch
+    ):
         """测试OpenRouter API连接成功"""
         # Mock OpenRouter客户端
         mock_client = Mock()
@@ -29,7 +32,9 @@ class TestAITabAPIConnections:
 
         monkeypatch.setattr(QMessageBox, "information", mock_info)
 
-        with patch("sonicinput.ai.openrouter.OpenRouterClient", return_value=mock_client):
+        with patch(
+            "sonicinput.ai.openrouter.OpenRouterClient", return_value=mock_client
+        ):
             # 设置UI
             settings_window.show()
             qtbot.waitExposed(settings_window)
@@ -49,15 +54,14 @@ class TestAITabAPIConnections:
             qtbot.wait(50)
 
             # 点击测试按钮(启动真实线程)
-            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn = ai_tab.widget.findChild(
+                QPushButton, "test_connection_btn"
+            )
             test_connection_btn.click()
             qtbot.wait(100)  # 线程启动延迟
 
             # 等待线程完成并显示对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功对话框显示
             assert len(dialog_shown) == 1
@@ -95,20 +99,21 @@ class TestAITabAPIConnections:
             qtbot.wait(100)  # 等待provider切换完成
 
             # 设置API key
-            groq_api_key_input = ai_tab.widget.findChild(QLineEdit, "groq_api_key_input")
+            groq_api_key_input = ai_tab.widget.findChild(
+                QLineEdit, "groq_api_key_input"
+            )
             groq_api_key_input.setText("test-groq-key-67890")
             qtbot.wait(50)
 
             # 点击测试按钮
-            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn = ai_tab.widget.findChild(
+                QPushButton, "test_connection_btn"
+            )
             test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功
             assert len(dialog_shown) == 1
@@ -143,27 +148,30 @@ class TestAITabAPIConnections:
             qtbot.wait(100)
 
             # 设置API key
-            nvidia_api_key_input = ai_tab.widget.findChild(QLineEdit, "nvidia_api_key_input")
+            nvidia_api_key_input = ai_tab.widget.findChild(
+                QLineEdit, "nvidia_api_key_input"
+            )
             nvidia_api_key_input.setText("invalid-nvidia-key")
             qtbot.wait(50)
 
             # 点击测试按钮
-            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn = ai_tab.widget.findChild(
+                QPushButton, "test_connection_btn"
+            )
             test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待失败对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证失败对话框显示
             assert len(dialog_shown) == 1
             assert "failed" in dialog_shown[0][1].lower()
             assert "Invalid API key" in dialog_shown[0][1]
 
-    def test_openai_compatible_api_connection_success(self, qtbot, settings_window, monkeypatch):
+    def test_openai_compatible_api_connection_success(
+        self, qtbot, settings_window, monkeypatch
+    ):
         """测试OpenAI Compatible API连接成功"""
         # Mock OpenAI Compatible客户端
         mock_client = Mock()
@@ -176,7 +184,10 @@ class TestAITabAPIConnections:
 
         monkeypatch.setattr(QMessageBox, "information", mock_info)
 
-        with patch("sonicinput.ai.openai_compatible.OpenAICompatibleClient", return_value=mock_client):
+        with patch(
+            "sonicinput.ai.openai_compatible.OpenAICompatibleClient",
+            return_value=mock_client,
+        ):
             # 设置UI
             settings_window.show()
             qtbot.waitExposed(settings_window)
@@ -191,22 +202,25 @@ class TestAITabAPIConnections:
             qtbot.wait(100)
 
             # 设置Base URL和API key
-            openai_compatible_base_url_input = ai_tab.widget.findChild(QLineEdit, "openai_compatible_base_url_input")
+            openai_compatible_base_url_input = ai_tab.widget.findChild(
+                QLineEdit, "openai_compatible_base_url_input"
+            )
             openai_compatible_base_url_input.setText("https://api.example.com/v1")
-            openai_compatible_api_key_input = ai_tab.widget.findChild(QLineEdit, "openai_compatible_api_key_input")
+            openai_compatible_api_key_input = ai_tab.widget.findChild(
+                QLineEdit, "openai_compatible_api_key_input"
+            )
             openai_compatible_api_key_input.setText("test-openai-compatible-key")
             qtbot.wait(50)
 
             # 点击测试按钮
-            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn = ai_tab.widget.findChild(
+                QPushButton, "test_connection_btn"
+            )
             test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功
             assert len(dialog_shown) == 1
@@ -240,25 +254,28 @@ class TestTranscriptionTabAPIConnections:
             transcription_tab = settings_window.transcription_tab
 
             # 切换到groq提供商
-            transcription_provider_combo = transcription_tab.widget.findChild(QComboBox, "transcription_provider_combo")
+            transcription_provider_combo = transcription_tab.widget.findChild(
+                QComboBox, "transcription_provider_combo"
+            )
             transcription_provider_combo.setCurrentText("groq")
             qtbot.wait(100)  # 等待provider切换完成
 
             # 设置API key
-            groq_api_key_edit = transcription_tab.widget.findChild(QLineEdit, "groq_api_key_edit")
+            groq_api_key_edit = transcription_tab.widget.findChild(
+                QLineEdit, "groq_api_key_edit"
+            )
             groq_api_key_edit.setText("test-groq-transcription-key")
             qtbot.wait(50)
 
             # 点击测试按钮 (Groq uses test_model_button)
-            test_model_btn = transcription_tab.widget.findChild(QPushButton, "test_model_btn")
+            test_model_btn = transcription_tab.widget.findChild(
+                QPushButton, "test_model_btn"
+            )
             test_model_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功
             assert len(dialog_shown) == 1
@@ -278,7 +295,10 @@ class TestTranscriptionTabAPIConnections:
 
         monkeypatch.setattr(QMessageBox, "information", mock_info)
 
-        with patch("sonicinput.speech.siliconflow_engine.SiliconFlowEngine", return_value=mock_engine):
+        with patch(
+            "sonicinput.speech.siliconflow_engine.SiliconFlowEngine",
+            return_value=mock_engine,
+        ):
             # 设置UI
             settings_window.show()
             qtbot.waitExposed(settings_window)
@@ -288,25 +308,28 @@ class TestTranscriptionTabAPIConnections:
             transcription_tab = settings_window.transcription_tab
 
             # 切换到siliconflow提供商
-            transcription_provider_combo = transcription_tab.widget.findChild(QComboBox, "transcription_provider_combo")
+            transcription_provider_combo = transcription_tab.widget.findChild(
+                QComboBox, "transcription_provider_combo"
+            )
             transcription_provider_combo.setCurrentText("siliconflow")
             qtbot.wait(100)
 
             # 设置API key
-            siliconflow_api_key_edit = transcription_tab.widget.findChild(QLineEdit, "siliconflow_api_key_edit")
+            siliconflow_api_key_edit = transcription_tab.widget.findChild(
+                QLineEdit, "siliconflow_api_key_edit"
+            )
             siliconflow_api_key_edit.setText("test-siliconflow-key")
             qtbot.wait(50)
 
             # 点击测试按钮 (SiliconFlow uses test_model_button)
-            test_model_btn = transcription_tab.widget.findChild(QPushButton, "test_model_btn")
+            test_model_btn = transcription_tab.widget.findChild(
+                QPushButton, "test_model_btn"
+            )
             test_model_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功
             assert len(dialog_shown) == 1
@@ -326,7 +349,10 @@ class TestTranscriptionTabAPIConnections:
 
         monkeypatch.setattr(QMessageBox, "information", mock_info)
 
-        with patch("sonicinput.speech.speech_service_factory.SpeechServiceFactory.create_service", return_value=mock_service):
+        with patch(
+            "sonicinput.speech.speech_service_factory.SpeechServiceFactory.create_service",
+            return_value=mock_service,
+        ):
             # 设置UI
             settings_window.show()
             qtbot.waitExposed(settings_window)
@@ -336,25 +362,28 @@ class TestTranscriptionTabAPIConnections:
             transcription_tab = settings_window.transcription_tab
 
             # 切换到qwen提供商
-            transcription_provider_combo = transcription_tab.widget.findChild(QComboBox, "transcription_provider_combo")
+            transcription_provider_combo = transcription_tab.widget.findChild(
+                QComboBox, "transcription_provider_combo"
+            )
             transcription_provider_combo.setCurrentText("qwen")
             qtbot.wait(100)
 
             # 设置API key
-            qwen_api_key_edit = transcription_tab.widget.findChild(QLineEdit, "qwen_api_key_edit")
+            qwen_api_key_edit = transcription_tab.widget.findChild(
+                QLineEdit, "qwen_api_key_edit"
+            )
             qwen_api_key_edit.setText("test-qwen-dashscope-key")
             qtbot.wait(50)
 
             # 点击测试按钮 (Qwen uses test_model_button)
-            test_model_btn = transcription_tab.widget.findChild(QPushButton, "test_model_btn")
+            test_model_btn = transcription_tab.widget.findChild(
+                QPushButton, "test_model_btn"
+            )
             test_model_btn.click()
             qtbot.wait(100)
 
             # 等待成功对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功
             assert len(dialog_shown) == 1
@@ -370,6 +399,7 @@ class TestTranscriptionTabAPIConnections:
         def mock_test_connection(*args, **kwargs):
             # 记录这个方法在线程中被调用
             import threading
+
             test_called.append(threading.current_thread().name)
             return True, ""
 
@@ -377,11 +407,15 @@ class TestTranscriptionTabAPIConnections:
 
         # Mock information dialog
         dialog_shown = []
+
         def mock_info(*args, **kwargs):
             dialog_shown.append(("success", args[2]))
+
         monkeypatch.setattr(QMessageBox, "information", mock_info)
 
-        with patch("sonicinput.ai.openrouter.OpenRouterClient", return_value=mock_client):
+        with patch(
+            "sonicinput.ai.openrouter.OpenRouterClient", return_value=mock_client
+        ):
             # 设置UI
             settings_window.show()
             qtbot.waitExposed(settings_window)
@@ -401,25 +435,21 @@ class TestTranscriptionTabAPIConnections:
             qtbot.wait(50)
 
             # 点击测试按钮
-            test_connection_btn = ai_tab.widget.findChild(QPushButton, "test_connection_btn")
+            test_connection_btn = ai_tab.widget.findChild(
+                QPushButton, "test_connection_btn"
+            )
             test_connection_btn.click()
             qtbot.wait(100)
 
             # 等待线程完成
-            qtbot.waitUntil(
-                lambda: len(test_called) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(test_called) > 0, timeout=5000)
 
             # 验证test_connection在后台线程中被调用(不是主线程)
             assert len(test_called) == 1
             assert "Thread-" in test_called[0]  # 后台线程名包含"Thread-"
 
             # 等待成功对话框
-            qtbot.waitUntil(
-                lambda: len(dialog_shown) > 0,
-                timeout=5000
-            )
+            qtbot.waitUntil(lambda: len(dialog_shown) > 0, timeout=5000)
 
             # 验证成功对话框
             assert len(dialog_shown) == 1

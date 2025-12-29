@@ -28,6 +28,7 @@ from typing import Tuple, Dict, Any
 # CUDA Path Setup (Legacy - Deprecated for sherpa-onnx)
 # ============================================================================
 
+
 def setup_cuda_paths():
     """Legacy CUDA/cuDNN DLL path setup (deprecated for sherpa-onnx)
 
@@ -39,6 +40,7 @@ def setup_cuda_paths():
         # Check if sherpa-onnx is installed (local transcription mode)
         # sherpa-onnx uses CPU inference only, no CUDA needed
         import importlib.util
+
         spec = importlib.util.find_spec("sherpa_onnx")
         if spec is None:
             # Cloud-only mode - skip CUDA setup silently
@@ -58,34 +60,34 @@ def setup_cuda_paths():
 
         # 2. Check for CUDA Toolkit installation
         cuda_roots = [
-            Path(os.environ.get('CUDA_PATH', '')),
-            Path(r'C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA'),
+            Path(os.environ.get("CUDA_PATH", "")),
+            Path(r"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA"),
         ]
 
         for cuda_root in cuda_roots:
             if not cuda_root.exists():
                 continue
 
-            if cuda_root.name == 'CUDA':
-                version_dirs = sorted(cuda_root.glob('v*'), reverse=True)
+            if cuda_root.name == "CUDA":
+                version_dirs = sorted(cuda_root.glob("v*"), reverse=True)
                 if version_dirs:
-                    cuda_bin = version_dirs[0] / 'bin'
+                    cuda_bin = version_dirs[0] / "bin"
                     if cuda_bin.exists():
                         paths_to_add.append(str(cuda_bin))
                         break
             else:
-                cuda_bin = cuda_root / 'bin'
+                cuda_bin = cuda_root / "bin"
                 if cuda_bin.exists():
                     paths_to_add.append(str(cuda_bin))
                     break
 
         if paths_to_add:
-            if sys.platform == "win32" and hasattr(os, 'add_dll_directory'):
+            if sys.platform == "win32" and hasattr(os, "add_dll_directory"):
                 for path in paths_to_add:
                     os.add_dll_directory(path)
 
-            current_path = os.environ.get('PATH', '')
-            os.environ['PATH'] = os.pathsep.join(paths_to_add + [current_path])
+            current_path = os.environ.get("PATH", "")
+            os.environ["PATH"] = os.pathsep.join(paths_to_add + [current_path])
             print(f"[OK] Added {len(paths_to_add)} CUDA library path(s) to PATH:")
             for path in paths_to_add:
                 print(f"     - {path}")
@@ -108,7 +110,7 @@ warnings.filterwarnings(
     "ignore",
     message="pkg_resources is deprecated",
     category=UserWarning,
-    module="ctranslate2"
+    module="ctranslate2",
 )
 
 # ============================================================================
@@ -119,15 +121,11 @@ warnings.filterwarnings(
 _STARTUP_START_TIME = time.time()
 
 # Add src to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 # Import diagnostics utilities (after path setup)
 try:
-    from sonicinput.utils import (
-        environment_validator,
-        startup_diagnostics,
-        LogCategory
-    )
+    from sonicinput.utils import environment_validator, startup_diagnostics, LogCategory
     from sonicinput.utils.logger import app_logger
 except ImportError as e:
     print(f"Warning: Could not import diagnostic utilities: {e}")
@@ -182,6 +180,7 @@ def handle_shutdown(signum, frame):
     except Exception as e:
         print(f"[SHUTDOWN] Error during cleanup: {e}")
         import traceback
+
         traceback.print_exc()
 
     finally:
@@ -208,6 +207,7 @@ def run_tests():
 
         # Test dependency injection
         from sonicinput.core.di_container import create_container
+
         container = create_container()
         app = VoiceInputApp(container)
 
@@ -222,7 +222,7 @@ def run_tests():
 
         # Test configuration
         config = container.get(IConfigService)
-        model = config.get_setting('transcription.local.model', 'paraformer')
+        model = config.get_setting("transcription.local.model", "paraformer")
         print(f"SUCCESS: Configuration loaded: {model}")
 
         # Test EventBus core functionality
@@ -236,22 +236,28 @@ def run_tests():
                 # System information collection
                 print("Collecting system information...")
                 system_info = startup_diagnostics._collect_system_info()
-                print(f"SUCCESS: System info collected - OS: {system_info.get('platform', 'unknown')}")
+                print(
+                    f"SUCCESS: System info collected - OS: {system_info.get('platform', 'unknown')}"
+                )
 
                 # Python environment information
                 print("Collecting Python environment information...")
                 python_info = startup_diagnostics._collect_python_info()
-                print(f"SUCCESS: Python {python_info.get('version', 'unknown')} on {python_info.get('platform', 'unknown')}")
+                print(
+                    f"SUCCESS: Python {python_info.get('version', 'unknown')} on {python_info.get('platform', 'unknown')}"
+                )
 
                 # Dependency version check
                 print("Checking dependency versions...")
                 dep_versions = startup_diagnostics.check_dependency_versions()
-                print(f"SUCCESS: {len(dep_versions.get('dependencies', []))} dependencies checked")
+                print(
+                    f"SUCCESS: {len(dep_versions.get('dependencies', []))} dependencies checked"
+                )
 
                 # File system check
                 print("Checking file system access...")
                 fs_check = startup_diagnostics._check_file_system()
-                if fs_check.get('accessible', False):
+                if fs_check.get("accessible", False):
                     print("SUCCESS: File system access verified")
                 else:
                     print("WARNING: Some file system access issues detected")
@@ -259,7 +265,9 @@ def run_tests():
                 # Process information
                 print("Collecting process information...")
                 process_info = startup_diagnostics._collect_process_info()
-                print(f"SUCCESS: Process info collected - PID: {process_info.get('pid', 'unknown')}")
+                print(
+                    f"SUCCESS: Process info collected - PID: {process_info.get('pid', 'unknown')}"
+                )
 
             except Exception as e:
                 print(f"WARNING: System environment tests failed: {e}")
@@ -276,6 +284,7 @@ def run_tests():
         print(f"\nERROR: Tests failed: {e}")
         print("Check your installation and dependencies")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
@@ -302,6 +311,7 @@ def run_tests():
         except Exception as cleanup_error:
             print(f"[CLEANUP] Warning during cleanup: {cleanup_error}")
             import traceback
+
             traceback.print_exc()
 
 
@@ -358,7 +368,9 @@ def test_eventbus():
     test_event = "test_priority"
 
     bus2.on(test_event, lambda data: order.append("LOW"), priority=EventPriority.LOW)
-    bus2.on(test_event, lambda data: order.append("NORMAL"), priority=EventPriority.NORMAL)
+    bus2.on(
+        test_event, lambda data: order.append("NORMAL"), priority=EventPriority.NORMAL
+    )
     bus2.on(test_event, lambda data: order.append("HIGH"), priority=EventPriority.HIGH)
 
     bus2.emit(test_event)
@@ -377,7 +389,9 @@ def test_eventbus():
     bus3.emit(test_event2)
     bus3.emit(test_event2)
 
-    assert count["value"] == 1, f"Once listener called {count['value']} times (should be 1)"
+    assert count["value"] == 1, (
+        f"Once listener called {count['value']} times (should be 1)"
+    )
     print("  [PASS] Once listener only triggers once")
 
     # Test 4: Exception isolation
@@ -414,15 +428,21 @@ def test_eventbus():
 
     threads = []
     for i in range(10):
-        thread = threading.Thread(target=lambda idx: bus5.emit(test_event4, idx), args=(i,))
+        thread = threading.Thread(
+            target=lambda idx: bus5.emit(test_event4, idx), args=(i,)
+        )
         threads.append(thread)
         thread.start()
 
     for thread in threads:
         thread.join()
 
-    assert len(concurrent_results) == 10, f"Concurrent emit failed: {len(concurrent_results)}/10"
-    print(f"  [PASS] Concurrent safety: 10 threads, {len(concurrent_results)} events received")
+    assert len(concurrent_results) == 10, (
+        f"Concurrent emit failed: {len(concurrent_results)}/10"
+    )
+    print(
+        f"  [PASS] Concurrent safety: 10 threads, {len(concurrent_results)} events received"
+    )
 
     # Test 6: Statistics (simplified)
     bus6 = EventBus()
@@ -432,9 +452,15 @@ def test_eventbus():
     bus6.emit(test_event5)
 
     stats = bus6.get_event_stats()
-    assert stats["total_listeners"] >= 1, f"Stats total_listeners wrong: {stats['total_listeners']}"
-    assert stats["total_events"] >= 1, f"Stats total_events wrong: {stats['total_events']}"
-    print(f"  [PASS] Statistics: {stats['total_events']} events, {stats['total_listeners']} listeners")
+    assert stats["total_listeners"] >= 1, (
+        f"Stats total_listeners wrong: {stats['total_listeners']}"
+    )
+    assert stats["total_events"] >= 1, (
+        f"Stats total_events wrong: {stats['total_events']}"
+    )
+    print(
+        f"  [PASS] Statistics: {stats['total_events']} events, {stats['total_listeners']} listeners"
+    )
 
     print("[OK] EventBus: All 6 tests passed!")
 
@@ -442,56 +468,63 @@ def test_eventbus():
 def validate_environment() -> Tuple[bool, Dict[str, Any]]:
     """Pre-flight environment validation before GUI startup"""
     print("=== Environment Validation ===")
-    
+
     if environment_validator is None:
         print("[FAIL] Environment validator not available")
         return False, {"error": "Environment validator not available"}
-    
+
     try:
         success, results = environment_validator.comprehensive_validation()
-        
+
         if success:
             print("[PASS] Environment validation passed")
         else:
             print("[FAIL] Environment validation failed")
-            if results.get('errors'):
-                for error in results['errors']:
+            if results.get("errors"):
+                for error in results["errors"]:
                     print(f"  • {error}")
-        
+
         return success, results
-        
+
     except Exception as e:
         print(f"[FAIL] Environment validation error: {e}")
         if app_logger:
-            app_logger.error(f"Environment validation error: {e}", e, component="environment_validation")
+            app_logger.error(
+                f"Environment validation error: {e}",
+                e,
+                component="environment_validation",
+            )
         return False, {"error": str(e)}
 
 
 def test_gui_components() -> bool:
     """Test GUI components in isolation before full startup"""
     print("=== GUI Component Testing ===")
-    
+
     try:
         # Test PySide6 imports
         print("Testing PySide6 imports...")
         from PySide6.QtWidgets import QApplication
+
         print("[PASS] PySide6 imports successful")
-        
+
         # Test application components (import only)
         print("Testing application component imports...")
         print("[PASS] Application component imports successful")
-        
+
         # Test QApplication creation
         print("Testing QApplication creation...")
         existing_app = QApplication.instance()
         if existing_app is None:
-            test_app = QApplication(['-platform', 'minimal'])  # Use minimal platform for testing
+            test_app = QApplication(
+                ["-platform", "minimal"]
+            )  # Use minimal platform for testing
             print("[PASS] QApplication creation successful")
         else:
             print("[PASS] QApplication instance already exists")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"[FAIL] GUI component test failed: {e}")
         if app_logger:
@@ -531,7 +564,7 @@ def run_gui_with_diagnostics() -> int:
 def run_gui():
     """Launch GUI mode"""
     print("Starting GUI mode...")
-    
+
     try:
         # Import Qt and UI components
         from PySide6.QtWidgets import QApplication
@@ -547,8 +580,11 @@ def run_gui():
         # IMPORTANT: Set AppUserModelID BEFORE creating QApplication
         # This is required for Windows taskbar icon to display correctly
         import ctypes
+
         try:
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.sonicinput.app")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                "com.sonicinput.app"
+            )
         except Exception:
             pass  # Silently fail on non-Windows platforms
 
@@ -560,6 +596,7 @@ def run_gui():
         # Set application icon (all windows will inherit this)
         # Note: Skip setWindowIcon in exe mode due to Nuitka issue #3611
         from sonicinput.ui.utils import get_app_icon
+
         app_icon = get_app_icon()
 
         if not sys.argv[0].endswith(".exe"):
@@ -569,15 +606,17 @@ def run_gui():
 
         # Create application components (needed to access config)
         from sonicinput.core.di_container import create_container
+
         container = create_container()
 
         # Load theme color from config
         from sonicinput.core.interfaces.config import IConfigService
+
         config_service = container.get(IConfigService)
         theme_color = config_service.get_setting("ui.theme_color", "cyan")
 
         # Apply Material Design theme
-        theme_file = f'dark_{theme_color}.xml'
+        theme_file = f"dark_{theme_color}.xml"
         try:
             apply_stylesheet(qt_app, theme=theme_file)
             print(f"[OK] qt-material theme applied: {theme_file}")
@@ -597,8 +636,11 @@ def run_gui():
 
         # Get UI services from container (Pure DI - no VoiceInputApp dependency)
         from sonicinput.core.services.ui_services import (
-            UIMainService, UISettingsService, UIModelService
+            UIMainService,
+            UISettingsService,
+            UIModelService,
         )
+
         ui_main_service = container.get(UIMainService)
         ui_settings_service = container.get(UISettingsService)
         ui_model_service = container.get(UIModelService)
@@ -606,34 +648,38 @@ def run_gui():
         # CRITICAL FIX: Update UISettingsService with AI controller after VoiceInputApp initialization
         # AI controller is created in voice_app._init_controllers() but UISettingsService was
         # already created by DI container before voice_app existed. We need to inject it now.
-        if hasattr(voice_app, '_ai_controller') and voice_app._ai_controller:
-            if hasattr(ui_settings_service, 'ai_processing_controller'):
+        if hasattr(voice_app, "_ai_controller") and voice_app._ai_controller:
+            if hasattr(ui_settings_service, "ai_processing_controller"):
                 ui_settings_service.ai_processing_controller = voice_app._ai_controller
                 app_logger.log_audio_event(
                     "AI controller injected into UISettingsService",
                     {
                         "controller_type": type(voice_app._ai_controller).__name__,
-                        "controller_id": id(voice_app._ai_controller)
-                    }
+                        "controller_id": id(voice_app._ai_controller),
+                    },
                 )
             else:
                 app_logger.log_audio_event(
                     "Warning: UISettingsService doesn't have ai_processing_controller attribute",
-                    {}
+                    {},
                 )
 
         # Create main window with dependency injection
         main_window = MainWindow(
             ui_main_service=ui_main_service,
             ui_settings_service=ui_settings_service,
-            ui_model_service=ui_model_service
+            ui_model_service=ui_model_service,
         )
         # Store as qt_app attribute to prevent garbage collection
         qt_app.main_window = main_window
 
         # Create system tray using new Phase 2 architecture
         app_logger.debug("Creating TrayController with dependency injection...")
-        from sonicinput.core.interfaces import IConfigService, IEventService, IStateManager
+        from sonicinput.core.interfaces import (
+            IConfigService,
+            IEventService,
+            IStateManager,
+        )
 
         # Get services from container
         config_service = container.get(IConfigService)
@@ -645,7 +691,7 @@ def run_gui():
             config_service=config_service,
             event_service=event_service,
             state_manager=state_manager,
-            parent=qt_app
+            parent=qt_app,
         )
 
         # Start tray controller (lifecycle management)
@@ -673,13 +719,15 @@ def run_gui():
         # Recording overlay signals (simplified - ESC key handled internally)
         # Note: TrayController now subscribes to events internally through event_service
         # No need for manual event connections here
-        
+
         # Start behavior based on configuration
         config = voice_app.config
         if config.get_setting("ui.start_minimized", True):
             # Start directly in system tray without showing window
             print("[OK] Started in system tray mode")
-            print("[LOOK FOR] Green dot icon in your Windows system tray (bottom-right corner)")
+            print(
+                "[LOOK FOR] Green dot icon in your Windows system tray (bottom-right corner)"
+            )
             print("[RIGHT-CLICK] the tray icon to access Settings, Recording, etc.")
             print("[DOUBLE-CLICK] the tray icon to open Settings window")
 
@@ -693,7 +741,7 @@ def run_gui():
         else:
             main_window.show()
             print("GUI window opened")
-        
+
         # Log startup completion with performance metrics
         startup_duration = time.time() - _STARTUP_START_TIME
         if app_logger and LogCategory:
@@ -701,14 +749,20 @@ def run_gui():
                 f"Application Startup Complete in {startup_duration:.2f}s",
                 category=LogCategory.STARTUP,
                 context={
-                    'startup_duration_sec': round(startup_duration, 2),
-                    'components_loaded': [
-                        'PySide6', 'DIContainer', 'VoiceInputApp',
-                        'MainWindow', 'TrayController', 'RecordingOverlay'
+                    "startup_duration_sec": round(startup_duration, 2),
+                    "components_loaded": [
+                        "PySide6",
+                        "DIContainer",
+                        "VoiceInputApp",
+                        "MainWindow",
+                        "TrayController",
+                        "RecordingOverlay",
                     ],
-                    'startup_mode': 'tray' if config.get_setting("ui.start_minimized", True) else 'window'
+                    "startup_mode": "tray"
+                    if config.get_setting("ui.start_minimized", True)
+                    else "window",
                 },
-                component="main"
+                component="main",
             )
 
         print(f"[RUNNING] Sonic Input is running! (Startup: {startup_duration:.2f}s)")
@@ -782,11 +836,12 @@ def run_gui():
             # Don't fail the exit, just log the warning
 
         return exit_code
-        
+
     except Exception as e:
         print(f"ERROR: Failed to start GUI: {e}")
         print("Full traceback:")
         import traceback
+
         traceback.print_exc()
         print("Use --test to run diagnostics")
         sys.exit(1)
@@ -795,30 +850,32 @@ def run_gui():
 def run_diagnostics():
     """Run comprehensive diagnostics without starting the application"""
     print("=== Comprehensive Diagnostics ===")
-    
+
     if startup_diagnostics is None:
         print("[FAIL] Startup diagnostics not available")
         return
-    
+
     try:
         report = startup_diagnostics.generate_environment_report()
         startup_diagnostics.print_diagnostic_summary(report)
-        
+
         # Offer to save report
         try:
             from datetime import datetime
+
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             report_file = f"diagnostic_report_{timestamp}.json"
-            
+
             import json
-            with open(report_file, 'w') as f:
+
+            with open(report_file, "w") as f:
                 json.dump(report, f, indent=2, default=str)
-            
+
             print(f"\n[SAVE] Detailed report saved to: {report_file}")
-            
+
         except Exception as e:
             print(f"Warning: Could not save report file: {e}")
-    
+
     except Exception as e:
         print(f"[FAIL] Diagnostics failed: {e}")
         if app_logger:
@@ -829,9 +886,15 @@ def main():
     """Main application entry point"""
     parser = argparse.ArgumentParser(description="Sonic Input")
     parser.add_argument("--gui", action="store_true", help="Launch with GUI")
-    parser.add_argument("--test", action="store_true", help="Run all tests (auto-loads model)")
-    parser.add_argument("--diagnostics", action="store_true", help="Run comprehensive diagnostics")
-    parser.add_argument("--validate", action="store_true", help="Validate environment only")
+    parser.add_argument(
+        "--test", action="store_true", help="Run all tests (auto-loads model)"
+    )
+    parser.add_argument(
+        "--diagnostics", action="store_true", help="Run comprehensive diagnostics"
+    )
+    parser.add_argument(
+        "--validate", action="store_true", help="Validate environment only"
+    )
 
     args = parser.parse_args()
 

@@ -35,7 +35,9 @@ def test_get_remaining_audio_for_streaming_updates_accumulated_buffer() -> None:
         np.array([4, 5, 6, 7], dtype=np.float32),
         np.array([8, 9, 10, 11], dtype=np.float32),
     ]
-    recorder._accumulated_audio = np.concatenate(recorder._audio_data[:2], axis=0).flatten()
+    recorder._accumulated_audio = np.concatenate(
+        recorder._audio_data[:2], axis=0
+    ).flatten()
     recorder._chunked_samples_sent = len(recorder._accumulated_audio)
 
     remaining = recorder.get_remaining_audio_for_streaming()

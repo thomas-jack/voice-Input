@@ -202,7 +202,9 @@ class CloudChunkAccumulator:
 
         for chunk_id, future, audio_length in self._chunks:
             # Calculate dynamic timeout based on audio length (at least 30 seconds)
-            audio_duration = audio_length / self._sample_rate if audio_length > 0 else 0.0
+            audio_duration = (
+                audio_length / self._sample_rate if audio_length > 0 else 0.0
+            )
             per_chunk_timeout = max(timeout, audio_duration * 2.0)
 
             try:

@@ -77,18 +77,16 @@ class ExamplePlugin(BasePlugin):
     def get_info(self) -> Dict[str, Any]:
         """获取插件信息"""
         info = super().get_info()
-        info.update({
-            "features": [
-                "事件监听",
-                "日志记录",
-                "示例功能"
-            ],
-            "supported_events": [
-                "application_started",
-                "recording_started",
-                "recording_stopped"
-            ]
-        })
+        info.update(
+            {
+                "features": ["事件监听", "日志记录", "示例功能"],
+                "supported_events": [
+                    "application_started",
+                    "recording_started",
+                    "recording_stopped",
+                ],
+            }
+        )
         return info
 
     def get_config_schema(self) -> Optional[Dict[str, Any]]:
@@ -99,14 +97,14 @@ class ExamplePlugin(BasePlugin):
                 "enable_logging": {
                     "type": "boolean",
                     "default": True,
-                    "description": "是否启用插件日志"
+                    "description": "是否启用插件日志",
                 },
                 "message_prefix": {
                     "type": "string",
                     "default": "[Example]",
-                    "description": "日志消息前缀"
-                }
-            }
+                    "description": "日志消息前缀",
+                },
+            },
         }
 
     def set_config(self, config: Dict[str, Any]) -> bool:
@@ -126,10 +124,7 @@ class ExamplePlugin(BasePlugin):
             return config
 
         # 返回默认配置
-        return {
-            "enable_logging": True,
-            "message_prefix": "[Example]"
-        }
+        return {"enable_logging": True, "message_prefix": "[Example]"}
 
     def _on_application_started(self, data: Any = None) -> None:
         """应用启动事件处理器"""

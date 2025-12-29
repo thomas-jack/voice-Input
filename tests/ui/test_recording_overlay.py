@@ -2,6 +2,7 @@
 
 测试RecordingOverlay的基础功能和信号处理,不涉及配置文件操作。
 """
+
 import pytest
 from PySide6.QtCore import Qt
 import numpy as np
@@ -34,7 +35,9 @@ class TestRecordingOverlayBasics:
         assert flags & Qt.WindowType.Tool
 
         # 验证透明背景
-        assert recording_overlay.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        assert recording_overlay.testAttribute(
+            Qt.WidgetAttribute.WA_TranslucentBackground
+        )
 
     def test_initial_state(self, qtbot, recording_overlay):
         """测试初始状态"""
@@ -59,14 +62,18 @@ class TestRecordingOverlaySignals:
 
     def test_status_update_signal(self, qtbot, recording_overlay):
         """测试状态更新信号"""
-        with qtbot.waitSignal(recording_overlay.set_status_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            recording_overlay.set_status_requested, timeout=1000
+        ) as blocker:
             recording_overlay.set_status_requested.emit("Recording...")
 
         assert blocker.args == ["Recording..."]
 
     def test_audio_level_signal(self, qtbot, recording_overlay):
         """测试音频级别更新信号"""
-        with qtbot.waitSignal(recording_overlay.update_audio_level_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            recording_overlay.update_audio_level_requested, timeout=1000
+        ) as blocker:
             recording_overlay.update_audio_level_requested.emit(0.75)
 
         assert blocker.args == [0.75]
@@ -75,43 +82,57 @@ class TestRecordingOverlaySignals:
         """测试波形数据信号"""
         fake_audio = np.random.random(1024)
 
-        with qtbot.waitSignal(recording_overlay.update_waveform_requested, timeout=1000):
+        with qtbot.waitSignal(
+            recording_overlay.update_waveform_requested, timeout=1000
+        ):
             recording_overlay.update_waveform_requested.emit(fake_audio)
 
     def test_processing_signals(self, qtbot, recording_overlay):
         """测试处理动画信号"""
         # 启动处理动画
-        with qtbot.waitSignal(recording_overlay.start_processing_animation_requested, timeout=1000):
+        with qtbot.waitSignal(
+            recording_overlay.start_processing_animation_requested, timeout=1000
+        ):
             recording_overlay.start_processing_animation_requested.emit()
 
         # 停止处理动画
-        with qtbot.waitSignal(recording_overlay.stop_processing_animation_requested, timeout=1000):
+        with qtbot.waitSignal(
+            recording_overlay.stop_processing_animation_requested, timeout=1000
+        ):
             recording_overlay.stop_processing_animation_requested.emit()
 
     def test_show_completed_signal(self, qtbot, recording_overlay):
         """测试显示完成状态信号"""
-        with qtbot.waitSignal(recording_overlay.show_completed_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            recording_overlay.show_completed_requested, timeout=1000
+        ) as blocker:
             recording_overlay.show_completed_requested.emit(500)
 
         assert blocker.args == [500]
 
     def test_show_warning_signal(self, qtbot, recording_overlay):
         """测试显示警告状态信号"""
-        with qtbot.waitSignal(recording_overlay.show_warning_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            recording_overlay.show_warning_requested, timeout=1000
+        ) as blocker:
             recording_overlay.show_warning_requested.emit(1000)
 
         assert blocker.args == [1000]
 
     def test_show_error_signal(self, qtbot, recording_overlay):
         """测试显示错误状态信号"""
-        with qtbot.waitSignal(recording_overlay.show_error_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            recording_overlay.show_error_requested, timeout=1000
+        ) as blocker:
             recording_overlay.show_error_requested.emit(1500)
 
         assert blocker.args == [1500]
 
     def test_delayed_hide_signal(self, qtbot, recording_overlay):
         """测试延迟隐藏信号"""
-        with qtbot.waitSignal(recording_overlay.hide_recording_delayed_requested, timeout=1000) as blocker:
+        with qtbot.waitSignal(
+            recording_overlay.hide_recording_delayed_requested, timeout=1000
+        ) as blocker:
             recording_overlay.hide_recording_delayed_requested.emit(300)
 
         assert blocker.args == [300]
@@ -169,22 +190,22 @@ class TestRecordingOverlayComponents:
 
     def test_status_indicator_exists(self, qtbot, recording_overlay):
         """测试状态指示器存在"""
-        assert hasattr(recording_overlay, 'status_indicator')
+        assert hasattr(recording_overlay, "status_indicator")
         assert recording_overlay.status_indicator is not None
 
     def test_audio_level_bars_exists(self, qtbot, recording_overlay):
         """测试音频级别条存在"""
-        assert hasattr(recording_overlay, 'audio_level_bars')
+        assert hasattr(recording_overlay, "audio_level_bars")
         assert recording_overlay.audio_level_bars is not None
 
     def test_time_label_exists(self, qtbot, recording_overlay):
         """测试时间标签存在"""
-        assert hasattr(recording_overlay, 'time_label')
+        assert hasattr(recording_overlay, "time_label")
         assert recording_overlay.time_label is not None
 
     def test_close_button_exists(self, qtbot, recording_overlay):
         """测试关闭按钮存在"""
-        assert hasattr(recording_overlay, 'close_button')
+        assert hasattr(recording_overlay, "close_button")
         assert recording_overlay.close_button is not None
 
     def test_close_button_click(self, qtbot, recording_overlay):

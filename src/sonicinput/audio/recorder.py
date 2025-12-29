@@ -548,7 +548,9 @@ class AudioRecorder(LifecycleComponent, IAudioService):
             # 优化: 仅拼接新增的块到累积缓冲区
             if self._accumulated_audio is None:
                 # 首次拼接: 拼接所有现有数据
-                self._accumulated_audio = np.concatenate(self._audio_data, axis=0).flatten()
+                self._accumulated_audio = np.concatenate(
+                    self._audio_data, axis=0
+                ).flatten()
             else:
                 # 增量拼接: 仅拼接新块
                 # 计算已累积的块数（每个块大小为 chunk_size）
@@ -557,13 +559,17 @@ class AudioRecorder(LifecycleComponent, IAudioService):
 
                 if new_chunks:
                     new_audio = np.concatenate(new_chunks, axis=0).flatten()
-                    self._accumulated_audio = np.concatenate([self._accumulated_audio, new_audio])
+                    self._accumulated_audio = np.concatenate(
+                        [self._accumulated_audio, new_audio]
+                    )
 
             total_samples = len(self._accumulated_audio)
 
             # 只提取新增的部分（自上次chunk_callback以来的增量）
             if total_samples > self._chunked_samples_sent:
-                chunk_audio = self._accumulated_audio[self._chunked_samples_sent :].copy()
+                chunk_audio = self._accumulated_audio[
+                    self._chunked_samples_sent :
+                ].copy()
                 self._chunked_samples_sent = total_samples
             else:
                 return
