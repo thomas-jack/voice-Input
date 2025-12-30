@@ -23,7 +23,7 @@ from ..interfaces.hotkey import IHotkeyService
 from ..services.config import ConfigKeys
 
 
-class HotkeyService(LifecycleComponent):
+class HotkeyService(LifecycleComponent, IHotkeyService):
     """热键服务（支持配置热重载）
 
     封装热键管理器，提供配置热重载能力。
@@ -274,6 +274,44 @@ class HotkeyService(LifecycleComponent):
             return False
 
     # ========== 公共接口 ==========
+
+    def register_hotkey(self, hotkey: str, action: str) -> bool:
+        """Register a hotkey with the underlying manager."""
+        if not self.is_running:
+            if not self.start():
+                return False
+
+        if not self._manager:
+            return False
+
+        success = self._manager.register_hotkey(hotkey, action)
+        if success and hotkey not in self._current_keys:
+            self._current_keys.append(hotkey)
+        return success
+
+    def unregister_hotkey(self, hotkey: str) -> bool:
+        """Unregister a specific hotkey."""
+        if not self._manager:
+            return False
+
+        success = self._manager.unregister_hotkey(hotkey)
+        if success and hotkey in self._current_keys:
+            self._current_keys.remove(hotkey)
+        return success
+
+    def unregister_all_hotkeys(self) -> None:
+        """Unregister all hotkeys."""
+        if self._manager:
+            self._manager.unregister_all_hotkeys()
+        self._current_keys = []
+
+    def start_listening(self) -> bool:
+        """Start listening for hotkeys (alias for lifecycle start)."""
+        return self.start()
+
+    def stop_listening(self) -> None:
+        """Stop listening for hotkeys (alias for lifecycle stop)."""
+        self.stop()
 
     @property
     def is_listening(self) -> bool:

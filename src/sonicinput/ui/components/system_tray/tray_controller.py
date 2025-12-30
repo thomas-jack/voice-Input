@@ -110,6 +110,10 @@ class TrayController(QObject):
             app_logger.log_error(e, f"{self._component_name}_stop")
             return False
 
+    def cleanup(self) -> None:
+        """Clean up resources (backward compatible entrypoint)."""
+        self.stop()
+
     @property
     def is_running(self) -> bool:
         """Check if component is running"""
