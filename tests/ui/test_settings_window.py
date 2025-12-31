@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox, QPushButton, QComboBox
 from pathlib import Path
 import os
+import json
 
 
 @pytest.mark.gui
@@ -151,19 +152,20 @@ class TestSettingsWindowConfigIsolation:
         qtbot.waitExposed(settings_window, timeout=1000)
 
         # 记录临时配置的初始修改时间
-        initial_mtime = isolated_config.stat().st_mtime
 
         # 修改一个设置(例如日志级别)
         # 这里需要根据实际的UI结构修改
-        # settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
 
         # 点击应用按钮
         settings_window.findChild(QPushButton, "apply_btn").click()
         qtbot.wait(200)
 
+        after = json.loads(isolated_config.read_text(encoding="utf-8"))
+        assert after["logging"]["level"] == "DEBUG"
+
         # 验证临时配置被修改
         # (可能需要调整,取决于实际的保存机制)
-        # assert isolated_config.stat().st_mtime > initial_mtime
 
         # verify_real_config_untouched fixture会自动验证真实配置未被修改
 
@@ -250,20 +252,27 @@ class TestSettingsWindowDialogs:
         self, qtbot, settings_window, monkeypatch, verify_real_config_untouched
     ):
         """测试重置设置确认对话框(mock)"""
-        # Mock QMessageBox.question to always return Yes
-        monkeypatch.setattr(
-            QMessageBox,
-            "question",
-            lambda *args, **kwargs: QMessageBox.StandardButton.Yes,
-        )
+        question_calls = []
+
+        def mock_question(*args, **kwargs):
+            question_calls.append((args, kwargs))
+            return QMessageBox.StandardButton.Yes
+
+        monkeypatch.setattr(QMessageBox, "question", mock_question)
 
         # 显示窗口
         settings_window.show()
         qtbot.waitExposed(settings_window, timeout=1000)
 
         # 触发重置(如果有这个功能)
-        # settings_window.findChild(QPushButton, "reset_btn").click()
-        # qtbot.wait(100)
+        settings_window.tab_widget.setCurrentIndex(0)  # Application tab
+        settings_window.application_tab.log_level_combo.setCurrentText("DEBUG")
+
+        settings_window.findChild(QPushButton, "reset_btn").click()
+        qtbot.wait(200)
+
+        assert len(question_calls) == 1
+        assert settings_window.application_tab.log_level_combo.currentText() == "INFO"
 
         # verify_real_config_untouched会自动验证真实配置未被修改
 
@@ -298,9 +307,13 @@ class TestSettingsWindowLoadSave:
         qtbot.waitExposed(settings_window, timeout=1000)
 
         # 多次点击应用按钮
-        for _ in range(3):
+        for level in ["DEBUG", "INFO", "ERROR"]:
+            settings_window.application_tab.log_level_combo.setCurrentText(level)
             settings_window.findChild(QPushButton, "apply_btn").click()
-            qtbot.wait(100)
+            qtbot.wait(200)
+
+            saved = json.loads(isolated_config.read_text(encoding="utf-8"))
+            assert saved["logging"]["level"] == level
 
         # verify_real_config_untouched会验证真实配置未被修改
 
@@ -456,7 +469,6 @@ class TestConfigManagementIntegration:
 
         # Mock ALL QMessageBox dialogs to prevent blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
         monkeypatch.setattr(QMessageBox, "critical", mock_critical)
 
         # Mock file dialog
@@ -506,8 +518,6 @@ class TestConfigManagementIntegration:
 
         # Mock ALL QMessageBox dialogs to prevent blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
 
         monkeypatch.setattr(
             QFileDialog,
@@ -556,8 +566,6 @@ class TestConfigManagementIntegration:
 
         # Mock ALL QMessageBox dialogs to prevent blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
 
         monkeypatch.setattr(
             QFileDialog,
@@ -598,8 +606,6 @@ class TestConfigManagementIntegration:
 
         # Mock ALL QMessageBox dialogs to prevent blocking
         monkeypatch.setattr(QMessageBox, "information", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "warning", lambda *args, **kwargs: None)
-        monkeypatch.setattr(QMessageBox, "critical", lambda *args, **kwargs: None)
 
         monkeypatch.setattr(
             QFileDialog,

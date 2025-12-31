@@ -5,7 +5,34 @@ import os
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, Mock
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QMessageBox
+
+
+@pytest.fixture(autouse=True)
+def qmessagebox_guard(monkeypatch):
+    """Prevent blocking dialogs and fail on unexpected warning/critical popups."""
+
+    def _information(*_args, **_kwargs):
+        return QMessageBox.StandardButton.Ok
+
+    def _warning(*args, **_kwargs):
+        title = args[1] if len(args) > 1 else ""
+        text = args[2] if len(args) > 2 else ""
+        raise AssertionError(f"Unexpected QMessageBox.warning: {title} | {text}")
+
+    def _critical(*args, **_kwargs):
+        title = args[1] if len(args) > 1 else ""
+        text = args[2] if len(args) > 2 else ""
+        raise AssertionError(f"Unexpected QMessageBox.critical: {title} | {text}")
+
+    def _question(*_args, **_kwargs):
+        # Default to "No" to avoid destructive actions in tests unless explicitly mocked.
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "information", _information)
+    monkeypatch.setattr(QMessageBox, "warning", _warning)
+    monkeypatch.setattr(QMessageBox, "critical", _critical)
+    monkeypatch.setattr(QMessageBox, "question", _question)
 
 
 # ============= 配置隔离 Fixtures =============
@@ -236,6 +263,7 @@ def settings_window(qtbot, mock_config_service):
     mock_history_service.get_total_count = Mock(return_value=0)
     mock_history_service.get_aggregate_stats = Mock(return_value=(0, 0.0, 0))
     mock_ui_settings_service.get_history_service = Mock(return_value=mock_history_service)
+    mock_ui_settings_service.get_default_config = Mock(return_value={})
 
     mock_ui_model_service = MagicMock()
     mock_ui_model_service.get_state = Mock(return_value={"recording": False})
