@@ -68,6 +68,13 @@ class TestSettingsWindowTabs:
         assert hasattr(settings_window, "audio_input_tab")
         assert settings_window.audio_input_tab is not None
 
+    def test_audio_input_tab_hides_advanced_audio_parameters(self, qtbot, settings_window):
+        """AudioInputTab 不应在 UI 层暴露采样率/声道/Chunk Size 等高级参数。"""
+        controls = settings_window.audio_input_tab.controls
+        assert "sample_rate" not in controls
+        assert "channels" not in controls
+        assert "chunk_size" not in controls
+
     def test_history_tab_exists(self, qtbot, settings_window):
         """测试历史记录标签页存在"""
         assert hasattr(settings_window, "history_tab")

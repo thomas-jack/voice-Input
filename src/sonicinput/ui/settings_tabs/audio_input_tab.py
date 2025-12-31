@@ -11,7 +11,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
 )
 
@@ -23,8 +22,7 @@ class AudioInputTab(BaseSettingsTab):
 
     包含：
     - 音频设备选择
-    - 音频参数（采样率、声道数、缓冲区大小）
-    - 流式转录设置
+    - 流式转录设置（Chunk Duration）
     - 输入方法选择（clipboard, sendinput）
     - 回退机制设置
     - 剪贴板设置
@@ -53,27 +51,11 @@ class AudioInputTab(BaseSettingsTab):
 
         layout.addWidget(device_group)
 
-        # 音频参数组
-        params_group = QGroupBox("Audio Parameters")
-        params_layout = QFormLayout(params_group)
+        # 流式转录设置组
+        streaming_group = QGroupBox("Streaming Transcription")
+        streaming_layout = QFormLayout(streaming_group)
 
-        # 采样率
-        self.sample_rate_combo = QComboBox()
-        self.sample_rate_combo.addItems(["8000", "16000", "22050", "44100", "48000"])
-        params_layout.addRow("Sample Rate:", self.sample_rate_combo)
-
-        # 声道数
-        self.channels_spinbox = QSpinBox()
-        self.channels_spinbox.setRange(1, 2)
-        params_layout.addRow("Channels:", self.channels_spinbox)
-
-        # 缓冲区大小
-        self.chunk_size_spinbox = QSpinBox()
-        self.chunk_size_spinbox.setRange(512, 8192)
-        self.chunk_size_spinbox.setSingleStep(512)
-        params_layout.addRow("Chunk Size:", self.chunk_size_spinbox)
-
-        # 流式转录块大小
+        # 流式转录 Chunk Duration
         self.streaming_chunk_duration_spinbox = QDoubleSpinBox()
         self.streaming_chunk_duration_spinbox.setRange(5.0, 60.0)
         self.streaming_chunk_duration_spinbox.setSingleStep(5.0)
@@ -81,11 +63,11 @@ class AudioInputTab(BaseSettingsTab):
         self.streaming_chunk_duration_spinbox.setToolTip(
             "Duration of each audio chunk for streaming transcription (5-60 seconds)"
         )
-        params_layout.addRow(
+        streaming_layout.addRow(
             "Streaming Chunk Duration:", self.streaming_chunk_duration_spinbox
         )
 
-        layout.addWidget(params_group)
+        layout.addWidget(streaming_group)
 
         # 输入方法组
         method_group = QGroupBox("Text Input Method")
@@ -167,9 +149,6 @@ class AudioInputTab(BaseSettingsTab):
         # 保存控件引用
         self.controls = {
             "audio_device": self.audio_device_combo,
-            "sample_rate": self.sample_rate_combo,
-            "channels": self.channels_spinbox,
-            "chunk_size": self.chunk_size_spinbox,
             "streaming_chunk_duration": self.streaming_chunk_duration_spinbox,
             "input_method": self.input_method_combo,
             "fallback_enabled": self.fallback_enabled_checkbox,
@@ -181,9 +160,6 @@ class AudioInputTab(BaseSettingsTab):
 
         # 暴露控件到parent_window
         self.parent_window.audio_device_combo = self.audio_device_combo
-        self.parent_window.sample_rate_combo = self.sample_rate_combo
-        self.parent_window.channels_spinbox = self.channels_spinbox
-        self.parent_window.chunk_size_spinbox = self.chunk_size_spinbox
         self.parent_window.streaming_chunk_duration_spinbox = (
             self.streaming_chunk_duration_spinbox
         )
@@ -205,17 +181,10 @@ class AudioInputTab(BaseSettingsTab):
         audio_config = config.get("audio", {})
         input_config = config.get("input", {})
 
-        # Audio settings
-        self.sample_rate_combo.setCurrentText(
-            str(audio_config.get("sample_rate", 16000))
-        )
-        self.channels_spinbox.setValue(audio_config.get("channels", 1))
-        self.chunk_size_spinbox.setValue(audio_config.get("chunk_size", 1024))
-
         # Streaming settings
         streaming_config = audio_config.get("streaming", {})
         self.streaming_chunk_duration_spinbox.setValue(
-            streaming_config.get("chunk_duration", 30.0)
+            streaming_config.get("chunk_duration", 15.0)
         )
 
         # Audio device - 使用 itemData 查找真实设备 ID
@@ -254,9 +223,6 @@ class AudioInputTab(BaseSettingsTab):
 
         config = {
             "audio": {
-                "sample_rate": int(self.sample_rate_combo.currentText()),
-                "channels": self.channels_spinbox.value(),
-                "chunk_size": self.chunk_size_spinbox.value(),
                 "device_id": device_id,  # 保存真实的设备 ID，而不是下拉框索引
                 "streaming": {
                     "chunk_duration": self.streaming_chunk_duration_spinbox.value(),

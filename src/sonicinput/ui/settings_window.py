@@ -1599,18 +1599,14 @@ class SettingsWindow(QMainWindow):
         audio_config = default_config.get("audio", {})
         input_config = default_config.get("input", {})
 
-        # 重置音频设置
-        self.ui_settings_service.set_setting(
-            "audio.sample_rate", audio_config.get("sample_rate", 16000)
-        )
-        self.ui_settings_service.set_setting(
-            "audio.channels", audio_config.get("channels", 1)
-        )
+        # 重置音频设置（UI 不暴露采样率/声道/缓冲区等高级参数）
         self.ui_settings_service.set_setting(
             "audio.device_id", audio_config.get("device_id", None)
         )
+        streaming_config = audio_config.get("streaming", {})
         self.ui_settings_service.set_setting(
-            "audio.chunk_size", audio_config.get("chunk_size", 1024)
+            "audio.streaming.chunk_duration",
+            streaming_config.get("chunk_duration", 15.0),
         )
 
         # 重置输入方法设置

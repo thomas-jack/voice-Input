@@ -166,8 +166,17 @@ class ApplicationOrchestrator:
 
             # 停止快捷键监听
             if self._hotkey_service:
-                self._hotkey_service.stop_listening()
-                self._hotkey_service.unregister_all_hotkeys()
+                try:
+                    # Backward compatibility: some implementations may expose stop() only
+                    if hasattr(self._hotkey_service, "stop_listening"):
+                        self._hotkey_service.stop_listening()
+                    elif hasattr(self._hotkey_service, "stop"):
+                        self._hotkey_service.stop()
+
+                    if hasattr(self._hotkey_service, "unregister_all_hotkeys"):
+                        self._hotkey_service.unregister_all_hotkeys()
+                except Exception as e:
+                    app_logger.log_error(e, "hotkey_service_cleanup")
 
             # 卸载模型
             if self._speech_service:
@@ -454,8 +463,16 @@ class ApplicationOrchestrator:
 
             # 停止快捷键监听
             if self._hotkey_service:
-                self._hotkey_service.stop_listening()
-                self._hotkey_service.unregister_all_hotkeys()
+                try:
+                    if hasattr(self._hotkey_service, "stop_listening"):
+                        self._hotkey_service.stop_listening()
+                    elif hasattr(self._hotkey_service, "stop"):
+                        self._hotkey_service.stop()
+
+                    if hasattr(self._hotkey_service, "unregister_all_hotkeys"):
+                        self._hotkey_service.unregister_all_hotkeys()
+                except Exception as e:
+                    app_logger.log_error(e, "hotkey_service_rollback_cleanup")
 
             # 重置状态
             self._current_phase = InitializationPhase.NOT_STARTED
