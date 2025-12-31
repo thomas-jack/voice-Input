@@ -118,7 +118,9 @@ class TranscriptionController(
             self._events.emit(Events.TRANSCRIPTION_STARTED)
 
             # 获取语言配置
-            language = self._config.get_setting("whisper.language")
+            language = self._config.get_setting(
+                ConfigKeys.TRANSCRIPTION_LOCAL_LANGUAGE, "auto"
+            )
             if language == "auto":
                 language = None
 

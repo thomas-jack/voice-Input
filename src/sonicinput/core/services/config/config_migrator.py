@@ -89,6 +89,106 @@ class ConfigMigrator:
 
         try:
             # 1. 迁移旧 Whisper 模型名到 sherpa-onnx 模型名
+            # 0. ???? legacy whisper ? transcription.local
+            # ?? legacy ???:
+            # - {"whisper": {"model": "...", "language": "...", "auto_load": true}}
+            # - {"whisper.model": "...", "whisper.language": "...", "whisper.auto_load": true}
+            legacy_whisper: Dict[str, Any] = {}
+
+            if isinstance(config.get("whisper"), dict):
+                legacy_whisper.update(config.get("whisper") or {})
+
+            # Support very old flat-dot style keys (override dict values if both exist).
+            if "whisper.model" in config:
+                legacy_whisper["model"] = config["whisper.model"]
+                del config["whisper.model"]
+                migrated = True
+            if "whisper.language" in config:
+                legacy_whisper["language"] = config["whisper.language"]
+                del config["whisper.language"]
+                migrated = True
+            if "whisper.auto_load" in config:
+                legacy_whisper["auto_load"] = config["whisper.auto_load"]
+                del config["whisper.auto_load"]
+                migrated = True
+
+            if legacy_whisper:
+                # Ensure target structure exists (defensive against corrupted configs)
+                if not isinstance(config.get("transcription"), dict):
+                    config["transcription"] = {}
+                    migrated = True
+                if not isinstance(config["transcription"].get("local"), dict):
+                    config["transcription"]["local"] = {}
+                    migrated = True
+
+                local_config = config["transcription"]["local"]
+
+                legacy_model = legacy_whisper.get("model")
+                if isinstance(legacy_model, str) and legacy_model.strip():
+                    old_model = legacy_model.strip()
+                    model_mapping = {
+                        "whisper-large-v3": "paraformer",
+                        "whisper-large-v3-turbo": "paraformer",
+                        "large-v3": "paraformer",
+                        "large-v3-turbo": "paraformer",
+                        "large-v2": "paraformer",
+                        "large": "paraformer",
+                        "medium": "paraformer",
+                        "small": "zipformer-small",
+                        "base": "zipformer-small",
+                        "tiny": "zipformer-small",
+                    }
+
+                    if old_model in model_mapping:
+                        new_model = model_mapping[old_model]
+                        app_logger.info(
+                            f"Migrating: whisper.model '{old_model}' -> "
+                            f"transcription.local.model '{new_model}'"
+                        )
+                    elif old_model in ["paraformer", "zipformer-small"]:
+                        new_model = old_model
+                        app_logger.info(
+                            f"Migrating: whisper.model '{old_model}' -> "
+                            f"transcription.local.model '{new_model}'"
+                        )
+                    else:
+                        new_model = "paraformer"
+                        app_logger.warning(
+                            f"Migrating: Unknown whisper.model '{old_model}' "
+                            f"-> transcription.local.model '{new_model}' (default)"
+                        )
+
+                    if local_config.get("model") != new_model:
+                        local_config["model"] = new_model
+                        migrated = True
+
+                legacy_language = legacy_whisper.get("language")
+                if isinstance(legacy_language, str) and legacy_language.strip():
+                    new_language = legacy_language.strip()
+                    if local_config.get("language") != new_language:
+                        local_config["language"] = new_language
+                        app_logger.info(
+                            f"Migrating: whisper.language '{new_language}' -> "
+                            f"transcription.local.language"
+                        )
+                        migrated = True
+
+                legacy_auto_load = legacy_whisper.get("auto_load")
+                if isinstance(legacy_auto_load, bool):
+                    if local_config.get("auto_load") != legacy_auto_load:
+                        local_config["auto_load"] = legacy_auto_load
+                        app_logger.info(
+                            f"Migrating: whisper.auto_load {legacy_auto_load} -> "
+                            f"transcription.local.auto_load"
+                        )
+                        migrated = True
+
+                # Drop the legacy whisper block after migration.
+                if "whisper" in config:
+                    del config["whisper"]
+                    app_logger.info("Migrating: Removing legacy 'whisper' config block")
+                    migrated = True
+
             if "transcription" in config:
                 local_config = config.get("transcription", {}).get("local", {})
                 if "model" in local_config:

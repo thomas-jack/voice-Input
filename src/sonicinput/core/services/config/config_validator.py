@@ -27,9 +27,39 @@ class ConfigValidator:
 
         try:
             # 验证快捷键
-            hotkey = self._get_nested(config, "hotkey", "")
-            if not hotkey:
+            hotkeys_config = self._get_nested(config, "hotkeys", None)
+            hotkeys = []
+
+            if isinstance(hotkeys_config, dict):
+                raw_keys = hotkeys_config.get("keys", [])
+                if isinstance(raw_keys, list):
+                    hotkeys = [
+                        hk.strip()
+                        for hk in raw_keys
+                        if isinstance(hk, str) and hk.strip()
+                    ]
+                elif isinstance(raw_keys, str) and raw_keys.strip():
+                    hotkeys = [raw_keys.strip()]
+            elif isinstance(hotkeys_config, list):
+                hotkeys = [
+                    hk.strip()
+                    for hk in hotkeys_config
+                    if isinstance(hk, str) and hk.strip()
+                ]
+            elif isinstance(hotkeys_config, str) and hotkeys_config.strip():
+                hotkeys = [hotkeys_config.strip()]
+            else:
+                # Very old format: single "hotkey"
+                legacy_hotkey = self._get_nested(config, "hotkey", "")
+                if isinstance(legacy_hotkey, str) and legacy_hotkey.strip():
+                    hotkeys = [legacy_hotkey.strip()]
+
+            if not hotkeys:
                 issues.append("Hotkey is not set")
+
+            backend = self._get_nested(config, "hotkeys.backend", "auto")
+            if backend not in ["auto", "win32", "pynput"]:
+                warnings.append(f"Unknown hotkey backend: {backend}")
 
             # 验证转录提供商配置
             provider = self._get_nested(config, "transcription.provider", "local")
@@ -120,9 +150,18 @@ class ConfigValidator:
                 warnings.append(f"Unusual sample rate: {sample_rate}")
 
             # 验证UI配置
-            theme = self._get_nested(config, "ui.theme", "dark")
-            if theme and theme not in ["light", "dark", "auto"]:
-                warnings.append(f"Unknown theme: {theme}")
+            theme_color = self._get_nested(config, "ui.theme_color", "cyan")
+            valid_theme_colors = [
+                "cyan",
+                "blue",
+                "teal",
+                "purple",
+                "red",
+                "pink",
+                "amber",
+            ]
+            if theme_color and theme_color not in valid_theme_colors:
+                warnings.append(f"Unknown theme color: {theme_color}")
 
         except Exception as e:
             issues.append(f"Validation error: {e}")

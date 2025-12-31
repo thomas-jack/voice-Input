@@ -318,10 +318,7 @@ class ApplicationOrchestrator:
             return False
 
         # 否则根据配置决定
-        return self.config.get_setting(
-            ConfigKeys.TRANSCRIPTION_LOCAL_AUTO_LOAD,
-            self.config.get_setting("whisper.auto_load", True),
-        )
+        return self.config.get_setting(ConfigKeys.TRANSCRIPTION_LOCAL_AUTO_LOAD, True)
 
     def _load_model_async(self, model_name: str) -> None:
         """异步加载语音模型"""
