@@ -156,6 +156,9 @@ class ConfigKeys:
     UI_SHOW_OVERLAY = "ui.show_overlay"
     """显示录音悬浮窗 (bool)"""
 
+    UI_OVERLAY_POSITION = "ui.overlay_position"
+    """悬浮窗位置配置对象 (Dict)"""
+
     UI_OVERLAY_POSITION_MODE = "ui.overlay_position.mode"
     """悬浮窗位置模式 (str): "preset" | "custom" """
 

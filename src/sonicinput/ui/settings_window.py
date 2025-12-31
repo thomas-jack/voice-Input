@@ -1414,34 +1414,114 @@ class SettingsWindow(QMainWindow):
 
     def _reset_hotkey_tab(self, default_config) -> None:
         """重置热键标签页"""
-        hotkeys = default_config.get("hotkeys", ["ctrl+shift+v"])
+        hotkeys_config = default_config.get("hotkeys", {})
 
-        # 清空列表并添加默认快捷键
-        self.hotkeys_list.clear()
-        for hotkey in hotkeys:
-            self.hotkeys_list.addItem(hotkey)
+        # 支持新旧格式
+        if isinstance(hotkeys_config, dict):
+            hotkeys = hotkeys_config.get("keys", ["ctrl+shift+v"])
+            backend = hotkeys_config.get("backend", "auto")
+        elif isinstance(hotkeys_config, list):
+            hotkeys = hotkeys_config or ["ctrl+shift+v"]
+            backend = "auto"
+        else:
+            hotkeys = ["ctrl+shift+v"]
+            backend = "auto"
+
+        # 写入配置（热键服务读取的是 dot-path 键）
+        self.ui_settings_service.set_setting("hotkeys.keys", hotkeys)
+        self.ui_settings_service.set_setting("hotkeys.backend", backend)
+
+        self.update_ui_from_config()
 
     def _reset_transcription_tab(self, default_config) -> None:
         """重置Transcription标签页"""
-        whisper_config = default_config.get("whisper", {})
+        transcription_config = default_config.get("transcription", {})
 
-        # 重置模型选择
-        model = whisper_config.get("model", "large-v3-turbo")
-        index = self.whisper_model_combo.findText(model)
-        if index >= 0:
-            self.whisper_model_combo.setCurrentIndex(index)
+        provider = transcription_config.get("provider", "local")
+        local_config = transcription_config.get("local", {})
+        groq_config = transcription_config.get("groq", {})
+        siliconflow_config = transcription_config.get("siliconflow", {})
+        qwen_config = transcription_config.get("qwen", {})
 
-        # 重置其他设置
-        self.ui_settings_service.set_setting("whisper.model", model)
+        # Provider
+        self.ui_settings_service.set_setting("transcription.provider", provider)
+
+        # Local (sherpa-onnx)
         self.ui_settings_service.set_setting(
-            "whisper.language", whisper_config.get("language", "auto")
+            "transcription.local.model", local_config.get("model", "paraformer")
         )
         self.ui_settings_service.set_setting(
-            "whisper.use_gpu", whisper_config.get("use_gpu", True)
+            "transcription.local.language", local_config.get("language", "zh")
         )
         self.ui_settings_service.set_setting(
-            "whisper.temperature", whisper_config.get("temperature", 0.0)
+            "transcription.local.auto_load", local_config.get("auto_load", True)
         )
+        self.ui_settings_service.set_setting(
+            "transcription.local.streaming_mode",
+            local_config.get("streaming_mode", "chunked"),
+        )
+
+        # Groq
+        self.ui_settings_service.set_setting(
+            "transcription.groq.api_key", groq_config.get("api_key", "")
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.groq.model",
+            groq_config.get("model", "whisper-large-v3-turbo"),
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.groq.base_url",
+            groq_config.get("base_url", "https://api.groq.com/openai/v1"),
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.groq.timeout", groq_config.get("timeout", 30)
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.groq.max_retries", groq_config.get("max_retries", 3)
+        )
+
+        # SiliconFlow
+        self.ui_settings_service.set_setting(
+            "transcription.siliconflow.api_key", siliconflow_config.get("api_key", "")
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.siliconflow.model",
+            siliconflow_config.get("model", "FunAudioLLM/SenseVoiceSmall"),
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.siliconflow.base_url",
+            siliconflow_config.get("base_url", "https://api.siliconflow.cn/v1"),
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.siliconflow.timeout", siliconflow_config.get("timeout", 30)
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.siliconflow.max_retries",
+            siliconflow_config.get("max_retries", 3),
+        )
+
+        # Qwen
+        self.ui_settings_service.set_setting(
+            "transcription.qwen.api_key", qwen_config.get("api_key", "")
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.qwen.model", qwen_config.get("model", "qwen3-asr-flash")
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.qwen.base_url",
+            qwen_config.get("base_url", "https://dashscope.aliyuncs.com"),
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.qwen.timeout", qwen_config.get("timeout", 30)
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.qwen.max_retries", qwen_config.get("max_retries", 3)
+        )
+        self.ui_settings_service.set_setting(
+            "transcription.qwen.enable_itn", qwen_config.get("enable_itn", True)
+        )
+
+        self.update_ui_from_config()
 
     def _reset_ai_tab(self, default_config) -> None:
         """重置AI设置标签页"""
@@ -1519,15 +1599,15 @@ class SettingsWindow(QMainWindow):
         audio_config = default_config.get("audio", {})
         input_config = default_config.get("input", {})
 
-        # 重置音频设备为默认
-        self.audio_device_combo.setCurrentIndex(0)  # 通常第一个是默认设备
-
         # 重置音频设置
         self.ui_settings_service.set_setting(
             "audio.sample_rate", audio_config.get("sample_rate", 16000)
         )
         self.ui_settings_service.set_setting(
             "audio.channels", audio_config.get("channels", 1)
+        )
+        self.ui_settings_service.set_setting(
+            "audio.device_id", audio_config.get("device_id", None)
         )
         self.ui_settings_service.set_setting(
             "audio.chunk_size", audio_config.get("chunk_size", 1024)
@@ -1542,9 +1622,6 @@ class SettingsWindow(QMainWindow):
         )
         self.ui_settings_service.set_setting(
             "input.auto_detect_terminal", input_config.get("auto_detect_terminal", True)
-        )
-        self.ui_settings_service.set_setting(
-            "input.method", input_config.get("method", "smart")
         )
         self.ui_settings_service.set_setting(
             "input.clipboard_restore_delay",

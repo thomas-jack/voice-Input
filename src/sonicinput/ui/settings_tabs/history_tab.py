@@ -88,12 +88,14 @@ class ReprocessingWorker(QThread):
                 transcription_provider = self.config_service.get_setting(
                     "transcription.provider", "local"
                 )
-                language = self.config_service.get_setting(
-                    f"transcription.{transcription_provider}.language", "auto"
-                )
-                temperature = self.config_service.get_setting(
-                    "transcription.temperature", 0.0
-                )
+                if transcription_provider == "local":
+                    language = self.config_service.get_setting(
+                        "transcription.local.language", "zh"
+                    )
+                else:
+                    language = "auto"
+
+                temperature = 0.0
 
                 # 调用转录服务
                 transcription_result = self.transcription_service.transcribe_sync(
@@ -361,12 +363,14 @@ class BatchReprocessingWorker(QThread):
                 transcription_provider = self.config_service.get_setting(
                     "transcription.provider", "local"
                 )
-                language = self.config_service.get_setting(
-                    f"transcription.{transcription_provider}.language", "auto"
-                )
-                temperature = self.config_service.get_setting(
-                    "transcription.temperature", 0.0
-                )
+                if transcription_provider == "local":
+                    language = self.config_service.get_setting(
+                        "transcription.local.language", "zh"
+                    )
+                else:
+                    language = "auto"
+
+                temperature = 0.0
 
                 transcription_result = self.transcription_service.transcribe_sync(
                     audio_data=audio_data,

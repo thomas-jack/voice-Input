@@ -133,14 +133,21 @@ class UISettingsServiceAdapter:
 
     def reset_to_defaults(self) -> None:
         """重置为默认配置"""
+        # Backward/forward compatible: refactored config service exposes `reset_to_default(key=None)`
+        if hasattr(self.config_service, "reset_to_default"):
+            self.config_service.reset_to_default()
+            return
         if hasattr(self.config_service, "reset_to_defaults"):
             self.config_service.reset_to_defaults()
 
     def get_default_config(self) -> Dict[str, Any]:
         """获取默认配置"""
-        if hasattr(self.config_service, "_default_config"):
-            return self.config_service._default_config
-        return {}
+        # Use authoritative defaults from the core config system.
+        # Avoid relying on private attributes like `config_service._default_config` which
+        # are not present on RefactoredConfigService.
+        from .config.config_defaults import get_default_config
+
+        return get_default_config()
 
     def get_event_service(self) -> IEventService:
         """获取事件服务"""

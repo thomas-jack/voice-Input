@@ -205,6 +205,32 @@ class ConfigMigrator:
                 app_logger.info("Migrating: Removing redundant 'hotkey' field")
                 migrated = True
 
+            # 5. 迁移旧 hotkeys 数组到新结构: {"keys": [...], "backend": "auto"}
+            hotkeys_config = config.get("hotkeys")
+            if isinstance(hotkeys_config, list):
+                keys = [
+                    hk.strip()
+                    for hk in hotkeys_config
+                    if isinstance(hk, str) and hk.strip()
+                ]
+                if not keys:
+                    keys = ["ctrl+shift+v"]
+                config["hotkeys"] = {"keys": keys, "backend": "auto"}
+                app_logger.info("Migrating: hotkeys list -> hotkeys.{keys,backend}")
+                migrated = True
+            elif isinstance(hotkeys_config, str) and hotkeys_config.strip():
+                config["hotkeys"] = {"keys": [hotkeys_config.strip()], "backend": "auto"}
+                app_logger.info("Migrating: hotkeys str -> hotkeys.{keys,backend}")
+                migrated = True
+            elif isinstance(hotkeys_config, dict):
+                # Ensure required fields exist for the structured format.
+                if "keys" not in hotkeys_config:
+                    hotkeys_config["keys"] = ["ctrl+shift+v"]
+                    migrated = True
+                if "backend" not in hotkeys_config:
+                    hotkeys_config["backend"] = "auto"
+                    migrated = True
+
             if migrated:
                 app_logger.info("Configuration migration completed")
 
