@@ -230,6 +230,12 @@ def settings_window(qtbot, mock_config_service):
     mock_ui_settings_service.get_event_service = Mock(return_value=mock_event_service)
     mock_ui_settings_service.get_transcription_service = Mock(return_value=None)
     mock_ui_settings_service.get_ai_processing_controller = Mock(return_value=None)
+    mock_history_service = MagicMock()
+    mock_history_service.get_records = Mock(return_value=[])
+    mock_history_service.search_records = Mock(return_value=[])
+    mock_history_service.get_total_count = Mock(return_value=0)
+    mock_history_service.get_aggregate_stats = Mock(return_value=(0, 0.0, 0))
+    mock_ui_settings_service.get_history_service = Mock(return_value=mock_history_service)
 
     mock_ui_model_service = MagicMock()
     mock_ui_model_service.get_state = Mock(return_value={"recording": False})
