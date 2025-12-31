@@ -95,9 +95,7 @@
     "typing_delay": 0.01
   },
   "history": {
-    "storage_path": "auto",
-    "max_records": 1000,
-    "auto_cleanup_days": 0
+    "storage_path": "auto"
   },
   "logging": {
     "level": "INFO",

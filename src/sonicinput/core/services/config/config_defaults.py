@@ -96,8 +96,6 @@ def get_default_config() -> Dict[str, Any]:
         },
         "history": {
             "storage_path": "auto",
-            "max_records": 1000,
-            "auto_cleanup_days": 0,
         },
         "logging": {
             "level": "INFO",

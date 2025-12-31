@@ -484,6 +484,11 @@ class HistoryStorageService(LifecycleComponent):
             app_logger.log_error(e, "get_records")
             return []
 
+    @staticmethod
+    def _escape_like_pattern(value: str) -> str:
+        """Escape LIKE wildcards so user queries behave like literal substring search."""
+        return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
     def search_records(
         self,
         query: Optional[str] = None,
@@ -495,6 +500,13 @@ class HistoryStorageService(LifecycleComponent):
         offset: int = 0,
     ) -> List[HistoryRecord]:
         """搜索记录（线程安全）"""
+        if not self._db_path:
+            app_logger.log_audio_event(
+                "HistoryStorageService not initialized (search_records)",
+                {"_db_path": None, "message": "Service _do_start() may have failed"},
+            )
+            return []
+
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -504,11 +516,18 @@ class HistoryStorageService(LifecycleComponent):
             params = []
 
             if query:
-                conditions.append(
-                    "(transcription_text LIKE ? OR ai_optimized_text LIKE ? OR final_text LIKE ?)"
-                )
-                search_term = f"%{query}%"
-                params.extend([search_term, search_term, search_term])
+                normalized_query = query.strip().lower()
+                if normalized_query:
+                    escaped_query = self._escape_like_pattern(normalized_query)
+                    search_term = f"%{escaped_query}%"
+                    conditions.append(
+                        "("
+                        "LOWER(transcription_text) LIKE ? ESCAPE '\\' OR "
+                        "LOWER(ai_optimized_text) LIKE ? ESCAPE '\\' OR "
+                        "LOWER(final_text) LIKE ? ESCAPE '\\'"
+                        ")"
+                    )
+                    params.extend([search_term, search_term, search_term])
 
             if start_date:
                 conditions.append("timestamp >= ?")
@@ -598,6 +617,13 @@ class HistoryStorageService(LifecycleComponent):
         ai_status: Optional[str] = None,
     ) -> int:
         """获取记录总数（用于分页，线程安全）"""
+        if not self._db_path:
+            app_logger.log_audio_event(
+                "HistoryStorageService not initialized (get_total_count)",
+                {"_db_path": None, "message": "Service _do_start() may have failed"},
+            )
+            return 0
+
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
@@ -607,11 +633,18 @@ class HistoryStorageService(LifecycleComponent):
             params = []
 
             if query:
-                conditions.append(
-                    "(transcription_text LIKE ? OR ai_optimized_text LIKE ? OR final_text LIKE ?)"
-                )
-                search_term = f"%{query}%"
-                params.extend([search_term, search_term, search_term])
+                normalized_query = query.strip().lower()
+                if normalized_query:
+                    escaped_query = self._escape_like_pattern(normalized_query)
+                    search_term = f"%{escaped_query}%"
+                    conditions.append(
+                        "("
+                        "LOWER(transcription_text) LIKE ? ESCAPE '\\' OR "
+                        "LOWER(ai_optimized_text) LIKE ? ESCAPE '\\' OR "
+                        "LOWER(final_text) LIKE ? ESCAPE '\\'"
+                        ")"
+                    )
+                    params.extend([search_term, search_term, search_term])
 
             if start_date:
                 conditions.append("timestamp >= ?")
@@ -642,6 +675,98 @@ class HistoryStorageService(LifecycleComponent):
         except Exception as e:
             app_logger.log_error(e, "get_total_count")
             return 0
+
+    def get_aggregate_stats(
+        self,
+        query: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        transcription_status: Optional[str] = None,
+        ai_status: Optional[str] = None,
+    ) -> tuple[int, float, int]:
+        """获取聚合统计信息（线程安全）
+
+        Returns:
+            (total_count, total_duration, success_count)
+        """
+        if not self._db_path:
+            app_logger.log_audio_event(
+                "HistoryStorageService not initialized (get_aggregate_stats)",
+                {"_db_path": None, "message": "Service _do_start() may have failed"},
+            )
+            return (0, 0.0, 0)
+
+        try:
+            conn = self._get_connection()
+            cursor = conn.cursor()
+
+            conditions = []
+            params = []
+
+            if query:
+                normalized_query = query.strip().lower()
+                if normalized_query:
+                    escaped_query = self._escape_like_pattern(normalized_query)
+                    search_term = f"%{escaped_query}%"
+                    conditions.append(
+                        "("
+                        "LOWER(transcription_text) LIKE ? ESCAPE '\\' OR "
+                        "LOWER(ai_optimized_text) LIKE ? ESCAPE '\\' OR "
+                        "LOWER(final_text) LIKE ? ESCAPE '\\'"
+                        ")"
+                    )
+                    params.extend([search_term, search_term, search_term])
+
+            if start_date:
+                conditions.append("timestamp >= ?")
+                params.append(start_date.isoformat())
+
+            if end_date:
+                conditions.append("timestamp <= ?")
+                params.append(end_date.isoformat())
+
+            if transcription_status:
+                conditions.append("transcription_status = ?")
+                params.append(transcription_status)
+
+            if ai_status:
+                conditions.append("ai_status = ?")
+                params.append(ai_status)
+
+            sql = """
+                SELECT
+                    COUNT(*) AS total_count,
+                    COALESCE(SUM(duration), 0) AS total_duration,
+                    COALESCE(
+                        SUM(
+                            CASE
+                                WHEN transcription_status = 'success'
+                                    AND ai_status IN ('success', 'skipped')
+                                THEN 1
+                                ELSE 0
+                            END
+                        ),
+                        0
+                    ) AS success_count
+                FROM history_records
+            """
+
+            if conditions:
+                sql += " WHERE " + " AND ".join(conditions)
+
+            cursor.execute(sql, params)
+            row = cursor.fetchone()
+            if not row:
+                return (0, 0.0, 0)
+
+            total_count = int(row[0] or 0)
+            total_duration = float(row[1] or 0.0)
+            success_count = int(row[2] or 0)
+            return (total_count, total_duration, success_count)
+
+        except Exception as e:
+            app_logger.log_error(e, "get_aggregate_stats")
+            return (0, 0.0, 0)
 
     def get_storage_path(self) -> Path:
         """获取存储路径"""

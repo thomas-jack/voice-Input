@@ -219,12 +219,6 @@ class ConfigKeys:
     HISTORY_STORAGE_PATH = "history.storage_path"
     """历史记录存储路径 (str): "auto"表示自动选择"""
 
-    HISTORY_MAX_RECORDS = "history.max_records"
-    """最大历史记录数 (int)"""
-
-    HISTORY_AUTO_CLEANUP_DAYS = "history.auto_cleanup_days"
-    """自动清理天数 (int): 0表示不自动清理"""
-
     # ==================== Logging (日志配置) ====================
     LOGGING_LEVEL = "logging.level"
     """日志级别 (str): "DEBUG" | "INFO" | "WARNING" | "ERROR" """

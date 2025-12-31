@@ -185,7 +185,6 @@ class Limits:
     # 性能限制
     MIN_GPU_MEMORY_FRACTION = 0.1
     MAX_GPU_MEMORY_FRACTION = 1.0
-    MAX_HISTORY_ENTRIES = 1000
     MAX_LOG_SIZE_MB = 100
 
 

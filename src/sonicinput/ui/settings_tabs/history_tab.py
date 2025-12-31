@@ -1,8 +1,8 @@
 """历史记录标签页"""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -249,15 +249,17 @@ class BatchReprocessingWorker(QThread):
 
     def __init__(
         self,
-        records: list,
+        total_records: int,
         cd_seconds: int,
         transcription_service,
         ai_processing_controller,
         config_service,
         history_service,
+        page_size: int = 500,
     ):
         super().__init__()
-        self.records = records
+        self.total_records = total_records
+        self.page_size = page_size
         self.cd_seconds = cd_seconds
         self.transcription_service = transcription_service
         self.ai_processing_controller = ai_processing_controller
@@ -272,29 +274,44 @@ class BatchReprocessingWorker(QThread):
 
         from ...utils import app_logger
 
-        total_records = len(self.records)
+        total_records = max(int(self.total_records or 0), 0)
         self.stats["total"] = total_records
 
-        for i, record in enumerate(self.records):
-            if self.should_stop:
-                app_logger.log_audio_event(
-                    "Batch reprocessing cancelled by user",
-                    {"processed": i, "total": total_records},
-                )
+        processed = 0
+        offset = 0
+        page_size = max(int(self.page_size or 0), 1)
+
+        while not self.should_stop and processed < total_records:
+            records = self.history_service.get_records(limit=page_size, offset=offset)
+            if not records:
                 break
 
-            # 发送进度更新
-            self.progress_updated.emit(i + 1, total_records, record.id)
+            for record in records:
+                if self.should_stop or processed >= total_records:
+                    break
 
-            # 处理单条记录
-            success = self._process_single_record(record)
+                processed += 1
 
-            # 发送单条记录完成信号
-            self.record_processed.emit(record.id, success)
+                # 发送进度更新
+                self.progress_updated.emit(processed, total_records, record.id)
 
-            # CD间隔（除了最后一条记录）
-            if i < total_records - 1 and self.cd_seconds > 0:
-                time.sleep(self.cd_seconds)
+                # 处理单条记录
+                success = self._process_single_record(record)
+
+                # 发送单条记录完成信号
+                self.record_processed.emit(record.id, success)
+
+                # CD间隔（除了最后一条记录）
+                if processed < total_records and self.cd_seconds > 0:
+                    time.sleep(self.cd_seconds)
+
+            offset += len(records)
+
+        if self.should_stop:
+            app_logger.log_audio_event(
+                "Batch reprocessing cancelled by user",
+                {"processed": processed, "total": total_records},
+            )
 
         # 发送批处理完成信号
         self.batch_completed.emit(self.stats)
@@ -871,6 +888,14 @@ class HistoryTab(BaseSettingsTab):
         self.current_records: List[Any] = []  # 当前显示的记录列表
         self.batch_worker = None  # 批量处理Worker
         self.batch_progress_dialog = None  # 批量处理进度对话框
+        self._search_debounce_timer: Optional[QTimer] = None
+
+        # History pagination (keeps UI responsive for large history)
+        self._page_size = 200
+        self._page_offset = 0
+        self._has_more_pages = True
+        self._is_loading_page = False
+        self._active_query = ""
 
         from ...utils import app_logger
 
@@ -938,6 +963,9 @@ class HistoryTab(BaseSettingsTab):
 
         # 双击打开详情
         self.history_table.doubleClicked.connect(self._on_row_double_clicked)
+        self.history_table.verticalScrollBar().valueChanged.connect(
+            self._on_history_table_scrolled
+        )
 
         # 列宽设置
         header = self.history_table.horizontalHeader()
@@ -974,6 +1002,12 @@ class HistoryTab(BaseSettingsTab):
 
         layout.addWidget(stats_group)
 
+        # Debounce search to avoid querying on every keypress
+        self._search_debounce_timer = QTimer(self.widget)
+        self._search_debounce_timer.setSingleShot(True)
+        self._search_debounce_timer.setInterval(250)
+        self._search_debounce_timer.timeout.connect(self._load_history)
+
         # 保存控件引用
         self.controls = {
             "history_table": self.history_table,
@@ -1007,7 +1041,7 @@ class HistoryTab(BaseSettingsTab):
         return self.history_service
 
     def _load_history(self) -> None:
-        """加载历史记录"""
+        """加载历史记录（分页，支持无限滚动）"""
         service = self._get_history_service()
         if not service:
             QMessageBox.warning(
@@ -1018,30 +1052,12 @@ class HistoryTab(BaseSettingsTab):
             return
 
         try:
-            # 获取所有记录（最新的在前）
-            self.current_records = service.get_records(limit=1000, offset=0)
+            self._reset_pagination()
 
-            # 应用搜索过滤
-            search_text = self.search_input.text().strip().lower()
-            if search_text:
-                self.current_records = [
-                    r
-                    for r in self.current_records
-                    if (
-                        r.transcription_text
-                        and search_text in r.transcription_text.lower()
-                    )
-                    or (
-                        r.ai_optimized_text
-                        and search_text in r.ai_optimized_text.lower()
-                    )
-                    or (r.final_text and search_text in r.final_text.lower())
-                ]
+            # Load first page
+            self._load_next_page()
 
-            # 更新表格
-            self._update_table()
-
-            # 更新统计信息
+            # 更新统计信息（基于数据库全量数据）
             self._update_statistics()
 
         except Exception as e:
@@ -1049,43 +1065,114 @@ class HistoryTab(BaseSettingsTab):
                 self.parent_window, "Error", f"Failed to load history: {str(e)}"
             )
 
-    def _update_table(self) -> None:
-        """更新表格显示"""
+    def _reset_pagination(self) -> None:
+        """重置分页状态并清空表格"""
+        self._page_offset = 0
+        self._has_more_pages = True
+        self._is_loading_page = False
+        self._active_query = self.search_input.text().strip()
+
+        self.current_records = []
         self.history_table.setRowCount(0)
+        self.history_table.scrollToTop()
 
-        for record in self.current_records:
-            row = self.history_table.rowCount()
-            self.history_table.insertRow(row)
+    def _load_next_page(self) -> None:
+        """加载下一页并追加到表格"""
+        if self._is_loading_page or not self._has_more_pages:
+            return
 
-            # Time - 短格式：MM-DD HH:MM
-            time_str = record.timestamp.strftime("%m-%d %H:%M")
-            time_item = QTableWidgetItem(time_str)
-            time_item.setToolTip(
-                record.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-            )  # 完整时间作为tooltip
-            self.history_table.setItem(row, 0, time_item)
+        service = self._get_history_service()
+        if not service:
+            return
 
-            # Duration
-            duration_str = f"{record.duration:.1f}s"
-            self.history_table.setItem(row, 1, QTableWidgetItem(duration_str))
+        self._is_loading_page = True
+        try:
+            query = self._active_query
+            if query:
+                page_records = service.search_records(
+                    query=query, limit=self._page_size, offset=self._page_offset
+                )
+            else:
+                page_records = service.get_records(
+                    limit=self._page_size, offset=self._page_offset
+                )
 
-            # Transcription (full text with auto-ellipsis)
-            trans_text = record.transcription_text or ""
-            trans_item = QTableWidgetItem(trans_text)
-            trans_item.setToolTip(trans_text)
-            self.history_table.setItem(row, 2, trans_item)
+            if not page_records:
+                self._has_more_pages = False
+                return
 
-            # AI Status - 居中对齐
-            ai_status = self._get_ai_status_display(record)
-            ai_item = QTableWidgetItem(ai_status)
-            ai_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 居中对齐
-            if record.ai_status == "success":
-                ai_item.setForeground(Qt.GlobalColor.darkGreen)
-            elif record.ai_status == "failed":
-                ai_item.setForeground(Qt.GlobalColor.red)
-            elif record.ai_status == "skipped":
-                ai_item.setForeground(Qt.GlobalColor.gray)
-            self.history_table.setItem(row, 3, ai_item)
+            self.current_records.extend(page_records)
+            self._append_rows(page_records)
+
+            self._page_offset += len(page_records)
+            self._has_more_pages = len(page_records) >= self._page_size
+
+        finally:
+            self._is_loading_page = False
+
+        # If the view isn't scrollable yet, auto-fetch more pages (until it is or no more data)
+        QTimer.singleShot(0, self._ensure_table_scrollable)
+
+    def _ensure_table_scrollable(self) -> None:
+        if self._is_loading_page or not self._has_more_pages:
+            return
+
+        if self.history_table.verticalScrollBar().maximum() == 0:
+            self._load_next_page()
+
+    def _on_history_table_scrolled(self, value: int) -> None:
+        """滚动接近底部时自动加载更多"""
+        if self._is_loading_page or not self._has_more_pages:
+            return
+
+        scrollbar = self.history_table.verticalScrollBar()
+        if value >= scrollbar.maximum() - 50:
+            self._load_next_page()
+
+    def _append_rows(self, records: List[Any]) -> None:
+        """向表格追加多行"""
+        if not records:
+            return
+
+        start_row = self.history_table.rowCount()
+        self.history_table.setUpdatesEnabled(False)
+        try:
+            self.history_table.setRowCount(start_row + len(records))
+
+            for row_offset, record in enumerate(records):
+                row = start_row + row_offset
+
+                # Time - 短格式：MM-DD HH:MM
+                time_str = record.timestamp.strftime("%m-%d %H:%M")
+                time_item = QTableWidgetItem(time_str)
+                time_item.setToolTip(
+                    record.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                )  # 完整时间作为tooltip
+                self.history_table.setItem(row, 0, time_item)
+
+                # Duration
+                duration_str = f"{record.duration:.1f}s"
+                self.history_table.setItem(row, 1, QTableWidgetItem(duration_str))
+
+                # Transcription (full text with auto-ellipsis)
+                trans_text = record.transcription_text or ""
+                trans_item = QTableWidgetItem(trans_text)
+                trans_item.setToolTip(trans_text)
+                self.history_table.setItem(row, 2, trans_item)
+
+                # AI Status - 居中对齐
+                ai_status = self._get_ai_status_display(record)
+                ai_item = QTableWidgetItem(ai_status)
+                ai_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)  # 居中对齐
+                if record.ai_status == "success":
+                    ai_item.setForeground(Qt.GlobalColor.darkGreen)
+                elif record.ai_status == "failed":
+                    ai_item.setForeground(Qt.GlobalColor.red)
+                elif record.ai_status == "skipped":
+                    ai_item.setForeground(Qt.GlobalColor.gray)
+                self.history_table.setItem(row, 3, ai_item)
+        finally:
+            self.history_table.setUpdatesEnabled(True)
 
     def _on_row_double_clicked(self, index) -> None:
         """双击行打开详情对话框"""
@@ -1155,20 +1242,27 @@ class HistoryTab(BaseSettingsTab):
 
     def _on_search_changed(self, text: str) -> None:
         """搜索文本变化时触发"""
-        # 重新加载并过滤
-        self._load_history()
+        if self._search_debounce_timer is None:
+            self._load_history()
+            return
+
+        # 重新加载（分页 + DB查询）
+        self._search_debounce_timer.start()
 
     def _update_statistics(self) -> None:
         """更新统计信息"""
-        total_count = len(self.current_records)
-        total_duration = sum(r.duration for r in self.current_records)
+        service = self._get_history_service()
+        if not service:
+            self.total_records_label.setText("Total Records: 0")
+            self.total_duration_label.setText("Total Duration: 0.0s")
+            self.success_rate_label.setText("Success Rate: 0%")
+            return
 
-        # 计算成功率（转录成功且AI成功或跳过）
-        success_count = sum(
-            1
-            for r in self.current_records
-            if r.transcription_status == "success"
-            and r.ai_status in ["success", "skipped"]
+        query = self._active_query or self.search_input.text().strip()
+        query = query if query else None
+
+        total_count, total_duration, success_count = service.get_aggregate_stats(
+            query=query
         )
         success_rate = (success_count / total_count * 100) if total_count > 0 else 0
 
@@ -1227,10 +1321,8 @@ class HistoryTab(BaseSettingsTab):
             return
 
         try:
-            # 获取所有记录（使用大limit确保获取所有）
-            all_records = service.get_records(limit=100000, offset=0)
-
-            if not all_records:
+            total_records = service.get_total_count()
+            if total_records <= 0:
                 QMessageBox.information(
                     self.parent_window,
                     "No Records",
@@ -1239,7 +1331,7 @@ class HistoryTab(BaseSettingsTab):
                 return
 
             # 显示配置对话框
-            dialog = BatchReprocessDialog(len(all_records), self.parent_window)
+            dialog = BatchReprocessDialog(total_records, self.parent_window)
             if dialog.exec() != QDialog.DialogCode.Accepted:
                 return
 
@@ -1249,7 +1341,7 @@ class HistoryTab(BaseSettingsTab):
             reply = QMessageBox.question(
                 self.parent_window,
                 "Confirm Batch Reprocessing",
-                f"You are about to re-transcribe {len(all_records)} records.\n\n"
+                f"You are about to re-transcribe {total_records} records.\n\n"
                 f"Cooldown: {cd_seconds} seconds between records\n"
                 f"This operation may take a long time and consume API quota.\n\n"
                 "Are you sure you want to continue?",
@@ -1261,7 +1353,7 @@ class HistoryTab(BaseSettingsTab):
                 return
 
             # 启动批量处理
-            self._start_batch_reprocessing(all_records, cd_seconds)
+            self._start_batch_reprocessing(total_records, cd_seconds)
 
         except Exception as e:
             QMessageBox.critical(
@@ -1270,11 +1362,11 @@ class HistoryTab(BaseSettingsTab):
                 f"Failed to start batch reprocessing: {str(e)}",
             )
 
-    def _start_batch_reprocessing(self, records: list, cd_seconds: int) -> None:
+    def _start_batch_reprocessing(self, total_records: int, cd_seconds: int) -> None:
         """启动批量重新处理流程
 
         Args:
-            records: 要处理的记录列表
+            total_records: 要处理的记录总数
             cd_seconds: CD时间（秒）
         """
         # 获取必要的服务
@@ -1295,7 +1387,7 @@ class HistoryTab(BaseSettingsTab):
             "Starting batch reprocessing...",
             "Cancel",
             0,
-            len(records),
+            total_records,
             self.parent_window,
         )
         self.batch_progress_dialog.setWindowTitle("Batch Reprocessing")
@@ -1305,7 +1397,7 @@ class HistoryTab(BaseSettingsTab):
 
         # 创建Worker线程
         self.batch_worker = BatchReprocessingWorker(
-            records=records,
+            total_records=total_records,
             cd_seconds=cd_seconds,
             transcription_service=transcription_service,
             ai_processing_controller=ai_processing_controller,

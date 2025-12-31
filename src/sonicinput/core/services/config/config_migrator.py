@@ -178,7 +178,17 @@ class ConfigMigrator:
                                 del provider_config[old_field]
                                 migrated = True
 
-            # 3. 迁移单个 hotkey 到 hotkeys 数组
+            # 3. 删除废弃的历史记录保留配置（当前不再支持清理策略）
+            if "history" in config:
+                history_config = config.get("history")
+                if isinstance(history_config, dict):
+                    for old_field in ["max_records", "auto_cleanup_days"]:
+                        if old_field in history_config:
+                            del history_config[old_field]
+                            app_logger.info(f"Migrating: Removing history.{old_field}")
+                            migrated = True
+
+            # 4. 迁移单个 hotkey 到 hotkeys 数组
             if "hotkey" in config and "hotkeys" not in config:
                 old_hotkey = config["hotkey"]
                 if isinstance(old_hotkey, str) and old_hotkey.strip():
