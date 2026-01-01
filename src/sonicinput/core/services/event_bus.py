@@ -50,54 +50,89 @@ EventBus = DynamicEventSystem
 
 # 导出便利的事件名称常量
 class Events:
-    """常用事件名称常量（向后兼容）"""
+    """Event name constants."""
 
-    # 录音相关
+    # Recording
     RECORDING_STARTED = "recording_started"
     RECORDING_STOPPED = "recording_stopped"
     RECORDING_ERROR = "recording_error"
     AUDIO_LEVEL_UPDATE = "audio_level_update"
+    RECORDING_STATE_CHANGED = "recording_state_changed"
 
-    # 转录相关
+    # Transcription
     TRANSCRIPTION_STARTED = "transcription_started"
     TRANSCRIPTION_COMPLETED = "transcription_completed"
     TRANSCRIPTION_ERROR = "transcription_error"
     TRANSCRIPTION_REQUEST = "transcription_request"
 
-    # 模型相关
+    # Model loading
     MODEL_LOADING_STARTED = "model_loading_started"
     MODEL_LOADING_COMPLETED = "model_loading_completed"
     MODEL_LOADED = "model_loaded"
     MODEL_LOADING_FAILED = "model_loading_failed"
+    MODEL_LOADING_ERROR = "model_loading_error"
     MODEL_UNLOADED = "model_unloaded"
 
-    # 流式转录相关
+    # Streaming
     STREAMING_STARTED = "streaming_started"
     STREAMING_STOPPED = "streaming_stopped"
     STREAMING_CHUNK_COMPLETED = "streaming_chunk_completed"
 
-    # AI处理相关
+    # AI processing
     AI_PROCESSING_STARTED = "ai_processing_started"
     AI_PROCESSING_COMPLETED = "ai_processing_completed"
     AI_PROCESSING_ERROR = "ai_processing_error"
 
-    # 输入相关
+    # Text input
     TEXT_INPUT_STARTED = "text_input_started"
     TEXT_INPUT_COMPLETED = "text_input_completed"
     TEXT_INPUT_ERROR = "text_input_error"
 
-    # 应用程序相关
+    # Hotkeys
+    HOTKEY_TRIGGERED = "hotkey_triggered"
+    HOTKEY_REGISTERED = "hotkey_registered"
+    HOTKEY_UNREGISTERED = "hotkey_unregistered"
+    HOTKEY_CONFLICT = "hotkey_conflict"
+    HOTKEY_REGISTRATION_ERROR = "hotkey_registration_error"
+
+    # Config
+    CONFIG_CHANGED = "config_changed"
+    CONFIG_LOADED = "config_loaded"
+    CONFIG_SAVED = "config_saved"
+    CONFIG_RESET = "config_reset"
+    CONFIG_IMPORTED = "config_imported"
+
+    # UI
+    WINDOW_SHOWN = "window_shown"
+    WINDOW_HIDDEN = "window_hidden"
+    TRAY_CLICKED = "tray_clicked"
+    OVERLAY_POSITION_CHANGED = "overlay_position_changed"
+
+    # App lifecycle/state
     APP_STARTED = "app_started"
     APP_STOPPING = "app_stopping"
     APP_ERROR = "app_error"
-    CONFIG_CHANGED = "config_changed"
+    APP_STATE_CHANGED = "app_state_changed"
+    STATE_CHANGED = "state_changed"
 
-    # 快捷键相关
-    HOTKEY_CONFLICT = "hotkey_conflict"
-    HOTKEY_REGISTRATION_ERROR = "hotkey_registration_error"
-    HOTKEY_REGISTERED = "hotkey_registered"
+    # Component lifecycle
+    COMPONENT_REGISTERED = "component_registered"
+    COMPONENT_UNREGISTERED = "component_unregistered"
+    COMPONENT_INITIALIZED = "component_initialized"
+    COMPONENT_STARTED = "component_started"
+    COMPONENT_STOPPED = "component_stopped"
+    COMPONENT_ERROR = "component_error"
+    COMPONENT_STATE_CHANGED = "component_state_changed"
 
-    # 错误恢复相关
+    # Network/API
+    NETWORK_ERROR = "network_error"
+    API_RATE_LIMITED = "api_rate_limited"
+
+    # GPU
+    GPU_STATUS_CHANGED = "gpu_status_changed"
+    GPU_MEMORY_WARNING = "gpu_memory_warning"
+
+    # Errors
     ERROR_OCCURRED = "error_occurred"
     ERROR_AUTO_RESOLVED = "error_auto_resolved"
 

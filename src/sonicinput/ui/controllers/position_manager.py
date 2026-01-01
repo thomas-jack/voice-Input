@@ -12,8 +12,10 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from ...core.interfaces import EventPriority, IEventService
 from ...core.interfaces.config import IConfigService
+from ...core.services.event_bus import Events
+from ...core.services.config.config_keys import ConfigKeys
+from ...core.services.config.ui_constants import UI
 from ...utils import app_logger
-from ...utils.constants import UI, ConfigKeys
 
 
 class PositionManager:
@@ -105,7 +107,7 @@ class PositionManager:
             # 发送位置变更事件
             if self._event_service:
                 self._event_service.emit(
-                    "overlay_position_changed",
+                    Events.OVERLAY_POSITION_CHANGED,
                     {"x": x, "y": y, "mode": "custom"},
                     EventPriority.NORMAL,
                 )
@@ -178,7 +180,7 @@ class PositionManager:
             # 发送位置变更事件
             if self._event_service:
                 self._event_service.emit(
-                    "overlay_position_changed",
+                    Events.OVERLAY_POSITION_CHANGED,
                     {
                         "x": position[0],
                         "y": position[1],

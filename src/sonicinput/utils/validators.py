@@ -8,7 +8,11 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Union
 
-from .constants import Audio, ConfigKeys, Limits, Patterns, Whisper
+from ..core.services.config.audio_constants import Audio
+from ..core.services.config.config_keys import ConfigKeys
+from ..core.services.config.ui_constants import UI
+from ..core.services.config.validation_constants import Limits, Patterns
+from ..core.services.config.whisper_constants import Whisper
 
 
 class ValidationError(Exception):
@@ -380,8 +384,6 @@ class UIValidator:
         """
         if not isinstance(preset, str):
             return ValidationResult.error("Position preset must be a string")
-
-        from .constants import UI
 
         if preset not in UI.POSITION_PRESETS:
             available = ", ".join(UI.POSITION_PRESETS.keys())

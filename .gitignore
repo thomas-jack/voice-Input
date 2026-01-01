@@ -81,6 +81,7 @@ CLAUDE.md
 
 # Empty/temporary directories
 test_analysis/
+temp_export/
 
 # Release notes (only used for GitHub releases)
 .release-notes-*.md

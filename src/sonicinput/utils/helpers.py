@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from .constants import Defaults, Paths
+from ..core.services.config.app_constants import Paths
+from ..core.services.config.defaults_constants import Defaults
 
 # Windows平台窗口隐藏标志
 if sys.platform == "win32":
@@ -464,7 +465,7 @@ def get_default_config() -> Dict[str, Any]:
     Returns:
         Default configuration dictionary
     """
-    from .constants import ConfigKeys
+    from ..core.services.config.config_keys import ConfigKeys
 
     return {
         ConfigKeys.RECORDING_HOTKEY: Defaults.DEFAULT_HOTKEY,

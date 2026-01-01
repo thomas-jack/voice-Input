@@ -49,7 +49,7 @@ class UIMainService:
 
         通过事件驱动，不直接调用控制器
         """
-        from ...utils.constants import Events
+        from .event_bus import Events
 
         self.events.emit(Events.RECORDING_STARTED)
 
@@ -58,7 +58,7 @@ class UIMainService:
 
         通过事件驱动，不直接调用控制器
         """
-        from ...utils.constants import Events
+        from .event_bus import Events
 
         self.events.emit(Events.RECORDING_STOPPED)
 
@@ -84,7 +84,7 @@ class UIMainService:
 
         通过配置重载服务实现
         """
-        from ...utils.constants import Events
+        from .event_bus import Events
 
         self.events.emit(Events.CONFIG_CHANGED, {"section": "hotkeys"})
 

@@ -15,9 +15,10 @@ from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
 from .... import __version__
 from ....core.interfaces import EventPriority, IEventService
 from ....core.interfaces.config import IConfigService
+from ....core.services.config.config_keys import ConfigKeys
+from ....core.services.event_bus import Events
 from ....core.interfaces.state import AppState, IStateManager, RecordingState
 from ....utils import app_logger
-from ....utils.constants import ConfigKeys, Events
 from .tray_widget import TrayWidget
 
 

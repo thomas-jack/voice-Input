@@ -11,7 +11,7 @@ from PySide6.QtCore import QEasingCurve, QObject, QPropertyAnimation, Signal
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
 from ...utils import app_logger
-from ...utils.constants import UI
+from ...core.services.config.ui_constants import UI
 
 
 class AnimationType(Enum):
