@@ -67,7 +67,9 @@ class TestRecordingOverlaySignals:
         recording_overlay.show_recording_requested.emit()
         qtbot.waitUntil(lambda: recording_overlay.isVisible(), timeout=2000)
 
-        assert recording_overlay.status_indicator.state == StatusIndicator.STATE_RECORDING
+        assert (
+            recording_overlay.status_indicator.state == StatusIndicator.STATE_RECORDING
+        )
         assert recording_overlay.time_label.text() == "00:00"
 
     def test_hide_recording_signal(self, qtbot, recording_overlay):
@@ -105,7 +107,9 @@ class TestRecordingOverlaySignals:
         recording_overlay.current_audio_level = 0.0
 
         recording_overlay.update_audio_level(0.01)
-        qtbot.waitUntil(lambda: recording_overlay.current_audio_level > 0.0, timeout=1000)
+        qtbot.waitUntil(
+            lambda: recording_overlay.current_audio_level > 0.0, timeout=1000
+        )
 
         assert recording_overlay.current_audio_level == pytest.approx(0.35, abs=0.05)
 
@@ -116,7 +120,9 @@ class TestRecordingOverlaySignals:
 
         fake_audio = np.ones(1024) * 0.01
         recording_overlay.update_waveform(fake_audio)
-        qtbot.waitUntil(lambda: recording_overlay.current_audio_level > 0.0, timeout=1000)
+        qtbot.waitUntil(
+            lambda: recording_overlay.current_audio_level > 0.0, timeout=1000
+        )
 
         assert recording_overlay.current_audio_level == pytest.approx(0.2, abs=0.05)
 
@@ -152,7 +158,8 @@ class TestRecordingOverlaySignals:
 
         recording_overlay.show_warning(50)
         qtbot.waitUntil(
-            lambda: recording_overlay.status_indicator.state == StatusIndicator.STATE_WARNING,
+            lambda: recording_overlay.status_indicator.state
+            == StatusIndicator.STATE_WARNING,
             timeout=1000,
         )
         qtbot.waitUntil(lambda: not recording_overlay.isVisible(), timeout=2000)
@@ -164,7 +171,8 @@ class TestRecordingOverlaySignals:
 
         recording_overlay.show_error(50)
         qtbot.waitUntil(
-            lambda: recording_overlay.status_indicator.state == StatusIndicator.STATE_ERROR,
+            lambda: recording_overlay.status_indicator.state
+            == StatusIndicator.STATE_ERROR,
             timeout=1000,
         )
         qtbot.waitUntil(lambda: not recording_overlay.isVisible(), timeout=2000)

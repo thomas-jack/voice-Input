@@ -319,7 +319,10 @@ class ConfigMigrator:
                 app_logger.info("Migrating: hotkeys list -> hotkeys.{keys,backend}")
                 migrated = True
             elif isinstance(hotkeys_config, str) and hotkeys_config.strip():
-                config["hotkeys"] = {"keys": [hotkeys_config.strip()], "backend": "auto"}
+                config["hotkeys"] = {
+                    "keys": [hotkeys_config.strip()],
+                    "backend": "auto",
+                }
                 app_logger.info("Migrating: hotkeys str -> hotkeys.{keys,backend}")
                 migrated = True
             elif isinstance(hotkeys_config, dict):

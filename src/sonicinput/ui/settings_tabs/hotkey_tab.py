@@ -2,16 +2,17 @@
 
 from typing import Any, Dict
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListView,
     QListWidget,
     QMessageBox,
     QPushButton,
+    QGroupBox,
     QVBoxLayout,
 )
 
@@ -29,31 +30,56 @@ class HotkeyTab(BaseSettingsTab):
     """
 
     def _setup_ui(self) -> None:
-        """设置UI"""
+        """??UI"""
         layout = QVBoxLayout(self.widget)
 
-        # 快捷键列表组
+        # ??????
         hotkey_list_group = QGroupBox("Registered Hotkeys")
         hotkey_list_layout = QVBoxLayout(hotkey_list_group)
 
-        # 快捷键列表
+        actions_layout = QHBoxLayout()
+        self.hotkey_count_label = QLabel()
+        actions_layout.addWidget(self.hotkey_count_label)
+        actions_layout.addStretch()
+
+        self.capture_hotkey_button = QPushButton("Capture")
+        self.capture_hotkey_button.clicked.connect(self._capture_hotkey)
+        actions_layout.addWidget(self.capture_hotkey_button)
+
+        self.remove_hotkey_button = QPushButton("Remove")
+        self.remove_hotkey_button.setEnabled(False)
+        self.remove_hotkey_button.clicked.connect(self._remove_selected_hotkey)
+        actions_layout.addWidget(self.remove_hotkey_button)
+
+        hotkey_list_layout.addLayout(actions_layout)
+
         self.hotkeys_list = QListWidget()
         self.hotkeys_list.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
         self.hotkeys_list.itemDoubleClicked.connect(self._edit_hotkey_item)
+        self.hotkeys_list.itemSelectionChanged.connect(self._refresh_hotkey_list_ui)
+        self.hotkeys_list.setSpacing(6)
+        self.hotkeys_list.setFlow(QListView.Flow.LeftToRight)
+        self.hotkeys_list.setWrapping(True)
+        self.hotkeys_list.setResizeMode(QListView.ResizeMode.Adjust)
+        self.hotkeys_list.setUniformItemSizes(True)
+        self.hotkeys_list.setWordWrap(False)
+        self.hotkeys_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.hotkeys_list.setVerticalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.hotkeys_list.setGridSize(QSize(140, 32))
         hotkey_list_layout.addWidget(self.hotkeys_list)
 
-        # 列表操作按钮
-        list_buttons_layout = QHBoxLayout()
+        self.hotkey_hint_label = QLabel("Double-click a hotkey to edit.")
+        self.hotkey_hint_label.setStyleSheet("color: #888; font-size: 10px;")
+        hotkey_list_layout.addWidget(self.hotkey_hint_label)
 
-        self.remove_hotkey_button = QPushButton("Remove Selected")
-        self.remove_hotkey_button.clicked.connect(self._remove_selected_hotkey)
-        list_buttons_layout.addWidget(self.remove_hotkey_button)
-
-        self.capture_hotkey_button = QPushButton("Capture New")
-        self.capture_hotkey_button.clicked.connect(self._capture_hotkey)
-        list_buttons_layout.addWidget(self.capture_hotkey_button)
-
-        hotkey_list_layout.addLayout(list_buttons_layout)
+        self.hotkey_status_label = QLabel("Ready to capture hotkeys")
+        self.hotkey_status_label.setWordWrap(True)
+        self.hotkey_status_label.setStyleSheet("color: gray; font-style: italic;")
+        hotkey_list_layout.addWidget(self.hotkey_status_label)
 
         layout.addWidget(hotkey_list_group)
 
@@ -83,38 +109,16 @@ class HotkeyTab(BaseSettingsTab):
 
         layout.addWidget(backend_group)
 
-        # 保留单个热键输入（向后兼容/临时输入）
-        hotkey_input_group = QGroupBox("Quick Add")
-        hotkey_input_layout = QHBoxLayout(hotkey_input_group)
-
-        self.hotkey_input = QLineEdit()
-        self.hotkey_input.setPlaceholderText("e.g., ctrl+shift+v or f12")
-        hotkey_input_layout.addWidget(self.hotkey_input)
-
-        self.add_from_input_button = QPushButton("Add")
-        self.add_from_input_button.clicked.connect(self._add_hotkey_from_input)
-        hotkey_input_layout.addWidget(self.add_from_input_button)
-
-        layout.addWidget(hotkey_input_group)
-
-        # 状态提示标签
-        self.hotkey_status_label = QLabel("Ready to capture hotkeys")
-        self.hotkey_status_label.setWordWrap(True)
-        self.hotkey_status_label.setStyleSheet("color: gray; font-style: italic;")
-        layout.addWidget(self.hotkey_status_label)
-
         layout.addStretch()
 
-        # 保存控件引用
+        # ??????
         self.controls = {
             "hotkeys_list": self.hotkeys_list,
-            "hotkey_input": self.hotkey_input,
             "hotkey_status_label": self.hotkey_status_label,
         }
 
-        # 暴露控件到parent_window
+        # ?????parent_window
         self.parent_window.hotkeys_list = self.hotkeys_list
-        self.parent_window.hotkey_input = self.hotkey_input
         self.parent_window.hotkey_status_label = self.hotkey_status_label
 
     def load_config(self, config: Dict[str, Any]) -> None:
@@ -150,6 +154,7 @@ class HotkeyTab(BaseSettingsTab):
             if hotkey and hotkey.strip():
                 self.hotkeys_list.addItem(hotkey.strip())
 
+        self._refresh_hotkey_list_ui()
         # 加载后端设置
         backend_index = self.backend_combo.findData(backend)
         if backend_index >= 0:
@@ -189,25 +194,7 @@ class HotkeyTab(BaseSettingsTab):
         current_row = self.hotkeys_list.currentRow()
         if current_row >= 0:
             self.hotkeys_list.takeItem(current_row)
-
-    def _add_hotkey_from_input(self) -> None:
-        """从输入框添加快捷键"""
-        hotkey_text = self.hotkey_input.text().strip()
-        if hotkey_text:
-            # 检查是否已存在
-            existing_items = [
-                self.hotkeys_list.item(i).text()
-                for i in range(self.hotkeys_list.count())
-            ]
-            if hotkey_text not in existing_items:
-                self.hotkeys_list.addItem(hotkey_text)
-                self.hotkey_input.clear()
-            else:
-                QMessageBox.warning(
-                    self.parent_window,
-                    "Duplicate Hotkey",
-                    f"Hotkey '{hotkey_text}' already exists in the list.",
-                )
+        self._refresh_hotkey_list_ui()
 
     def _edit_hotkey_item(self, item) -> None:
         """双击编辑快捷键列表项"""
@@ -274,7 +261,6 @@ class HotkeyTab(BaseSettingsTab):
             self.capture_hotkey_button.setText("Press hotkey...")
 
             # 清空输入框
-            self.hotkey_input.clear()
             self._update_hotkey_status(
                 "Press your desired hotkey combination...", False
             )
@@ -398,8 +384,6 @@ class HotkeyTab(BaseSettingsTab):
                         listener.stop()
 
                     # 更新输入框并自动添加到列表
-                    self.hotkey_input.setText(captured_hotkey)
-
                     # 检查是否已存在
                     existing_items = [
                         self.hotkeys_list.item(i).text()
@@ -407,6 +391,7 @@ class HotkeyTab(BaseSettingsTab):
                     ]
                     if captured_hotkey not in existing_items:
                         self.hotkeys_list.addItem(captured_hotkey)
+                        self._refresh_hotkey_list_ui()
 
                     self._restore_capture_button()
                 else:
@@ -424,7 +409,7 @@ class HotkeyTab(BaseSettingsTab):
     def _restore_capture_button(self):
         """恢复capture按钮状态"""
         self.capture_hotkey_button.setEnabled(True)
-        self.capture_hotkey_button.setText("Capture New")
+        self.capture_hotkey_button.setText("Capture")
 
     def _update_hotkey_status(self, status: str, is_error: bool = False) -> None:
         """更新快捷键状态显示"""
@@ -433,3 +418,21 @@ class HotkeyTab(BaseSettingsTab):
             self.hotkey_status_label.setStyleSheet("color: red;")
         else:
             self.hotkey_status_label.setStyleSheet("color: green;")
+
+    def _refresh_hotkey_list_ui(self) -> None:
+        """Update list header and action state."""
+        count = self.hotkeys_list.count()
+        if count == 1:
+            count_text = "1 hotkey"
+        else:
+            count_text = f"{count} hotkeys"
+        self.hotkey_count_label.setText(count_text)
+        self.remove_hotkey_button.setEnabled(self.hotkeys_list.currentRow() >= 0)
+
+        grid = self.hotkeys_list.gridSize()
+        grid_width = max(1, grid.width())
+        grid_height = max(1, grid.height())
+        available_width = max(1, self.hotkeys_list.viewport().width())
+        columns = max(1, available_width // grid_width)
+        rows = max(1, (count + columns - 1) // columns)
+        self.hotkeys_list.setFixedHeight(rows * grid_height + 8)

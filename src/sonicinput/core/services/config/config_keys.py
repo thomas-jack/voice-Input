@@ -266,8 +266,7 @@ class ConfigKeys:
     )
     """并行处理 (bool)"""
 
-
-# 配置键分组 - 用于批量操作和验证
+    # 配置键分组 - 用于批量操作和验证
 
     # ==================== Legacy (Deprecated Flat Keys) ====================
     HOTKEY = "hotkey"

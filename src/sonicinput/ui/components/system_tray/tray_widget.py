@@ -54,7 +54,7 @@ class TrayWidget(QObject):
 
         # Set initial tooltip
         self.set_tooltip(
-            "SonicInput - Ready\\nRight-click for menu, Double-click for settings"
+            "SonicInput - Ready\nRight-click for menu, Double-click for settings"
         )
 
         # Connect signals

@@ -68,7 +68,9 @@ class TestSettingsWindowTabs:
         assert hasattr(settings_window, "audio_input_tab")
         assert settings_window.audio_input_tab is not None
 
-    def test_audio_input_tab_hides_advanced_audio_parameters(self, qtbot, settings_window):
+    def test_audio_input_tab_hides_advanced_audio_parameters(
+        self, qtbot, settings_window
+    ):
         """AudioInputTab 不应在 UI 层暴露采样率/声道/Chunk Size 等高级参数。"""
         controls = settings_window.audio_input_tab.controls
         assert "sample_rate" not in controls

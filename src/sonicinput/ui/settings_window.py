@@ -272,10 +272,14 @@ class SettingsWindow(QMainWindow):
 
     def test_hotkey(self) -> None:
         """测试快捷键"""
-        hotkey = self.hotkey_input.text().strip()
+        hotkey = ""
+        if hasattr(self, "hotkeys_list") and self.hotkeys_list.currentItem():
+            hotkey = self.hotkeys_list.currentItem().text().strip()
+        elif hasattr(self, "hotkeys_list") and self.hotkeys_list.count() > 0:
+            hotkey = self.hotkeys_list.item(0).text().strip()
 
         if not hotkey:
-            self.update_hotkey_status("Please enter a hotkey to test", True)
+            self.update_hotkey_status("Select a hotkey to test", True)
             return
 
         try:

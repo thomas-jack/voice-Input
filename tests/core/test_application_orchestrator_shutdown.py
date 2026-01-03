@@ -58,4 +58,3 @@ def test_orchestrate_shutdown_falls_back_to_stop_when_stop_listening_missing() -
 
     assert hotkey_service.stop_called is True
     assert hotkey_service.unregister_all_called is True
-
