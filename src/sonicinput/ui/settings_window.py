@@ -282,44 +282,75 @@ class SettingsWindow(QMainWindow):
             self.update_hotkey_status("Select a hotkey to test", True)
             return
 
-        try:
-            # Import the hotkey manager class to use for testing
-            from ..core.hotkey_manager import HotkeyManager
+        temp_manager = None
 
-            # Create a temporary hotkey manager for testing
+        try:
+            # 使用与运行时一致的后端进行测试
+            from ..core.hotkey_manager import create_hotkey_manager
+
+            backend = "auto"
+            if hasattr(self, "hotkey_tab") and hasattr(
+                self.hotkey_tab, "backend_combo"
+            ):
+                backend = self.hotkey_tab.backend_combo.currentData() or "auto"
+
             def test_callback(action: str) -> None:
                 pass
 
-            temp_manager = HotkeyManager(test_callback)
+            temp_manager = create_hotkey_manager(test_callback, backend)
 
-            # Validate hotkey format
-            validation_result = temp_manager.validate_hotkey(hotkey)
+            # Validate hotkey format via ConfigService if available
+            config_service = (
+                self.ui_settings_service.config_service
+                if hasattr(self.ui_settings_service, "config_service")
+                else None
+            )
+            if config_service and hasattr(config_service, "validate_before_save"):
+                is_valid, error_msg = config_service.validate_before_save(
+                    "hotkey", hotkey
+                )
+                if not is_valid:
+                    self.update_hotkey_status(f"Invalid hotkey: {error_msg}", True)
+                    return
 
-            if not validation_result["valid"]:
-                issues = "; ".join(validation_result["issues"])
-                self.update_hotkey_status(f"Invalid hotkey: {issues}", True)
-                return
+            # Start listening (Win32 backend needs message loop)
+            if hasattr(temp_manager, "start_listening"):
+                started = temp_manager.start_listening()
+                if not started:
+                    self.update_hotkey_status(
+                        "Hotkey test failed: backend failed to start", True
+                    )
+                    return
 
-            # Test hotkey availability
-            test_result = temp_manager.test_hotkey_availability(hotkey)
+            # Try register/unregister to test availability
+            temp_manager.register_hotkey(hotkey, "test_hotkey")
+            temp_manager.unregister_hotkey(hotkey)
 
-            if test_result["success"]:
-                self.update_hotkey_status(test_result["message"], False)
-            else:
-                self.update_hotkey_status(test_result["message"], True)
+            self.update_hotkey_status("Hotkey is available", False)
 
             app_logger.log_audio_event(
                 "Hotkey tested",
                 {
                     "hotkey": hotkey,
-                    "valid": validation_result["valid"],
-                    "available": test_result["success"],
+                    "backend": backend,
+                    "result": "success",
                 },
             )
 
         except Exception as e:
             app_logger.log_error(e, "test_hotkey")
             self.update_hotkey_status(f"Test failed: {str(e)}", True)
+        finally:
+            if temp_manager:
+                try:
+                    temp_manager.unregister_hotkey(hotkey)
+                except Exception:
+                    pass
+                try:
+                    if hasattr(temp_manager, "stop_listening"):
+                        temp_manager.stop_listening()
+                except Exception:
+                    pass
 
     def test_api_connection(self) -> None:
         """测试API连接"""
@@ -612,6 +643,15 @@ class SettingsWindow(QMainWindow):
         validation_errors = []
 
         for key, value in flat_config.items():
+            # 先对依赖其他字段的配置做本地验证（避免读取旧配置导致误报）
+            if key == "transcription.provider":
+                is_valid, error_msg = self._validate_transcription_provider_for_apply(
+                    value, new_config
+                )
+                if not is_valid:
+                    validation_errors.append(f"{key}: {error_msg}")
+                continue
+
             # 获取ConfigService实例来调用验证方法
             config_service = (
                 self.ui_settings_service.config_service
@@ -801,6 +841,50 @@ class SettingsWindow(QMainWindow):
                 "Error",
                 f"An unexpected error occurred:\n\n{e}\n\nSettings may not have been applied correctly.",
             )
+
+    def _validate_transcription_provider_for_apply(
+        self, provider: str, config: Dict[str, Any]
+    ) -> tuple[bool, str]:
+        """使用待应用配置验证转录提供商"""
+        if not isinstance(provider, str):
+            return (
+                False,
+                f"Provider must be a string, got {type(provider).__name__}",
+            )
+
+        normalized = provider.strip().lower()
+        valid_providers = ["local", "groq", "siliconflow", "qwen"]
+        if normalized not in valid_providers:
+            return (
+                False,
+                f"Invalid transcription provider '{provider}'. Valid providers: {', '.join(valid_providers)}",
+            )
+
+        transcription_config = config.get("transcription", {})
+
+        if normalized == "groq":
+            api_key = transcription_config.get("groq", {}).get("api_key", "")
+            if not str(api_key).strip():
+                return (
+                    False,
+                    "Groq provider requires an API key. Please enter your Groq API key in the Transcription tab.",
+                )
+        elif normalized == "siliconflow":
+            api_key = transcription_config.get("siliconflow", {}).get("api_key", "")
+            if not str(api_key).strip():
+                return (
+                    False,
+                    "SiliconFlow provider requires an API key. Please enter your SiliconFlow API key in the Transcription tab.",
+                )
+        elif normalized == "qwen":
+            api_key = transcription_config.get("qwen", {}).get("api_key", "")
+            if not str(api_key).strip():
+                return (
+                    False,
+                    "Qwen provider requires an API key. Please enter your Qwen API key in the Transcription tab.",
+                )
+
+        return True, ""
 
     def _sync_ui_from_runtime(self) -> None:
         """从运行时状态同步UI显示（确保UI反映真实状态）

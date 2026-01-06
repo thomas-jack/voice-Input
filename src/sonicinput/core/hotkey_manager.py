@@ -6,10 +6,12 @@ based on user configuration and system capabilities.
 Available backends:
 - win32: Uses RegisterHotKey API (recommended, no admin privileges required)
 - pynput: Uses low-level keyboard hooks (requires admin for best experience)
-- auto: Automatically selects best backend (defaults to win32)
+- auto: Automatically selects best backend (admin -> pynput, else win32)
 """
 
 from typing import Callable, Optional
+
+import sys
 
 from ..utils import app_logger
 from .interfaces import IHotkeyService
@@ -41,10 +43,20 @@ def create_hotkey_manager(
     actual_backend = backend
 
     if backend == "auto":
-        # Default to win32 (no admin required)
-        actual_backend = "win32"
+        # Prefer pynput when running as admin (best for global hooks), else win32
+        is_admin = False
+        if sys.platform.startswith("win"):
+            try:
+                import ctypes
+
+                is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+            except Exception:
+                is_admin = False
+
+        actual_backend = "pynput" if is_admin else "win32"
         app_logger.log_audio_event(
-            "Auto-selecting hotkey backend", {"selected": actual_backend}
+            "Auto-selecting hotkey backend",
+            {"selected": actual_backend, "is_admin": is_admin},
         )
 
     # Create backend
@@ -80,18 +92,30 @@ def create_hotkey_manager(
         app_logger.log_error(e, "create_hotkey_manager")
 
         # Fallback logic
-        if backend == "auto" or actual_backend == "win32":
-            # Try pynput as fallback
-            try:
-                from .hotkey_manager_pynput import PynputHotkeyManager
+        if backend == "auto":
+            # Try the other backend when auto is selected
+            if actual_backend == "pynput":
+                try:
+                    from .hotkey_manager_win32 import Win32HotkeyManager
 
-                app_logger.log_audio_event(
-                    "Falling back to pynput hotkey manager",
-                    {"original_backend": actual_backend},
-                )
-                return PynputHotkeyManager(callback)
-            except ImportError:
-                pass
+                    app_logger.log_audio_event(
+                        "Falling back to win32 hotkey manager",
+                        {"original_backend": actual_backend},
+                    )
+                    return Win32HotkeyManager(callback)
+                except ImportError:
+                    pass
+            elif actual_backend == "win32":
+                try:
+                    from .hotkey_manager_pynput import PynputHotkeyManager
+
+                    app_logger.log_audio_event(
+                        "Falling back to pynput hotkey manager",
+                        {"original_backend": actual_backend},
+                    )
+                    return PynputHotkeyManager(callback)
+                except ImportError:
+                    pass
 
         raise HotkeyBackendError(error_msg)
 

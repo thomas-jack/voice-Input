@@ -1,7 +1,9 @@
 """配置写入服务 - 单一职责：配置写入和持久化"""
 
 import json
+import os
 import threading
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -100,8 +102,28 @@ class ConfigWriter:
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
 
             # 保存配置
-            with open(self.config_path, "w", encoding="utf-8") as f:
-                json.dump(self._config, f, indent=2, ensure_ascii=False)
+            temp_path: Optional[Path] = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    encoding="utf-8",
+                    dir=self.config_path.parent,
+                    delete=False,
+                    prefix=f"{self.config_path.name}.",
+                    suffix=".tmp",
+                ) as f:
+                    json.dump(self._config, f, indent=2, ensure_ascii=False)
+                    f.flush()
+                    os.fsync(f.fileno())
+                    temp_path = Path(f.name)
+
+                os.replace(temp_path, self.config_path)
+            finally:
+                if temp_path and temp_path.exists():
+                    try:
+                        temp_path.unlink()
+                    except Exception:
+                        pass
 
             app_logger.log_audio_event(
                 "Configuration saved",

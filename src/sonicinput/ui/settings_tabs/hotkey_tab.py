@@ -233,8 +233,8 @@ class HotkeyTab(BaseSettingsTab):
         """Update backend information label"""
         info_map = {
             "auto": (
-                "Automatically selects the best backend (currently: Win32).\n"
-                "No admin privileges required. Works reliably across all windows."
+                "Automatically selects the best backend.\n"
+                "Admin: Pynput (hooks). Non-admin: Win32 RegisterHotKey."
             ),
             "win32": (
                 "Uses Windows RegisterHotKey API.\n"

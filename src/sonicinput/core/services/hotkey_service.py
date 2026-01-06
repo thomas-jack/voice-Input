@@ -75,6 +75,14 @@ class HotkeyService(LifecycleComponent, IHotkeyService):
             # 创建管理器
             self._create_manager(backend)
 
+            # 先启动监听（Win32 需要消息循环就绪，避免注册超时）
+            if not self._manager or not self._manager.start_listening():
+                app_logger.log_audio_event(
+                    "HotkeyService failed to start listening",
+                    {"backend": backend},
+                )
+                return False
+
             # 注册热键
             if keys and self._manager:
                 for key in keys:
@@ -89,26 +97,15 @@ class HotkeyService(LifecycleComponent, IHotkeyService):
             self._current_backend = backend
             self._current_keys = keys
 
-            # 开始监听热键
-            if self._manager:
-                success = self._manager.start_listening()
-                if success:
-                    app_logger.log_audio_event(
-                        "HotkeyService started",
-                        {
-                            "backend": backend,
-                            "keys": keys,
-                            "manager_type": type(self._manager).__name__,
-                        },
-                    )
-                    return True
-                else:
-                    app_logger.log_audio_event(
-                        "HotkeyService failed to start listening",
-                        {"backend": self._current_backend},
-                    )
-                    return False
-            return False
+            app_logger.log_audio_event(
+                "HotkeyService started",
+                {
+                    "backend": backend,
+                    "keys": keys,
+                    "manager_type": type(self._manager).__name__,
+                },
+            )
+            return True
 
         except Exception as e:
             app_logger.log_error(e, "HotkeyService._do_start")
@@ -148,22 +145,22 @@ class HotkeyService(LifecycleComponent, IHotkeyService):
         Args:
             backend: 后端类型（"win32" 或 "pynput"）
         """
-        if backend == "win32":
-            from ..hotkey_manager_win32 import Win32HotkeyManager
+        if backend in {"win32", "pynput", "auto"}:
+            from ..hotkey_manager import HotkeyBackendError, create_hotkey_manager
 
-            self._manager = Win32HotkeyManager(self._callback)
-            app_logger.log_audio_event(
-                "Created Win32 hotkey manager", {"backend": "win32"}
-            )
-        elif backend == "pynput":
-            from ..hotkey_manager_pynput import PynputHotkeyManager
+            try:
+                self._manager = create_hotkey_manager(
+                    self._callback, backend=backend, config=self._config_service
+                )
+                app_logger.log_audio_event(
+                    "Created hotkey manager",
+                    {"backend": backend, "manager_type": type(self._manager).__name__},
+                )
+                return
+            except HotkeyBackendError as e:
+                raise ValueError(str(e)) from e
 
-            self._manager = PynputHotkeyManager(self._callback)
-            app_logger.log_audio_event(
-                "Created Pynput hotkey manager", {"backend": "pynput"}
-            )
-        else:
-            raise ValueError(f"Unsupported hotkey backend: {backend}")
+        raise ValueError(f"Unsupported hotkey backend: {backend}")
 
     # ========== IHotReloadable 协议实现 ==========
 
