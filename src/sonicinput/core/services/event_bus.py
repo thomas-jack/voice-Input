@@ -107,6 +107,7 @@ class Events:
     WINDOW_HIDDEN = "window_hidden"
     TRAY_CLICKED = "tray_clicked"
     OVERLAY_POSITION_CHANGED = "overlay_position_changed"
+    UI_LANGUAGE_CHANGED = "ui_language_changed"
 
     # App lifecycle/state
     APP_STARTED = "app_started"

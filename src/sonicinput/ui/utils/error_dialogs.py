@@ -5,6 +5,7 @@ Provides user-friendly error dialogs with actionable suggestions
 
 from typing import List, Optional
 
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 
@@ -22,35 +23,65 @@ def show_hotkey_conflict_error(
     """
     msg_box = QMessageBox(parent)
     msg_box.setIcon(QMessageBox.Warning)
-    msg_box.setWindowTitle("Hotkey Conflict")
+    msg_box.setWindowTitle(
+        QCoreApplication.translate("ErrorDialogs", "Hotkey Conflict")
+    )
 
     # Build message
-    message = (
-        f"The hotkey '{conflicting_hotkey}' is already in use by another application."
-    )
-    message += "\n\n"
-    message += "Common causes:"
-    message += "\n- Web browser developer tools (F12 is commonly used)"
-    message += "\n- Another application running with administrator privileges"
-    message += "\n- Game launchers or recording software"
-    message += "\n- System shortcuts"
-    message += "\n\n"
-    message += "Solutions:"
-    message += "\n1. Change the hotkey in Settings (recommended)"
-    message += "\n2. Run SonicInput as administrator (if the conflicting app is admin)"
-    message += "\n3. Close the conflicting application"
+    message_lines = [
+        QCoreApplication.translate(
+            "ErrorDialogs",
+            "The hotkey '{hotkey}' is already in use by another application.",
+        ).format(hotkey=conflicting_hotkey),
+        "",
+        QCoreApplication.translate("ErrorDialogs", "Common causes:"),
+        QCoreApplication.translate(
+            "ErrorDialogs", "- Web browser developer tools (F12 is commonly used)"
+        ),
+        QCoreApplication.translate(
+            "ErrorDialogs",
+            "- Another application running with administrator privileges",
+        ),
+        QCoreApplication.translate(
+            "ErrorDialogs", "- Game launchers or recording software"
+        ),
+        QCoreApplication.translate("ErrorDialogs", "- System shortcuts"),
+        "",
+        QCoreApplication.translate("ErrorDialogs", "Solutions:"),
+        QCoreApplication.translate(
+            "ErrorDialogs", "1. Change the hotkey in Settings (recommended)"
+        ),
+        QCoreApplication.translate(
+            "ErrorDialogs",
+            "2. Run Sonic Input as administrator (if the conflicting app is admin)",
+        ),
+        QCoreApplication.translate(
+            "ErrorDialogs", "3. Close the conflicting application"
+        ),
+    ]
 
     if suggestions:
-        message += "\n\n"
-        message += "Suggested alternative hotkeys:"
+        message_lines.extend(
+            [
+                "",
+                QCoreApplication.translate(
+                    "ErrorDialogs", "Suggested alternative hotkeys:"
+                ),
+            ]
+        )
         for i, suggestion in enumerate(suggestions, 1):
-            message += f"\n  - {suggestion.upper()}"
+            message_lines.append(f"  - {suggestion.upper()}")
 
-    msg_box.setText(message)
+    msg_box.setText("\n".join(message_lines))
 
     # Add buttons
-    msg_box.addButton("Open Settings", QMessageBox.AcceptRole)
-    msg_box.addButton("Close", QMessageBox.RejectRole)
+    msg_box.addButton(
+        QCoreApplication.translate("ErrorDialogs", "Open Settings"),
+        QMessageBox.AcceptRole,
+    )
+    msg_box.addButton(
+        QCoreApplication.translate("ErrorDialogs", "Close"), QMessageBox.RejectRole
+    )
 
     msg_box.setDefaultButton(msg_box.button(QMessageBox.AcceptRole))
 
@@ -77,13 +108,15 @@ def show_hotkey_registration_error(
     """
     msg_box = QMessageBox(parent)
     msg_box.setIcon(QMessageBox.Warning)
-    msg_box.setWindowTitle("Hotkey Registration Error")
+    msg_box.setWindowTitle(
+        QCoreApplication.translate("ErrorDialogs", "Hotkey Registration Error")
+    )
 
     message = error_message
 
     if recovery_suggestions:
         message += "\n\n"
-        message += "Suggestions:"
+        message += QCoreApplication.translate("ErrorDialogs", "Suggestions:")
         for i, suggestion in enumerate(recovery_suggestions, 1):
             message += f"\n{i}. {suggestion}"
 

@@ -9,7 +9,7 @@ Handles the business logic for system tray operations including:
 
 from typing import Any, Dict, Optional
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QCoreApplication, QObject, Signal
 from PySide6.QtWidgets import QMessageBox, QSystemTrayIcon
 
 from .... import __version__
@@ -288,6 +288,12 @@ class TrayController(QObject):
                 priority=EventPriority.NORMAL,
             )
 
+            self._event_service.subscribe(
+                Events.UI_LANGUAGE_CHANGED,
+                self._on_language_changed,
+                priority=EventPriority.NORMAL,
+            )
+
         except Exception as e:
             self._handle_exception(e, "subscribe_to_events")
             # Re-raise the exception to cause initialization to fail
@@ -305,6 +311,7 @@ class TrayController(QObject):
             Events.TRANSCRIPTION_STARTED,
             Events.TRANSCRIPTION_COMPLETED,
             Events.TRANSCRIPTION_ERROR,
+            Events.UI_LANGUAGE_CHANGED,
         ]
 
         for event in events_to_unsubscribe:
@@ -448,6 +455,34 @@ class TrayController(QObject):
         except Exception as e:
             app_logger.log_error(e, "app_state_change_handler")
 
+    def _on_language_changed(self, event_data: Dict[str, Any] = None) -> None:
+        """Handle runtime UI language change."""
+        if not self._tray_widget:
+            return
+
+        self._tray_widget.retranslate_ui()
+        self._refresh_tray_text()
+
+    def _refresh_tray_text(self) -> None:
+        """Refresh tray tooltip and labels without triggering notifications."""
+        if not self._tray_widget:
+            return
+        recording = self._recording_state == RecordingState.RECORDING
+        self._tray_widget.set_tooltip(self._get_tray_tooltip(recording))
+
+        if recording:
+            self._tray_widget.update_status_text(
+                QCoreApplication.translate("TrayController", "Recording...")
+            )
+            self._tray_widget.update_recording_action_text(
+                QCoreApplication.translate("TrayController", "Stop Recording")
+            )
+        else:
+            self._update_ui_for_app_state()
+            self._tray_widget.update_recording_action_text(
+                QCoreApplication.translate("TrayController", "Start Recording")
+            )
+
     def _on_processing_started(self, event_data: Dict[str, Any] = None) -> None:
         """Handle processing started event
 
@@ -455,7 +490,9 @@ class TrayController(QObject):
             event_data: Optional event data (may be None if no data provided)
         """
         if self._tray_widget:
-            self._tray_widget.update_status_text("Processing...")
+            self._tray_widget.update_status_text(
+                QCoreApplication.translate("TrayController", "Processing...")
+            )
 
     def _on_processing_completed(self, event_data: Dict[str, Any] = None) -> None:
         """Handle processing completed event
@@ -464,11 +501,15 @@ class TrayController(QObject):
             event_data: Optional event data (may be None if no data provided)
         """
         if self._tray_widget:
-            self._tray_widget.update_status_text("Ready")
+            self._tray_widget.update_status_text(
+                QCoreApplication.translate("TrayController", "Ready")
+            )
             if self._notifications_enabled:
                 self._tray_widget.show_message(
-                    "Voice Input",
-                    "Text processed successfully!",
+                    QCoreApplication.translate("TrayController", "Sonic Input"),
+                    QCoreApplication.translate(
+                        "TrayController", "Text processed successfully!"
+                    ),
                     QSystemTrayIcon.MessageIcon.Information,
                 )
 
@@ -479,50 +520,75 @@ class TrayController(QObject):
             event_data: Optional event data (may be None if no data provided)
         """
         if self._tray_widget:
-            self._tray_widget.update_status_text("Error")
+            self._tray_widget.update_status_text(
+                QCoreApplication.translate("TrayController", "Error")
+            )
             if self._notifications_enabled:
                 error_msg = (
-                    event_data.get("error", "Unknown error")
+                    event_data.get(
+                        "error",
+                        QCoreApplication.translate("TrayController", "Unknown error"),
+                    )
                     if event_data
-                    else "Unknown error"
+                    else QCoreApplication.translate("TrayController", "Unknown error")
                 )
                 self._tray_widget.show_message(
-                    "Voice Input Error",
-                    f"Processing failed: {error_msg}",
+                    QCoreApplication.translate("TrayController", "Sonic Input Error"),
+                    QCoreApplication.translate(
+                        "TrayController", "Processing failed: {error}"
+                    ).format(error=error_msg),
                     QSystemTrayIcon.MessageIcon.Critical,
                 )
 
     # ==================== UI Updates ====================
 
-    def _update_ui_for_recording_state(self) -> None:
+    def _get_tray_tooltip(self, recording: bool) -> str:
+        """Build localized tray tooltip text."""
+        if recording:
+            return QCoreApplication.translate(
+                "TrayController",
+                "Sonic Input - Recording\nRight-click for menu, Double-click for settings",
+            )
+        return QCoreApplication.translate(
+            "TrayController",
+            "Sonic Input - Ready\nRight-click for menu, Double-click for settings",
+        )
+
+    def _update_ui_for_recording_state(self, show_notification: bool = True) -> None:
         """Update UI based on recording state"""
         if not self._tray_widget:
             return
 
         recording = self._recording_state == RecordingState.RECORDING
-
         # Update icon
         self._tray_widget.update_icon(recording)
 
         # Update tooltip
+        tooltip = self._get_tray_tooltip(recording)
         if recording:
-            tooltip = "Sonic Input - Recording\nRight-click for menu, Double-click for settings"
-            self._tray_widget.update_status_text("Recording...")
-            self._tray_widget.update_recording_action_text("Stop Recording")
-        else:
-            tooltip = (
-                "Sonic Input - Ready\nRight-click for menu, Double-click for settings"
+            self._tray_widget.update_status_text(
+                QCoreApplication.translate("TrayController", "Recording...")
             )
-            self._tray_widget.update_status_text("Ready")
-            self._tray_widget.update_recording_action_text("Start Recording")
+            self._tray_widget.update_recording_action_text(
+                QCoreApplication.translate("TrayController", "Stop Recording")
+            )
+        else:
+            self._tray_widget.update_status_text(
+                QCoreApplication.translate("TrayController", "Ready")
+            )
+            self._tray_widget.update_recording_action_text(
+                QCoreApplication.translate("TrayController", "Start Recording")
+            )
 
         self._tray_widget.set_tooltip(tooltip)
 
         # Show notification
-        if self._notifications_enabled and recording:
+        if show_notification and self._notifications_enabled and recording:
             self._tray_widget.show_message(
-                "Recording Started",
-                "Voice recording is active. Speak now!",
+                QCoreApplication.translate("TrayController", "Recording Started"),
+                QCoreApplication.translate(
+                    "TrayController", "Voice recording is active. Speak now!"
+                ),
                 QSystemTrayIcon.MessageIcon.Information,
                 3000,
             )
@@ -534,14 +600,24 @@ class TrayController(QObject):
 
         # Update status based on app state
         status_text = {
-            AppState.STARTING: "Starting...",
-            AppState.IDLE: "Ready",
-            AppState.RECORDING: "Recording...",
-            AppState.PROCESSING: "Processing...",
-            AppState.INPUT_READY: "Input Ready",
-            AppState.ERROR: "Error",
-            AppState.STOPPING: "Stopping...",
-        }.get(self._app_state, "Unknown")
+            AppState.STARTING: QCoreApplication.translate(
+                "TrayController", "Starting..."
+            ),
+            AppState.IDLE: QCoreApplication.translate("TrayController", "Ready"),
+            AppState.RECORDING: QCoreApplication.translate(
+                "TrayController", "Recording..."
+            ),
+            AppState.PROCESSING: QCoreApplication.translate(
+                "TrayController", "Processing..."
+            ),
+            AppState.INPUT_READY: QCoreApplication.translate(
+                "TrayController", "Input Ready"
+            ),
+            AppState.ERROR: QCoreApplication.translate("TrayController", "Error"),
+            AppState.STOPPING: QCoreApplication.translate(
+                "TrayController", "Stopping..."
+            ),
+        }.get(self._app_state, QCoreApplication.translate("TrayController", "Unknown"))
 
         self._tray_widget.update_status_text(status_text)
 
@@ -551,8 +627,11 @@ class TrayController(QObject):
         """Show startup notification"""
         if self._tray_widget and self._notifications_enabled:
             self._tray_widget.show_message(
-                "Sonic Input",
-                "Application is running! Right-click the tray icon (green dot) to access features, or double-click to open settings.",
+                QCoreApplication.translate("TrayController", "Sonic Input"),
+                QCoreApplication.translate(
+                    "TrayController",
+                    "Application is running! Right-click the tray icon (green dot) to access features, or double-click to open settings.",
+                ),
                 QSystemTrayIcon.MessageIcon.Information,
                 8000,  # 8 seconds
             )
@@ -561,24 +640,25 @@ class TrayController(QObject):
         """Show about dialog"""
         QMessageBox.about(
             None,
-            "About Sonic Input",
-            f"""
-            <h3>Sonic Input v{__version__}</h3>
-            <p>An AI-powered voice-to-text input solution for Windows.</p>
-            <p><b>Features:</b></p>
-            <ul>
-            <li>Local speech recognition (sherpa-onnx)</li>
-            <li>AI text optimization via OpenRouter</li>
-            <li>Smart text input methods</li>
-            <li>Global hotkey support</li>
-            </ul>
-            <p><b>Hotkeys:</b></p>
-            <ul>
-            <li>Global recording hotkey (configurable)</li>
-            <li>Double-click tray icon: Settings</li>
-            <li>Middle-click tray icon: Toggle recording</li>
-            </ul>
-            """,
+            QCoreApplication.translate("TrayController", "About Sonic Input"),
+            QCoreApplication.translate(
+                "TrayController",
+                "<h3>Sonic Input v{version}</h3>"
+                "<p>An AI-powered voice-to-text input solution for Windows.</p>"
+                "<p><b>Features:</b></p>"
+                "<ul>"
+                "<li>Local speech recognition (sherpa-onnx)</li>"
+                "<li>AI text optimization via OpenRouter</li>"
+                "<li>Smart text input methods</li>"
+                "<li>Global hotkey support</li>"
+                "</ul>"
+                "<p><b>Hotkeys:</b></p>"
+                "<ul>"
+                "<li>Global recording hotkey (configurable)</li>"
+                "<li>Double-click tray icon: Settings</li>"
+                "<li>Middle-click tray icon: Toggle recording</li>"
+                "</ul>",
+            ).format(version=__version__),
         )
 
     # ==================== Public Interface ====================

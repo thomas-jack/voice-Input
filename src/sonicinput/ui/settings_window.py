@@ -3,7 +3,7 @@
 import time
 from typing import Any, Dict, Optional
 
-from PySide6.QtCore import QEvent, QObject, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, Qt, Signal, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -79,7 +79,9 @@ class SettingsWindow(QMainWindow):
         self.current_config = {}
 
         # 设置窗口属性
-        self.setWindowTitle("Sonic Input - Settings")
+        self.setWindowTitle(
+            QCoreApplication.translate("SettingsWindow", "Sonic Input - Settings")
+        )
         self.setMinimumSize(800, 600)  # 最小尺寸
         self.resize(800, 600)  # 默认大小，但允许用户调整
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint)
@@ -143,6 +145,7 @@ class SettingsWindow(QMainWindow):
 
             events = self.ui_settings_service.get_event_service()
             events.on(Events.MODEL_LOADED, self._on_model_loaded)
+            events.on(Events.UI_LANGUAGE_CHANGED, self._on_language_changed)
 
             # 检查模型是否已经加载，如果已加载则更新status label显示runtime状态
             # 注意: 此时dropdown已经显示config值，status label会显示runtime值
@@ -165,17 +168,80 @@ class SettingsWindow(QMainWindow):
         self.tab_widget.setObjectName("tab_widget")
 
         # 使用独立的标签页模块
-        self._create_scrollable_tab(self.application_tab.create(), "Application")
-        self._create_scrollable_tab(self.hotkey_tab.create(), "Hotkeys")
-        self._create_scrollable_tab(self.transcription_tab.create(), "Transcription")
-        self._create_scrollable_tab(self.ai_tab.create(), "AI Processing")
-        self._create_scrollable_tab(self.audio_input_tab.create(), "Audio and Input")
-        self._create_scrollable_tab(self.history_tab.create(), "History")
+        self._create_scrollable_tab(
+            self.application_tab.create(),
+            QCoreApplication.translate("SettingsWindow", "Application"),
+        )
+        self._create_scrollable_tab(
+            self.hotkey_tab.create(),
+            QCoreApplication.translate("SettingsWindow", "Hotkeys"),
+        )
+        self._create_scrollable_tab(
+            self.transcription_tab.create(),
+            QCoreApplication.translate("SettingsWindow", "Transcription"),
+        )
+        self._create_scrollable_tab(
+            self.ai_tab.create(),
+            QCoreApplication.translate("SettingsWindow", "AI Processing"),
+        )
+        self._create_scrollable_tab(
+            self.audio_input_tab.create(),
+            QCoreApplication.translate("SettingsWindow", "Audio and Input"),
+        )
+        self._create_scrollable_tab(
+            self.history_tab.create(),
+            QCoreApplication.translate("SettingsWindow", "History"),
+        )
 
         main_layout.addWidget(self.tab_widget)
 
         # 底部按钮
         self.setup_bottom_buttons(main_layout)
+
+        self.retranslate_ui()
+
+    def retranslate_ui(self) -> None:
+        """Update window and tab text for the current language."""
+        tab_titles = [
+            QCoreApplication.translate("SettingsWindow", "Application"),
+            QCoreApplication.translate("SettingsWindow", "Hotkeys"),
+            QCoreApplication.translate("SettingsWindow", "Transcription"),
+            QCoreApplication.translate("SettingsWindow", "AI Processing"),
+            QCoreApplication.translate("SettingsWindow", "Audio and Input"),
+            QCoreApplication.translate("SettingsWindow", "History"),
+        ]
+        self.setWindowTitle(
+            QCoreApplication.translate("SettingsWindow", "Sonic Input - Settings")
+        )
+
+        for index, title in enumerate(tab_titles):
+            if index < self.tab_widget.count():
+                self.tab_widget.setTabText(index, title)
+
+        self.apply_button.setText(QCoreApplication.translate("SettingsWindow", "Apply"))
+        self.ok_button.setText(QCoreApplication.translate("SettingsWindow", "OK"))
+        self.cancel_button.setText(
+            QCoreApplication.translate("SettingsWindow", "Cancel")
+        )
+        self.reset_button.setText(
+            QCoreApplication.translate("SettingsWindow", "Reset Tab")
+        )
+
+        for tab in (
+            self.application_tab,
+            self.hotkey_tab,
+            self.transcription_tab,
+            self.ai_tab,
+            self.audio_input_tab,
+            self.history_tab,
+        ):
+            if hasattr(tab, "retranslate_ui"):
+                tab.retranslate_ui()
+
+    def _on_language_changed(self, data: object = None) -> None:
+        """Handle runtime UI language change."""
+        self.retranslate_ui()
+        self.refresh_model_status()
 
     def _install_wheel_filters(self) -> None:
         """为所有下拉框和数值调整控件安装滚轮事件过滤器，防止误触"""
@@ -219,7 +285,9 @@ class SettingsWindow(QMainWindow):
         button_layout = QHBoxLayout()
 
         # 重置按钮
-        self.reset_button = QPushButton("Reset Tab")
+        self.reset_button = QPushButton(
+            QCoreApplication.translate("SettingsWindow", "Reset Tab")
+        )
         self.reset_button.setObjectName("reset_btn")
         self.reset_button.clicked.connect(self.reset_current_tab)
         button_layout.addWidget(self.reset_button)
@@ -227,19 +295,23 @@ class SettingsWindow(QMainWindow):
         button_layout.addStretch()
 
         # 应用按钮
-        self.apply_button = QPushButton("Apply")
+        self.apply_button = QPushButton(
+            QCoreApplication.translate("SettingsWindow", "Apply")
+        )
         self.apply_button.setObjectName("apply_btn")
         self.apply_button.clicked.connect(self.apply_settings)
         button_layout.addWidget(self.apply_button)
 
         # 确定按钮
-        self.ok_button = QPushButton("OK")
+        self.ok_button = QPushButton(QCoreApplication.translate("SettingsWindow", "OK"))
         self.ok_button.setObjectName("ok_btn")
         self.ok_button.clicked.connect(self.accept_settings)
         button_layout.addWidget(self.ok_button)
 
         # 取消按钮
-        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button = QPushButton(
+            QCoreApplication.translate("SettingsWindow", "Cancel")
+        )
         self.cancel_button.setObjectName("cancel_btn")
         self.cancel_button.clicked.connect(self.close)
         button_layout.addWidget(self.cancel_button)
@@ -279,7 +351,10 @@ class SettingsWindow(QMainWindow):
             hotkey = self.hotkeys_list.item(0).text().strip()
 
         if not hotkey:
-            self.update_hotkey_status("Select a hotkey to test", True)
+            self.update_hotkey_status(
+                QCoreApplication.translate("SettingsWindow", "Select a hotkey to test"),
+                True,
+            )
             return
 
         temp_manager = None
@@ -310,7 +385,12 @@ class SettingsWindow(QMainWindow):
                     "hotkey", hotkey
                 )
                 if not is_valid:
-                    self.update_hotkey_status(f"Invalid hotkey: {error_msg}", True)
+                    self.update_hotkey_status(
+                        QCoreApplication.translate(
+                            "SettingsWindow", "Invalid hotkey: {error}"
+                        ).format(error=error_msg),
+                        True,
+                    )
                     return
 
             # Start listening (Win32 backend needs message loop)
@@ -318,7 +398,11 @@ class SettingsWindow(QMainWindow):
                 started = temp_manager.start_listening()
                 if not started:
                     self.update_hotkey_status(
-                        "Hotkey test failed: backend failed to start", True
+                        QCoreApplication.translate(
+                            "SettingsWindow",
+                            "Hotkey test failed: backend failed to start",
+                        ),
+                        True,
                     )
                     return
 
@@ -326,7 +410,10 @@ class SettingsWindow(QMainWindow):
             temp_manager.register_hotkey(hotkey, "test_hotkey")
             temp_manager.unregister_hotkey(hotkey)
 
-            self.update_hotkey_status("Hotkey is available", False)
+            self.update_hotkey_status(
+                QCoreApplication.translate("SettingsWindow", "Hotkey is available"),
+                False,
+            )
 
             app_logger.log_audio_event(
                 "Hotkey tested",
@@ -339,7 +426,12 @@ class SettingsWindow(QMainWindow):
 
         except Exception as e:
             app_logger.log_error(e, "test_hotkey")
-            self.update_hotkey_status(f"Test failed: {str(e)}", True)
+            self.update_hotkey_status(
+                QCoreApplication.translate(
+                    "SettingsWindow", "Test failed: {error}"
+                ).format(error=str(e)),
+                True,
+            )
         finally:
             if temp_manager:
                 try:
@@ -352,95 +444,118 @@ class SettingsWindow(QMainWindow):
                 except Exception:
                     pass
 
-    def test_api_connection(self) -> None:
-        """测试API连接"""
-        try:
-            # 获取当前选择的提供商
-            current_provider = self.ai_provider_combo.currentText()
+    def update_hotkey_status(self, status: str, is_error: bool = False) -> None:
+        """Update hotkey status display in the Hotkeys tab."""
+        if hasattr(self, "hotkey_tab") and hasattr(
+            self.hotkey_tab, "_update_hotkey_status"
+        ):
+            self.hotkey_tab._update_hotkey_status(status, is_error)
 
-            # 根据提供商获取对应的API密钥
-            if current_provider == "OpenRouter":
+    def test_api_connection(self) -> None:
+        """Test API connection."""
+        try:
+            current_provider = self.ai_provider_combo.currentData() or "openrouter"
+            provider_label = self.ai_provider_combo.currentText()
+
+            api_key = ""
+            base_url = ""
+
+            if current_provider == "openrouter":
                 api_key = self.api_key_input.text().strip()
-                provider_name = "OpenRouter"
-            elif current_provider == "Groq":
+                provider_name = provider_label or QCoreApplication.translate(
+                    "SettingsWindow", "OpenRouter"
+                )
+            elif current_provider == "groq":
                 api_key = self.groq_api_key_input.text().strip()
-                provider_name = "Groq"
-            elif current_provider == "NVIDIA":
+                provider_name = provider_label or QCoreApplication.translate(
+                    "SettingsWindow", "Groq"
+                )
+            elif current_provider == "nvidia":
                 api_key = self.nvidia_api_key_input.text().strip()
-                provider_name = "NVIDIA"
-            elif current_provider == "OpenAI Compatible":
+                provider_name = provider_label or QCoreApplication.translate(
+                    "SettingsWindow", "NVIDIA"
+                )
+            elif current_provider == "openai_compatible":
                 api_key = self.openai_compatible_api_key_input.text().strip()
                 base_url = self.openai_compatible_base_url_input.text().strip()
-                provider_name = "OpenAI Compatible"
+                provider_name = provider_label or QCoreApplication.translate(
+                    "SettingsWindow", "OpenAI Compatible"
+                )
 
-                # Base URL 必填检查
                 if not base_url:
                     QMessageBox.warning(
                         self,
-                        "API Connection Test",
-                        "⚠️ Please enter the Base URL for OpenAI Compatible service.",
+                        QCoreApplication.translate(
+                            "SettingsWindow", "API Connection Test"
+                        ),
+                        QCoreApplication.translate(
+                            "SettingsWindow",
+                            "Please enter the Base URL for OpenAI Compatible service.",
+                        ),
                     )
                     return
             else:
-                provider_name = "Unknown"
-                api_key = ""
+                provider_name = QCoreApplication.translate("SettingsWindow", "Unknown")
 
-            # OpenAI Compatible 的 API Key 是可选的
-            if not api_key and current_provider != "OpenAI Compatible":
+            if not api_key and current_provider != "openai_compatible":
                 QMessageBox.warning(
                     self,
-                    "API Connection Test",
-                    f"⚠️ Please enter your {provider_name} API key first.",
+                    QCoreApplication.translate("SettingsWindow", "API Connection Test"),
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Please enter your {provider} API key first.",
+                    ).format(provider=provider_name),
                 )
                 return
 
-            # 显示测试开始对话框
             progress_dialog = QMessageBox(self)
-            progress_dialog.setWindowTitle("Testing API Connection")
+            progress_dialog.setWindowTitle(
+                QCoreApplication.translate("SettingsWindow", "Testing API Connection")
+            )
             progress_dialog.setText(
-                f"🔄 Testing {provider_name} API connection...\n\nThis may take a few seconds."
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "Testing {provider} API connection...\n\nThis may take a few seconds.",
+                ).format(provider=provider_name)
             )
             progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
             progress_dialog.show()
 
-            # 记录对话框创建
             app_logger.log_audio_event(
                 "API test dialog created",
                 {"type": "progress", "provider": provider_name},
             )
 
-            # 处理事件以显示对话框
             QApplication.processEvents()
 
-            # 根据提供商创建对应的客户端进行测试
-            if current_provider == "OpenRouter":
+            if current_provider == "openrouter":
                 from ..ai.openrouter import OpenRouterClient
 
                 test_client = OpenRouterClient(api_key)
-            elif current_provider == "Groq":
+            elif current_provider == "groq":
                 from ..ai.groq import GroqClient
 
                 test_client = GroqClient(api_key)
-            elif current_provider == "NVIDIA":
+            elif current_provider == "nvidia":
                 from ..ai.nvidia import NvidiaClient
 
                 test_client = NvidiaClient(api_key)
-            elif current_provider == "OpenAI Compatible":
+            elif current_provider == "openai_compatible":
                 from ..ai.openai_compatible import OpenAICompatibleClient
 
                 test_client = OpenAICompatibleClient(api_key, base_url)
             else:
                 QMessageBox.warning(
                     self,
-                    "API Connection Test",
-                    f"⚠️ Unknown provider: {current_provider}",
+                    QCoreApplication.translate("SettingsWindow", "API Connection Test"),
+                    QCoreApplication.translate(
+                        "SettingsWindow", "Unknown provider: {provider}"
+                    ).format(provider=current_provider),
                 )
                 return
 
-            # 保存provider_name为实例变量，供结果显示使用
             self._api_test_provider_name = provider_name
 
-            # 异步测试连接
             import threading
 
             result_container = {"success": False, "error": ""}
@@ -460,8 +575,9 @@ class SettingsWindow(QMainWindow):
                     )
 
                     if not success:
-                        result_container["error"] = (
-                            "Connection test failed - please check your API key and network connection"
+                        result_container["error"] = QCoreApplication.translate(
+                            "SettingsWindow",
+                            "Connection test failed - please check your API key and network connection",
                         )
 
                     app_logger.log_audio_event(
@@ -477,38 +593,36 @@ class SettingsWindow(QMainWindow):
                         {"error": str(e), "container_final": dict(result_container)},
                     )
 
-            # 运行测试
             test_thread = threading.Thread(target=test_connection, daemon=True)
             test_thread.start()
 
-            # 使用QTimer异步检查测试完成状态
             self._api_test_thread = test_thread
             self._api_test_result = result_container
             self._api_progress_dialog = progress_dialog
             self._api_test_start_time = time.time()
 
-            # 创建定时器轮询测试状态
-            from PySide6.QtCore import QTimer
-
             self._api_test_timer = QTimer()
             self._api_test_timer.timeout.connect(self._check_api_test_status)
-            self._api_test_timer.start(100)  # 每100ms检查一次
+            self._api_test_timer.start(100)
 
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "API Connection Test",
-                f"❌ **Test Error**\n\n"
-                f"Failed to run connection test: {str(e)}\n\n"
-                "Please try again or check the application logs.",
+                QCoreApplication.translate("SettingsWindow", "API Connection Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "Test failed with error:\n\n{error}"
+                ).format(error=e),
             )
+            self.api_status_label.setText(
+                QCoreApplication.translate("SettingsWindow", "Test failed")
+            )
+            self.api_status_label.setStyleSheet("color: red;")
 
     def _check_api_test_status(self) -> None:
-        """检查API测试状态的异步方法"""
+        """Poll API test status."""
         import time
 
         try:
-            # 添加详细日志追踪
             thread_alive = self._api_test_thread.is_alive()
             elapsed_time = time.time() - self._api_test_start_time
 
@@ -522,9 +636,7 @@ class SettingsWindow(QMainWindow):
                 },
             )
 
-            # 检查测试线程是否完成
             if not thread_alive:
-                # 测试完成，停止定时器
                 self._api_test_timer.stop()
 
                 app_logger.log_audio_event(
@@ -535,82 +647,90 @@ class SettingsWindow(QMainWindow):
                     },
                 )
 
-                # 关闭进度对话框
                 self._api_progress_dialog.close()
 
-                # 显示结果
                 if self._api_test_result["success"]:
                     QMessageBox.information(
                         self,
-                        "API Connection Test",
-                        f"✅ **Connection Successful!**\n\n"
-                        f"Your {self._api_test_provider_name} API key is valid and the service is accessible.\n\n"
-                        f"You can now use AI text optimization features.",
+                        QCoreApplication.translate(
+                            "SettingsWindow", "API Connection Test"
+                        ),
+                        QCoreApplication.translate(
+                            "SettingsWindow",
+                            "**Connection Successful!**\n\n"
+                            "Your {provider} API key is valid and the service is accessible.\n\n"
+                            "You can now use AI text optimization features.",
+                        ).format(provider=self._api_test_provider_name),
                     )
                 else:
-                    error_msg = (
-                        self._api_test_result["error"] or "Unknown error occurred"
+                    error_msg = self._api_test_result.get(
+                        "error"
+                    ) or QCoreApplication.translate(
+                        "SettingsWindow", "Unknown error occurred"
                     )
                     QMessageBox.critical(
                         self,
-                        "API Connection Test",
-                        f"❌ **Connection Failed**\n\n"
-                        f"Error: {error_msg}\n\n"
-                        f"Please check:\n"
-                        f"• Your API key is correct\n"
-                        f"• You have internet connection\n"
-                        f"• {self._api_test_provider_name} service is available",
+                        QCoreApplication.translate(
+                            "SettingsWindow", "API Connection Test"
+                        ),
+                        QCoreApplication.translate(
+                            "SettingsWindow",
+                            "**Connection Failed**\n\n"
+                            "Error: {error}\n\n"
+                            "Please check:\n"
+                            "- Your API key is correct\n"
+                            "- You have an internet connection\n"
+                            "- {provider} service is available",
+                        ).format(
+                            error=error_msg, provider=self._api_test_provider_name
+                        ),
                     )
                 return
 
-            # 检查用户是否点击了取消按钮
             if (
                 hasattr(self, "_api_progress_dialog")
                 and self._api_progress_dialog.result()
                 == QMessageBox.StandardButton.Cancel
             ):
-                # 用户取消，停止定时器
                 self._api_test_timer.stop()
                 app_logger.log_audio_event("API test cancelled by user", {})
-
-                # 关闭对话框
                 self._api_progress_dialog.close()
                 return
 
-            # 检查超时（15秒强制超时，防止卡死）
             if elapsed_time > 15:
-                # 超时，停止定时器
                 self._api_test_timer.stop()
-
-                # 关闭进度对话框
                 self._api_progress_dialog.close()
-
-                # 显示超时错误
                 app_logger.log_audio_event(
-                    "API test forced timeout", {"elapsed_time": f"{elapsed_time:.2f}s"}
+                    "API test forced timeout",
+                    {"elapsed_time": f"{elapsed_time:.2f}s"},
                 )
                 QMessageBox.critical(
                     self,
-                    "API Connection Test",
-                    "❌ **Test Timeout**\n\n"
-                    f"The API connection test took too long (>{elapsed_time:.1f} seconds).\n\n"
-                    "This may indicate a stuck dialog issue. Please check:\n"
-                    "• Your internet connection\n"
-                    "• OpenRouter service availability\n"
-                    "• Try again later",
+                    QCoreApplication.translate("SettingsWindow", "API Connection Test"),
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "**Test Timeout**\n\n"
+                        "The API connection test took too long (> {seconds:.1f} seconds).\n\n"
+                        "Please check:\n"
+                        "- Your internet connection\n"
+                        "- OpenRouter service availability\n"
+                        "- Try again later",
+                    ).format(seconds=elapsed_time),
                 )
 
         except Exception as e:
-            # 异常处理，停止定时器
             self._api_test_timer.stop()
             self._api_progress_dialog.close()
 
             QMessageBox.critical(
                 self,
-                "API Connection Test",
-                f"❌ **Test Error**\n\n"
-                f"An error occurred during testing: {str(e)}\n\n"
-                "Please try again.",
+                QCoreApplication.translate("SettingsWindow", "API Connection Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "**Test Error**\n\n"
+                    "An error occurred during testing: {error}\n\n"
+                    "Please try again.",
+                ).format(error=str(e)),
             )
 
     def _flatten_config(
@@ -666,12 +786,18 @@ class SettingsWindow(QMainWindow):
 
         # 如果有验证错误，显示错误对话框并阻止保存
         if validation_errors:
-            error_message = "Configuration validation failed:\n\n" + "\n".join(
-                validation_errors
-            )
-            error_message += "\n\nPlease correct the errors and try again."
+            errors_text = "\n".join(validation_errors)
+            error_message = QCoreApplication.translate(
+                "SettingsWindow",
+                "Configuration validation failed:\n\n{errors}\n\n"
+                "Please correct the errors and try again.",
+            ).format(errors=errors_text)
 
-            QMessageBox.critical(self, "Invalid Configuration", error_message)
+            QMessageBox.critical(
+                self,
+                QCoreApplication.translate("SettingsWindow", "Invalid Configuration"),
+                error_message,
+            )
 
             app_logger.log_audio_event(
                 "Configuration validation failed",
@@ -722,7 +848,11 @@ class SettingsWindow(QMainWindow):
                         0,  # Indeterminate progress
                         self,
                     )
-                    progress.setWindowTitle("Applying Settings")
+                    progress.setWindowTitle(
+                        QCoreApplication.translate(
+                            "SettingsWindow", "Applying Settings"
+                        )
+                    )
                     progress.setWindowModality(Qt.WindowModality.WindowModal)
                     progress.setMinimumDuration(0)
                     progress.setCancelButton(None)
@@ -757,13 +887,20 @@ class SettingsWindow(QMainWindow):
 
                 if provider_changing or model_changing_local:
                     progress = QProgressDialog(
-                        "Switching transcription provider...\nThis may take a few seconds.",
+                        QCoreApplication.translate(
+                            "SettingsWindow",
+                            "Switching transcription provider...\nThis may take a few seconds.",
+                        ),
                         None,  # No cancel button
                         0,
                         0,  # Indeterminate progress
                         self,
                     )
-                    progress.setWindowTitle("Applying Settings")
+                    progress.setWindowTitle(
+                        QCoreApplication.translate(
+                            "SettingsWindow", "Applying Settings"
+                        )
+                    )
                     progress.setWindowModality(Qt.WindowModality.WindowModal)
                     progress.setMinimumDuration(0)
                     progress.setCancelButton(None)
@@ -792,7 +929,9 @@ class SettingsWindow(QMainWindow):
                         # 显示友好的错误信息
                         QMessageBox.warning(
                             self,
-                            "Cannot Change Provider",
+                            QCoreApplication.translate(
+                                "SettingsWindow", "Cannot Change Provider"
+                            ),
                             str(reload_error),
                         )
                         return  # 不继续执行，不提交事务
@@ -817,8 +956,20 @@ class SettingsWindow(QMainWindow):
                 )
 
                 # 步骤6: 成功提示
+                # Apply UI language change if configured
+                if hasattr(self.ui_settings_service, "get_localization_service"):
+                    localization_service = (
+                        self.ui_settings_service.get_localization_service()
+                    )
+                    if localization_service:
+                        localization_service.apply_language()
+
                 QMessageBox.information(
-                    self, "Settings", "Settings applied successfully!"
+                    self,
+                    QCoreApplication.translate("SettingsWindow", "Settings"),
+                    QCoreApplication.translate(
+                        "SettingsWindow", "Settings applied successfully!"
+                    ),
                 )
 
             except TransactionError as te:
@@ -829,8 +980,12 @@ class SettingsWindow(QMainWindow):
                 )
                 QMessageBox.critical(
                     self,
-                    "Apply Failed",
-                    f"Settings apply failed and has been rolled back:\n\n{error_msg}\n\nPlease check your settings and try again.",
+                    QCoreApplication.translate("SettingsWindow", "Apply Failed"),
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Settings apply failed and has been rolled back:\n\n{error}\n\n"
+                        "Please check your settings and try again.",
+                    ).format(error=error_msg),
                 )
 
         except Exception as e:
@@ -838,8 +993,12 @@ class SettingsWindow(QMainWindow):
             app_logger.log_error(e, "apply_settings_unexpected")
             QMessageBox.critical(
                 self,
-                "Error",
-                f"An unexpected error occurred:\n\n{e}\n\nSettings may not have been applied correctly.",
+                QCoreApplication.translate("SettingsWindow", "Error"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "An unexpected error occurred:\n\n{error}\n\n"
+                    "Settings may not have been applied correctly.",
+                ).format(error=e),
             )
 
     def _validate_transcription_provider_for_apply(
@@ -849,7 +1008,9 @@ class SettingsWindow(QMainWindow):
         if not isinstance(provider, str):
             return (
                 False,
-                f"Provider must be a string, got {type(provider).__name__}",
+                QCoreApplication.translate(
+                    "SettingsWindow", "Provider must be a string, got {type}."
+                ).format(type=type(provider).__name__),
             )
 
         normalized = provider.strip().lower()
@@ -857,7 +1018,10 @@ class SettingsWindow(QMainWindow):
         if normalized not in valid_providers:
             return (
                 False,
-                f"Invalid transcription provider '{provider}'. Valid providers: {', '.join(valid_providers)}",
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "Invalid transcription provider '{provider}'. Valid providers: {providers}",
+                ).format(provider=provider, providers=", ".join(valid_providers)),
             )
 
         transcription_config = config.get("transcription", {})
@@ -867,21 +1031,30 @@ class SettingsWindow(QMainWindow):
             if not str(api_key).strip():
                 return (
                     False,
-                    "Groq provider requires an API key. Please enter your Groq API key in the Transcription tab.",
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Groq provider requires an API key. Please enter your Groq API key in the Transcription tab.",
+                    ),
                 )
         elif normalized == "siliconflow":
             api_key = transcription_config.get("siliconflow", {}).get("api_key", "")
             if not str(api_key).strip():
                 return (
                     False,
-                    "SiliconFlow provider requires an API key. Please enter your SiliconFlow API key in the Transcription tab.",
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "SiliconFlow provider requires an API key. Please enter your SiliconFlow API key in the Transcription tab.",
+                    ),
                 )
         elif normalized == "qwen":
             api_key = transcription_config.get("qwen", {}).get("api_key", "")
             if not str(api_key).strip():
                 return (
                     False,
-                    "Qwen provider requires an API key. Please enter your Qwen API key in the Transcription tab.",
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Qwen provider requires an API key. Please enter your Qwen API key in the Transcription tab.",
+                    ),
                 )
 
         return True, ""
@@ -913,14 +1086,16 @@ class SettingsWindow(QMainWindow):
                 # 更新状态标签
                 if is_loaded and runtime_model != "Unknown":
                     self.transcription_tab.model_status_label.setText(
-                        f"Model loaded: {runtime_model} ({device})"
+                        QCoreApplication.translate(
+                            "SettingsWindow", "Model loaded: {model} ({device})"
+                        ).format(model=runtime_model, device=device)
                     )
                     self.transcription_tab.model_status_label.setStyleSheet(
                         "QLabel { color: #4CAF50; }"  # Green
                     )
                 else:
                     self.transcription_tab.model_status_label.setText(
-                        "Model not loaded"
+                        QCoreApplication.translate("SettingsWindow", "Model not loaded")
                     )
                     self.transcription_tab.model_status_label.setStyleSheet(
                         "QLabel { color: #757575; }"  # Gray
@@ -981,8 +1156,12 @@ class SettingsWindow(QMainWindow):
             # 更新UI状态
             reply = QMessageBox.question(
                 self,
-                "Unload Model",
-                "Are you sure you want to unload the current Whisper model?\n\nThis will free up memory but you'll need to reload it before using voice input.",
+                QCoreApplication.translate("SettingsWindow", "Unload Model"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "Are you sure you want to unload the current Whisper model?\n\n"
+                    "This will free up memory but you'll need to reload it before using voice input.",
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -990,13 +1169,20 @@ class SettingsWindow(QMainWindow):
             if reply == QMessageBox.StandardButton.Yes:
                 QMessageBox.information(
                     self,
-                    "Model Unload",
-                    "✅ Model unload request sent. Check the system tray for status updates.",
+                    QCoreApplication.translate("SettingsWindow", "Model Unload"),
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Model unload request sent. Check the system tray for status updates.",
+                    ),
                 )
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Unload Model Error", f"❌ Failed to unload model: {str(e)}"
+                self,
+                QCoreApplication.translate("SettingsWindow", "Unload Model Error"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "Failed to unload model: {error}"
+                ).format(error=str(e)),
             )
 
     def _check_initial_model_status(self) -> None:
@@ -1063,14 +1249,18 @@ class SettingsWindow(QMainWindow):
                 self.transcription_tab.whisper_model_combo.setCurrentIndex(index)
 
             # 2. 更新状态标签 (现有逻辑保持)
-            status_text = f"Model loaded: {model_name} ({device})"
+            status_text = QCoreApplication.translate(
+                "SettingsWindow", "Model loaded: {model} ({device})"
+            ).format(model=model_name, device=device)
             self.transcription_tab.model_status_label.setText(status_text)
             self.transcription_tab.model_status_label.setStyleSheet(
                 "QLabel { color: #4CAF50; }"
             )  # Material Green
 
             # 3. 更新按钮文本 (修复bug: 之前只更新了标签,忘记更新按钮)
-            self.transcription_tab.load_model_button.setText("Reload Model")
+            self.transcription_tab.load_model_button.setText(
+                QCoreApplication.translate("SettingsWindow", "Reload Model")
+            )
             self.transcription_tab.unload_model_button.setEnabled(True)
 
             # 如果有GPU信息，更新显存使用 (sherpa-onnx不需要，但保留兼容性)
@@ -1105,18 +1295,25 @@ class SettingsWindow(QMainWindow):
             # 显示信息对话框
             QMessageBox.information(
                 self,
-                "Model Test",
-                "📋 Model test initiated.\n\n"
-                "This will:\n"
-                "1. Check if the model is loaded\n"
-                "2. Test with a sample audio (if available)\n"
-                "3. Verify transcription functionality\n\n"
-                "Please check the system tray and logs for test results.",
+                QCoreApplication.translate("SettingsWindow", "Model Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "Model test initiated.\n\n"
+                    "This will:\n"
+                    "1. Check if the model is loaded\n"
+                    "2. Test with a sample audio (if available)\n"
+                    "3. Verify transcription functionality\n\n"
+                    "Please check the system tray and logs for test results.",
+                ),
             )
 
         except Exception as e:
             QMessageBox.critical(
-                self, "Model Test Error", f"❌ Failed to test model: {str(e)}"
+                self,
+                QCoreApplication.translate("SettingsWindow", "Model Test Error"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "Failed to test model: {error}"
+                ).format(error=str(e)),
             )
 
     def refresh_audio_devices(self) -> None:
@@ -1126,7 +1323,9 @@ class SettingsWindow(QMainWindow):
             self.audio_device_combo.clear()
 
             # Add default option
-            self.audio_device_combo.addItem("System Default", None)
+            self.audio_device_combo.addItem(
+                QCoreApplication.translate("SettingsWindow", "System Default"), None
+            )
 
             # Get available devices from the audio recorder
             # We need to access the recorder through the app controller
@@ -1162,7 +1361,11 @@ class SettingsWindow(QMainWindow):
         except Exception as e:
             app_logger.log_error(e, "refresh_audio_devices")
             QMessageBox.warning(
-                self, "Warning", f"Failed to refresh audio devices: {e}"
+                self,
+                QCoreApplication.translate("SettingsWindow", "Warning"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "Failed to refresh audio devices: {error}"
+                ).format(error=e),
             )
 
     def on_audio_device_changed(self) -> None:
@@ -1195,14 +1398,16 @@ class SettingsWindow(QMainWindow):
         try:
             # 显示检查状态
             self.transcription_tab.model_status_label.setText(
-                "Checking model status..."
+                QCoreApplication.translate("SettingsWindow", "Checking model status...")
             )
             self.transcription_tab.model_status_label.setStyleSheet("color: blue;")
 
             # 使用 UI 模型服务获取模型信息
             if not self.ui_model_service:
                 self.transcription_tab.model_status_label.setText(
-                    "Model service not available"
+                    QCoreApplication.translate(
+                        "SettingsWindow", "Model service not available"
+                    )
                 )
                 self.transcription_tab.model_status_label.setStyleSheet("color: red;")
                 return
@@ -1216,7 +1421,9 @@ class SettingsWindow(QMainWindow):
         except Exception as e:
             app_logger.log_error(e, "refresh_model_status")
             self.transcription_tab.model_status_label.setText(
-                "Error checking model status"
+                QCoreApplication.translate(
+                    "SettingsWindow", "Error checking model status"
+                )
             )
             self.transcription_tab.model_status_label.setStyleSheet("color: red;")
 
@@ -1224,7 +1431,9 @@ class SettingsWindow(QMainWindow):
         """从模型信息更新显示 - 在主线程中调用"""
         try:
             if not model_info.get("is_loaded", False):
-                self.transcription_tab.model_status_label.setText("Model not loaded")
+                self.transcription_tab.model_status_label.setText(
+                    QCoreApplication.translate("SettingsWindow", "Model not loaded")
+                )
                 self.transcription_tab.model_status_label.setStyleSheet("color: red;")
                 return
 
@@ -1248,11 +1457,17 @@ class SettingsWindow(QMainWindow):
 
             # 添加加载时间
             if load_time is not None:
-                status_parts.append(f"- loaded in {load_time:.2f}s")
+                status_parts.append(
+                    QCoreApplication.translate(
+                        "SettingsWindow", "- loaded in {seconds:.2f}s"
+                    ).format(seconds=load_time)
+                )
 
             # 添加缓存状态
             if cache_used:
-                status_parts.append("(cached)")
+                status_parts.append(
+                    QCoreApplication.translate("SettingsWindow", "(cached)")
+                )
 
             status_text = " ".join(status_parts)
             self.transcription_tab.model_status_label.setText(status_text)
@@ -1268,7 +1483,9 @@ class SettingsWindow(QMainWindow):
         except Exception as e:
             app_logger.log_error(e, "_update_model_display_from_info")
             self.transcription_tab.model_status_label.setText(
-                "❌ Error updating model display"
+                QCoreApplication.translate(
+                    "SettingsWindow", "Error updating model display"
+                )
             )
             self.transcription_tab.model_status_label.setStyleSheet("color: red;")
 
@@ -1285,7 +1502,7 @@ class SettingsWindow(QMainWindow):
                 original_content = ""
 
             # Test writing to clipboard
-            test_text = "Sonic Input Test"
+            test_text = QCoreApplication.translate("SettingsWindow", "Sonic Input Test")
             pyperclip.copy(test_text)
 
             # Test reading from clipboard
@@ -1298,12 +1515,19 @@ class SettingsWindow(QMainWindow):
             if clipboard_content == test_text:
                 QMessageBox.information(
                     self,
-                    "Clipboard Test",
-                    "✅ Clipboard test successful!\n(Original clipboard content restored)",
+                    QCoreApplication.translate("SettingsWindow", "Clipboard Test"),
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Clipboard test successful!\n(Original clipboard content restored)",
+                    ),
                 )
             else:
                 QMessageBox.warning(
-                    self, "Clipboard Test", "⚠️ Clipboard test failed - content mismatch"
+                    self,
+                    QCoreApplication.translate("SettingsWindow", "Clipboard Test"),
+                    QCoreApplication.translate(
+                        "SettingsWindow", "Clipboard test failed - content mismatch"
+                    ),
                 )
 
         except Exception as e:
@@ -1316,7 +1540,11 @@ class SettingsWindow(QMainWindow):
                 except Exception:
                     pass
             QMessageBox.critical(
-                self, "Clipboard Test", f"❌ Clipboard test failed: {str(e)}"
+                self,
+                QCoreApplication.translate("SettingsWindow", "Clipboard Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "Clipboard test failed: {error}"
+                ).format(error=str(e)),
             )
 
     def test_sendinput(self) -> None:
@@ -1327,10 +1555,13 @@ class SettingsWindow(QMainWindow):
             # Show warning dialog
             reply = QMessageBox.question(
                 self,
-                "SendInput Test",
-                "This will test Windows SendInput functionality.\n\n"
-                "Click 'Yes' and then quickly click in a text field to see test text appear.\n\n"
-                "The test will start in 3 seconds after clicking 'Yes'.",
+                QCoreApplication.translate("SettingsWindow", "SendInput Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "This will test Windows SendInput functionality.\n\n"
+                    "Click 'Yes' and then quickly click in a text field to see test text appear.\n\n"
+                    "The test will start in 3 seconds after clicking 'Yes'.",
+                ),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             )
 
@@ -1343,13 +1574,20 @@ class SettingsWindow(QMainWindow):
 
                 QMessageBox.information(
                     self,
-                    "SendInput Test",
-                    "Test initiated! Click in a text field now - test text will appear in 3 seconds.",
+                    QCoreApplication.translate("SettingsWindow", "SendInput Test"),
+                    QCoreApplication.translate(
+                        "SettingsWindow",
+                        "Test initiated! Click in a text field now - test text will appear in 3 seconds.",
+                    ),
                 )
 
         except Exception as e:
             QMessageBox.critical(
-                self, "SendInput Test", f"❌ SendInput test failed: {str(e)}"
+                self,
+                QCoreApplication.translate("SettingsWindow", "SendInput Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "SendInput test failed: {error}"
+                ).format(error=str(e)),
             )
 
     def _send_test_input(self) -> None:
@@ -1360,7 +1598,9 @@ class SettingsWindow(QMainWindow):
             import win32api
             import win32con
 
-            test_text = "Sonic Input SendInput Test"
+            test_text = QCoreApplication.translate(
+                "SettingsWindow", "Sonic Input SendInput Test"
+            )
 
             for char in test_text:
                 # Send key down event
@@ -1371,7 +1611,11 @@ class SettingsWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(
-                self, "SendInput Test", f"❌ SendInput execution failed: {str(e)}"
+                self,
+                QCoreApplication.translate("SettingsWindow", "SendInput Test"),
+                QCoreApplication.translate(
+                    "SettingsWindow", "SendInput execution failed: {error}"
+                ).format(error=str(e)),
             )
 
     def reset_current_tab(self) -> None:
@@ -1380,17 +1624,21 @@ class SettingsWindow(QMainWindow):
             # 获取当前标签页索引和名称
             current_index = self.tab_widget.currentIndex()
             tab_names = [
-                "Application",
-                "Hotkeys",
-                "Transcription",
-                "AI Processing",
-                "Audio and Input",
-                "History",
+                QCoreApplication.translate("SettingsWindow", "Application"),
+                QCoreApplication.translate("SettingsWindow", "Hotkeys"),
+                QCoreApplication.translate("SettingsWindow", "Transcription"),
+                QCoreApplication.translate("SettingsWindow", "AI Processing"),
+                QCoreApplication.translate("SettingsWindow", "Audio and Input"),
+                QCoreApplication.translate("SettingsWindow", "History"),
             ]
 
             if current_index < 0 or current_index >= len(tab_names):
                 QMessageBox.warning(
-                    self, "Reset Tab", "❌ Unable to determine current tab."
+                    self,
+                    QCoreApplication.translate("SettingsWindow", "Reset Tab"),
+                    QCoreApplication.translate(
+                        "SettingsWindow", "Unable to determine current tab."
+                    ),
                 )
                 return
 
@@ -1399,10 +1647,11 @@ class SettingsWindow(QMainWindow):
             # 确认对话框
             reply = QMessageBox.question(
                 self,
-                "Reset Tab Settings",
-                f"🔄 **Reset {current_tab_name} Tab**\n\n"
-                f"Are you sure you want to reset all settings in the '{current_tab_name}' tab to their default values?\n\n"
-                "⚠️ This action cannot be undone.",
+                QCoreApplication.translate("SettingsWindow", "Reset Tab Settings"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "Reset {tab} Tab\n\nAre you sure you want to reset all settings in the '{tab}' tab to their default values?\n\nThis action cannot be undone.",
+                ).format(tab=current_tab_name),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -1430,19 +1679,23 @@ class SettingsWindow(QMainWindow):
             # 显示成功消息
             QMessageBox.information(
                 self,
-                "Reset Complete",
-                f"✅ **{current_tab_name} Tab Reset**\n\n"
-                f"All settings in the '{current_tab_name}' tab have been reset to their default values.\n\n"
-                "Click 'Apply' or 'OK' to save the changes.",
+                QCoreApplication.translate("SettingsWindow", "Reset Complete"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "{tab} tab reset.\n\nAll settings in the '{tab}' tab have been reset to their default values.\n\nClick 'Apply' or 'OK' to save the changes.",
+                ).format(tab=current_tab_name),
             )
 
         except Exception as e:
             QMessageBox.critical(
                 self,
-                "Reset Error",
-                f"❌ **Reset Failed**\n\n"
-                f"Failed to reset tab settings: {str(e)}\n\n"
-                "Please try again or check the application logs.",
+                QCoreApplication.translate("SettingsWindow", "Reset Error"),
+                QCoreApplication.translate(
+                    "SettingsWindow",
+                    "Reset failed.\n\n"
+                    "Failed to reset tab settings: {error}\n\n"
+                    "Please try again or check the application logs.",
+                ).format(error=str(e)),
             )
 
     def _reset_application_tab(self, default_config) -> None:

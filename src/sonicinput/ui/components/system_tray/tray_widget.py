@@ -6,7 +6,7 @@ No business logic or state management.
 
 from typing import Dict, Optional
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QCoreApplication, QObject, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
@@ -51,10 +51,14 @@ class TrayWidget(QObject):
 
         # Create context menu
         self._create_context_menu()
+        self.retranslate_ui()
 
         # Set initial tooltip
         self.set_tooltip(
-            "SonicInput - Ready\nRight-click for menu, Double-click for settings"
+            QCoreApplication.translate(
+                "TrayWidget",
+                "SonicInput - Ready\nRight-click for menu, Double-click for settings",
+            )
         )
 
         # Connect signals
@@ -134,9 +138,10 @@ class TrayWidget(QObject):
     def _create_context_menu(self) -> None:
         """Create the context menu"""
         self._context_menu = QMenu()
-
         # Status display (disabled)
-        status_action = QAction("Ready", self._context_menu)
+        status_action = QAction(
+            QCoreApplication.translate("TrayWidget", "Ready"), self._context_menu
+        )
         status_action.setEnabled(False)
         self._context_menu.addAction(status_action)
         self._menu_actions["status"] = status_action
@@ -144,7 +149,10 @@ class TrayWidget(QObject):
         self._context_menu.addSeparator()
 
         # Recording action
-        recording_action = QAction("Start Recording", self._context_menu)
+        recording_action = QAction(
+            QCoreApplication.translate("TrayWidget", "Start Recording"),
+            self._context_menu,
+        )
         recording_action.triggered.connect(
             lambda: self.menu_action_triggered.emit("toggle_recording")
         )
@@ -154,7 +162,9 @@ class TrayWidget(QObject):
         self._context_menu.addSeparator()
 
         # Settings
-        settings_action = QAction("Settings", self._context_menu)
+        settings_action = QAction(
+            QCoreApplication.translate("TrayWidget", "Settings"), self._context_menu
+        )
         settings_action.triggered.connect(
             lambda: self.menu_action_triggered.emit("show_settings")
         )
@@ -162,7 +172,9 @@ class TrayWidget(QObject):
         self._menu_actions["settings"] = settings_action
 
         # About
-        about_action = QAction("About", self._context_menu)
+        about_action = QAction(
+            QCoreApplication.translate("TrayWidget", "About"), self._context_menu
+        )
         about_action.triggered.connect(
             lambda: self.menu_action_triggered.emit("show_about")
         )
@@ -172,7 +184,9 @@ class TrayWidget(QObject):
         self._context_menu.addSeparator()
 
         # Exit
-        exit_action = QAction("Exit", self._context_menu)
+        exit_action = QAction(
+            QCoreApplication.translate("TrayWidget", "Exit"), self._context_menu
+        )
         exit_action.triggered.connect(
             lambda: self.menu_action_triggered.emit("exit_application")
         )
@@ -187,6 +201,23 @@ class TrayWidget(QObject):
         self.icon_activated.emit(reason)
 
     # ==================== Public UI Interface ====================
+
+    def retranslate_ui(self) -> None:
+        """Update static menu text for the current language."""
+        if not self._context_menu:
+            return
+        if "settings" in self._menu_actions:
+            self._menu_actions["settings"].setText(
+                QCoreApplication.translate("TrayWidget", "Settings")
+            )
+        if "about" in self._menu_actions:
+            self._menu_actions["about"].setText(
+                QCoreApplication.translate("TrayWidget", "About")
+            )
+        if "exit" in self._menu_actions:
+            self._menu_actions["exit"].setText(
+                QCoreApplication.translate("TrayWidget", "Exit")
+            )
 
     def update_icon(self, recording: bool) -> None:
         """Update the tray icon visual state (保持接口兼容性，但不再切换图标)

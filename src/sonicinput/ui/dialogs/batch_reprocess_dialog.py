@@ -6,6 +6,7 @@
 - 时间估算
 """
 
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import (
     QDialog,
     QFormLayout,
@@ -45,10 +46,13 @@ class BatchReprocessDialog(QDialog):
         # 信息组
         info_group = QGroupBox("Processing Information")
         info_layout = QFormLayout()
+        self.info_group = info_group
+        self.info_layout = info_layout
 
         self.records_label = QLabel(str(self.total_records))
         self.records_label.setStyleSheet("font-weight: bold; color: #2196F3;")
-        info_layout.addRow("Total records to process:", self.records_label)
+        self.records_text_label = QLabel("Total records to process:")
+        info_layout.addRow(self.records_text_label, self.records_label)
 
         info_group.setLayout(info_layout)
         layout.addWidget(info_group)
@@ -56,6 +60,8 @@ class BatchReprocessDialog(QDialog):
         # CD配置组
         cd_group = QGroupBox("Cooldown Configuration")
         cd_layout = QFormLayout()
+        self.cd_group = cd_group
+        self.cd_layout = cd_layout
 
         # CD时间输入
         self.cd_spinbox = QSpinBox()
@@ -69,16 +75,17 @@ class BatchReprocessDialog(QDialog):
         )
         self.cd_spinbox.valueChanged.connect(self.update_estimation)
 
-        cd_layout.addRow("Cooldown between records:", self.cd_spinbox)
+        self.cd_label = QLabel("Cooldown between records:")
+        cd_layout.addRow(self.cd_label, self.cd_spinbox)
 
         # 说明文本
-        cd_help = QLabel(
+        self.cd_help = QLabel(
             "⚠ Recommended: 5 seconds for cloud providers to avoid rate limits.\n"
             "💡 For local transcription (sherpa-onnx), 0-1 seconds is sufficient."
         )
-        cd_help.setWordWrap(True)
-        cd_help.setStyleSheet("color: #666; font-size: 10px;")
-        cd_layout.addRow(cd_help)
+        self.cd_help.setWordWrap(True)
+        self.cd_help.setStyleSheet("color: #666; font-size: 10px;")
+        cd_layout.addRow(self.cd_help)
 
         cd_group.setLayout(cd_layout)
         layout.addWidget(cd_group)
@@ -86,33 +93,36 @@ class BatchReprocessDialog(QDialog):
         # 时间估算组
         estimate_group = QGroupBox("Time Estimation")
         estimate_layout = QFormLayout()
+        self.estimate_group = estimate_group
+        self.estimate_layout = estimate_layout
 
         self.estimate_label = QLabel()
         self.estimate_label.setStyleSheet("font-weight: bold; color: #4CAF50;")
-        estimate_layout.addRow("Estimated total time:", self.estimate_label)
+        self.estimate_text_label = QLabel("Estimated total time:")
+        estimate_layout.addRow(self.estimate_text_label, self.estimate_label)
 
-        estimate_help = QLabel(
+        self.estimate_help = QLabel(
             "Based on average transcription time (5s for cloud, 0.2s for local) + CD time."
         )
-        estimate_help.setWordWrap(True)
-        estimate_help.setStyleSheet("color: #666; font-size: 10px;")
-        estimate_layout.addRow(estimate_help)
+        self.estimate_help.setWordWrap(True)
+        self.estimate_help.setStyleSheet("color: #666; font-size: 10px;")
+        estimate_layout.addRow(self.estimate_help)
 
         estimate_group.setLayout(estimate_layout)
         layout.addWidget(estimate_group)
 
         # 警告信息
-        warning_label = QLabel(
+        self.warning_label = QLabel(
             "⚠ WARNING: This operation will re-transcribe ALL history records.\n"
             "This may take a long time and consume API quota if using cloud providers.\n"
             "The operation can be cancelled at any time."
         )
-        warning_label.setWordWrap(True)
-        warning_label.setStyleSheet(
+        self.warning_label.setWordWrap(True)
+        self.warning_label.setStyleSheet(
             "background-color: #FFF3CD; color: #856404; "
             "padding: 10px; border-radius: 5px; font-size: 10px;"
         )
-        layout.addWidget(warning_label)
+        layout.addWidget(self.warning_label)
 
         # 按钮组
         button_layout = QHBoxLayout()
@@ -134,6 +144,7 @@ class BatchReprocessDialog(QDialog):
         button_layout.addWidget(self.cancel_button)
 
         layout.addLayout(button_layout)
+        self.retranslate_ui()
 
     def update_estimation(self) -> None:
         """更新时间估算"""
@@ -147,13 +158,19 @@ class BatchReprocessDialog(QDialog):
 
         # 转换为人类可读格式
         if total_seconds < 60:
-            time_str = f"{total_seconds} seconds"
+            time_str = QCoreApplication.translate(
+                "BatchReprocessDialog", "{seconds} seconds"
+            ).format(seconds=total_seconds)
         elif total_seconds < 3600:
             minutes = total_seconds / 60
-            time_str = f"{minutes:.1f} minutes"
+            time_str = QCoreApplication.translate(
+                "BatchReprocessDialog", "{minutes:.1f} minutes"
+            ).format(minutes=minutes)
         else:
             hours = total_seconds / 3600
-            time_str = f"{hours:.1f} hours"
+            time_str = QCoreApplication.translate(
+                "BatchReprocessDialog", "{hours:.1f} hours"
+            ).format(hours=hours)
 
         self.estimate_label.setText(time_str)
 
@@ -164,3 +181,76 @@ class BatchReprocessDialog(QDialog):
             int: CD时间（秒）
         """
         return self.cd_spinbox.value()
+
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+        self.setWindowTitle(
+            QCoreApplication.translate(
+                "BatchReprocessDialog", "Batch Reprocess All Records"
+            )
+        )
+        self.info_group.setTitle(
+            QCoreApplication.translate("BatchReprocessDialog", "Processing Information")
+        )
+        self.records_text_label.setText(
+            QCoreApplication.translate(
+                "BatchReprocessDialog", "Total records to process:"
+            )
+        )
+
+        self.cd_group.setTitle(
+            QCoreApplication.translate("BatchReprocessDialog", "Cooldown Configuration")
+        )
+        self.cd_label.setText(
+            QCoreApplication.translate(
+                "BatchReprocessDialog", "Cooldown between records:"
+            )
+        )
+        self.cd_spinbox.setSuffix(
+            QCoreApplication.translate("BatchReprocessDialog", " seconds")
+        )
+        self.cd_spinbox.setToolTip(
+            QCoreApplication.translate(
+                "BatchReprocessDialog",
+                "Delay between processing each record.\n"
+                "Useful for avoiding API rate limits when using cloud transcription.",
+            )
+        )
+        self.cd_help.setText(
+            QCoreApplication.translate(
+                "BatchReprocessDialog",
+                "Recommended: 5 seconds for cloud providers to avoid rate limits.\n"
+                "For local transcription (sherpa-onnx), 0-1 seconds is sufficient.",
+            )
+        )
+
+        self.estimate_group.setTitle(
+            QCoreApplication.translate("BatchReprocessDialog", "Time Estimation")
+        )
+        self.estimate_text_label.setText(
+            QCoreApplication.translate("BatchReprocessDialog", "Estimated total time:")
+        )
+        self.estimate_help.setText(
+            QCoreApplication.translate(
+                "BatchReprocessDialog",
+                "Based on average transcription time (5s for cloud, 0.2s for local) + CD time.",
+            )
+        )
+
+        self.warning_label.setText(
+            QCoreApplication.translate(
+                "BatchReprocessDialog",
+                "WARNING: This operation will re-transcribe ALL history records.\n"
+                "This may take a long time and consume API quota if using cloud providers.\n"
+                "The operation can be cancelled at any time.",
+            )
+        )
+
+        self.ok_button.setText(
+            QCoreApplication.translate("BatchReprocessDialog", "Start Processing")
+        )
+        self.cancel_button.setText(
+            QCoreApplication.translate("BatchReprocessDialog", "Cancel")
+        )
+
+        self.update_estimation()

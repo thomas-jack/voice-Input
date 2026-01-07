@@ -2,6 +2,7 @@
 
 from typing import Any, Dict
 
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -37,6 +38,8 @@ class AudioInputTab(BaseSettingsTab):
         # 音频设备组
         device_group = QGroupBox("Audio Device Settings")
         device_layout = QFormLayout(device_group)
+        self.device_group = device_group
+        self.device_layout = device_layout
 
         # 输入设备
         self.audio_device_combo = QComboBox()
@@ -47,13 +50,16 @@ class AudioInputTab(BaseSettingsTab):
         device_input_layout.addWidget(self.audio_device_combo)
         device_input_layout.addWidget(self.refresh_devices_button)
 
-        device_layout.addRow("Input Device:", device_input_layout)
+        self.audio_device_label = QLabel("Input Device:")
+        device_layout.addRow(self.audio_device_label, device_input_layout)
 
         layout.addWidget(device_group)
 
         # 流式转录设置组
         streaming_group = QGroupBox("Streaming Transcription")
         streaming_layout = QFormLayout(streaming_group)
+        self.streaming_group = streaming_group
+        self.streaming_layout = streaming_layout
 
         # 流式转录 Chunk Duration
         self.streaming_chunk_duration_spinbox = QDoubleSpinBox()
@@ -63,8 +69,9 @@ class AudioInputTab(BaseSettingsTab):
         self.streaming_chunk_duration_spinbox.setToolTip(
             "Duration of each audio chunk for streaming transcription (5-60 seconds)"
         )
+        self.streaming_chunk_label = QLabel("Streaming Chunk Duration:")
         streaming_layout.addRow(
-            "Streaming Chunk Duration:", self.streaming_chunk_duration_spinbox
+            self.streaming_chunk_label, self.streaming_chunk_duration_spinbox
         )
 
         layout.addWidget(streaming_group)
@@ -72,14 +79,18 @@ class AudioInputTab(BaseSettingsTab):
         # 输入方法组
         method_group = QGroupBox("Text Input Method")
         method_layout = QFormLayout(method_group)
+        self.method_group = method_group
+        self.method_layout = method_layout
 
         # 首选方法
         self.input_method_combo = QComboBox()
-        self.input_method_combo.addItems(["clipboard", "sendinput"])
-        self.input_method_combo.currentTextChanged.connect(
+        self.input_method_combo.addItem("Clipboard", "clipboard")
+        self.input_method_combo.addItem("SendInput", "sendinput")
+        self.input_method_combo.currentIndexChanged.connect(
             self._update_input_method_visibility
         )
-        method_layout.addRow("Preferred Method:", self.input_method_combo)
+        self.input_method_label = QLabel("Preferred Method:")
+        method_layout.addRow(self.input_method_label, self.input_method_combo)
 
         # 启用回退
         self.fallback_enabled_checkbox = QCheckBox(
@@ -99,19 +110,24 @@ class AudioInputTab(BaseSettingsTab):
         # 剪贴板设置组
         self.clipboard_group = QGroupBox("Clipboard Settings")
         clipboard_layout = QFormLayout(self.clipboard_group)
+        self.clipboard_layout = clipboard_layout
 
         # 恢复延迟
         self.clipboard_delay_spinbox = QDoubleSpinBox()
         self.clipboard_delay_spinbox.setRange(0.0, 10.0)
         self.clipboard_delay_spinbox.setSingleStep(0.5)
         self.clipboard_delay_spinbox.setSuffix(" seconds")
-        clipboard_layout.addRow("Restore Delay:", self.clipboard_delay_spinbox)
+        self.clipboard_delay_label = QLabel("Restore Delay:")
+        clipboard_layout.addRow(
+            self.clipboard_delay_label, self.clipboard_delay_spinbox
+        )
 
         layout.addWidget(self.clipboard_group)
 
         # SendInput设置组
         self.sendinput_group = QGroupBox("SendInput Settings")
         sendinput_layout = QFormLayout(self.sendinput_group)
+        self.sendinput_layout = sendinput_layout
 
         # 输入延迟
         self.typing_delay_spinbox = QDoubleSpinBox()
@@ -119,7 +135,8 @@ class AudioInputTab(BaseSettingsTab):
         self.typing_delay_spinbox.setSingleStep(0.01)
         self.typing_delay_spinbox.setDecimals(3)
         self.typing_delay_spinbox.setSuffix(" seconds")
-        sendinput_layout.addRow("Typing Delay:", self.typing_delay_spinbox)
+        self.typing_delay_label = QLabel("Typing Delay:")
+        sendinput_layout.addRow(self.typing_delay_label, self.typing_delay_spinbox)
 
         layout.addWidget(self.sendinput_group)
 
@@ -140,6 +157,7 @@ class AudioInputTab(BaseSettingsTab):
         test_layout.addLayout(test_buttons_layout)
 
         self.input_test_status_label = QLabel("Not tested")
+        self.input_test_status_label.setProperty("status_key", "not_tested")
         test_layout.addWidget(self.input_test_status_label)
 
         layout.addWidget(self.test_group)
@@ -147,6 +165,8 @@ class AudioInputTab(BaseSettingsTab):
         layout.addStretch()
 
         # 保存控件引用
+        self.retranslate_ui()
+
         self.controls = {
             "audio_device": self.audio_device_combo,
             "streaming_chunk_duration": self.streaming_chunk_duration_spinbox,
@@ -171,6 +191,97 @@ class AudioInputTab(BaseSettingsTab):
         self.parent_window.input_test_status_label = self.input_test_status_label
 
         self._update_input_method_visibility()
+
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+        self.device_group.setTitle(
+            QCoreApplication.translate("AudioInputTab", "Audio Device Settings")
+        )
+        self.audio_device_label.setText(
+            QCoreApplication.translate("AudioInputTab", "Input Device:")
+        )
+        self.refresh_devices_button.setText(
+            QCoreApplication.translate("AudioInputTab", "Refresh")
+        )
+
+        self.streaming_group.setTitle(
+            QCoreApplication.translate("AudioInputTab", "Streaming Transcription")
+        )
+        self.streaming_chunk_label.setText(
+            QCoreApplication.translate("AudioInputTab", "Streaming Chunk Duration:")
+        )
+        self.streaming_chunk_duration_spinbox.setSuffix(
+            QCoreApplication.translate("AudioInputTab", " seconds")
+        )
+        self.streaming_chunk_duration_spinbox.setToolTip(
+            QCoreApplication.translate(
+                "AudioInputTab",
+                "Duration of each audio chunk for streaming transcription (5-60 seconds)",
+            )
+        )
+
+        self.method_group.setTitle(
+            QCoreApplication.translate("AudioInputTab", "Text Input Method")
+        )
+        self.input_method_label.setText(
+            QCoreApplication.translate("AudioInputTab", "Preferred Method:")
+        )
+        method_texts = [
+            QCoreApplication.translate("AudioInputTab", "Clipboard"),
+            QCoreApplication.translate("AudioInputTab", "SendInput"),
+        ]
+        for index, text_value in enumerate(method_texts):
+            if index < self.input_method_combo.count():
+                self.input_method_combo.setItemText(index, text_value)
+
+        self.fallback_enabled_checkbox.setText(
+            QCoreApplication.translate(
+                "AudioInputTab", "Enable fallback to alternative method"
+            )
+        )
+        self.auto_detect_checkbox.setText(
+            QCoreApplication.translate(
+                "AudioInputTab", "Auto-detect terminal applications"
+            )
+        )
+
+        self.clipboard_group.setTitle(
+            QCoreApplication.translate("AudioInputTab", "Clipboard Settings")
+        )
+        self.clipboard_delay_label.setText(
+            QCoreApplication.translate("AudioInputTab", "Restore Delay:")
+        )
+        self.clipboard_delay_spinbox.setSuffix(
+            QCoreApplication.translate("AudioInputTab", " seconds")
+        )
+
+        self.sendinput_group.setTitle(
+            QCoreApplication.translate("AudioInputTab", "SendInput Settings")
+        )
+        self.typing_delay_label.setText(
+            QCoreApplication.translate("AudioInputTab", "Typing Delay:")
+        )
+        self.typing_delay_spinbox.setSuffix(
+            QCoreApplication.translate("AudioInputTab", " seconds")
+        )
+
+        self.test_group.setTitle(
+            QCoreApplication.translate("AudioInputTab", "Compatibility Testing")
+        )
+        self.test_clipboard_button.setText(
+            QCoreApplication.translate("AudioInputTab", "Test Clipboard")
+        )
+        self.test_sendinput_button.setText(
+            QCoreApplication.translate("AudioInputTab", "Test SendInput")
+        )
+        status_key = self.input_test_status_label.property("status_key") or "not_tested"
+        status_map = {
+            "not_tested": QCoreApplication.translate("AudioInputTab", "Not tested"),
+            "success": QCoreApplication.translate("AudioInputTab", "Success"),
+            "failed": QCoreApplication.translate("AudioInputTab", "Failed"),
+        }
+        if status_key in status_map:
+            self.input_test_status_label.setText(status_map[status_key])
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -197,9 +308,12 @@ class AudioInputTab(BaseSettingsTab):
                     break
 
         # Input settings
-        self.input_method_combo.setCurrentText(
-            input_config.get("preferred_method", "clipboard")
-        )
+        preferred_method = input_config.get("preferred_method", "clipboard")
+        method_index = self.input_method_combo.findData(preferred_method)
+        if method_index >= 0:
+            self.input_method_combo.setCurrentIndex(method_index)
+        else:
+            self.input_method_combo.setCurrentIndex(0)
         self.fallback_enabled_checkbox.setChecked(
             input_config.get("fallback_enabled", True)
         )
@@ -229,7 +343,8 @@ class AudioInputTab(BaseSettingsTab):
                 },
             },
             "input": {
-                "preferred_method": self.input_method_combo.currentText(),
+                "preferred_method": self.input_method_combo.currentData()
+                or "clipboard",
                 "fallback_enabled": self.fallback_enabled_checkbox.isChecked(),
                 "auto_detect_terminal": self.auto_detect_checkbox.isChecked(),
                 "clipboard_restore_delay": self.clipboard_delay_spinbox.value(),
@@ -240,7 +355,7 @@ class AudioInputTab(BaseSettingsTab):
         return config
 
     def _update_input_method_visibility(self) -> None:
-        preferred_method = self.input_method_combo.currentText()
+        preferred_method = self.input_method_combo.currentData() or "clipboard"
         fallback_enabled = self.fallback_enabled_checkbox.isChecked()
 
         show_clipboard = fallback_enabled or preferred_method == "clipboard"
@@ -270,11 +385,15 @@ class AudioInputTab(BaseSettingsTab):
         self.audio_device_combo.clear()
 
         # 添加默认选项
-        self.audio_device_combo.addItem("System Default", None)
+        self.audio_device_combo.addItem(
+            QCoreApplication.translate("AudioInputTab", "System Default"), None
+        )
 
         # 添加设备，使用 itemData 存储真实的设备 ID
         for device in devices:
-            device_name = f"{device['name']} (ID: {device['index']})"
+            device_name = QCoreApplication.translate(
+                "AudioInputTab", "{name} (ID: {id})"
+            ).format(name=device["name"], id=device["index"])
             self.audio_device_combo.addItem(device_name, device["index"])
 
         # 尝试恢复之前选中的设备（通过 device ID 而非索引）
@@ -303,6 +422,8 @@ class AudioInputTab(BaseSettingsTab):
         """
         self.input_test_status_label.setText(status)
         if is_error:
+            self.input_test_status_label.setProperty("status_key", "failed")
             self.input_test_status_label.setStyleSheet("color: red;")
         else:
+            self.input_test_status_label.setProperty("status_key", "success")
             self.input_test_status_label.setStyleSheet("color: green;")

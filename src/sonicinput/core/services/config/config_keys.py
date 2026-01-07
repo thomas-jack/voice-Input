@@ -199,6 +199,9 @@ class ConfigKeys:
     UI_START_MINIMIZED = "ui.start_minimized"
     """启动时最小化 (bool)"""
 
+    UI_LANGUAGE = "ui.language"
+    """UI language (str): "auto" | "en-US" | "zh-CN" """
+
     UI_THEME_COLOR = "ui.theme_color"
     """主题颜色 (str): "cyan" | "blue" | "green" | etc."""
 
@@ -412,6 +415,7 @@ class ConfigKeyGroups:
         ConfigKeys.UI_OVERLAY_ALWAYS_ON_TOP,
         ConfigKeys.UI_TRAY_NOTIFICATIONS,
         ConfigKeys.UI_START_MINIMIZED,
+        ConfigKeys.UI_LANGUAGE,
         ConfigKeys.UI_THEME_COLOR,
     ]
 

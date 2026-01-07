@@ -18,6 +18,7 @@ from .services.ui_services import (
     UIAudioService,
     UIGPUService,
     UIMainService,
+    UILocalizationService,
     UIModelService,
     UISettingsService,
 )
@@ -561,6 +562,17 @@ def create_container() -> "DIContainer":
         UIEventBridge, factory=lambda: create_ui_event_bridge(container)
     )
 
+    # UI localization service - singleton
+    def create_ui_localization_service(container):
+        config = container.resolve(IConfigService)
+        events = container.resolve(IEventService)
+
+        return UILocalizationService(config_service=config, event_service=events)
+
+    container.register_singleton(
+        UILocalizationService, factory=lambda: create_ui_localization_service(container)
+    )
+
     # ========================================================================
     # UI 服务 - 为UI层提供专门的服务接口（不依赖VoiceInputApp）
     # ========================================================================
@@ -586,6 +598,7 @@ def create_container() -> "DIContainer":
         config = container.resolve(IConfigService)
         events = container.resolve(IEventService)
         history = container.resolve(HistoryStorageService)
+        localization_service = container.resolve(UILocalizationService)
 
         # 尝试获取转录服务和AI控制器(可能还未注册)
         transcription_service = None
@@ -613,6 +626,7 @@ def create_container() -> "DIContainer":
             history_service=history,
             transcription_service=transcription_service,
             ai_processing_controller=ai_processing_controller,
+            localization_service=localization_service,
             container=container,  # Pass container for dynamic service resolution after hot reload
         )
 

@@ -2,7 +2,7 @@
 
 from typing import Any, Dict
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QCoreApplication, QSize, Qt, QTimer
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -36,6 +36,7 @@ class HotkeyTab(BaseSettingsTab):
         # ??????
         hotkey_list_group = QGroupBox("Registered Hotkeys")
         hotkey_list_layout = QVBoxLayout(hotkey_list_group)
+        self.hotkey_list_group = hotkey_list_group
 
         actions_layout = QHBoxLayout()
         self.hotkey_count_label = QLabel()
@@ -86,9 +87,11 @@ class HotkeyTab(BaseSettingsTab):
         # Hotkey Backend Selection
         backend_group = QGroupBox("Hotkey Backend")
         backend_layout = QVBoxLayout(backend_group)
+        self.backend_group = backend_group
 
         backend_selector_layout = QHBoxLayout()
         backend_label = QLabel("Backend:")
+        self.backend_label = backend_label
         backend_selector_layout.addWidget(backend_label)
 
         self.backend_combo = QComboBox()
@@ -111,6 +114,8 @@ class HotkeyTab(BaseSettingsTab):
 
         layout.addStretch()
 
+        self.retranslate_ui()
+
         # ??????
         self.controls = {
             "hotkeys_list": self.hotkeys_list,
@@ -120,6 +125,45 @@ class HotkeyTab(BaseSettingsTab):
         # ?????parent_window
         self.parent_window.hotkeys_list = self.hotkeys_list
         self.parent_window.hotkey_status_label = self.hotkey_status_label
+
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+        self.hotkey_list_group.setTitle(
+            QCoreApplication.translate("HotkeyTab", "Registered Hotkeys")
+        )
+        self.capture_hotkey_button.setText(
+            QCoreApplication.translate("HotkeyTab", "Capture")
+        )
+        self.remove_hotkey_button.setText(
+            QCoreApplication.translate("HotkeyTab", "Remove")
+        )
+        self.hotkey_hint_label.setText(
+            QCoreApplication.translate("HotkeyTab", "Double-click a hotkey to edit.")
+        )
+        self.hotkey_status_label.setText(
+            QCoreApplication.translate("HotkeyTab", "Ready to capture hotkeys")
+        )
+
+        self.backend_group.setTitle(
+            QCoreApplication.translate("HotkeyTab", "Hotkey Backend")
+        )
+        self.backend_label.setText(QCoreApplication.translate("HotkeyTab", "Backend:"))
+        if self.backend_combo.count() >= 3:
+            self.backend_combo.setItemText(
+                0, QCoreApplication.translate("HotkeyTab", "Auto (Recommended)")
+            )
+            self.backend_combo.setItemText(
+                1,
+                QCoreApplication.translate(
+                    "HotkeyTab", "Win32 RegisterHotKey (No admin needed)"
+                ),
+            )
+            self.backend_combo.setItemText(
+                2, QCoreApplication.translate("HotkeyTab", "Pynput (Admin recommended)")
+            )
+
+        self._update_backend_info(self.backend_combo.currentData())
+        self._refresh_hotkey_list_ui()
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -197,19 +241,19 @@ class HotkeyTab(BaseSettingsTab):
         self._refresh_hotkey_list_ui()
 
     def _edit_hotkey_item(self, item) -> None:
-        """双击编辑快捷键列表项"""
+        """??????????"""
         current_text = item.text()
         from PySide6.QtWidgets import QInputDialog
 
         new_text, ok = QInputDialog.getText(
             self.parent_window,
-            "Edit Hotkey",
-            "Enter hotkey combination:",
+            QCoreApplication.translate("HotkeyTab", "Edit Hotkey"),
+            QCoreApplication.translate("HotkeyTab", "Enter hotkey combination:"),
             QLineEdit.EchoMode.Normal,
             current_text,
         )
         if ok and new_text.strip():
-            # 检查是否与其他项重复
+            # ??????????
             existing_items = [
                 self.hotkeys_list.item(i).text()
                 for i in range(self.hotkeys_list.count())
@@ -217,8 +261,10 @@ class HotkeyTab(BaseSettingsTab):
             if new_text.strip() != current_text and new_text.strip() in existing_items:
                 QMessageBox.warning(
                     self.parent_window,
-                    "Duplicate Hotkey",
-                    f"Hotkey '{new_text.strip()}' already exists.",
+                    QCoreApplication.translate("HotkeyTab", "Duplicate Hotkey"),
+                    QCoreApplication.translate(
+                        "HotkeyTab", "Hotkey '{hotkey}' already exists."
+                    ).format(hotkey=new_text.strip()),
                 )
             else:
                 item.setText(new_text.strip())
@@ -232,19 +278,22 @@ class HotkeyTab(BaseSettingsTab):
     def _update_backend_info(self, backend: str) -> None:
         """Update backend information label"""
         info_map = {
-            "auto": (
+            "auto": QCoreApplication.translate(
+                "HotkeyTab",
                 "Automatically selects the best backend.\n"
-                "Admin: Pynput (hooks). Non-admin: Win32 RegisterHotKey."
+                "Admin: Pynput (hooks). Non-admin: Win32 RegisterHotKey.",
             ),
-            "win32": (
+            "win32": QCoreApplication.translate(
+                "HotkeyTab",
                 "Uses Windows RegisterHotKey API.\n"
                 "Pros: No admin privileges required, works across privilege boundaries.\n"
-                "Cons: Cannot suppress hotkey events (they still reach active window)."
+                "Cons: Cannot suppress hotkey events (they still reach active window).",
             ),
-            "pynput": (
+            "pynput": QCoreApplication.translate(
+                "HotkeyTab",
                 "Uses low-level keyboard hooks (SetWindowsHookEx).\n"
                 "Pros: Can suppress hotkey events.\n"
-                "Cons: Requires admin privileges for reliable operation, may not work across elevated windows."
+                "Cons: Requires admin privileges for reliable operation, may not work across elevated windows.",
             ),
         }
         info_text = info_map.get(backend, "")
@@ -258,11 +307,16 @@ class HotkeyTab(BaseSettingsTab):
 
             # 禁用按钮，防止重复点击
             self.capture_hotkey_button.setEnabled(False)
-            self.capture_hotkey_button.setText("Press hotkey...")
+            self.capture_hotkey_button.setText(
+                QCoreApplication.translate("HotkeyTab", "Press hotkey...")
+            )
 
             # 清空输入框
             self._update_hotkey_status(
-                "Press your desired hotkey combination...", False
+                QCoreApplication.translate(
+                    "HotkeyTab", "Press your desired hotkey combination..."
+                ),
+                False,
             )
 
             # 记录按下的键
@@ -364,7 +418,10 @@ class HotkeyTab(BaseSettingsTab):
                     if listener:
                         listener.stop()
                     self._update_hotkey_status(
-                        "Capture timed out. Please try again.", True
+                        QCoreApplication.translate(
+                            "HotkeyTab", "Capture timed out. Please try again."
+                        ),
+                        True,
                     )
                     self._restore_capture_button()
 
@@ -403,13 +460,20 @@ class HotkeyTab(BaseSettingsTab):
 
         except Exception as e:
             app_logger.log_error(e, "capture_hotkey")
-            self._update_hotkey_status(f"Error capturing hotkey: {str(e)}", True)
+            self._update_hotkey_status(
+                QCoreApplication.translate(
+                    "HotkeyTab", "Error capturing hotkey: {error}"
+                ).format(error=e),
+                True,
+            )
             self._restore_capture_button()
 
     def _restore_capture_button(self):
         """恢复capture按钮状态"""
         self.capture_hotkey_button.setEnabled(True)
-        self.capture_hotkey_button.setText("Capture")
+        self.capture_hotkey_button.setText(
+            QCoreApplication.translate("HotkeyTab", "Capture")
+        )
 
     def _update_hotkey_status(self, status: str, is_error: bool = False) -> None:
         """更新快捷键状态显示"""
@@ -423,9 +487,11 @@ class HotkeyTab(BaseSettingsTab):
         """Update list header and action state."""
         count = self.hotkeys_list.count()
         if count == 1:
-            count_text = "1 hotkey"
+            count_text = QCoreApplication.translate("HotkeyTab", "1 hotkey")
         else:
-            count_text = f"{count} hotkeys"
+            count_text = QCoreApplication.translate(
+                "HotkeyTab", "{count} hotkeys"
+            ).format(count=count)
         self.hotkey_count_label.setText(count_text)
         self.remove_hotkey_button.setEnabled(self.hotkeys_list.currentRow() >= 0)
 

@@ -1,0 +1,7 @@
+Resource Han Rounded CN fonts
+Source: https://github.com/CyanoHao/Resource-Han-Rounded
+Version: 0.990 (CN subset)
+License: SIL Open Font License 1.1 (see OFL-License.txt)
+Files included:
+- ResourceHanRoundedCN-Regular.ttf
+- ResourceHanRoundedCN-Bold.ttf

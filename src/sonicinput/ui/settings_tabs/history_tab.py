@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from PySide6.QtCore import Qt, QThread, Signal, QTimer
+from PySide6.QtCore import QCoreApplication, Qt, QThread, Signal, QTimer
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -56,32 +56,50 @@ class ReprocessingWorker(QThread):
             from ...utils import app_logger
 
             # 1. 加载音频文件
-            self.progress_updated.emit("Loading audio file...")
+            self.progress_updated.emit(
+                QCoreApplication.translate("HistoryTab", "Loading audio file...")
+            )
             audio_file_path = self.audio_file_path  # 使用创建时捕获的路径
 
             if not audio_file_path:
-                self.reprocessing_failed.emit("Audio file path not found in record")
+                self.reprocessing_failed.emit(
+                    QCoreApplication.translate(
+                        "HistoryTab", "Audio file path not found in record"
+                    )
+                )
                 return
 
             try:
                 audio_data = AudioRecorder.load_audio_from_file(audio_file_path)
                 if audio_data is None or len(audio_data) == 0:
-                    self.reprocessing_failed.emit("Failed to load audio data from file")
+                    self.reprocessing_failed.emit(
+                        QCoreApplication.translate(
+                            "HistoryTab", "Failed to load audio data from file"
+                        )
+                    )
                     return
             except FileNotFoundError:
                 self.reprocessing_failed.emit(
-                    f"Audio file not found: {audio_file_path}"
+                    QCoreApplication.translate(
+                        "HistoryTab", "Audio file not found: {path}"
+                    ).format(path=audio_file_path)
                 )
                 return
             except Exception as e:
-                self.reprocessing_failed.emit(f"Error loading audio file: {str(e)}")
+                self.reprocessing_failed.emit(
+                    QCoreApplication.translate(
+                        "HistoryTab", "Error loading audio file: {error}"
+                    ).format(error=str(e))
+                )
                 return
 
             if self.should_stop:
                 return
 
             # 2. 重新转录
-            self.progress_updated.emit("Transcribing audio...")
+            self.progress_updated.emit(
+                QCoreApplication.translate("HistoryTab", "Transcribing audio...")
+            )
 
             try:
                 # 获取当前转录配置
@@ -106,9 +124,16 @@ class ReprocessingWorker(QThread):
 
                 if not transcription_result.get("success", True):
                     error_msg = transcription_result.get(
-                        "error", "Unknown transcription error"
+                        "error",
+                        QCoreApplication.translate(
+                            "HistoryTab", "Unknown transcription error"
+                        ),
                     )
-                    self.reprocessing_failed.emit(f"Transcription failed: {error_msg}")
+                    self.reprocessing_failed.emit(
+                        QCoreApplication.translate(
+                            "HistoryTab", "Transcription failed: {error}"
+                        ).format(error=error_msg)
+                    )
 
                     # 更新历史记录为失败状态
                     # 从数据库获取最新的 record 并更新
@@ -123,12 +148,20 @@ class ReprocessingWorker(QThread):
                 transcription_text = transcription_result.get("text", "")
 
                 if not transcription_text.strip():
-                    self.reprocessing_failed.emit("Transcription returned empty text")
+                    self.reprocessing_failed.emit(
+                        QCoreApplication.translate(
+                            "HistoryTab", "Transcription returned empty text"
+                        )
+                    )
                     return
 
             except Exception as e:
                 app_logger.log_error(e, "reprocessing_transcription")
-                self.reprocessing_failed.emit(f"Transcription error: {str(e)}")
+                self.reprocessing_failed.emit(
+                    QCoreApplication.translate(
+                        "HistoryTab", "Transcription error: {error}"
+                    ).format(error=str(e))
+                )
                 return
 
             if self.should_stop:
@@ -142,12 +175,16 @@ class ReprocessingWorker(QThread):
             ai_error = None
 
             if ai_enabled and transcription_text.strip():
-                self.progress_updated.emit("Optimizing with AI...")
+                self.progress_updated.emit(
+                    QCoreApplication.translate("HistoryTab", "Optimizing with AI...")
+                )
 
                 # 检查AI控制器是否可用
                 if not self.ai_processing_controller:
                     ai_status = "skipped"
-                    ai_error = "AI processing controller not available"
+                    ai_error = QCoreApplication.translate(
+                        "HistoryTab", "AI processing controller not available"
+                    )
                     ai_optimized_text = ""
                     app_logger.log_audio_event(
                         "Retry processing: AI controller not available, skipping AI optimization",
@@ -172,7 +209,9 @@ class ReprocessingWorker(QThread):
                             ai_status = "success"
                         else:
                             ai_status = "failed"
-                            ai_error = "AI returned empty text"
+                            ai_error = QCoreApplication.translate(
+                                "HistoryTab", "AI returned empty text"
+                            )
 
                     except Exception as e:
                         app_logger.log_error(e, "reprocessing_ai_optimization")
@@ -184,7 +223,9 @@ class ReprocessingWorker(QThread):
                 return
 
             # 4. 更新历史记录
-            self.progress_updated.emit("Updating history record...")
+            self.progress_updated.emit(
+                QCoreApplication.translate("HistoryTab", "Updating history record...")
+            )
 
             # 确定最终文本
             if ai_status == "success" and ai_optimized_text:
@@ -196,7 +237,11 @@ class ReprocessingWorker(QThread):
             # 这确保我们更新的是正确的记录，避免对象引用问题
             record = self.history_service.get_record_by_id(self.record_id)
             if not record:
-                self.reprocessing_failed.emit(f"Record not found: {self.record_id}")
+                self.reprocessing_failed.emit(
+                    QCoreApplication.translate(
+                        "HistoryTab", "Record not found: {record_id}"
+                    ).format(record_id=self.record_id)
+                )
                 return
 
             record.transcription_text = transcription_text
@@ -215,7 +260,10 @@ class ReprocessingWorker(QThread):
             except Exception as e:
                 app_logger.log_error(e, "reprocessing_update_record")
                 self.reprocessing_failed.emit(
-                    f"Failed to update history record: {str(e)}"
+                    QCoreApplication.translate(
+                        "HistoryTab",
+                        "Failed to update history record: {error}",
+                    ).format(error=str(e))
                 )
                 return
 
@@ -234,7 +282,11 @@ class ReprocessingWorker(QThread):
             from ...utils import app_logger
 
             app_logger.log_error(e, "reprocessing_worker")
-            self.reprocessing_failed.emit(f"Unexpected error: {str(e)}")
+            self.reprocessing_failed.emit(
+                QCoreApplication.translate(
+                    "HistoryTab", "Unexpected error: {error}"
+                ).format(error=str(e))
+            )
 
     def stop(self):
         """请求停止处理"""
@@ -336,7 +388,11 @@ class BatchReprocessingWorker(QThread):
 
             if not audio_file_path:
                 self.stats["skipped"] += 1
-                self.stats["errors"].append(f"[SKIP] {record.id}: No audio file path")
+                self.stats["errors"].append(
+                    QCoreApplication.translate(
+                        "HistoryTab", "[SKIP] {record_id}: No audio file path"
+                    ).format(record_id=record.id)
+                )
                 return False
 
             try:
@@ -344,17 +400,26 @@ class BatchReprocessingWorker(QThread):
                 if audio_data is None or len(audio_data) == 0:
                     self.stats["skipped"] += 1
                     self.stats["errors"].append(
-                        f"[SKIP] {record.id}: Failed to load audio"
+                        QCoreApplication.translate(
+                            "HistoryTab", "[SKIP] {record_id}: Failed to load audio"
+                        ).format(record_id=record.id)
                     )
                     return False
             except FileNotFoundError:
                 self.stats["skipped"] += 1
-                self.stats["errors"].append(f"[SKIP] {record.id}: Audio file not found")
+                self.stats["errors"].append(
+                    QCoreApplication.translate(
+                        "HistoryTab", "[SKIP] {record_id}: Audio file not found"
+                    ).format(record_id=record.id)
+                )
                 return False
             except Exception as e:
                 self.stats["skipped"] += 1
                 self.stats["errors"].append(
-                    f"[SKIP] {record.id}: Error loading audio - {str(e)}"
+                    QCoreApplication.translate(
+                        "HistoryTab",
+                        "[SKIP] {record_id}: Error loading audio - {error}",
+                    ).format(record_id=record.id, error=str(e))
                 )
                 return False
 
@@ -379,10 +444,16 @@ class BatchReprocessingWorker(QThread):
                 )
 
                 if not transcription_result.get("success", True):
-                    error_msg = transcription_result.get("error", "Unknown error")
+                    error_msg = transcription_result.get(
+                        "error",
+                        QCoreApplication.translate("HistoryTab", "Unknown error"),
+                    )
                     self.stats["failed"] += 1
                     self.stats["errors"].append(
-                        f"[FAIL] {record.id}: Transcription failed - {error_msg}"
+                        QCoreApplication.translate(
+                            "HistoryTab",
+                            "[FAIL] {record_id}: Transcription failed - {error}",
+                        ).format(record_id=record.id, error=error_msg)
                     )
                     return False
 
@@ -391,7 +462,9 @@ class BatchReprocessingWorker(QThread):
                 if not transcription_text.strip():
                     self.stats["failed"] += 1
                     self.stats["errors"].append(
-                        f"[FAIL] {record.id}: Empty transcription"
+                        QCoreApplication.translate(
+                            "HistoryTab", "[FAIL] {record_id}: Empty transcription"
+                        ).format(record_id=record.id)
                     )
                     return False
 
@@ -399,7 +472,10 @@ class BatchReprocessingWorker(QThread):
                 app_logger.log_error(e, "batch_reprocessing_transcription")
                 self.stats["failed"] += 1
                 self.stats["errors"].append(
-                    f"[FAIL] {record.id}: Transcription error - {str(e)}"
+                    QCoreApplication.translate(
+                        "HistoryTab",
+                        "[FAIL] {record_id}: Transcription error - {error}",
+                    ).format(record_id=record.id, error=str(e))
                 )
                 return False
 
@@ -413,7 +489,9 @@ class BatchReprocessingWorker(QThread):
             if ai_enabled and transcription_text.strip():
                 if not self.ai_processing_controller:
                     ai_status = "skipped"
-                    ai_error = "AI controller not available"
+                    ai_error = QCoreApplication.translate(
+                        "HistoryTab", "AI controller not available"
+                    )
                 else:
                     try:
                         ai_optimized_text = (
@@ -429,7 +507,9 @@ class BatchReprocessingWorker(QThread):
                             ai_status = "success"
                         else:
                             ai_status = "failed"
-                            ai_error = "AI returned empty text"
+                            ai_error = QCoreApplication.translate(
+                                "HistoryTab", "AI returned empty text"
+                            )
 
                     except Exception as e:
                         app_logger.log_error(e, "batch_reprocessing_ai")
@@ -448,7 +528,10 @@ class BatchReprocessingWorker(QThread):
             if not fresh_record:
                 self.stats["failed"] += 1
                 self.stats["errors"].append(
-                    f"[FAIL] {record.id}: Record not found in database"
+                    QCoreApplication.translate(
+                        "HistoryTab",
+                        "[FAIL] {record_id}: Record not found in database",
+                    ).format(record_id=record.id)
                 )
                 return False
 
@@ -470,7 +553,10 @@ class BatchReprocessingWorker(QThread):
                 app_logger.log_error(e, "batch_reprocessing_update")
                 self.stats["failed"] += 1
                 self.stats["errors"].append(
-                    f"[FAIL] {record.id}: Database update failed - {str(e)}"
+                    QCoreApplication.translate(
+                        "HistoryTab",
+                        "[FAIL] {record_id}: Database update failed - {error}",
+                    ).format(record_id=record.id, error=str(e))
                 )
                 return False
 
@@ -480,7 +566,10 @@ class BatchReprocessingWorker(QThread):
             app_logger.log_error(e, "batch_reprocessing_worker")
             self.stats["failed"] += 1
             self.stats["errors"].append(
-                f"[FAIL] {record.id}: Unexpected error - {str(e)}"
+                QCoreApplication.translate(
+                    "HistoryTab",
+                    "[FAIL] {record_id}: Unexpected error - {error}",
+                ).format(record_id=record.id, error=str(e))
             )
             return False
 
@@ -513,9 +602,23 @@ class HistoryDetailDialog(QDialog):
         self.progress_dialog = None
         self.setup_ui()
 
+        self._event_service = None
+        if self.parent_window and hasattr(self.parent_window, "ui_settings_service"):
+            from ...core.services.event_bus import Events
+
+            self._event_service = (
+                self.parent_window.ui_settings_service.get_event_service()
+            )
+            if self._event_service:
+                self._event_service.on(
+                    Events.UI_LANGUAGE_CHANGED, self._on_language_changed
+                )
+
     def setup_ui(self):
         """设置对话框UI"""
-        self.setWindowTitle("Recording Details")
+        self.setWindowTitle(
+            QCoreApplication.translate("HistoryDetailDialog", "Recording Details")
+        )
         self.setMinimumSize(700, 600)
 
         layout = QVBoxLayout(self)
@@ -524,65 +627,89 @@ class HistoryDetailDialog(QDialog):
         info_layout = QVBoxLayout()
 
         # 基本信息
-        basic_info = QGroupBox("Basic Information")
-        basic_layout = QVBoxLayout(basic_info)
+        self.basic_info_group = QGroupBox("Basic Information")
+        basic_layout = QVBoxLayout(self.basic_info_group)
 
-        time_label = QLabel(
+        self.time_label = QLabel(
             f"<b>Time:</b> {self.record.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
         )
-        duration_label = QLabel(f"<b>Duration:</b> {self.record.duration:.2f}s")
-        audio_path_label = QLabel(
+        self.duration_label = QLabel(f"<b>Duration:</b> {self.record.duration:.2f}s")
+        self.audio_path_label = QLabel(
             f"<b>Audio File:</b> {self.record.audio_file_path or 'N/A'}"
         )
-        audio_path_label.setWordWrap(True)
+        self.audio_path_label.setWordWrap(True)
 
-        basic_layout.addWidget(time_label)
-        basic_layout.addWidget(duration_label)
-        basic_layout.addWidget(audio_path_label)
-        info_layout.addWidget(basic_info)
+        basic_layout.addWidget(self.time_label)
+        basic_layout.addWidget(self.duration_label)
+        basic_layout.addWidget(self.audio_path_label)
+        info_layout.addWidget(self.basic_info_group)
 
         # 原始转录信息
-        trans_group = QGroupBox(
-            f"Original Transcription ({self.record.transcription_status})"
+        transcription_status = self._status_display(self.record.transcription_status)
+        self.trans_group = QGroupBox(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Original Transcription ({status})"
+            ).format(status=transcription_status)
         )
-        trans_layout = QVBoxLayout(trans_group)
+        trans_layout = QVBoxLayout(self.trans_group)
 
-        trans_provider_label = QLabel(
+        self.trans_provider_label = QLabel(
             f"<b>Provider:</b> {self.record.transcription_provider or 'N/A'}"
         )
-        trans_layout.addWidget(trans_provider_label)
+        trans_layout.addWidget(self.trans_provider_label)
 
         if self.record.transcription_error:
-            error_label = QLabel(f"<b>Error:</b> {self.record.transcription_error}")
-            error_label.setStyleSheet("color: red;")
-            trans_layout.addWidget(error_label)
+            self.trans_error_label = QLabel(
+                f"<b>Error:</b> {self.record.transcription_error}"
+            )
+            self.trans_error_label.setStyleSheet("color: red;")
+            trans_layout.addWidget(self.trans_error_label)
+        else:
+            self.trans_error_label = None
 
         self.trans_text_edit = QTextEdit()
-        self.trans_text_edit.setPlainText(self.record.transcription_text or "(empty)")
+        self.trans_text_edit.setPlainText(
+            self.record.transcription_text
+            or QCoreApplication.translate("HistoryDetailDialog", "(empty)")
+        )
         self.trans_text_edit.setReadOnly(True)
         self.trans_text_edit.setMaximumHeight(150)
         trans_layout.addWidget(self.trans_text_edit)
-        info_layout.addWidget(trans_group)
+        info_layout.addWidget(self.trans_group)
 
         # 优化后文本（根据AI状态显示不同内容）
-        ai_status_text = (
-            f"AI {self.record.ai_status.title()}"
-            if self.record.ai_status
-            else "AI Status Unknown"
+        if self.record.ai_status:
+            ai_status_label = self._status_display(self.record.ai_status)
+            ai_status_text = QCoreApplication.translate(
+                "HistoryDetailDialog", "AI {status}"
+            ).format(status=ai_status_label)
+        else:
+            ai_status_text = QCoreApplication.translate(
+                "HistoryDetailDialog", "AI Status Unknown"
+            )
+        self.optimized_group = QGroupBox(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Optimized Text ({status})"
+            ).format(status=ai_status_text)
         )
-        optimized_group = QGroupBox(f"Optimized Text ({ai_status_text})")
-        optimized_layout = QVBoxLayout(optimized_group)
+        optimized_layout = QVBoxLayout(self.optimized_group)
 
         # 显示 AI 提供商（如果有）
         if self.record.ai_provider:
-            ai_provider_label = QLabel(f"<b>AI Provider:</b> {self.record.ai_provider}")
-            optimized_layout.addWidget(ai_provider_label)
+            self.ai_provider_label = QLabel(
+                f"<b>AI Provider:</b> {self.record.ai_provider}"
+            )
+            optimized_layout.addWidget(self.ai_provider_label)
+        else:
+            self.ai_provider_label = None
 
         # 显示错误（如果有）
         if self.record.ai_error:
-            ai_error_label = QLabel(f"<b>Error:</b> {self.record.ai_error}")
-            ai_error_label.setStyleSheet("color: red;")
-            optimized_layout.addWidget(ai_error_label)
+            self.ai_error_label = QLabel(f"<b>Error:</b> {self.record.ai_error}")
+            self.ai_error_label.setStyleSheet("color: red;")
+            optimized_layout.addWidget(self.ai_error_label)
+        else:
+            self.ai_error_label = None
 
         self.optimized_text_edit = QTextEdit()
         # 根据 AI 状态显示文本
@@ -590,39 +717,175 @@ class HistoryDetailDialog(QDialog):
             display_text = self.record.ai_optimized_text
         else:
             # AI 失败或跳过，显示原始文本并注明
-            display_text = f"{self.record.transcription_text}\n\n(Using original transcription - AI {self.record.ai_status})"
+            display_text = QCoreApplication.translate(
+                "HistoryDetailDialog",
+                "{text}\n\n(Using original transcription - AI {status})",
+            ).format(text=self.record.transcription_text, status=self.record.ai_status)
 
-        self.optimized_text_edit.setPlainText(display_text or "(empty)")
+        self.optimized_text_edit.setPlainText(
+            display_text or QCoreApplication.translate("HistoryDetailDialog", "(empty)")
+        )
         self.optimized_text_edit.setReadOnly(True)
         self.optimized_text_edit.setMaximumHeight(150)
         optimized_layout.addWidget(self.optimized_text_edit)
-        info_layout.addWidget(optimized_group)
+        info_layout.addWidget(self.optimized_group)
 
         layout.addLayout(info_layout)
 
         # 操作按钮
         button_layout = QHBoxLayout()
 
-        copy_button = QPushButton("Copy to Clipboard")
-        copy_button.clicked.connect(self._copy_to_clipboard)
-        button_layout.addWidget(copy_button)
+        self.copy_button = QPushButton("Copy to Clipboard")
+        self.copy_button.clicked.connect(self._copy_to_clipboard)
+        button_layout.addWidget(self.copy_button)
 
         self.retry_button = QPushButton("Retry")
         self.retry_button.clicked.connect(self._retry_processing)
         button_layout.addWidget(self.retry_button)
 
-        delete_button = QPushButton("Delete Record")
-        delete_button.clicked.connect(self._delete_record)
-        delete_button.setStyleSheet("background-color: #d32f2f; color: white;")
-        button_layout.addWidget(delete_button)
+        self.delete_button = QPushButton("Delete Record")
+        self.delete_button.clicked.connect(self._delete_record)
+        self.delete_button.setStyleSheet("background-color: #d32f2f; color: white;")
+        button_layout.addWidget(self.delete_button)
 
         button_layout.addStretch()
 
-        close_button = QPushButton("Close")
-        close_button.clicked.connect(self.accept)
-        button_layout.addWidget(close_button)
+        self.close_button = QPushButton("Close")
+        self.close_button.clicked.connect(self.accept)
+        button_layout.addWidget(self.close_button)
 
         layout.addLayout(button_layout)
+        self.retranslate_ui()
+
+    def _status_display(self, status: Optional[str]) -> str:
+        """Return localized status label."""
+        status_map = {
+            "success": QCoreApplication.translate("HistoryDetailDialog", "Success"),
+            "failed": QCoreApplication.translate("HistoryDetailDialog", "Failed"),
+            "skipped": QCoreApplication.translate("HistoryDetailDialog", "Skipped"),
+            "pending": QCoreApplication.translate("HistoryDetailDialog", "Pending"),
+        }
+        return status_map.get(
+            status, QCoreApplication.translate("HistoryDetailDialog", "Unknown")
+        )
+
+    def _on_language_changed(self, data: object = None) -> None:
+        """Handle runtime UI language change."""
+        self.retranslate_ui()
+
+    def retranslate_ui(self) -> None:
+        """Update dialog text for the current language."""
+        self.setWindowTitle(
+            QCoreApplication.translate("HistoryDetailDialog", "Recording Details")
+        )
+        self.basic_info_group.setTitle(
+            QCoreApplication.translate("HistoryDetailDialog", "Basic Information")
+        )
+
+        timestamp_text = self.record.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        self.time_label.setText(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "<b>Time:</b> {time}"
+            ).format(time=timestamp_text)
+        )
+        self.duration_label.setText(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "<b>Duration:</b> {duration:.2f}s"
+            ).format(duration=self.record.duration)
+        )
+        audio_path = self.record.audio_file_path or QCoreApplication.translate(
+            "HistoryDetailDialog", "N/A"
+        )
+        self.audio_path_label.setText(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "<b>Audio File:</b> {path}"
+            ).format(path=audio_path)
+        )
+
+        transcription_status = self._status_display(self.record.transcription_status)
+        self.trans_group.setTitle(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Original Transcription ({status})"
+            ).format(status=transcription_status)
+        )
+        self.trans_provider_label.setText(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "<b>Provider:</b> {provider}"
+            ).format(
+                provider=self.record.transcription_provider
+                or QCoreApplication.translate("HistoryDetailDialog", "N/A")
+            )
+        )
+        if self.trans_error_label:
+            self.trans_error_label.setText(
+                QCoreApplication.translate(
+                    "HistoryDetailDialog", "<b>Error:</b> {error}"
+                ).format(error=self.record.transcription_error)
+            )
+
+        transcription_text = self.record.transcription_text or ""
+        self.trans_text_edit.setPlainText(
+            transcription_text
+            or QCoreApplication.translate("HistoryDetailDialog", "(empty)")
+        )
+
+        if self.record.ai_status:
+            ai_status_label = self._status_display(self.record.ai_status)
+            ai_status_text = QCoreApplication.translate(
+                "HistoryDetailDialog", "AI {status}"
+            ).format(status=ai_status_label)
+        else:
+            ai_status_text = QCoreApplication.translate(
+                "HistoryDetailDialog", "AI Status Unknown"
+            )
+
+        self.optimized_group.setTitle(
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Optimized Text ({status})"
+            ).format(status=ai_status_text)
+        )
+
+        if self.ai_provider_label:
+            self.ai_provider_label.setText(
+                QCoreApplication.translate(
+                    "HistoryDetailDialog", "<b>AI Provider:</b> {provider}"
+                ).format(provider=self.record.ai_provider)
+            )
+        if self.ai_error_label:
+            self.ai_error_label.setText(
+                QCoreApplication.translate(
+                    "HistoryDetailDialog", "<b>Error:</b> {error}"
+                ).format(error=self.record.ai_error)
+            )
+
+        if self.record.ai_status == "success" and self.record.ai_optimized_text:
+            display_text = self.record.ai_optimized_text
+        else:
+            display_text = QCoreApplication.translate(
+                "HistoryDetailDialog",
+                "{text}\n\n(Using original transcription - AI {status})",
+            ).format(
+                text=self.record.transcription_text or "",
+                status=self.record.ai_status
+                or QCoreApplication.translate("HistoryDetailDialog", "Unknown"),
+            )
+
+        self.optimized_text_edit.setPlainText(
+            display_text or QCoreApplication.translate("HistoryDetailDialog", "(empty)")
+        )
+
+        self.copy_button.setText(
+            QCoreApplication.translate("HistoryDetailDialog", "Copy to Clipboard")
+        )
+        self.retry_button.setText(
+            QCoreApplication.translate("HistoryDetailDialog", "Retry")
+        )
+        self.delete_button.setText(
+            QCoreApplication.translate("HistoryDetailDialog", "Delete Record")
+        )
+        self.close_button.setText(
+            QCoreApplication.translate("HistoryDetailDialog", "Close")
+        )
 
     def _copy_to_clipboard(self):
         """复制优化后的文本到剪贴板"""
@@ -632,7 +895,13 @@ class HistoryDetailDialog(QDialog):
         # 复制优化后的文本（如果 AI 成功则是AI文本，否则是转录文本）
         text_to_copy = self.optimized_text_edit.toPlainText()
         clipboard.setText(text_to_copy)
-        QMessageBox.information(self, "Success", "Text copied to clipboard!")
+        QMessageBox.information(
+            self,
+            QCoreApplication.translate("HistoryDetailDialog", "Success"),
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Text copied to clipboard!"
+            ),
+        )
 
     def _retry_processing(self):
         """重新处理录音（使用当前配置）"""
@@ -654,21 +923,29 @@ class HistoryDetailDialog(QDialog):
         if not self.transcription_service or not self.config_service:
             QMessageBox.warning(
                 self,
-                "Service Unavailable",
-                "Retry processing requires transcription service.\n\n"
-                "This feature may not be available in this context.",
+                QCoreApplication.translate(
+                    "HistoryDetailDialog", "Service Unavailable"
+                ),
+                QCoreApplication.translate(
+                    "HistoryDetailDialog",
+                    "Retry processing requires transcription service.\n\n"
+                    "This feature may not be available in this context.",
+                ),
             )
             return
 
         # 确认对话框
         reply = QMessageBox.question(
             self,
-            "Retry Processing",
-            "This will reprocess the recording using current configuration.\n\n"
-            "- Transcription will use current provider/model\n"
-            "- AI optimization will use current settings\n\n"
-            "The original record will be updated with new results.\n\n"
-            "Continue?",
+            QCoreApplication.translate("HistoryDetailDialog", "Retry Processing"),
+            QCoreApplication.translate(
+                "HistoryDetailDialog",
+                "This will reprocess the recording using current configuration.\n\n"
+                "- Transcription will use current provider/model\n"
+                "- AI optimization will use current settings\n\n"
+                "The original record will be updated with new results.\n\n"
+                "Continue?",
+            ),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -678,13 +955,17 @@ class HistoryDetailDialog(QDialog):
 
         # 创建进度对话框
         self.progress_dialog = QProgressDialog(
-            "Initializing reprocessing...",
-            "Cancel",
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Initializing reprocessing..."
+            ),
+            QCoreApplication.translate("HistoryDetailDialog", "Cancel"),
             0,
             0,  # 不确定进度的模式
             self,
         )
-        self.progress_dialog.setWindowTitle("Reprocessing Recording")
+        self.progress_dialog.setWindowTitle(
+            QCoreApplication.translate("HistoryDetailDialog", "Reprocessing Recording")
+        )
         self.progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.progress_dialog.setMinimumDuration(0)
         self.progress_dialog.setValue(0)
@@ -751,15 +1032,24 @@ class HistoryDetailDialog(QDialog):
             ai_status = result.get("ai_status", "skipped")
 
             # 更新转录文本框
-            self.trans_text_edit.setPlainText(transcription_text or "(empty)")
+            self.trans_text_edit.setPlainText(
+                transcription_text
+                or QCoreApplication.translate("HistoryDetailDialog", "(empty)")
+            )
 
             # 更新优化后的文本框
             if ai_status == "success" and ai_optimized_text:
                 display_text = ai_optimized_text
             else:
-                display_text = f"{transcription_text}\n\n(Using original transcription - AI {ai_status})"
+                display_text = QCoreApplication.translate(
+                    "HistoryDetailDialog",
+                    "{text}\n\n(Using original transcription - AI {status})",
+                ).format(text=transcription_text, status=ai_status)
 
-            self.optimized_text_edit.setPlainText(display_text or "(empty)")
+            self.optimized_text_edit.setPlainText(
+                display_text
+                or QCoreApplication.translate("HistoryDetailDialog", "(empty)")
+            )
 
             # 清理worker (安全清理，等待线程结束)
             if self.reprocessing_worker:
@@ -767,14 +1057,33 @@ class HistoryDetailDialog(QDialog):
                     self.reprocessing_worker.wait(1000)
                 self.reprocessing_worker = None
 
+            self.record.transcription_text = transcription_text
+            self.record.ai_optimized_text = ai_optimized_text
+            self.record.final_text = final_text
+            self.record.ai_status = ai_status
+            self.record.transcription_provider = result.get(
+                "transcription_provider", self.record.transcription_provider
+            )
+
             # 显示成功消息
             QMessageBox.information(
                 self,
-                "Reprocessing Complete",
-                "Recording has been successfully reprocessed!\n\n"
-                f"Transcription Provider: {result.get('transcription_provider', 'N/A')}\n"
-                f"AI Status: {ai_status}\n\n"
-                "The record has been updated in the history.",
+                QCoreApplication.translate(
+                    "HistoryDetailDialog", "Reprocessing Complete"
+                ),
+                QCoreApplication.translate(
+                    "HistoryDetailDialog",
+                    "Recording has been successfully reprocessed!\n\n"
+                    "Transcription Provider: {provider}\n"
+                    "AI Status: {status}\n\n"
+                    "The record has been updated in the history.",
+                ).format(
+                    provider=result.get(
+                        "transcription_provider",
+                        QCoreApplication.translate("HistoryDetailDialog", "N/A"),
+                    ),
+                    status=ai_status,
+                ),
             )
         except Exception as e:
             app_logger.log_error(e, "reprocessing_completed_handler")
@@ -812,9 +1121,14 @@ class HistoryDetailDialog(QDialog):
             # 显示错误消息
             QMessageBox.critical(
                 self,
-                "Reprocessing Failed",
-                f"Failed to reprocess the recording:\n\n{error_message}\n\n"
-                "Please check the logs for more details.",
+                QCoreApplication.translate(
+                    "HistoryDetailDialog", "Reprocessing Failed"
+                ),
+                QCoreApplication.translate(
+                    "HistoryDetailDialog",
+                    "Failed to reprocess the recording:\n\n{error}\n\n"
+                    "Please check the logs for more details.",
+                ).format(error=error_message),
             )
         except Exception as e:
             app_logger.log_error(e, "reprocessing_failed_handler")
@@ -833,15 +1147,22 @@ class HistoryDetailDialog(QDialog):
             self.reprocessing_worker = None
 
         QMessageBox.information(
-            self, "Reprocessing Canceled", "Reprocessing operation has been canceled."
+            self,
+            QCoreApplication.translate("HistoryDetailDialog", "Reprocessing Canceled"),
+            QCoreApplication.translate(
+                "HistoryDetailDialog", "Reprocessing operation has been canceled."
+            ),
         )
 
     def _delete_record(self):
         """删除记录"""
         reply = QMessageBox.question(
             self,
-            "Delete Record",
-            f"Are you sure you want to delete this record?\n\nTime: {self.record.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+            QCoreApplication.translate("HistoryDetailDialog", "Delete Record"),
+            QCoreApplication.translate(
+                "HistoryDetailDialog",
+                "Are you sure you want to delete this record?\n\nTime: {time}",
+            ).format(time=self.record.timestamp.strftime("%Y-%m-%d %H:%M:%S")),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
@@ -851,13 +1172,29 @@ class HistoryDetailDialog(QDialog):
                 success = self.history_service.delete_record(self.record.id)
                 if success:
                     QMessageBox.information(
-                        self, "Success", "Record deleted successfully!"
+                        self,
+                        QCoreApplication.translate("HistoryDetailDialog", "Success"),
+                        QCoreApplication.translate(
+                            "HistoryDetailDialog", "Record deleted successfully!"
+                        ),
                     )
                     self.accept()  # 关闭对话框
                 else:
-                    QMessageBox.warning(self, "Warning", "Failed to delete record.")
+                    QMessageBox.warning(
+                        self,
+                        QCoreApplication.translate("HistoryDetailDialog", "Warning"),
+                        QCoreApplication.translate(
+                            "HistoryDetailDialog", "Failed to delete record."
+                        ),
+                    )
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error deleting record: {str(e)}")
+                QMessageBox.critical(
+                    self,
+                    QCoreApplication.translate("HistoryDetailDialog", "Error"),
+                    QCoreApplication.translate(
+                        "HistoryDetailDialog", "Error deleting record: {error}"
+                    ).format(error=str(e)),
+                )
 
 
 class HistoryTab(BaseSettingsTab):
@@ -926,11 +1263,11 @@ class HistoryTab(BaseSettingsTab):
         toolbar_layout = QHBoxLayout()
 
         # 搜索框
-        search_label = QLabel("Search:")
+        self.search_label = QLabel("Search:")
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Search in transcription or AI text...")
         self.search_input.textChanged.connect(self._on_search_changed)
-        toolbar_layout.addWidget(search_label)
+        toolbar_layout.addWidget(self.search_label)
         toolbar_layout.addWidget(self.search_input, stretch=1)
 
         # 刷新按钮
@@ -994,6 +1331,7 @@ class HistoryTab(BaseSettingsTab):
         # 底部统计信息
         stats_group = QGroupBox("Statistics")
         stats_layout = QHBoxLayout(stats_group)
+        self.stats_group = stats_group
 
         self.total_records_label = QLabel("Total Records: 0")
         self.total_duration_label = QLabel("Total Duration: 0.0s")
@@ -1011,6 +1349,7 @@ class HistoryTab(BaseSettingsTab):
         self._search_debounce_timer.setSingleShot(True)
         self._search_debounce_timer.setInterval(250)
         self._search_debounce_timer.timeout.connect(self._load_history)
+        self.retranslate_ui()
 
         # 保存控件引用
         self.controls = {
@@ -1018,6 +1357,37 @@ class HistoryTab(BaseSettingsTab):
             "search_input": self.search_input,
             "refresh_button": self.refresh_button,
         }
+
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+        self.search_label.setText(QCoreApplication.translate("HistoryTab", "Search:"))
+        self.search_input.setPlaceholderText(
+            QCoreApplication.translate(
+                "HistoryTab", "Search in transcription or AI text..."
+            )
+        )
+        self.refresh_button.setText(QCoreApplication.translate("HistoryTab", "Refresh"))
+        self.batch_reprocess_button.setText(
+            QCoreApplication.translate("HistoryTab", "Batch Reprocess")
+        )
+        self.batch_reprocess_button.setToolTip(
+            QCoreApplication.translate(
+                "HistoryTab",
+                "Re-transcribe all history records with customizable cooldown delay",
+            )
+        )
+        self.history_table.setHorizontalHeaderLabels(
+            [
+                QCoreApplication.translate("HistoryTab", "Time"),
+                QCoreApplication.translate("HistoryTab", "LEN"),
+                QCoreApplication.translate("HistoryTab", "Transcription"),
+                QCoreApplication.translate("HistoryTab", "Status"),
+            ]
+        )
+        self.stats_group.setTitle(
+            QCoreApplication.translate("HistoryTab", "Statistics")
+        )
+        self._update_statistics()
 
     def _get_history_service(self):
         """获取HistoryStorageService实例
@@ -1050,8 +1420,11 @@ class HistoryTab(BaseSettingsTab):
         if not service:
             QMessageBox.warning(
                 self.parent_window,
-                "Error",
-                "History service not available. Please restart the application.",
+                QCoreApplication.translate("HistoryTab", "Error"),
+                QCoreApplication.translate(
+                    "HistoryTab",
+                    "History service not available. Please restart the application.",
+                ),
             )
             return
 
@@ -1066,7 +1439,11 @@ class HistoryTab(BaseSettingsTab):
 
         except Exception as e:
             QMessageBox.critical(
-                self.parent_window, "Error", f"Failed to load history: {str(e)}"
+                self.parent_window,
+                QCoreApplication.translate("HistoryTab", "Error"),
+                QCoreApplication.translate(
+                    "HistoryTab", "Failed to load history: {error}"
+                ).format(error=str(e)),
             )
 
     def _reset_pagination(self) -> None:
@@ -1190,7 +1567,11 @@ class HistoryTab(BaseSettingsTab):
         service = self._get_history_service()
         if not service:
             QMessageBox.warning(
-                self.parent_window, "Error", "History service not available."
+                self.parent_window,
+                QCoreApplication.translate("HistoryTab", "Error"),
+                QCoreApplication.translate(
+                    "HistoryTab", "History service not available."
+                ),
             )
             return
 
@@ -1257,9 +1638,21 @@ class HistoryTab(BaseSettingsTab):
         """更新统计信息"""
         service = self._get_history_service()
         if not service:
-            self.total_records_label.setText("Total Records: 0")
-            self.total_duration_label.setText("Total Duration: 0.0s")
-            self.success_rate_label.setText("Success Rate: 0%")
+            self.total_records_label.setText(
+                QCoreApplication.translate(
+                    "HistoryTab", "Total Records: {count}"
+                ).format(count=0)
+            )
+            self.total_duration_label.setText(
+                QCoreApplication.translate(
+                    "HistoryTab", "Total Duration: {seconds:.1f}s"
+                ).format(seconds=0.0)
+            )
+            self.success_rate_label.setText(
+                QCoreApplication.translate(
+                    "HistoryTab", "Success Rate: {rate:.1f}%"
+                ).format(rate=0.0)
+            )
             return
 
         query = self._active_query or self.search_input.text().strip()
@@ -1270,9 +1663,21 @@ class HistoryTab(BaseSettingsTab):
         )
         success_rate = (success_count / total_count * 100) if total_count > 0 else 0
 
-        self.total_records_label.setText(f"Total Records: {total_count}")
-        self.total_duration_label.setText(f"Total Duration: {total_duration:.1f}s")
-        self.success_rate_label.setText(f"Success Rate: {success_rate:.1f}%")
+        self.total_records_label.setText(
+            QCoreApplication.translate("HistoryTab", "Total Records: {count}").format(
+                count=total_count
+            )
+        )
+        self.total_duration_label.setText(
+            QCoreApplication.translate(
+                "HistoryTab", "Total Duration: {seconds:.1f}s"
+            ).format(seconds=total_duration)
+        )
+        self.success_rate_label.setText(
+            QCoreApplication.translate(
+                "HistoryTab", "Success Rate: {rate:.1f}%"
+            ).format(rate=success_rate)
+        )
 
     @staticmethod
     def _truncate_text(text: str, max_length: int) -> str:
@@ -1287,12 +1692,14 @@ class HistoryTab(BaseSettingsTab):
     def _get_ai_status_display(record) -> str:
         """获取AI状态显示文本"""
         status_map = {
-            "success": "Success",
-            "failed": "Failed",
-            "skipped": "Skipped",
-            "pending": "Pending",
+            "success": QCoreApplication.translate("HistoryTab", "Success"),
+            "failed": QCoreApplication.translate("HistoryTab", "Failed"),
+            "skipped": QCoreApplication.translate("HistoryTab", "Skipped"),
+            "pending": QCoreApplication.translate("HistoryTab", "Pending"),
         }
-        return status_map.get(record.ai_status, "Unknown")
+        return status_map.get(
+            record.ai_status, QCoreApplication.translate("HistoryTab", "Unknown")
+        )
 
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
@@ -1319,8 +1726,11 @@ class HistoryTab(BaseSettingsTab):
         if not service:
             QMessageBox.warning(
                 self.parent_window,
-                "Error",
-                "History service not available. Please restart the application.",
+                QCoreApplication.translate("HistoryTab", "Error"),
+                QCoreApplication.translate(
+                    "HistoryTab",
+                    "History service not available. Please restart the application.",
+                ),
             )
             return
 
@@ -1329,8 +1739,10 @@ class HistoryTab(BaseSettingsTab):
             if total_records <= 0:
                 QMessageBox.information(
                     self.parent_window,
-                    "No Records",
-                    "No history records found to reprocess.",
+                    QCoreApplication.translate("HistoryTab", "No Records"),
+                    QCoreApplication.translate(
+                        "HistoryTab", "No history records found to reprocess."
+                    ),
                 )
                 return
 
@@ -1344,11 +1756,14 @@ class HistoryTab(BaseSettingsTab):
             # 确认操作
             reply = QMessageBox.question(
                 self.parent_window,
-                "Confirm Batch Reprocessing",
-                f"You are about to re-transcribe {total_records} records.\n\n"
-                f"Cooldown: {cd_seconds} seconds between records\n"
-                f"This operation may take a long time and consume API quota.\n\n"
-                "Are you sure you want to continue?",
+                QCoreApplication.translate("HistoryTab", "Confirm Batch Reprocessing"),
+                QCoreApplication.translate(
+                    "HistoryTab",
+                    "You are about to re-transcribe {total} records.\n\n"
+                    "Cooldown: {cooldown} seconds between records\n"
+                    "This operation may take a long time and consume API quota.\n\n"
+                    "Are you sure you want to continue?",
+                ).format(total=total_records, cooldown=cd_seconds),
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                 QMessageBox.StandardButton.No,
             )
@@ -1362,8 +1777,10 @@ class HistoryTab(BaseSettingsTab):
         except Exception as e:
             QMessageBox.critical(
                 self.parent_window,
-                "Error",
-                f"Failed to start batch reprocessing: {str(e)}",
+                QCoreApplication.translate("HistoryTab", "Error"),
+                QCoreApplication.translate(
+                    "HistoryTab", "Failed to start batch reprocessing: {error}"
+                ).format(error=str(e)),
             )
 
     def _start_batch_reprocessing(self, total_records: int, cd_seconds: int) -> None:
@@ -1381,20 +1798,25 @@ class HistoryTab(BaseSettingsTab):
         if not transcription_service or not history_service:
             QMessageBox.critical(
                 self.parent_window,
-                "Error",
-                "Required services not available. Please restart the application.",
+                QCoreApplication.translate("HistoryTab", "Error"),
+                QCoreApplication.translate(
+                    "HistoryTab",
+                    "Required services not available. Please restart the application.",
+                ),
             )
             return
 
         # 创建进度对话框
         self.batch_progress_dialog = QProgressDialog(
-            "Starting batch reprocessing...",
-            "Cancel",
+            QCoreApplication.translate("HistoryTab", "Starting batch reprocessing..."),
+            QCoreApplication.translate("HistoryTab", "Cancel"),
             0,
             total_records,
             self.parent_window,
         )
-        self.batch_progress_dialog.setWindowTitle("Batch Reprocessing")
+        self.batch_progress_dialog.setWindowTitle(
+            QCoreApplication.translate("HistoryTab", "Batch Reprocessing")
+        )
         self.batch_progress_dialog.setWindowModality(Qt.WindowModality.WindowModal)
         self.batch_progress_dialog.setMinimumDuration(0)
         self.batch_progress_dialog.setValue(0)
@@ -1430,8 +1852,11 @@ class HistoryTab(BaseSettingsTab):
         if self.batch_progress_dialog:
             self.batch_progress_dialog.setValue(current)
             self.batch_progress_dialog.setLabelText(
-                f"Processing {current}/{total} records...\n"
-                f"Current record: {record_id[:16]}..."
+                QCoreApplication.translate(
+                    "HistoryTab",
+                    "Processing {current}/{total} records...\n"
+                    "Current record: {record_id}...",
+                ).format(current=current, total=total, record_id=record_id[:16])
             )
 
     def _on_batch_completed(self, stats: dict) -> None:
@@ -1461,21 +1886,42 @@ class HistoryTab(BaseSettingsTab):
         errors = stats.get("errors", [])
 
         # 构建报告消息
-        report = "Batch Reprocessing Complete!\n\n"
-        report += f"Total records: {total}\n"
-        report += f"✓ Successful: {success}\n"
-        report += f"⊘ Skipped: {skipped}\n"
-        report += f"✗ Failed: {failed}\n"
+        report_lines = [
+            QCoreApplication.translate("HistoryTab", "Batch Reprocessing Complete!"),
+            "",
+            QCoreApplication.translate("HistoryTab", "Total records: {total}").format(
+                total=total
+            ),
+            QCoreApplication.translate("HistoryTab", "Successful: {success}").format(
+                success=success
+            ),
+            QCoreApplication.translate("HistoryTab", "Skipped: {skipped}").format(
+                skipped=skipped
+            ),
+            QCoreApplication.translate("HistoryTab", "Failed: {failed}").format(
+                failed=failed
+            ),
+        ]
 
         if errors:
-            report += "\n\nFirst 5 errors:\n"
-            for error in errors[:5]:
-                report += f"  {error}\n"
+            report_lines.append("")
+            report_lines.append(
+                QCoreApplication.translate(
+                    "HistoryTab", "First {count} errors:"
+                ).format(count=min(5, len(errors)))
+            )
+            report_lines.extend([f"  {error}" for error in errors[:5]])
             if len(errors) > 5:
-                report += f"  ... and {len(errors) - 5} more errors"
+                report_lines.append(
+                    QCoreApplication.translate(
+                        "HistoryTab", "... and {count} more errors"
+                    ).format(count=len(errors) - 5)
+                )
 
         QMessageBox.information(
-            self.parent_window, "Batch Reprocessing Complete", report
+            self.parent_window,
+            QCoreApplication.translate("HistoryTab", "Batch Reprocessing Complete"),
+            "\n".join(report_lines),
         )
 
     def _on_batch_canceled(self) -> None:
@@ -1493,6 +1939,8 @@ class HistoryTab(BaseSettingsTab):
 
         QMessageBox.information(
             self.parent_window,
-            "Batch Reprocessing Canceled",
-            "Batch reprocessing operation has been canceled.",
+            QCoreApplication.translate("HistoryTab", "Batch Reprocessing Canceled"),
+            QCoreApplication.translate(
+                "HistoryTab", "Batch reprocessing operation has been canceled."
+            ),
         )

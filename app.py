@@ -566,6 +566,70 @@ def run_gui():
     print("Starting GUI mode...")
 
     try:
+
+        def apply_windows_ui_font(qt_app):
+            if sys.platform != "win32":
+                return
+            try:
+                from PySide6.QtGui import QFont, QFontDatabase
+
+                def resolve_assets_dir():
+                    current = Path(__file__).resolve()
+                    for parent in current.parents:
+                        assets_dir = parent / "assets"
+                        if assets_dir.is_dir():
+                            return assets_dir
+                    return None
+
+                selected_font = None
+                assets_dir = resolve_assets_dir()
+                if assets_dir:
+                    font_files = [
+                        assets_dir
+                        / "fonts"
+                        / "resource-han-rounded"
+                        / "ResourceHanRoundedCN-Regular.ttf",
+                        assets_dir
+                        / "fonts"
+                        / "resource-han-rounded"
+                        / "ResourceHanRoundedCN-Bold.ttf",
+                    ]
+                    loaded_families = []
+                    for font_path in font_files:
+                        if not font_path.exists():
+                            continue
+                        font_id = QFontDatabase.addApplicationFont(str(font_path))
+                        if font_id != -1:
+                            loaded_families.extend(
+                                QFontDatabase.applicationFontFamilies(font_id)
+                            )
+                    if loaded_families:
+                        selected_font = loaded_families[0]
+
+                if not selected_font:
+                    preferred_fonts = [
+                        "Microsoft YaHei UI",
+                        "Microsoft YaHei",
+                        "Segoe UI",
+                    ]
+                    available_fonts = set(QFontDatabase.families())
+                    selected_font = next(
+                        (font for font in preferred_fonts if font in available_fonts),
+                        None,
+                    )
+
+                if not selected_font:
+                    print("[WARN] No preferred UI font found; using system default.")
+                    return
+
+                font = qt_app.font()
+                font.setFamily(selected_font)
+                font.setHintingPreference(QFont.PreferFullHinting)
+                qt_app.setFont(font)
+                print(f"[OK] UI font set to: {selected_font}")
+            except Exception as e:
+                print(f"[WARN] Failed to apply Windows UI font: {e}")
+
         # Import Qt and UI components
         from PySide6.QtWidgets import QApplication
         from PySide6.QtCore import QTimer
@@ -593,6 +657,8 @@ def run_gui():
         if qt_app is None:
             qt_app = QApplication(sys.argv)
 
+        apply_windows_ui_font(qt_app)
+
         # Set application icon (all windows will inherit this)
         # Note: Skip setWindowIcon in exe mode due to Nuitka issue #3611
         from sonicinput.ui.utils import get_app_icon
@@ -614,6 +680,12 @@ def run_gui():
 
         config_service = container.get(IConfigService)
         theme_color = config_service.get_setting("ui.theme_color", "cyan")
+
+        # Apply UI language before creating windows
+        from sonicinput.core.services.ui_services import UILocalizationService
+
+        localization_service = container.get(UILocalizationService)
+        localization_service.apply_language()
 
         # Apply Material Design theme
         theme_file = f"dark_{theme_color}.xml"

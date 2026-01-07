@@ -3,7 +3,7 @@
 from typing import Any, Dict, List
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsDropShadowEffect,
@@ -153,7 +153,9 @@ class OverlayUIBuilder:
             配置好的时间标签
         """
         time_label = QLabel("00:00")
-        time_label.setFont(QFont("Segoe UI", 9))
+        font = time_label.font()
+        font.setPointSize(9)
+        time_label.setFont(font)
         time_label.setStyleSheet("""
             QLabel {
                 color: #CCCCCC;

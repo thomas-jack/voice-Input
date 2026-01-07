@@ -1,6 +1,6 @@
 """Recording Overlay Window - 重构版本使用组件化架构"""
 
-from PySide6.QtCore import QPropertyAnimation, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QPropertyAnimation, Qt, Signal
 from PySide6.QtWidgets import QWidget
 
 from ..core.interfaces import IConfigService
@@ -504,7 +504,9 @@ class RecordingOverlay(QWidget):
 
             # 重置样式
             if hasattr(self, "status_label") and self.status_label:
-                self.status_label.setText("Ready")
+                self.status_label.setText(
+                    QCoreApplication.translate("RecordingOverlay", "Ready")
+                )
                 self.status_label.setStyleSheet("color: #CCCCCC; font-weight: bold;")
 
             # 确保窗口标志正确

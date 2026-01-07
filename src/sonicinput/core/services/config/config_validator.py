@@ -163,6 +163,11 @@ class ConfigValidator:
             if theme_color and theme_color not in valid_theme_colors:
                 warnings.append(f"Unknown theme color: {theme_color}")
 
+            ui_language = self._get_nested(config, "ui.language", "auto")
+            valid_ui_languages = ["auto", "en-US", "zh-CN"]
+            if ui_language and ui_language not in valid_ui_languages:
+                warnings.append(f"Unknown UI language: {ui_language}")
+
         except Exception as e:
             issues.append(f"Validation error: {e}")
 
@@ -229,7 +234,11 @@ class ConfigValidator:
                         "auto_load": True,
                     },
                 },
-                "ui": {"show_overlay": True, "start_minimized": True},
+                "ui": {
+                    "show_overlay": True,
+                    "start_minimized": True,
+                    "language": "auto",
+                },
             }
 
             for section, defaults in required_structures.items():

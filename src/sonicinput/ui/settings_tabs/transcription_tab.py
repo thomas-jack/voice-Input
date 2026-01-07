@@ -2,6 +2,7 @@
 
 from typing import Any, Dict
 
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -21,6 +22,19 @@ from PySide6.QtWidgets import (
 from .base_tab import BaseSettingsTab
 
 
+class DataAwareComboBox(QComboBox):
+    def setCurrentText(self, text: str) -> None:
+        index = self.findText(text)
+        if index != -1:
+            super().setCurrentText(text)
+            return
+        data_index = self.findData(text)
+        if data_index != -1:
+            self.setCurrentIndex(data_index)
+            return
+        super().setCurrentText(text)
+
+
 class TranscriptionTab(BaseSettingsTab):
     """Transcription设置标签页
 
@@ -38,13 +52,16 @@ class TranscriptionTab(BaseSettingsTab):
         # 转录提供商选择组
         provider_group = QGroupBox("Transcription Provider")
         provider_layout = QFormLayout(provider_group)
+        self.provider_group = provider_group
+        self.provider_layout = provider_layout
 
-        self.transcription_provider_combo = QComboBox()
+        self.transcription_provider_combo = DataAwareComboBox()
         self.transcription_provider_combo.setObjectName("transcription_provider_combo")
-        self.transcription_provider_combo.addItems(
-            ["local", "groq", "siliconflow", "qwen"]
-        )
-        self.transcription_provider_combo.currentTextChanged.connect(
+        self.transcription_provider_combo.addItem("Local (sherpa-onnx)", "local")
+        self.transcription_provider_combo.addItem("Groq Cloud", "groq")
+        self.transcription_provider_combo.addItem("SiliconFlow Cloud", "siliconflow")
+        self.transcription_provider_combo.addItem("Qwen ASR (Alibaba Cloud)", "qwen")
+        self.transcription_provider_combo.currentIndexChanged.connect(
             self._on_provider_changed
         )
         provider_layout.addRow("Provider:", self.transcription_provider_combo)
@@ -54,6 +71,8 @@ class TranscriptionTab(BaseSettingsTab):
         # sherpa-onnx 本地模型设置组
         model_group = QGroupBox("sherpa-onnx Configuration")
         model_layout = QFormLayout(model_group)
+        self.model_group = model_group
+        self.model_layout = model_layout
 
         # 模型选择
         self.whisper_model_combo = QComboBox()
@@ -62,14 +81,23 @@ class TranscriptionTab(BaseSettingsTab):
 
         # 语言设置
         self.whisper_language_combo = QComboBox()
-        self.whisper_language_combo.addItems(
-            ["auto", "en", "zh", "ja", "ko", "es", "fr", "de", "it", "pt", "ru"]
-        )
+        self.whisper_language_combo.addItem("Auto", "auto")
+        self.whisper_language_combo.addItem("English", "en")
+        self.whisper_language_combo.addItem("Chinese", "zh")
+        self.whisper_language_combo.addItem("Japanese", "ja")
+        self.whisper_language_combo.addItem("Korean", "ko")
+        self.whisper_language_combo.addItem("Spanish", "es")
+        self.whisper_language_combo.addItem("French", "fr")
+        self.whisper_language_combo.addItem("German", "de")
+        self.whisper_language_combo.addItem("Italian", "it")
+        self.whisper_language_combo.addItem("Portuguese", "pt")
+        self.whisper_language_combo.addItem("Russian", "ru")
         model_layout.addRow("Language:", self.whisper_language_combo)
 
         # 流式模式选择
         self.streaming_mode_combo = QComboBox()
-        self.streaming_mode_combo.addItems(["chunked", "realtime"])
+        self.streaming_mode_combo.addItem("Chunked (recommended)", "chunked")
+        self.streaming_mode_combo.addItem("Realtime", "realtime")
         self.streaming_mode_combo.setToolTip(
             "chunked: 30s segments with AI optimization (recommended)\n"
             "realtime: Edge-to-edge streaming with lowest latency"
@@ -85,6 +113,7 @@ class TranscriptionTab(BaseSettingsTab):
         # 模型管理组
         management_group = QGroupBox("Model Management")
         management_layout = QVBoxLayout(management_group)
+        self.management_group = management_group
 
         # 当前状态
         self.model_status_label = QLabel("Model not loaded")
@@ -114,11 +143,12 @@ class TranscriptionTab(BaseSettingsTab):
         management_layout.addWidget(self.model_progress)
 
         layout.addWidget(management_group)
-        self.management_group = management_group
 
         # Groq API 配置组
         groq_group = QGroupBox("Groq Cloud API Configuration")
         groq_layout = QFormLayout(groq_group)
+        self.groq_group = groq_group
+        self.groq_layout = groq_layout
 
         # API Key
         self.groq_api_key_edit = QLineEdit()
@@ -153,11 +183,12 @@ class TranscriptionTab(BaseSettingsTab):
         groq_layout.addRow("Max Retries:", self.groq_max_retries_spinbox)
 
         layout.addWidget(groq_group)
-        self.groq_group = groq_group
 
         # SiliconFlow API 配置组
         siliconflow_group = QGroupBox("SiliconFlow Cloud API Configuration")
         siliconflow_layout = QFormLayout(siliconflow_group)
+        self.siliconflow_group = siliconflow_group
+        self.siliconflow_layout = siliconflow_layout
 
         # API Key
         self.siliconflow_api_key_edit = QLineEdit()
@@ -199,11 +230,12 @@ class TranscriptionTab(BaseSettingsTab):
         siliconflow_layout.addRow("Max Retries:", self.siliconflow_max_retries_spinbox)
 
         layout.addWidget(siliconflow_group)
-        self.siliconflow_group = siliconflow_group
 
         # Qwen API 配置组
         qwen_group = QGroupBox("Qwen ASR (Alibaba Cloud) API Configuration")
         qwen_layout = QFormLayout(qwen_group)
+        self.qwen_group = qwen_group
+        self.qwen_layout = qwen_layout
 
         # API Key
         self.qwen_api_key_edit = QLineEdit()
@@ -250,13 +282,12 @@ class TranscriptionTab(BaseSettingsTab):
         qwen_layout.addRow("Max Retries:", self.qwen_max_retries_spinbox)
 
         layout.addWidget(qwen_group)
-        self.qwen_group = qwen_group
-
-        self.model_group = model_group
 
         layout.addStretch()
 
         # 保存控件引用
+        self.retranslate_ui()
+
         self.controls = {
             "transcription_provider": self.transcription_provider_combo,
             "whisper_model": self.whisper_model_combo,
@@ -289,6 +320,239 @@ class TranscriptionTab(BaseSettingsTab):
         self.parent_window.auto_load_model_checkbox = self.auto_load_model_checkbox
         self.parent_window.model_status_label = self.model_status_label
 
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+
+        def set_label(layout, field, value):
+            label = layout.labelForField(field)
+            if label:
+                label.setText(value)
+
+        self.provider_group.setTitle(
+            QCoreApplication.translate("TranscriptionTab", "Transcription Provider")
+        )
+        set_label(
+            self.provider_layout,
+            self.transcription_provider_combo,
+            QCoreApplication.translate("TranscriptionTab", "Provider:"),
+        )
+        provider_texts = [
+            QCoreApplication.translate("TranscriptionTab", "Local (sherpa-onnx)"),
+            QCoreApplication.translate("TranscriptionTab", "Groq Cloud"),
+            QCoreApplication.translate("TranscriptionTab", "SiliconFlow Cloud"),
+            QCoreApplication.translate("TranscriptionTab", "Qwen ASR (Alibaba Cloud)"),
+        ]
+        for index, text_value in enumerate(provider_texts):
+            if index < self.transcription_provider_combo.count():
+                self.transcription_provider_combo.setItemText(index, text_value)
+
+        self.model_group.setTitle(
+            QCoreApplication.translate("TranscriptionTab", "sherpa-onnx Configuration")
+        )
+        set_label(
+            self.model_layout,
+            self.whisper_model_combo,
+            QCoreApplication.translate("TranscriptionTab", "Model:"),
+        )
+        set_label(
+            self.model_layout,
+            self.whisper_language_combo,
+            QCoreApplication.translate("TranscriptionTab", "Language:"),
+        )
+        set_label(
+            self.model_layout,
+            self.streaming_mode_combo,
+            QCoreApplication.translate("TranscriptionTab", "Streaming Mode:"),
+        )
+
+        language_texts = [
+            QCoreApplication.translate("TranscriptionTab", "Auto"),
+            QCoreApplication.translate("TranscriptionTab", "English"),
+            QCoreApplication.translate("TranscriptionTab", "Chinese"),
+            QCoreApplication.translate("TranscriptionTab", "Japanese"),
+            QCoreApplication.translate("TranscriptionTab", "Korean"),
+            QCoreApplication.translate("TranscriptionTab", "Spanish"),
+            QCoreApplication.translate("TranscriptionTab", "French"),
+            QCoreApplication.translate("TranscriptionTab", "German"),
+            QCoreApplication.translate("TranscriptionTab", "Italian"),
+            QCoreApplication.translate("TranscriptionTab", "Portuguese"),
+            QCoreApplication.translate("TranscriptionTab", "Russian"),
+        ]
+        for index, text_value in enumerate(language_texts):
+            if index < self.whisper_language_combo.count():
+                self.whisper_language_combo.setItemText(index, text_value)
+
+        streaming_texts = [
+            QCoreApplication.translate("TranscriptionTab", "Chunked (recommended)"),
+            QCoreApplication.translate("TranscriptionTab", "Realtime"),
+        ]
+        for index, text_value in enumerate(streaming_texts):
+            if index < self.streaming_mode_combo.count():
+                self.streaming_mode_combo.setItemText(index, text_value)
+
+        self.streaming_mode_combo.setToolTip(
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "chunked: 30s segments with AI optimization (recommended)\n"
+                "realtime: Edge-to-edge streaming with lowest latency",
+            )
+        )
+        self.auto_load_model_checkbox.setText(
+            QCoreApplication.translate("TranscriptionTab", "Load model on startup")
+        )
+
+        self.groq_group.setTitle(
+            QCoreApplication.translate(
+                "TranscriptionTab", "Groq Cloud API Configuration"
+            )
+        )
+        set_label(
+            self.groq_layout,
+            self.groq_api_key_edit,
+            QCoreApplication.translate("TranscriptionTab", "API Key:"),
+        )
+        set_label(
+            self.groq_layout,
+            self.groq_base_url_edit,
+            QCoreApplication.translate("TranscriptionTab", "Base URL:"),
+        )
+        set_label(
+            self.groq_layout,
+            self.groq_model_combo,
+            QCoreApplication.translate("TranscriptionTab", "Model:"),
+        )
+        set_label(
+            self.groq_layout,
+            self.groq_timeout_spinbox,
+            QCoreApplication.translate("TranscriptionTab", "Timeout:"),
+        )
+        set_label(
+            self.groq_layout,
+            self.groq_max_retries_spinbox,
+            QCoreApplication.translate("TranscriptionTab", "Max Retries:"),
+        )
+        self.groq_api_key_edit.setPlaceholderText(
+            QCoreApplication.translate("TranscriptionTab", "Enter Groq API key")
+        )
+        self.groq_base_url_edit.setPlaceholderText(
+            QCoreApplication.translate(
+                "TranscriptionTab", "Leave empty to restore default"
+            )
+        )
+        self.groq_timeout_spinbox.setSuffix(
+            QCoreApplication.translate("TranscriptionTab", "s")
+        )
+
+        self.siliconflow_group.setTitle(
+            QCoreApplication.translate(
+                "TranscriptionTab", "SiliconFlow Cloud API Configuration"
+            )
+        )
+        set_label(
+            self.siliconflow_layout,
+            self.siliconflow_api_key_edit,
+            QCoreApplication.translate("TranscriptionTab", "API Key:"),
+        )
+        set_label(
+            self.siliconflow_layout,
+            self.siliconflow_base_url_edit,
+            QCoreApplication.translate("TranscriptionTab", "Base URL:"),
+        )
+        set_label(
+            self.siliconflow_layout,
+            self.siliconflow_model_combo,
+            QCoreApplication.translate("TranscriptionTab", "Model:"),
+        )
+        set_label(
+            self.siliconflow_layout,
+            self.siliconflow_timeout_spinbox,
+            QCoreApplication.translate("TranscriptionTab", "Timeout:"),
+        )
+        set_label(
+            self.siliconflow_layout,
+            self.siliconflow_max_retries_spinbox,
+            QCoreApplication.translate("TranscriptionTab", "Max Retries:"),
+        )
+        self.siliconflow_api_key_edit.setPlaceholderText(
+            QCoreApplication.translate("TranscriptionTab", "Enter SiliconFlow API key")
+        )
+        self.siliconflow_base_url_edit.setPlaceholderText(
+            QCoreApplication.translate(
+                "TranscriptionTab", "Leave empty to restore default"
+            )
+        )
+        self.siliconflow_timeout_spinbox.setSuffix(
+            QCoreApplication.translate("TranscriptionTab", "s")
+        )
+
+        self.qwen_group.setTitle(
+            QCoreApplication.translate(
+                "TranscriptionTab", "Qwen ASR (Alibaba Cloud) API Configuration"
+            )
+        )
+        set_label(
+            self.qwen_layout,
+            self.qwen_api_key_edit,
+            QCoreApplication.translate("TranscriptionTab", "API Key:"),
+        )
+        set_label(
+            self.qwen_layout,
+            self.qwen_model_combo,
+            QCoreApplication.translate("TranscriptionTab", "Model:"),
+        )
+        set_label(
+            self.qwen_layout,
+            self.qwen_base_url_edit,
+            QCoreApplication.translate("TranscriptionTab", "Base URL:"),
+        )
+        set_label(
+            self.qwen_layout,
+            self.qwen_enable_itn_checkbox,
+            QCoreApplication.translate("TranscriptionTab", "ITN:"),
+        )
+        set_label(
+            self.qwen_layout,
+            self.qwen_timeout_spinbox,
+            QCoreApplication.translate("TranscriptionTab", "Timeout:"),
+        )
+        set_label(
+            self.qwen_layout,
+            self.qwen_max_retries_spinbox,
+            QCoreApplication.translate("TranscriptionTab", "Max Retries:"),
+        )
+        self.qwen_api_key_edit.setPlaceholderText(
+            QCoreApplication.translate("TranscriptionTab", "Enter DashScope API key")
+        )
+        self.qwen_model_combo.setToolTip(
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "Qwen ASR model with emotion and language detection",
+            )
+        )
+        self.qwen_base_url_edit.setPlaceholderText(
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "Leave empty to use default (https://dashscope.aliyuncs.com)",
+            )
+        )
+        self.qwen_enable_itn_checkbox.setText(
+            QCoreApplication.translate(
+                "TranscriptionTab", "Enable Inverse Text Normalization"
+            )
+        )
+        self.qwen_enable_itn_checkbox.setToolTip(
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "Convert spoken numbers to digits (e.g., '1000' for one thousand)",
+            )
+        )
+        self.qwen_timeout_spinbox.setSuffix(
+            QCoreApplication.translate("TranscriptionTab", "s")
+        )
+
+        # Refresh provider-dependent labels after translation update.
+        self._on_provider_changed(self.transcription_provider_combo.currentData())
+
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
 
@@ -298,7 +562,11 @@ class TranscriptionTab(BaseSettingsTab):
         # 转录配置（新）
         transcription_config = config.get("transcription", {})
         provider = transcription_config.get("provider", "local")
-        self.transcription_provider_combo.setCurrentText(provider)
+        provider_index = self.transcription_provider_combo.findData(provider)
+        if provider_index >= 0:
+            self.transcription_provider_combo.setCurrentIndex(provider_index)
+        else:
+            self.transcription_provider_combo.setCurrentIndex(0)
 
         # sherpa-onnx local settings
         local_config = transcription_config.get("local", {})
@@ -308,14 +576,22 @@ class TranscriptionTab(BaseSettingsTab):
         self.whisper_model_combo.setCurrentText(
             local_config.get("model", whisper_config.get("model", "paraformer"))
         )
-        self.whisper_language_combo.setCurrentText(
-            local_config.get("language", whisper_config.get("language", "auto"))
+        language_value = local_config.get(
+            "language", whisper_config.get("language", "auto")
         )
+        language_index = self.whisper_language_combo.findData(language_value)
+        if language_index >= 0:
+            self.whisper_language_combo.setCurrentIndex(language_index)
+        else:
+            self.whisper_language_combo.setCurrentIndex(0)
         # streaming_mode只在local provider下有效
         if provider == "local":
-            self.streaming_mode_combo.setCurrentText(
-                local_config.get("streaming_mode", "chunked")
-            )
+            streaming_mode = local_config.get("streaming_mode", "chunked")
+            streaming_index = self.streaming_mode_combo.findData(streaming_mode)
+            if streaming_index >= 0:
+                self.streaming_mode_combo.setCurrentIndex(streaming_index)
+            else:
+                self.streaming_mode_combo.setCurrentIndex(0)
         self.auto_load_model_checkbox.setChecked(
             local_config.get("auto_load", whisper_config.get("auto_load", True))
         )
@@ -369,7 +645,7 @@ class TranscriptionTab(BaseSettingsTab):
             Dict[str, Any]: 配置字典
         """
         # 获取当前provider
-        current_provider = self.transcription_provider_combo.currentText()
+        current_provider = self.transcription_provider_combo.currentData() or "local"
 
         # 构建完整配置（保存所有provider）
         config = {
@@ -377,7 +653,7 @@ class TranscriptionTab(BaseSettingsTab):
                 "provider": current_provider,
                 "local": {
                     "model": self.whisper_model_combo.currentText(),
-                    "language": self.whisper_language_combo.currentText(),
+                    "language": self.whisper_language_combo.currentData() or "auto",
                     "auto_load": self.auto_load_model_checkbox.isChecked(),
                 },
                 "groq": {
@@ -411,7 +687,7 @@ class TranscriptionTab(BaseSettingsTab):
         # streaming_mode只在local provider下才从UI读取并保存
         if current_provider == "local":
             config["transcription"]["local"]["streaming_mode"] = (
-                self.streaming_mode_combo.currentText()
+                self.streaming_mode_combo.currentData() or "chunked"
             )
         # 否则不添加streaming_mode字段（保持config文件中的原值）
 
@@ -430,7 +706,7 @@ class TranscriptionTab(BaseSettingsTab):
 
     def _test_model(self) -> None:
         """测试模型或 API 连接 - 根据提供商类型"""
-        provider = self.transcription_provider_combo.currentText()
+        provider = self.transcription_provider_combo.currentData() or "local"
 
         if provider == "local":
             # Local 模式：测试本地模型
@@ -447,36 +723,41 @@ class TranscriptionTab(BaseSettingsTab):
             self._test_qwen_api()
 
     def _test_groq_api(self) -> None:
-        """测试 Groq API 连接（异步，不阻塞UI）"""
+        """Test Groq API connection."""
         import threading
         import time
 
         from PySide6.QtCore import QTimer
 
-        # 检查 API key
         api_key = self.groq_api_key_edit.text().strip()
         if not api_key:
             QMessageBox.warning(
                 self.parent_window,
-                "API Key Missing",
-                "Please enter your Groq API key first.",
+                QCoreApplication.translate("TranscriptionTab", "API Key Missing"),
+                QCoreApplication.translate(
+                    "TranscriptionTab", "Please enter your Groq API key first."
+                ),
             )
             return
 
-        # 显示测试中对话框
         model = self.groq_model_combo.currentText()
         progress_dialog = QMessageBox(self.parent_window)
-        progress_dialog.setWindowTitle("Testing Groq API")
+        progress_dialog.setWindowTitle(
+            QCoreApplication.translate("TranscriptionTab", "Testing Groq API")
+        )
         progress_dialog.setText(
-            f"Testing Groq API connection...\n\nModel: {model}\n\nThis may take a few seconds."
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "Testing Groq API connection...\n\n"
+                "Model: {model}\n\n"
+                "This may take a few seconds.",
+            ).format(model=model)
         )
         progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
         progress_dialog.show()
 
-        # 处理事件以显示对话框
         QApplication.processEvents()
 
-        # 创建后台线程运行测试
         result_container = {"success": False, "error": ""}
 
         def test_connection_thread():
@@ -488,386 +769,471 @@ class TranscriptionTab(BaseSettingsTab):
                 result_container["success"] = success
 
                 if not success:
-                    result_container["error"] = "Failed to initialize Groq client"
+                    result_container["error"] = QCoreApplication.translate(
+                        "TranscriptionTab", "Failed to initialize Groq client"
+                    )
 
             except Exception as e:
                 result_container["success"] = False
                 result_container["error"] = str(e)
 
-        # 启动测试线程
         test_thread = threading.Thread(target=test_connection_thread, daemon=True)
         test_thread.start()
 
-        # 保存测试状态
         self._groq_test_thread = test_thread
         self._groq_test_result = result_container
         self._groq_progress_dialog = progress_dialog
         self._groq_test_start_time = time.time()
         self._groq_test_model = model
 
-        # 创建定时器轮询测试状态
         self._groq_test_timer = QTimer()
         self._groq_test_timer.timeout.connect(self._check_groq_test_status)
-        self._groq_test_timer.start(100)  # 每100ms检查一次
+        self._groq_test_timer.start(100)
 
     def _check_groq_test_status(self) -> None:
-        """检查 Groq API 测试状态"""
+        """Check Groq API test status."""
         import time
 
         try:
             thread_alive = self._groq_test_thread.is_alive()
             elapsed_time = time.time() - self._groq_test_start_time
 
-            # 检查测试线程是否完成
-            if not thread_alive:
-                # 测试完成，停止定时器
+            if not thread_alive or elapsed_time > 30:
                 self._groq_test_timer.stop()
-                self._groq_progress_dialog.close()
 
-                # 显示结果
+                if (
+                    self._groq_progress_dialog
+                    and self._groq_progress_dialog.result()
+                    == QMessageBox.StandardButton.Cancel
+                ):
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API test cancelled"
+                        )
+                    )
+                    return
+
                 if self._groq_test_result["success"]:
-                    self.model_status_label.setText("API connection successful")
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API connection successful"
+                        )
+                    )
                     QMessageBox.information(
                         self.parent_window,
-                        "API Test Successful",
-                        f"Successfully connected to Groq API!\n\nModel: {self._groq_test_model}\n\nYou can now use cloud transcription.",
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API Test Successful"
+                        ),
+                        QCoreApplication.translate(
+                            "TranscriptionTab",
+                            "Successfully connected to Groq API!\n\n"
+                            "Model: {model}\n\n"
+                            "You can now use cloud transcription.",
+                        ).format(model=self._groq_test_model),
                     )
                 else:
-                    error_msg = self._groq_test_result["error"] or "Unknown error"
-                    self.model_status_label.setText("API connection failed")
+                    error_msg = self._groq_test_result[
+                        "error"
+                    ] or QCoreApplication.translate("TranscriptionTab", "Unknown error")
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API connection failed"
+                        )
+                    )
                     QMessageBox.critical(
                         self.parent_window,
-                        "API Test Failed",
-                        f"Failed to connect to Groq API.\n\nError: {error_msg}\n\nPlease check:\n- API key is valid\n- Internet connection\n- Groq service status",
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API Test Failed"
+                        ),
+                        QCoreApplication.translate(
+                            "TranscriptionTab",
+                            "Failed to connect to Groq API.\n\n"
+                            "Error: {error}\n\n"
+                            "Please check:\n"
+                            "- API key is valid\n"
+                            "- Internet connection\n"
+                            "- Groq service status",
+                        ).format(error=error_msg),
                     )
-                return
 
-            # 检查用户是否点击了取消
-            if (
-                hasattr(self, "_groq_progress_dialog")
-                and self._groq_progress_dialog.result()
-                == QMessageBox.StandardButton.Cancel
-            ):
-                self._groq_test_timer.stop()
-                self._groq_progress_dialog.close()
-                self.model_status_label.setText("API test cancelled")
-                return
+                if self._groq_progress_dialog:
+                    self._groq_progress_dialog.hide()
 
-            # 不强制超时，由底层 API 的 timeout 配置控制
-            # 用户可以在配置中设置 groq.timeout
+                if thread_alive and elapsed_time > 30:
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API test cancelled"
+                        )
+                    )
 
         except Exception as e:
-            self._groq_test_timer.stop()
-            self._groq_progress_dialog.close()
-            self.model_status_label.setText("API test error")
+            self.model_status_label.setText(
+                QCoreApplication.translate("TranscriptionTab", "API test error")
+            )
             QMessageBox.critical(
                 self.parent_window,
-                "API Test Error",
-                f"Error during API test: {str(e)}",
+                QCoreApplication.translate("TranscriptionTab", "API Test Error"),
+                QCoreApplication.translate(
+                    "TranscriptionTab", "Error during API test: {error}"
+                ).format(error=e),
             )
 
     def _test_siliconflow_api(self) -> None:
-        """测试 SiliconFlow API 连接（异步，不阻塞UI）"""
+        """Test SiliconFlow API connection."""
         import threading
         import time
 
         from PySide6.QtCore import QTimer
 
-        # 检查 API key
         api_key = self.siliconflow_api_key_edit.text().strip()
         if not api_key:
             QMessageBox.warning(
                 self.parent_window,
-                "API Key Missing",
-                "Please enter your SiliconFlow API key first.",
+                QCoreApplication.translate("TranscriptionTab", "API Key Missing"),
+                QCoreApplication.translate(
+                    "TranscriptionTab", "Please enter your SiliconFlow API key first."
+                ),
             )
             return
 
-        # 显示测试中对话框
         model = self.siliconflow_model_combo.currentText()
         progress_dialog = QMessageBox(self.parent_window)
-        progress_dialog.setWindowTitle("Testing SiliconFlow API")
+        progress_dialog.setWindowTitle(
+            QCoreApplication.translate("TranscriptionTab", "Testing SiliconFlow API")
+        )
         progress_dialog.setText(
-            f"Testing SiliconFlow API connection...\n\nModel: {model}\n\nThis may take up to 30 seconds."
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "Testing SiliconFlow API connection...\n\n"
+                "Model: {model}\n\n"
+                "This may take up to 30 seconds.",
+            ).format(model=model)
         )
         progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
         progress_dialog.show()
 
-        # 处理事件以显示对话框
         QApplication.processEvents()
 
-        # 创建后台线程运行测试
         result_container = {"success": False, "error": ""}
 
         def test_connection_thread():
             try:
-                from sonicinput.speech.siliconflow_engine import SiliconFlowEngine
+                from sonicinput.speech.speech_service_factory import (
+                    SpeechServiceFactory,
+                )
 
-                service = SiliconFlowEngine(api_key=api_key, model_name=model)
-                success = service.test_connection()
+                service = SpeechServiceFactory.create_service(
+                    provider="siliconflow",
+                    api_key=api_key,
+                    model=model,
+                    base_url=self.siliconflow_base_url_edit.text().strip() or None,
+                )
+                result = service.test_connection()
+                if isinstance(result, dict):
+                    success = bool(result.get("success"))
+                    error_message = result.get("message") or result.get("error", "")
+                else:
+                    success = bool(result)
+                    error_message = ""
+
                 result_container["success"] = success
-
                 if not success:
-                    result_container["error"] = "Connection test failed"
+                    result_container["error"] = (
+                        error_message
+                        or QCoreApplication.translate(
+                            "TranscriptionTab", "Connection test failed"
+                        )
+                    )
 
             except Exception as e:
                 result_container["success"] = False
                 result_container["error"] = str(e)
 
-        # 启动测试线程
         test_thread = threading.Thread(target=test_connection_thread, daemon=True)
         test_thread.start()
 
-        # 保存测试状态
         self._siliconflow_test_thread = test_thread
         self._siliconflow_test_result = result_container
         self._siliconflow_progress_dialog = progress_dialog
         self._siliconflow_test_start_time = time.time()
         self._siliconflow_test_model = model
 
-        # 创建定时器轮询测试状态
         self._siliconflow_test_timer = QTimer()
         self._siliconflow_test_timer.timeout.connect(
             self._check_siliconflow_test_status
         )
-        self._siliconflow_test_timer.start(100)  # 每100ms检查一次
+        self._siliconflow_test_timer.start(100)
 
     def _check_siliconflow_test_status(self) -> None:
-        """检查 SiliconFlow API 测试状态"""
+        """Check SiliconFlow API test status."""
         import time
 
         try:
             thread_alive = self._siliconflow_test_thread.is_alive()
             elapsed_time = time.time() - self._siliconflow_test_start_time
 
-            # 检查测试线程是否完成
-            if not thread_alive:
-                # 测试完成，停止定时器
+            if not thread_alive or elapsed_time > 40:
                 self._siliconflow_test_timer.stop()
-                self._siliconflow_progress_dialog.close()
 
-                # 显示结果
+                if (
+                    self._siliconflow_progress_dialog
+                    and self._siliconflow_progress_dialog.result()
+                    == QMessageBox.StandardButton.Cancel
+                ):
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API test cancelled"
+                        )
+                    )
+                    return
+
                 if self._siliconflow_test_result["success"]:
-                    self.model_status_label.setText("API connection successful")
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API connection successful"
+                        )
+                    )
                     QMessageBox.information(
                         self.parent_window,
-                        "API Test Successful",
-                        f"Successfully connected to SiliconFlow API!\n\nModel: {self._siliconflow_test_model}\n\nYou can now use cloud transcription.",
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API Test Successful"
+                        ),
+                        QCoreApplication.translate(
+                            "TranscriptionTab",
+                            "Successfully connected to SiliconFlow API!\n\n"
+                            "Model: {model}\n\n"
+                            "You can now use cloud transcription.",
+                        ).format(model=self._siliconflow_test_model),
                     )
                 else:
-                    error_msg = (
-                        self._siliconflow_test_result["error"] or "Unknown error"
+                    error_msg = self._siliconflow_test_result[
+                        "error"
+                    ] or QCoreApplication.translate("TranscriptionTab", "Unknown error")
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API connection failed"
+                        )
                     )
-                    self.model_status_label.setText("API connection failed")
                     QMessageBox.critical(
                         self.parent_window,
-                        "API Test Failed",
-                        f"Failed to connect to SiliconFlow API.\n\nError: {error_msg}\n\nPlease check:\n- API key is valid\n- Internet connection\n- SiliconFlow service status",
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API Test Failed"
+                        ),
+                        QCoreApplication.translate(
+                            "TranscriptionTab",
+                            "Failed to connect to SiliconFlow API.\n\n"
+                            "Error: {error}\n\n"
+                            "Please check:\n"
+                            "- API key is valid\n"
+                            "- Internet connection\n"
+                            "- SiliconFlow service status",
+                        ).format(error=error_msg),
                     )
-                return
 
-            # 检查用户是否点击了取消
-            if (
-                hasattr(self, "_siliconflow_progress_dialog")
-                and self._siliconflow_progress_dialog.result()
-                == QMessageBox.StandardButton.Cancel
-            ):
-                self._siliconflow_test_timer.stop()
-                self._siliconflow_progress_dialog.close()
-                self.model_status_label.setText("API test cancelled")
-                return
+                if self._siliconflow_progress_dialog:
+                    self._siliconflow_progress_dialog.hide()
 
-            # 不强制超时，由底层 API 的 timeout 配置控制
-            # 用户可以在配置中设置 siliconflow.timeout
+                if thread_alive and elapsed_time > 40:
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API test cancelled"
+                        )
+                    )
 
         except Exception as e:
-            self._siliconflow_test_timer.stop()
-            self._siliconflow_progress_dialog.close()
-            self.model_status_label.setText("API test error")
+            self.model_status_label.setText(
+                QCoreApplication.translate("TranscriptionTab", "API test error")
+            )
             QMessageBox.critical(
                 self.parent_window,
-                "API Test Error",
-                f"Error during API test: {str(e)}",
+                QCoreApplication.translate("TranscriptionTab", "API Test Error"),
+                QCoreApplication.translate(
+                    "TranscriptionTab", "Error during API test: {error}"
+                ).format(error=e),
             )
 
-    def update_model_status(self, status: str) -> None:
-        """更新模型状态显示
-
-        Args:
-            status: 状态文本
-        """
-        self.model_status_label.setText(status)
-
-    def show_progress(self, visible: bool = True) -> None:
-        """显示/隐藏进度条
-
-        Args:
-            visible: 是否显示
-        """
-        if visible:
-            self.model_progress.show()
-        else:
-            self.model_progress.hide()
-
-    def set_progress(self, value: int) -> None:
-        """设置进度条值
-
-        Args:
-            value: 进度值 (0-100)
-        """
-        self.model_progress.setValue(value)
-
     def _on_provider_changed(self, provider: str) -> None:
-        """当转录提供商改变时更新UI显示
+        """Update UI visibility based on provider selection."""
+        provider_value = provider if isinstance(provider, str) else None
+        provider_value = (
+            provider_value or self.transcription_provider_combo.currentData() or "local"
+        )
 
-        Args:
-            provider: 提供商名称 ("local", "groq", "siliconflow", 或 "qwen")
-        """
-        is_local = provider == "local"
-        is_groq = provider == "groq"
-        is_siliconflow = provider == "siliconflow"
-        is_qwen = provider == "qwen"
+        is_local = provider_value == "local"
+        is_groq = provider_value == "groq"
+        is_siliconflow = provider_value == "siliconflow"
+        is_qwen = provider_value == "qwen"
 
-        # 显示/隐藏 sherpa-onnx 配置
+        # Show/hide sherpa-onnx settings
         self.model_group.setVisible(is_local)
 
-        # 显示/隐藏 Groq 配置
+        # Show/hide Groq settings
         self.groq_group.setVisible(is_groq)
 
-        # 显示/隐藏 SiliconFlow 配置
+        # Show/hide SiliconFlow settings
         self.siliconflow_group.setVisible(is_siliconflow)
 
-        # 显示/隐藏 Qwen 配置
+        # Show/hide Qwen settings
         self.qwen_group.setVisible(is_qwen)
 
-        # 调整 Model Management 区域
+        # Update Model Management / API Test section
         if is_local:
-            # Local 模式：显示模型管理
-            self.management_group.setTitle("Model Management")
-
-            # 使用占位符文本，Runtime状态由_on_model_loaded事件自动更新
-            self.model_status_label.setText("Checking model status...")
-            self.model_status_label.setStyleSheet("QLabel { color: #757575; }")  # Gray
+            self.management_group.setTitle(
+                QCoreApplication.translate("TranscriptionTab", "Model Management")
+            )
+            self.model_status_label.setText(
+                QCoreApplication.translate(
+                    "TranscriptionTab", "Checking model status..."
+                )
+            )
+            self.model_status_label.setStyleSheet("QLabel { color: #757575; }")
 
             self.load_model_button.setVisible(True)
             self.unload_model_button.setVisible(True)
-            self.test_model_button.setText("Test Model")
+            self.test_model_button.setText(
+                QCoreApplication.translate("TranscriptionTab", "Test Model")
+            )
         elif is_groq:
-            # Groq 模式：显示 API 测试
-            self.management_group.setTitle("API Connection Test")
+            self.management_group.setTitle(
+                QCoreApplication.translate("TranscriptionTab", "API Connection Test")
+            )
             self.model_status_label.setText(
-                "API key configured"
+                QCoreApplication.translate("TranscriptionTab", "API key configured")
                 if self.groq_api_key_edit.text().strip()
-                else "API key not configured"
+                else QCoreApplication.translate(
+                    "TranscriptionTab", "API key not configured"
+                )
             )
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
-            self.test_model_button.setText("Test API Connection")
+            self.test_model_button.setText(
+                QCoreApplication.translate("TranscriptionTab", "Test API Connection")
+            )
         elif is_siliconflow:
-            # SiliconFlow 模式：显示 API 测试
-            self.management_group.setTitle("API Connection Test")
+            self.management_group.setTitle(
+                QCoreApplication.translate("TranscriptionTab", "API Connection Test")
+            )
             self.model_status_label.setText(
-                "API key configured"
+                QCoreApplication.translate("TranscriptionTab", "API key configured")
                 if self.siliconflow_api_key_edit.text().strip()
-                else "API key not configured"
+                else QCoreApplication.translate(
+                    "TranscriptionTab", "API key not configured"
+                )
             )
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
-            self.test_model_button.setText("Test API Connection")
+            self.test_model_button.setText(
+                QCoreApplication.translate("TranscriptionTab", "Test API Connection")
+            )
         elif is_qwen:
-            # Qwen 模式：显示 API 测试
-            self.management_group.setTitle("API Connection Test")
+            self.management_group.setTitle(
+                QCoreApplication.translate("TranscriptionTab", "API Connection Test")
+            )
             self.model_status_label.setText(
-                "API key configured"
+                QCoreApplication.translate("TranscriptionTab", "API key configured")
                 if self.qwen_api_key_edit.text().strip()
-                else "API key not configured"
+                else QCoreApplication.translate(
+                    "TranscriptionTab", "API key not configured"
+                )
             )
             self.load_model_button.setVisible(False)
             self.unload_model_button.setVisible(False)
-            self.test_model_button.setText("Test API Connection")
+            self.test_model_button.setText(
+                QCoreApplication.translate("TranscriptionTab", "Test API Connection")
+            )
 
     def _on_groq_api_key_changed(self, text: str) -> None:
-        """当 Groq API key 改变时更新状态
-
-        Args:
-            text: API key 文本
-        """
-        # 只在 Groq 模式下更新状态
-        provider = self.transcription_provider_combo.currentText()
+        """Handle Groq API key changes."""
+        provider = self.transcription_provider_combo.currentData() or "local"
         if provider == "groq":
             if text.strip():
-                self.model_status_label.setText("API key configured")
+                self.model_status_label.setText(
+                    QCoreApplication.translate("TranscriptionTab", "API key configured")
+                )
             else:
-                self.model_status_label.setText("API key not configured")
+                self.model_status_label.setText(
+                    QCoreApplication.translate(
+                        "TranscriptionTab", "API key not configured"
+                    )
+                )
 
     def _on_siliconflow_api_key_changed(self, text: str) -> None:
-        """当 SiliconFlow API key 改变时更新状态
-
-        Args:
-            text: API key 文本
-        """
-        # 只在 SiliconFlow 模式下更新状态
-        provider = self.transcription_provider_combo.currentText()
+        """Handle SiliconFlow API key changes."""
+        provider = self.transcription_provider_combo.currentData() or "local"
         if provider == "siliconflow":
             if text.strip():
-                self.model_status_label.setText("API key configured")
+                self.model_status_label.setText(
+                    QCoreApplication.translate("TranscriptionTab", "API key configured")
+                )
             else:
-                self.model_status_label.setText("API key not configured")
+                self.model_status_label.setText(
+                    QCoreApplication.translate(
+                        "TranscriptionTab", "API key not configured"
+                    )
+                )
 
     # ==================== Qwen API Methods ====================
 
     def _on_qwen_api_key_changed(self, text: str) -> None:
-        """当 Qwen API key 改变时更新状态
-
-        Args:
-            text: API key 文本
-        """
-        # 只在 Qwen 模式下更新状态
-        provider = self.transcription_provider_combo.currentText()
+        """Handle Qwen API key changes."""
+        provider = self.transcription_provider_combo.currentData() or "local"
         if provider == "qwen":
             if text.strip():
-                self.model_status_label.setText("API key configured")
+                self.model_status_label.setText(
+                    QCoreApplication.translate("TranscriptionTab", "API key configured")
+                )
             else:
-                self.model_status_label.setText("API key not configured")
+                self.model_status_label.setText(
+                    QCoreApplication.translate(
+                        "TranscriptionTab", "API key not configured"
+                    )
+                )
 
     def _test_qwen_api(self) -> None:
-        """测试 Qwen API 连接（异步，不阻塞UI）"""
+        """Test Qwen API connection."""
         import threading
         import time
 
         from PySide6.QtCore import QTimer
 
-        # 检查 API key
         api_key = self.qwen_api_key_edit.text().strip()
         if not api_key:
             QMessageBox.warning(
                 self.parent_window,
-                "API Key Missing",
-                "Please enter your Qwen (DashScope) API key first.",
+                QCoreApplication.translate("TranscriptionTab", "API Key Missing"),
+                QCoreApplication.translate(
+                    "TranscriptionTab",
+                    "Please enter your Qwen (DashScope) API key first.",
+                ),
             )
             return
 
-        # 显示测试中对话框
         model = self.qwen_model_combo.currentText()
         progress_dialog = QMessageBox(self.parent_window)
-        progress_dialog.setWindowTitle("Testing Qwen API")
+        progress_dialog.setWindowTitle(
+            QCoreApplication.translate("TranscriptionTab", "Testing Qwen API")
+        )
         progress_dialog.setText(
-            f"Testing Qwen ASR API connection...\n\nModel: {model}\n\nThis may take a few seconds."
+            QCoreApplication.translate(
+                "TranscriptionTab",
+                "Testing Qwen ASR API connection...\n\n"
+                "Model: {model}\n\n"
+                "This may take a few seconds.",
+            ).format(model=model)
         )
         progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
         progress_dialog.show()
 
-        # 处理事件以显示对话框
         QApplication.processEvents()
 
-        # 创建后台线程运行测试
         result_container = {"success": False, "error": ""}
 
         def test_connection_thread():
             try:
-                from ...speech.speech_service_factory import SpeechServiceFactory
+                from sonicinput.speech.speech_service_factory import (
+                    SpeechServiceFactory,
+                )
 
-                # 创建 Qwen 服务实例
                 service = SpeechServiceFactory.create_service(
                     provider="qwen",
                     api_key=api_key,
@@ -876,86 +1242,124 @@ class TranscriptionTab(BaseSettingsTab):
                     or "https://dashscope.aliyuncs.com",
                     enable_itn=self.qwen_enable_itn_checkbox.isChecked(),
                 )
+                result = service.test_connection()
+                if isinstance(result, dict):
+                    success = bool(result.get("success"))
+                    error_message = result.get("message") or result.get("error", "")
+                else:
+                    success = bool(result)
+                    error_message = ""
 
-                # 执行连接测试
-                success = service.test_connection()
                 result_container["success"] = success
-
                 if not success:
-                    result_container["error"] = "Connection test failed"
+                    result_container["error"] = (
+                        error_message
+                        or QCoreApplication.translate(
+                            "TranscriptionTab", "Connection test failed"
+                        )
+                    )
 
             except Exception as e:
                 result_container["success"] = False
                 result_container["error"] = str(e)
 
-        # 启动测试线程
         test_thread = threading.Thread(target=test_connection_thread, daemon=True)
         test_thread.start()
 
-        # 保存测试状态
         self._qwen_test_thread = test_thread
         self._qwen_test_result = result_container
         self._qwen_progress_dialog = progress_dialog
         self._qwen_test_start_time = time.time()
         self._qwen_test_model = model
 
-        # 创建定时器轮询测试状态
         self._qwen_test_timer = QTimer()
         self._qwen_test_timer.timeout.connect(self._check_qwen_test_status)
-        self._qwen_test_timer.start(100)  # 每100ms检查一次
+        self._qwen_test_timer.start(100)
 
     def _check_qwen_test_status(self) -> None:
-        """检查 Qwen API 测试状态"""
+        """Check Qwen API test status."""
         import time
 
         try:
             thread_alive = self._qwen_test_thread.is_alive()
             elapsed_time = time.time() - self._qwen_test_start_time
 
-            # 检查测试线程是否完成
-            if not thread_alive:
-                # 测试完成，停止定时器
+            if not thread_alive or elapsed_time > 30:
                 self._qwen_test_timer.stop()
-                self._qwen_progress_dialog.close()
 
-                # 显示结果
+                if (
+                    self._qwen_progress_dialog
+                    and self._qwen_progress_dialog.result()
+                    == QMessageBox.StandardButton.Cancel
+                ):
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API test cancelled"
+                        )
+                    )
+                    return
+
                 if self._qwen_test_result["success"]:
-                    self.model_status_label.setText("API connection successful")
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API connection successful"
+                        )
+                    )
                     QMessageBox.information(
                         self.parent_window,
-                        "API Test Successful",
-                        f"Successfully connected to Qwen ASR API!\n\nModel: {self._qwen_test_model}\n\nYou can now use cloud transcription.",
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API Test Successful"
+                        ),
+                        QCoreApplication.translate(
+                            "TranscriptionTab",
+                            "Successfully connected to Qwen ASR API!\n\n"
+                            "Model: {model}\n\n"
+                            "You can now use cloud transcription.",
+                        ).format(model=self._qwen_test_model),
                     )
                 else:
-                    error_msg = self._qwen_test_result["error"] or "Unknown error"
-                    self.model_status_label.setText("API connection failed")
+                    error_msg = self._qwen_test_result[
+                        "error"
+                    ] or QCoreApplication.translate("TranscriptionTab", "Unknown error")
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API connection failed"
+                        )
+                    )
                     QMessageBox.critical(
                         self.parent_window,
-                        "API Test Failed",
-                        f"Failed to connect to Qwen ASR API.\n\nError: {error_msg}\n\nPlease check:\n- DashScope API key is valid\n- Internet connection\n- Qwen service status",
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API Test Failed"
+                        ),
+                        QCoreApplication.translate(
+                            "TranscriptionTab",
+                            "Failed to connect to Qwen ASR API.\n\n"
+                            "Error: {error}\n\n"
+                            "Please check:\n"
+                            "- DashScope API key is valid\n"
+                            "- Internet connection\n"
+                            "- Qwen service status",
+                        ).format(error=error_msg),
                     )
-                return
 
-            # 检查用户是否点击了取消
-            if (
-                hasattr(self, "_qwen_progress_dialog")
-                and self._qwen_progress_dialog.result()
-                == QMessageBox.StandardButton.Cancel
-            ):
-                self._qwen_test_timer.stop()
-                self._qwen_progress_dialog.close()
-                self.model_status_label.setText("API test cancelled")
-                return
+                if self._qwen_progress_dialog:
+                    self._qwen_progress_dialog.hide()
 
-            # 不强制超时，由底层 API 的 timeout 配置控制
-            # 用户可以在配置中设置 qwen.timeout
+                if thread_alive and elapsed_time > 30:
+                    self.model_status_label.setText(
+                        QCoreApplication.translate(
+                            "TranscriptionTab", "API test cancelled"
+                        )
+                    )
 
         except Exception as e:
-            self._qwen_test_timer.stop()
-            self._qwen_progress_dialog.close()
-            self.model_status_label.setText("API test error")
+            self.model_status_label.setText(
+                QCoreApplication.translate("TranscriptionTab", "API test error")
+            )
             QMessageBox.critical(
                 self.parent_window,
-                "API Test Error",
-                f"Error during API test: {str(e)}",
+                QCoreApplication.translate("TranscriptionTab", "API Test Error"),
+                QCoreApplication.translate(
+                    "TranscriptionTab", "Error during API test: {error}"
+                ).format(error=e),
             )

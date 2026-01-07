@@ -4,6 +4,7 @@
 采用纯依赖注入模式，符合SOLID原则。
 """
 
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from ...utils import app_logger
@@ -13,6 +14,7 @@ from ..interfaces import (
     ISpeechService,
     IStateManager,
 )
+from .config import ConfigKeys
 from ..services.storage.history_storage_service import HistoryStorageService
 
 
@@ -121,6 +123,7 @@ class UISettingsService:
         history_service: HistoryStorageService,
         transcription_service=None,
         ai_processing_controller=None,
+        localization_service=None,
         container=None,
     ):
         """初始化UI设置服务
@@ -138,6 +141,7 @@ class UISettingsService:
         self.history_service = history_service
         self._transcription_service = transcription_service
         self.ai_processing_controller = ai_processing_controller
+        self.localization_service = localization_service
         self._container = container
         app_logger.log_audio_event("UISettingsService initialized", {})
 
@@ -224,6 +228,151 @@ class UISettingsService:
     def get_ai_processing_controller(self):
         """获取AI处理控制器"""
         return self.ai_processing_controller
+
+    def get_localization_service(self):
+        """Get UI localization service."""
+        return self.localization_service
+
+
+class UILocalizationService:
+    """UI localization service."""
+
+    _LANGUAGE_DISPLAY = {
+        "auto": "System (Auto)",
+        "en-US": "English",
+        "zh-CN": "Simplified Chinese",
+    }
+
+    def __init__(self, config_service: IConfigService, event_service: IEventService):
+        self.config_service = config_service
+        self.event_service = event_service
+        self._translator = None
+        self._current_language = None
+        self._translation_dir = self._resolve_translation_dir()
+        app_logger.log_audio_event(
+            "UILocalizationService initialized",
+            {"translation_dir": str(self._translation_dir)},
+        )
+
+    def get_supported_languages(self) -> Dict[str, str]:
+        """Return supported UI languages."""
+        return dict(self._LANGUAGE_DISPLAY)
+
+    def get_configured_language(self) -> str:
+        """Return configured language or auto if unset."""
+        return self.config_service.get_setting(ConfigKeys.UI_LANGUAGE, "auto") or "auto"
+
+    def get_active_language(self) -> str:
+        """Return resolved active language code."""
+        return self._current_language or self._resolve_language(
+            self.get_configured_language()
+        )
+
+    def apply_language(self, language: Optional[str] = None) -> str:
+        """Apply language change to the running UI."""
+        target = self._resolve_language(language or self.get_configured_language())
+        if target == self._current_language:
+            return target
+
+        applied = self._install_translator(target)
+        self._current_language = target
+
+        from .event_bus import Events
+
+        self.event_service.emit(
+            Events.UI_LANGUAGE_CHANGED,
+            {"language": target, "applied": applied},
+        )
+        return target
+
+    def _resolve_language(self, language: str) -> str:
+        normalized = self._normalize_language_code(language)
+        if normalized == "auto":
+            normalized = self._normalize_language_code(self._get_system_locale())
+
+        if normalized in self._LANGUAGE_DISPLAY:
+            return normalized
+
+        base = normalized.split("-")[0]
+        for code in self._LANGUAGE_DISPLAY:
+            if code.startswith(base):
+                return code
+
+        return "en-US"
+
+    def _normalize_language_code(self, language: Optional[str]) -> str:
+        if not language:
+            return "auto"
+
+        code = language.strip().replace("_", "-")
+        if code.lower() == "auto":
+            return "auto"
+
+        if "-" in code:
+            parts = code.split("-", 1)
+            return f"{parts[0].lower()}-{parts[1].upper()}"
+
+        code = code.lower()
+        if code == "en":
+            return "en-US"
+        if code == "zh":
+            return "zh-CN"
+        return code
+
+    def _get_system_locale(self) -> str:
+        try:
+            from PySide6.QtCore import QLocale
+
+            return QLocale.system().name()
+        except Exception:
+            return "en-US"
+
+    def _install_translator(self, language: str) -> bool:
+        from PySide6.QtCore import QCoreApplication, QTranslator
+
+        app = QCoreApplication.instance()
+        if app is None:
+            app_logger.log_audio_event(
+                "UILocalizationService skipped install (no QCoreApplication)",
+                {"language": language},
+            )
+            return False
+
+        if self._translator:
+            app.removeTranslator(self._translator)
+            self._translator = None
+
+        if language == "en-US":
+            return True
+
+        qm_path = self._translation_dir / f"sonicinput_{language.replace('-', '_')}.qm"
+        if not qm_path.exists():
+            app_logger.log_audio_event(
+                "Translation file missing",
+                {"language": language, "path": str(qm_path)},
+            )
+            return False
+
+        translator = QTranslator()
+        if not translator.load(str(qm_path)):
+            app_logger.log_audio_event(
+                "Failed to load translation",
+                {"language": language, "path": str(qm_path)},
+            )
+            return False
+
+        app.installTranslator(translator)
+        self._translator = translator
+        return True
+
+    @staticmethod
+    def _resolve_translation_dir() -> Path:
+        current = Path(__file__).resolve()
+        for parent in current.parents:
+            assets_dir = parent / "assets"
+            if assets_dir.is_dir():
+                return assets_dir / "i18n"
+        return current.parents[4] / "assets" / "i18n"
 
 
 class UIModelService:

@@ -41,6 +41,7 @@ nuitka_cmd = [
     "--enable-plugin=pyside6",  # Enable PySide6 plugin for Qt support
     # Package inclusions
     "--include-package=sonicinput",  # Main application package
+    "--include-data-dir=assets=assets",  # UI translations/fonts and other assets
     # Exclude test/dev dependencies and local transcription
     "--nofollow-import-to=pytest",
     "--nofollow-import-to=mypy",

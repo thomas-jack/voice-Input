@@ -1,6 +1,8 @@
 {
   "hotkeys": {
-    "keys": ["ctrl+shift+v"],
+    "keys": [
+      "ctrl+shift+v"
+    ],
     "backend": "auto"
   },
   "transcription": {
@@ -85,7 +87,8 @@
     "overlay_always_on_top": true,
     "tray_notifications": false,
     "start_minimized": true,
-    "theme_color": "cyan"
+    "theme_color": "cyan",
+    "language": "auto"
   },
   "input": {
     "preferred_method": "clipboard",

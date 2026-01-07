@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, Optional
 
-from PySide6.QtCore import Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QCoreApplication, Qt, QThread, QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -34,7 +34,11 @@ class ModelTestThread(QThread):
         try:
             import numpy as np
 
-            self.progress_update.emit("Creating test audio (2s low-level noise)...")
+            self.progress_update.emit(
+                QCoreApplication.translate(
+                    "MainWindow", "Creating test audio (2s low-level noise)..."
+                )
+            )
             # Create low-level white noise instead of silence to avoid hallucination
             # Use shorter duration and very low amplitude
             duration = 2  # 2 seconds
@@ -49,7 +53,11 @@ class ModelTestThread(QThread):
                 {"audio_type": "low_noise", "duration": duration, "amplitude": "0.001"},
             )
 
-            self.progress_update.emit("Running transcription test...")
+            self.progress_update.emit(
+                QCoreApplication.translate(
+                    "MainWindow", "Running transcription test..."
+                )
+            )
             result = self.whisper_engine.transcribe(test_audio)
 
             # Check for hallucination patterns
@@ -172,7 +180,7 @@ class MainWindow(QMainWindow):
         """配置窗口基本属性"""
         from .utils import create_app_icon
 
-        self.setWindowTitle("Sonic Input")
+        self.setWindowTitle(QCoreApplication.translate("MainWindow", "Sonic Input"))
         self.setWindowIcon(create_app_icon())
         self.setFixedSize(400, 300)  # 固定小尺寸
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.WindowCloseButtonHint)
@@ -190,25 +198,67 @@ class MainWindow(QMainWindow):
         layout.setSpacing(15)
 
         # 状态显示
-        self.status_label = QLabel("Sonic Input")
+        self.status_label = QLabel(
+            QCoreApplication.translate("MainWindow", "Sonic Input")
+        )
+        self.status_label.setProperty("status_key", "title")
         self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.status_label.setStyleSheet("font-size: 16px; font-weight: bold;")
         layout.addWidget(self.status_label)
 
         # 录音控制
-        self.recording_button = QPushButton("Start Recording")
+        self.recording_button = QPushButton(
+            QCoreApplication.translate("MainWindow", "Start Recording")
+        )
+        self.recording_button.setProperty("recording_state", "idle")
         self.recording_button.clicked.connect(self.toggle_recording)
         layout.addWidget(self.recording_button)
 
         # 设置按钮
-        self.settings_button = QPushButton("Settings")
+        self.settings_button = QPushButton(
+            QCoreApplication.translate("MainWindow", "Settings")
+        )
         self.settings_button.clicked.connect(self.show_settings)
         layout.addWidget(self.settings_button)
 
         # 最小化到托盘按钮
-        self.minimize_button = QPushButton("Minimize to Tray")
+        self.minimize_button = QPushButton(
+            QCoreApplication.translate("MainWindow", "Minimize to Tray")
+        )
         self.minimize_button.clicked.connect(self.hide)
         layout.addWidget(self.minimize_button)
+
+        self.retranslate_ui()
+
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+        self.setWindowTitle(QCoreApplication.translate("MainWindow", "Sonic Input"))
+
+        status_key = self.status_label.property("status_key") or "title"
+        status_map = {
+            "title": QCoreApplication.translate("MainWindow", "Sonic Input"),
+            "ready": QCoreApplication.translate("MainWindow", "Ready"),
+            "recording": QCoreApplication.translate("MainWindow", "Recording..."),
+        }
+        if status_key in status_map:
+            self.status_label.setText(status_map[status_key])
+
+        recording_state = self.recording_button.property("recording_state") or "idle"
+        if recording_state == "recording":
+            self.recording_button.setText(
+                QCoreApplication.translate("MainWindow", "Stop Recording")
+            )
+        else:
+            self.recording_button.setText(
+                QCoreApplication.translate("MainWindow", "Start Recording")
+            )
+
+        self.settings_button.setText(
+            QCoreApplication.translate("MainWindow", "Settings")
+        )
+        self.minimize_button.setText(
+            QCoreApplication.translate("MainWindow", "Minimize to Tray")
+        )
 
     def set_ui_services(
         self,
@@ -237,20 +287,35 @@ class MainWindow(QMainWindow):
         events = self.ui_main_service.get_event_service()
         events.on(Events.RECORDING_STARTED, self._on_recording_started)
         events.on(Events.RECORDING_STOPPED, self._on_recording_stopped)
+        events.on(Events.UI_LANGUAGE_CHANGED, self._on_language_changed)
 
         # 快捷键事件
         events.on(Events.HOTKEY_CONFLICT, self._on_hotkey_conflict)
         events.on(Events.HOTKEY_REGISTRATION_ERROR, self._on_hotkey_registration_error)
 
+    def _on_language_changed(self, data: object = None) -> None:
+        """Handle runtime UI language change."""
+        self.retranslate_ui()
+
     def _on_recording_started(self, data: Any = None) -> None:
-        """录音开始事件"""
-        self.recording_button.setText("Stop Recording")
-        self.status_label.setText("Recording...")
+        """??????"""
+        self.recording_button.setText(
+            QCoreApplication.translate("MainWindow", "Stop Recording")
+        )
+        self.recording_button.setProperty("recording_state", "recording")
+        self.status_label.setText(
+            QCoreApplication.translate("MainWindow", "Recording...")
+        )
+        self.status_label.setProperty("status_key", "recording")
 
     def _on_recording_stopped(self, audio_length: int) -> None:
-        """录音停止事件"""
-        self.recording_button.setText("Start Recording")
-        self.status_label.setText("Ready")
+        """??????"""
+        self.recording_button.setText(
+            QCoreApplication.translate("MainWindow", "Start Recording")
+        )
+        self.recording_button.setProperty("recording_state", "idle")
+        self.status_label.setText(QCoreApplication.translate("MainWindow", "Ready"))
+        self.status_label.setProperty("status_key", "ready")
 
     def _on_hotkey_conflict(self, data: dict) -> None:
         """快捷键冲突事件"""
@@ -267,7 +332,7 @@ class MainWindow(QMainWindow):
             self.show_settings()
 
     def _on_hotkey_registration_error(self, data: dict) -> None:
-        """快捷键注册错误事件"""
+        """Handle hotkey registration error."""
         from .utils import show_hotkey_registration_error
 
         hotkey = data.get("hotkey", "Unknown")
@@ -275,11 +340,18 @@ class MainWindow(QMainWindow):
 
         show_hotkey_registration_error(
             self,
-            f"Failed to register hotkey '{hotkey}': {error}",
+            QCoreApplication.translate(
+                "MainWindow", "Failed to register hotkey '{hotkey}': {error}"
+            ).format(hotkey=hotkey, error=error),
             recovery_suggestions=[
-                "Try a different hotkey combination",
-                "Check the hotkey format (e.g., 'ctrl+shift+v')",
-                "Restart the application",
+                QCoreApplication.translate(
+                    "MainWindow", "Try a different hotkey combination"
+                ),
+                QCoreApplication.translate(
+                    "MainWindow",
+                    "Check the hotkey format (e.g., 'ctrl+shift+v')",
+                ),
+                QCoreApplication.translate("MainWindow", "Restart the application"),
             ],
         )
 
@@ -322,7 +394,7 @@ class MainWindow(QMainWindow):
             app_logger.log_error(e, "show_settings")
 
     def _on_model_load_requested(self, model_name: str) -> None:
-        """处理模型加载请求（使用简化的进度对话框）"""
+        """Handle model load request from settings window."""
         try:
             if self.ui_model_service:
                 app_logger.log_audio_event(
@@ -333,30 +405,36 @@ class MainWindow(QMainWindow):
                     self._settings_window if hasattr(self, "_settings_window") else None
                 )
 
-                # 创建简单的进度对话框
                 progress = QProgressDialog(
-                    f"Loading model: {model_name}...\nThis may take a few seconds.",
-                    None,  # No cancel button
+                    QCoreApplication.translate(
+                        "MainWindow",
+                        "Loading model: {model}...\nThis may take a few seconds.",
+                    ).format(model=model_name),
+                    None,
                     0,
-                    0,  # Indeterminate progress
+                    0,
                     parent_widget,
                 )
-                progress.setWindowTitle("Loading Model")
+                progress.setWindowTitle(
+                    QCoreApplication.translate("MainWindow", "Loading Model")
+                )
                 progress.setWindowModality(Qt.WindowModality.WindowModal)
                 progress.setMinimumDuration(0)
                 progress.setCancelButton(None)
                 progress.show()
 
-                # 强制刷新UI
                 QApplication.processEvents()
 
                 try:
-                    # 执行模型加载
                     success = self.ui_model_service.load_model(model_name)
                     progress.close()
 
                     if not success:
-                        raise Exception(f"Failed to load model '{model_name}'")
+                        raise Exception(
+                            QCoreApplication.translate(
+                                "MainWindow", "Failed to load model '{model}'."
+                            ).format(model=model_name)
+                        )
 
                     app_logger.log_audio_event(
                         "Model load completed successfully via GUI",
@@ -365,8 +443,10 @@ class MainWindow(QMainWindow):
 
                     QMessageBox.information(
                         parent_widget,
-                        "Model Loaded",
-                        f"Model '{model_name}' loaded successfully!",
+                        QCoreApplication.translate("MainWindow", "Model Loaded"),
+                        QCoreApplication.translate(
+                            "MainWindow", "Model '{model}' loaded successfully!"
+                        ).format(model=model_name),
                     )
 
                 except Exception as load_error:
@@ -374,11 +454,13 @@ class MainWindow(QMainWindow):
                     app_logger.log_error(load_error, "model_load_execution")
                     QMessageBox.critical(
                         parent_widget,
-                        "Model Load Failed",
-                        f"Failed to load model '{model_name}':\n{load_error}",
+                        QCoreApplication.translate("MainWindow", "Model Load Failed"),
+                        QCoreApplication.translate(
+                            "MainWindow",
+                            "Failed to load model '{model}':\n{error}",
+                        ).format(model=model_name, error=load_error),
                     )
 
-                # Always refresh status after load attempt
                 if hasattr(self, "_settings_window") and self._settings_window:
                     QTimer.singleShot(100, self._settings_window.refresh_model_status)
 
@@ -386,8 +468,10 @@ class MainWindow(QMainWindow):
             app_logger.log_error(e, "model_load_request_gui")
             QMessageBox.critical(
                 self._settings_window if hasattr(self, "_settings_window") else None,
-                "Error",
-                f"Error processing model load request:\n{e}",
+                QCoreApplication.translate("MainWindow", "Error"),
+                QCoreApplication.translate(
+                    "MainWindow", "Error processing model load request:\n{error}"
+                ).format(error=e),
             )
 
     def _on_model_unload_requested(self) -> None:
@@ -404,7 +488,7 @@ class MainWindow(QMainWindow):
             app_logger.log_error(e, "_on_model_unload_requested")
 
     def _on_model_test_requested(self) -> None:
-        """处理模型测试请求"""
+        """Handle model test request."""
         try:
             if self.ui_model_service:
                 whisper_engine = self.ui_model_service.get_whisper_engine()
@@ -414,8 +498,11 @@ class MainWindow(QMainWindow):
                         self._settings_window
                         if hasattr(self, "_settings_window")
                         else None,
-                        "Model Not Loaded",
-                        "Please load a model first before testing.",
+                        QCoreApplication.translate("MainWindow", "Model Not Loaded"),
+                        QCoreApplication.translate(
+                            "MainWindow",
+                            "Please load a model first before testing.",
+                        ),
                     )
                     return
 
@@ -424,9 +511,15 @@ class MainWindow(QMainWindow):
                 )
 
                 progress = QProgressDialog(
-                    "Testing model...", "Cancel", 0, 0, parent_widget
+                    QCoreApplication.translate("MainWindow", "Testing model..."),
+                    QCoreApplication.translate("MainWindow", "Cancel"),
+                    0,
+                    0,
+                    parent_widget,
                 )
-                progress.setWindowTitle("Model Test")
+                progress.setWindowTitle(
+                    QCoreApplication.translate("MainWindow", "Model Test")
+                )
                 progress.setWindowModality(Qt.WindowModality.WindowModal)
                 progress.setMinimumDuration(0)
                 progress.setCancelButton(None)
@@ -440,38 +533,74 @@ class MainWindow(QMainWindow):
                     progress.close()
 
                     if success:
-                        text_output = result.get("text", "No text detected")
+                        text_output = result.get(
+                            "text",
+                            QCoreApplication.translate(
+                                "MainWindow", "No text detected"
+                            ),
+                        )
                         is_hallucination = result.get("is_hallucination", False)
                         confidence = result.get("confidence", 0)
                         detected_language = result.get("language", "unknown")
 
-                        # Create informative message about the test result
                         if is_hallucination:
-                            analysis_text = f"**Analysis**: Output '{text_output}' appears to be a Whisper hallucination from noise audio, which is normal behavior."
-                        elif not text_output or text_output == "No text detected":
-                            analysis_text = "**Analysis**: No text detected from test audio, which is expected."
+                            analysis_text = QCoreApplication.translate(
+                                "MainWindow",
+                                "Analysis: Output '{text}' appears to be a Whisper hallucination from noise audio, which is normal behavior.",
+                            ).format(text=text_output)
+                        elif (
+                            not text_output
+                            or text_output
+                            == QCoreApplication.translate(
+                                "MainWindow", "No text detected"
+                            )
+                        ):
+                            analysis_text = QCoreApplication.translate(
+                                "MainWindow",
+                                "Analysis: No text detected from test audio, which is expected.",
+                            )
                         else:
-                            analysis_text = "**Analysis**: Model produced text output from test audio."
+                            analysis_text = QCoreApplication.translate(
+                                "MainWindow",
+                                "Analysis: Model produced text output from test audio.",
+                            )
 
                         QMessageBox.information(
                             parent_widget,
-                            "Model Test Result",
-                            f"**Model Test Successful!**\n\n"
-                            f"Model: {whisper_engine.model_name}\n"
-                            f"Device: {whisper_engine.device}\n"
-                            f"Detected Language: {detected_language}\n"
-                            f"Test Output: '{text_output}'\n"
-                            f"Confidence: {confidence:.2f}\n\n"
-                            f"{analysis_text}\n\n"
-                            f"The model is working correctly and can process audio!",
+                            QCoreApplication.translate(
+                                "MainWindow", "Model Test Result"
+                            ),
+                            QCoreApplication.translate(
+                                "MainWindow",
+                                "**Model Test Successful!**\n\n"
+                                "Model: {model}\n"
+                                "Device: {device}\n"
+                                "Detected Language: {language}\n"
+                                "Test Output: '{output}'\n"
+                                "Confidence: {confidence:.2f}\n\n"
+                                "{analysis}\n\n"
+                                "The model is working correctly and can process audio!",
+                            ).format(
+                                model=whisper_engine.model_name,
+                                device=whisper_engine.device,
+                                language=detected_language,
+                                output=text_output,
+                                confidence=confidence,
+                                analysis=analysis_text,
+                            ),
                         )
                     else:
                         QMessageBox.critical(
                             parent_widget,
-                            "Model Test Failed",
-                            f"**Model Test Failed**\n\n"
-                            f"Error: {error}\n\n"
-                            f"Please check the model status and try again.",
+                            QCoreApplication.translate(
+                                "MainWindow", "Model Test Failed"
+                            ),
+                            QCoreApplication.translate(
+                                "MainWindow",
+                                "**Model Test Failed**\n\n"
+                                "Error: {error}\n\n"
+                                "Please check the model status and try again.",
+                            ).format(error=error),
                         )
 
                 test_thread.progress_update.connect(on_progress_update)
@@ -485,10 +614,13 @@ class MainWindow(QMainWindow):
             app_logger.log_error(e, "_on_model_test_requested")
             QMessageBox.critical(
                 self._settings_window if hasattr(self, "_settings_window") else None,
-                "Model Test Failed",
-                f"**Model Test Failed**\n\n"
-                f"Error: {error_details}\n\n"
-                f"Please check the model status and try again.",
+                QCoreApplication.translate("MainWindow", "Model Test Failed"),
+                QCoreApplication.translate(
+                    "MainWindow",
+                    "**Model Test Failed**\n\n"
+                    "Error: {error}\n\n"
+                    "Please check the model status and try again.",
+                ).format(error=error_details),
             )
 
     def closeEvent(self, event):
@@ -500,8 +632,10 @@ class MainWindow(QMainWindow):
         # 可选：显示托盘通知
         if hasattr(self, "system_tray") and self.system_tray:
             self.system_tray.showMessage(
-                "Sonic Input",
-                "Application minimized to tray",
+                QCoreApplication.translate("MainWindow", "Sonic Input"),
+                QCoreApplication.translate(
+                    "MainWindow", "Application minimized to tray"
+                ),
                 QSystemTrayIcon.MessageIcon.Information,
                 2000,
             )

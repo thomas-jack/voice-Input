@@ -41,7 +41,8 @@ uv sync
 
 # 修改 build_nuitka.py，移除 sherpa-onnx 相关行：
 # 删除或注释掉：
-# "--include-package=sherpa_onnx",
+# "--include-package=sherpa_onnx"
+"--include-data-dir=assets=assets"  # UI assets (i18n, fonts),
 # "--include-package-data=sherpa_onnx",
 
 # 构建
@@ -281,6 +282,20 @@ sherpa_onnx/
 | 文件大小 | 较小 | 较大 |
 | 兼容性 | 需要 C 编译器 | 无需编译器 |
 | C 扩展 | 原生支持 | 可能需要额外配置 |
+
+## Localization (i18n)
+
+Update UI translations with Qt tools (PySide6 bundle):
+
+```bash
+# Extract/update source strings
+.\.venv\Lib\site-packages\PySide6\lupdate.exe -extensions py -recursive src app.py `
+  -ts assets\i18n\sonicinput_en_US.ts assets\i18n\sonicinput_zh_CN.ts
+
+# Compile .ts to .qm
+.\.venv\Lib\site-packages\PySide6\lrelease.exe assets\i18n\sonicinput_en_US.ts `
+  assets\i18n\sonicinput_zh_CN.ts
+```
 
 ---
 

@@ -4,7 +4,7 @@ import threading
 import time
 from typing import Any, Dict
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QCoreApplication, QTimer
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -41,18 +41,22 @@ class AITab(BaseSettingsTab):
 
         # AI Provider Selection
         provider_layout = QFormLayout()
+        self.provider_layout = provider_layout
         self.ai_provider_combo = QComboBox()
         self.ai_provider_combo.setObjectName("ai_provider_combo")
-        self.ai_provider_combo.addItems(
-            ["OpenRouter", "Groq", "NVIDIA", "OpenAI Compatible"]
-        )
-        provider_layout.addRow("AI Provider:", self.ai_provider_combo)
-        self.ai_provider_combo.currentTextChanged.connect(self._on_ai_provider_changed)
+        self.ai_provider_combo.addItem("OpenRouter", "openrouter")
+        self.ai_provider_combo.addItem("Groq", "groq")
+        self.ai_provider_combo.addItem("NVIDIA", "nvidia")
+        self.ai_provider_combo.addItem("OpenAI Compatible", "openai_compatible")
+        self.ai_provider_label = QLabel("AI Provider:")
+        provider_layout.addRow(self.ai_provider_label, self.ai_provider_combo)
+        self.ai_provider_combo.currentIndexChanged.connect(self._on_ai_provider_changed)
         layout.addLayout(provider_layout)
 
         # --- OpenRouter Group ---
         self.openrouter_group = QGroupBox("OpenRouter API Configuration")
         openrouter_layout = QFormLayout(self.openrouter_group)
+        self.openrouter_layout = openrouter_layout
 
         # API密钥
         api_key_layout = QHBoxLayout()
@@ -62,24 +66,27 @@ class AITab(BaseSettingsTab):
         self.api_key_input.setPlaceholderText("Enter your OpenRouter API key")
         api_key_layout.addWidget(self.api_key_input)
 
-        self.show_key_button = QPushButton("👁")
+        self.show_key_button = QPushButton(QCoreApplication.translate("AITab", "Show"))
         self.show_key_button.setFixedSize(30, 30)
         self.show_key_button.setCheckable(True)
         self.show_key_button.clicked.connect(self._toggle_api_key_visibility)
         api_key_layout.addWidget(self.show_key_button)
-        openrouter_layout.addRow("API Key:", api_key_layout)
+        self.openrouter_api_key_label = QLabel("API Key:")
+        openrouter_layout.addRow(self.openrouter_api_key_label, api_key_layout)
 
         # Model input
         self.ai_model_input = QLineEdit()
         self.ai_model_input.setPlaceholderText(
             "Enter AI model ID (e.g., anthropic/claude-3-sonnet)"
         )
-        openrouter_layout.addRow("Model ID:", self.ai_model_input)
+        self.openrouter_model_label = QLabel("Model ID:")
+        openrouter_layout.addRow(self.openrouter_model_label, self.ai_model_input)
         layout.addWidget(self.openrouter_group)
 
         # --- Groq Group ---
         self.groq_group = QGroupBox("Groq API Configuration")
         groq_layout = QFormLayout(self.groq_group)
+        self.groq_layout = groq_layout
 
         # API Key
         groq_api_key_layout = QHBoxLayout()
@@ -89,24 +96,29 @@ class AITab(BaseSettingsTab):
         self.groq_api_key_input.setPlaceholderText("Enter your Groq API key")
         groq_api_key_layout.addWidget(self.groq_api_key_input)
 
-        self.groq_show_key_button = QPushButton("👁")
+        self.groq_show_key_button = QPushButton(
+            QCoreApplication.translate("AITab", "Show")
+        )
         self.groq_show_key_button.setFixedSize(30, 30)
         self.groq_show_key_button.setCheckable(True)
         self.groq_show_key_button.clicked.connect(self._toggle_groq_api_key_visibility)
         groq_api_key_layout.addWidget(self.groq_show_key_button)
-        groq_layout.addRow("API Key:", groq_api_key_layout)
+        self.groq_api_key_label = QLabel("API Key:")
+        groq_layout.addRow(self.groq_api_key_label, groq_api_key_layout)
 
         # Model input
         self.groq_model_input = QLineEdit()
         self.groq_model_input.setPlaceholderText(
             "Enter AI model ID (e.g., llama3-70b-8192)"
         )
-        groq_layout.addRow("Model ID:", self.groq_model_input)
+        self.groq_model_label = QLabel("Model ID:")
+        groq_layout.addRow(self.groq_model_label, self.groq_model_input)
         layout.addWidget(self.groq_group)
 
         # --- NVIDIA Group ---
         self.nvidia_group = QGroupBox("NVIDIA API Configuration")
         nvidia_layout = QFormLayout(self.nvidia_group)
+        self.nvidia_layout = nvidia_layout
 
         # API Key
         nvidia_api_key_layout = QHBoxLayout()
@@ -116,26 +128,31 @@ class AITab(BaseSettingsTab):
         self.nvidia_api_key_input.setPlaceholderText("Enter your NVIDIA API key")
         nvidia_api_key_layout.addWidget(self.nvidia_api_key_input)
 
-        self.nvidia_show_key_button = QPushButton("👁")
+        self.nvidia_show_key_button = QPushButton(
+            QCoreApplication.translate("AITab", "Show")
+        )
         self.nvidia_show_key_button.setFixedSize(30, 30)
         self.nvidia_show_key_button.setCheckable(True)
         self.nvidia_show_key_button.clicked.connect(
             self._toggle_nvidia_api_key_visibility
         )
         nvidia_api_key_layout.addWidget(self.nvidia_show_key_button)
-        nvidia_layout.addRow("API Key:", nvidia_api_key_layout)
+        self.nvidia_api_key_label = QLabel("API Key:")
+        nvidia_layout.addRow(self.nvidia_api_key_label, nvidia_api_key_layout)
 
         # Model input
         self.nvidia_model_input = QLineEdit()
         self.nvidia_model_input.setPlaceholderText(
             "Enter AI model ID (e.g., meta/llama-3.1-8b-instruct)"
         )
-        nvidia_layout.addRow("Model ID:", self.nvidia_model_input)
+        self.nvidia_model_label = QLabel("Model ID:")
+        nvidia_layout.addRow(self.nvidia_model_label, self.nvidia_model_input)
         layout.addWidget(self.nvidia_group)
 
         # --- OpenAI Compatible Group ---
         self.openai_compatible_group = QGroupBox("OpenAI Compatible API Configuration")
         openai_compatible_layout = QFormLayout(self.openai_compatible_group)
+        self.openai_compatible_layout = openai_compatible_layout
 
         # Base URL
         self.openai_compatible_base_url_input = QLineEdit()
@@ -145,8 +162,9 @@ class AITab(BaseSettingsTab):
         self.openai_compatible_base_url_input.setPlaceholderText(
             "http://localhost:1234/v1"
         )
+        self.openai_compatible_base_url_label = QLabel("Base URL:")
         openai_compatible_layout.addRow(
-            "Base URL:", self.openai_compatible_base_url_input
+            self.openai_compatible_base_url_label, self.openai_compatible_base_url_input
         )
 
         # API Key (optional)
@@ -161,7 +179,9 @@ class AITab(BaseSettingsTab):
         )
         openai_compatible_api_key_layout.addWidget(self.openai_compatible_api_key_input)
 
-        self.openai_compatible_show_key_button = QPushButton("👁")
+        self.openai_compatible_show_key_button = QPushButton(
+            QCoreApplication.translate("AITab", "Show")
+        )
         self.openai_compatible_show_key_button.setFixedSize(30, 30)
         self.openai_compatible_show_key_button.setCheckable(True)
         self.openai_compatible_show_key_button.clicked.connect(
@@ -170,18 +190,25 @@ class AITab(BaseSettingsTab):
         openai_compatible_api_key_layout.addWidget(
             self.openai_compatible_show_key_button
         )
-        openai_compatible_layout.addRow("API Key:", openai_compatible_api_key_layout)
+        self.openai_compatible_api_key_label = QLabel("API Key:")
+        openai_compatible_layout.addRow(
+            self.openai_compatible_api_key_label, openai_compatible_api_key_layout
+        )
 
         # Model ID
         self.openai_compatible_model_input = QLineEdit()
         self.openai_compatible_model_input.setPlaceholderText("local-model")
-        openai_compatible_layout.addRow("Model ID:", self.openai_compatible_model_input)
+        self.openai_compatible_model_label = QLabel("Model ID:")
+        openai_compatible_layout.addRow(
+            self.openai_compatible_model_label, self.openai_compatible_model_input
+        )
 
         # 说明
         info_label = QLabel(
             "💡 For LM Studio, Ollama, vLLM, text-generation-webui, etc."
         )
         info_label.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
+        self.openai_compatible_info_label = info_label
         openai_compatible_layout.addRow("", info_label)
 
         layout.addWidget(self.openai_compatible_group)
@@ -189,6 +216,8 @@ class AITab(BaseSettingsTab):
         # --- Common Settings ---
         common_group = QGroupBox("Common AI Settings")
         common_layout = QFormLayout(common_group)
+        self.common_group = common_group
+        self.common_layout = common_layout
 
         self.ai_enabled_checkbox = QCheckBox("Enable AI text optimization")
         common_layout.addRow("", self.ai_enabled_checkbox)
@@ -204,27 +233,34 @@ class AITab(BaseSettingsTab):
         self.api_timeout_spinbox = QSpinBox()
         self.api_timeout_spinbox.setRange(5, 120)
         self.api_timeout_spinbox.setSuffix(" seconds")
-        common_layout.addRow("Timeout:", self.api_timeout_spinbox)
+        self.common_timeout_label = QLabel("Timeout:")
+        common_layout.addRow(self.common_timeout_label, self.api_timeout_spinbox)
 
         self.api_retries_spinbox = QSpinBox()
         self.api_retries_spinbox.setRange(0, 5)
-        common_layout.addRow("Max Retries:", self.api_retries_spinbox)
+        self.common_retries_label = QLabel("Max Retries:")
+        common_layout.addRow(self.common_retries_label, self.api_retries_spinbox)
         layout.addWidget(common_group)
 
         # API测试组
         test_group = QGroupBox("API Testing")
         test_layout = QVBoxLayout(test_group)
+        self.test_group = test_group
+        self.test_layout = test_layout
         self.test_connection_button = QPushButton("Test Connection")
         self.test_connection_button.setObjectName("test_connection_btn")
         self.test_connection_button.clicked.connect(self._test_api_connection)
         test_layout.addWidget(self.test_connection_button)
         self.api_status_label = QLabel("Not tested")
+        self.api_status_label.setProperty("status_key", "not_tested")
         test_layout.addWidget(self.api_status_label)
         layout.addWidget(test_group)
 
         # System Prompt configuration
         prompt_group = QGroupBox("System Prompt Configuration")
         prompt_layout = QVBoxLayout(prompt_group)
+        self.prompt_group = prompt_group
+        self.prompt_layout = prompt_layout
 
         # 说明文字
         instruction_label = QLabel(
@@ -235,6 +271,7 @@ class AITab(BaseSettingsTab):
         instruction_label.setStyleSheet(
             "color: #ccc; font-size: 11px; margin-bottom: 8px;"
         )
+        self.prompt_instruction_label = instruction_label
         prompt_layout.addWidget(instruction_label)
 
         self.prompt_text_edit = QTextEdit()
@@ -255,6 +292,8 @@ class AITab(BaseSettingsTab):
         layout.addStretch()
 
         # 保存控件引用
+        self.retranslate_ui()
+
         self.controls = {
             "ai_provider": self.ai_provider_combo,
             "api_key": self.api_key_input,
@@ -294,6 +333,184 @@ class AITab(BaseSettingsTab):
         self.parent_window.api_retries_spinbox = self.api_retries_spinbox
         self.parent_window.prompt_text_edit = self.prompt_text_edit
 
+    def retranslate_ui(self) -> None:
+        """Update UI text for the current language."""
+        self.ai_provider_label.setText(
+            QCoreApplication.translate("AITab", "AI Provider:")
+        )
+        provider_texts = [
+            QCoreApplication.translate("AITab", "OpenRouter"),
+            QCoreApplication.translate("AITab", "Groq"),
+            QCoreApplication.translate("AITab", "NVIDIA"),
+            QCoreApplication.translate("AITab", "OpenAI Compatible"),
+        ]
+        for index, text_value in enumerate(provider_texts):
+            if index < self.ai_provider_combo.count():
+                self.ai_provider_combo.setItemText(index, text_value)
+
+        self.openrouter_group.setTitle(
+            QCoreApplication.translate("AITab", "OpenRouter API Configuration")
+        )
+        self.openrouter_api_key_label.setText(
+            QCoreApplication.translate("AITab", "API Key:")
+        )
+        self.openrouter_model_label.setText(
+            QCoreApplication.translate("AITab", "Model ID:")
+        )
+        self.api_key_input.setPlaceholderText(
+            QCoreApplication.translate("AITab", "Enter your OpenRouter API key")
+        )
+        self.ai_model_input.setPlaceholderText(
+            QCoreApplication.translate(
+                "AITab", "Enter AI model ID (e.g., anthropic/claude-3-sonnet)"
+            )
+        )
+
+        self.groq_group.setTitle(
+            QCoreApplication.translate("AITab", "Groq API Configuration")
+        )
+        self.groq_api_key_label.setText(QCoreApplication.translate("AITab", "API Key:"))
+        self.groq_model_label.setText(QCoreApplication.translate("AITab", "Model ID:"))
+        self.groq_api_key_input.setPlaceholderText(
+            QCoreApplication.translate("AITab", "Enter your Groq API key")
+        )
+        self.groq_model_input.setPlaceholderText(
+            QCoreApplication.translate(
+                "AITab", "Enter AI model ID (e.g., llama3-70b-8192)"
+            )
+        )
+
+        self.nvidia_group.setTitle(
+            QCoreApplication.translate("AITab", "NVIDIA API Configuration")
+        )
+        self.nvidia_api_key_label.setText(
+            QCoreApplication.translate("AITab", "API Key:")
+        )
+        self.nvidia_model_label.setText(
+            QCoreApplication.translate("AITab", "Model ID:")
+        )
+        self.nvidia_api_key_input.setPlaceholderText(
+            QCoreApplication.translate("AITab", "Enter your NVIDIA API key")
+        )
+        self.nvidia_model_input.setPlaceholderText(
+            QCoreApplication.translate(
+                "AITab", "Enter AI model ID (e.g., meta/llama-3.1-8b-instruct)"
+            )
+        )
+
+        self.openai_compatible_group.setTitle(
+            QCoreApplication.translate("AITab", "OpenAI Compatible API Configuration")
+        )
+        self.openai_compatible_base_url_label.setText(
+            QCoreApplication.translate("AITab", "Base URL:")
+        )
+        self.openai_compatible_api_key_label.setText(
+            QCoreApplication.translate("AITab", "API Key:")
+        )
+        self.openai_compatible_model_label.setText(
+            QCoreApplication.translate("AITab", "Model ID:")
+        )
+        self.openai_compatible_base_url_input.setPlaceholderText(
+            QCoreApplication.translate("AITab", "http://localhost:1234/v1")
+        )
+        self.openai_compatible_api_key_input.setPlaceholderText(
+            QCoreApplication.translate(
+                "AITab", "Optional (for services requiring auth)"
+            )
+        )
+        self.openai_compatible_model_input.setPlaceholderText(
+            QCoreApplication.translate("AITab", "local-model")
+        )
+        self.openai_compatible_info_label.setText(
+            QCoreApplication.translate(
+                "AITab", "For LM Studio, Ollama, vLLM, text-generation-webui, etc."
+            )
+        )
+
+        self.common_group.setTitle(
+            QCoreApplication.translate("AITab", "Common AI Settings")
+        )
+        self.ai_enabled_checkbox.setText(
+            QCoreApplication.translate("AITab", "Enable AI text optimization")
+        )
+        self.filter_thinking_checkbox.setText(
+            QCoreApplication.translate(
+                "AITab", "Filter thinking tags (<think>...</think>)"
+            )
+        )
+        self.filter_thinking_checkbox.setToolTip(
+            QCoreApplication.translate(
+                "AITab", "Remove AI's internal thinking process from the output"
+            )
+        )
+        self.common_timeout_label.setText(
+            QCoreApplication.translate("AITab", "Timeout:")
+        )
+        self.common_retries_label.setText(
+            QCoreApplication.translate("AITab", "Max Retries:")
+        )
+        self.api_timeout_spinbox.setSuffix(
+            QCoreApplication.translate("AITab", " seconds")
+        )
+
+        self.test_group.setTitle(QCoreApplication.translate("AITab", "API Testing"))
+        self.test_connection_button.setText(
+            QCoreApplication.translate("AITab", "Test Connection")
+        )
+        status_key = self.api_status_label.property("status_key") or "not_tested"
+        status_map = {
+            "not_tested": QCoreApplication.translate("AITab", "Not tested"),
+            "test_failed": QCoreApplication.translate("AITab", "Test failed"),
+            "success": QCoreApplication.translate("AITab", "Connection successful"),
+            "failed": QCoreApplication.translate("AITab", "Connection failed"),
+        }
+        if status_key in status_map:
+            self.api_status_label.setText(status_map[status_key])
+
+        self.prompt_group.setTitle(
+            QCoreApplication.translate("AITab", "System Prompt Configuration")
+        )
+        self.prompt_instruction_label.setText(
+            QCoreApplication.translate(
+                "AITab",
+                "Define the AI assistant's role, responsibilities, and constraints.\n"
+                "The transcribed speech will be automatically sent as the user message.",
+            )
+        )
+        self.prompt_text_edit.setPlaceholderText(
+            QCoreApplication.translate(
+                "AITab",
+                "You are a professional transcription refinement specialist.\n"
+                "Your task is to correct and improve ASR transcriptions.\n\n"
+                "Remove filler words, fix errors, improve grammar.\n"
+                "Output ONLY the corrected text.",
+            )
+        )
+
+        self.show_key_button.setText(
+            QCoreApplication.translate("AITab", "Hide")
+            if self.show_key_button.isChecked()
+            else QCoreApplication.translate("AITab", "Show")
+        )
+        self.groq_show_key_button.setText(
+            QCoreApplication.translate("AITab", "Hide")
+            if self.groq_show_key_button.isChecked()
+            else QCoreApplication.translate("AITab", "Show")
+        )
+        self.nvidia_show_key_button.setText(
+            QCoreApplication.translate("AITab", "Hide")
+            if self.nvidia_show_key_button.isChecked()
+            else QCoreApplication.translate("AITab", "Show")
+        )
+        self.openai_compatible_show_key_button.setText(
+            QCoreApplication.translate("AITab", "Hide")
+            if self.openai_compatible_show_key_button.isChecked()
+            else QCoreApplication.translate("AITab", "Show")
+        )
+
+        # Update visibility after translations.
+        self._on_ai_provider_changed(self.ai_provider_combo.currentData())
+
     def load_config(self, config: Dict[str, Any]) -> None:
         """从配置加载UI状态
 
@@ -308,16 +525,13 @@ class AITab(BaseSettingsTab):
         nvidia_config = ai_config.get("nvidia", {})
         openai_compatible_config = ai_config.get("openai_compatible", {})
 
-        # Provider - 配置值到显示文本的映射（读取时使用）
-        provider_config_to_display = {
-            "openrouter": "OpenRouter",
-            "groq": "Groq",
-            "nvidia": "NVIDIA",
-            "openai_compatible": "OpenAI Compatible",
-        }
+        # Provider
         provider = ai_config.get("provider", "openrouter")
-        display_provider = provider_config_to_display.get(provider, "OpenRouter")
-        self.ai_provider_combo.setCurrentText(display_provider)
+        provider_index = self.ai_provider_combo.findData(provider)
+        if provider_index >= 0:
+            self.ai_provider_combo.setCurrentIndex(provider_index)
+        else:
+            self.ai_provider_combo.setCurrentIndex(0)
 
         # OpenRouter
         self.api_key_input.setText(openrouter_config.get("api_key", ""))
@@ -408,7 +622,7 @@ class AITab(BaseSettingsTab):
         self.api_retries_spinbox.setValue(ai_config.get("retries", 2))
 
         # Manually trigger the provider change to set initial visibility
-        self._on_ai_provider_changed(self.ai_provider_combo.currentText())
+        self._on_ai_provider_changed(self.ai_provider_combo.currentData())
 
     def save_config(self) -> Dict[str, Any]:
         """保存UI状态到配置
@@ -417,19 +631,11 @@ class AITab(BaseSettingsTab):
             Dict[str, Any]: 配置字典
         """
         # Provider - 显示文本到配置值的映射（保存时使用）
-        provider_display_to_config = {
-            "OpenRouter": "openrouter",
-            "Groq": "groq",
-            "NVIDIA": "nvidia",
-            "OpenAI Compatible": "openai_compatible",
-        }
-        provider_display = self.ai_provider_combo.currentText()
+        provider = self.ai_provider_combo.currentData() or "openrouter"
 
         config = {
             "ai": {
-                "provider": provider_display_to_config.get(
-                    provider_display, "openrouter"
-                ),
+                "provider": provider,
                 "openrouter": {
                     "api_key": self.api_key_input.text().strip(),
                     "model_id": self.ai_model_input.text().strip(),
@@ -458,155 +664,176 @@ class AITab(BaseSettingsTab):
         return config
 
     def _on_ai_provider_changed(self, provider: str):
-        """切换AI提供商时显示/隐藏对应的设置组"""
-        # 先隐藏所有组
+        """Toggle provider sections based on selection."""
+        provider_value = provider if isinstance(provider, str) else None
+        provider_value = (
+            provider_value or self.ai_provider_combo.currentData() or "openrouter"
+        )
+
+        # Hide all
         self.openrouter_group.hide()
         self.groq_group.hide()
         self.nvidia_group.hide()
         self.openai_compatible_group.hide()
 
-        # 显示选中的组
-        if provider == "OpenRouter":
+        # Show selected
+        if provider_value == "openrouter":
             self.openrouter_group.show()
-        elif provider == "Groq":
+        elif provider_value == "groq":
             self.groq_group.show()
-        elif provider == "NVIDIA":
+        elif provider_value == "nvidia":
             self.nvidia_group.show()
-        elif provider == "OpenAI Compatible":
+        elif provider_value == "openai_compatible":
             self.openai_compatible_group.show()
 
     def _toggle_api_key_visibility(self) -> None:
         """切换API密钥可见性"""
         if self.show_key_button.isChecked():
             self.api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.show_key_button.setText("🙈")
+            self.show_key_button.setText(QCoreApplication.translate("AITab", "Hide"))
         else:
             self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.show_key_button.setText("👁")
+            self.show_key_button.setText(QCoreApplication.translate("AITab", "Show"))
 
     def _toggle_groq_api_key_visibility(self) -> None:
         """切换Groq API密钥可见性"""
         if self.groq_show_key_button.isChecked():
             self.groq_api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.groq_show_key_button.setText("🙈")
+            self.groq_show_key_button.setText(
+                QCoreApplication.translate("AITab", "Hide")
+            )
         else:
             self.groq_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.groq_show_key_button.setText("👁")
+            self.groq_show_key_button.setText(
+                QCoreApplication.translate("AITab", "Show")
+            )
 
     def _toggle_nvidia_api_key_visibility(self) -> None:
         """切换NVIDIA API密钥可见性"""
         if self.nvidia_show_key_button.isChecked():
             self.nvidia_api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.nvidia_show_key_button.setText("🙈")
+            self.nvidia_show_key_button.setText(
+                QCoreApplication.translate("AITab", "Hide")
+            )
         else:
             self.nvidia_api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-            self.nvidia_show_key_button.setText("👁")
+            self.nvidia_show_key_button.setText(
+                QCoreApplication.translate("AITab", "Show")
+            )
 
     def _toggle_openai_compatible_api_key_visibility(self) -> None:
         """切换OpenAI Compatible API密钥可见性"""
         if self.openai_compatible_show_key_button.isChecked():
             self.openai_compatible_api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
-            self.openai_compatible_show_key_button.setText("🙈")
+            self.openai_compatible_show_key_button.setText(
+                QCoreApplication.translate("AITab", "Hide")
+            )
         else:
             self.openai_compatible_api_key_input.setEchoMode(
                 QLineEdit.EchoMode.Password
             )
-            self.openai_compatible_show_key_button.setText("👁")
+            self.openai_compatible_show_key_button.setText(
+                QCoreApplication.translate("AITab", "Show")
+            )
 
     def _test_api_connection(self) -> None:
-        """测试API连接"""
+        """Test API connection."""
         try:
-            # 获取当前选择的提供商
-            current_provider = self.ai_provider_combo.currentText()
+            current_provider = self.ai_provider_combo.currentData() or "openrouter"
+            provider_name = (
+                self.ai_provider_combo.currentText()
+                or QCoreApplication.translate("AITab", "Unknown")
+            )
 
-            # 根据提供商获取对应的API密钥和模型ID
-            if current_provider == "OpenRouter":
+            if current_provider == "openrouter":
                 api_key = self.api_key_input.text().strip()
                 model_id = self.ai_model_input.text().strip()
-                provider_name = "OpenRouter"
-            elif current_provider == "Groq":
+            elif current_provider == "groq":
                 api_key = self.groq_api_key_input.text().strip()
                 model_id = self.groq_model_input.text().strip()
-                provider_name = "Groq"
-            elif current_provider == "NVIDIA":
+            elif current_provider == "nvidia":
                 api_key = self.nvidia_api_key_input.text().strip()
                 model_id = self.nvidia_model_input.text().strip()
-                provider_name = "NVIDIA"
-            elif current_provider == "OpenAI Compatible":
+            elif current_provider == "openai_compatible":
                 api_key = self.openai_compatible_api_key_input.text().strip()
                 base_url = self.openai_compatible_base_url_input.text().strip()
                 model_id = self.openai_compatible_model_input.text().strip()
-                provider_name = "OpenAI Compatible"
 
-                # Base URL 必填检查
                 if not base_url:
                     QMessageBox.warning(
                         self.parent_window,
-                        "API Connection Test",
-                        "⚠️ Please enter the Base URL for OpenAI Compatible service.",
+                        QCoreApplication.translate("AITab", "API Connection Test"),
+                        QCoreApplication.translate(
+                            "AITab",
+                            "Please enter the Base URL for OpenAI Compatible service.",
+                        ),
                     )
                     return
             else:
-                provider_name = "Unknown"
+                provider_name = QCoreApplication.translate("AITab", "Unknown")
                 api_key = ""
                 model_id = ""
 
-            # OpenAI Compatible 的 API Key 是可选的
-            if not api_key and current_provider != "OpenAI Compatible":
+            if not api_key and current_provider != "openai_compatible":
                 QMessageBox.warning(
                     self.parent_window,
-                    "API Connection Test",
-                    f"⚠️ Please enter your {provider_name} API key first.",
+                    QCoreApplication.translate("AITab", "API Connection Test"),
+                    QCoreApplication.translate(
+                        "AITab",
+                        "Please enter your {provider} API key first.",
+                    ).format(provider=provider_name),
                 )
                 return
 
-            # 显示测试开始对话框
             progress_dialog = QMessageBox(self.parent_window)
-            progress_dialog.setWindowTitle("Testing API Connection")
+            progress_dialog.setWindowTitle(
+                QCoreApplication.translate("AITab", "Testing API Connection")
+            )
             progress_dialog.setText(
-                f"🔄 Testing {provider_name} API connection...\n\nThis may take a few seconds."
+                QCoreApplication.translate(
+                    "AITab",
+                    "Testing {provider} API connection...\n\nThis may take a few seconds.",
+                ).format(provider=provider_name)
             )
             progress_dialog.setStandardButtons(QMessageBox.StandardButton.Cancel)
             progress_dialog.show()
 
-            # 记录对话框创建
             app_logger.log_audio_event(
                 "API test dialog created",
                 {"type": "progress", "provider": provider_name},
             )
 
-            # 处理事件以显示对话框
             QApplication.processEvents()
 
-            # 根据提供商创建对应的客户端进行测试
-            if current_provider == "OpenRouter":
+            if current_provider == "openrouter":
                 from ...ai.openrouter import OpenRouterClient
 
                 test_client = OpenRouterClient(api_key)
-            elif current_provider == "Groq":
+            elif current_provider == "groq":
                 from ...ai.groq import GroqClient
 
                 test_client = GroqClient(api_key)
-            elif current_provider == "NVIDIA":
+            elif current_provider == "nvidia":
                 from ...ai.nvidia import NvidiaClient
 
                 test_client = NvidiaClient(api_key)
-            elif current_provider == "OpenAI Compatible":
+            elif current_provider == "openai_compatible":
                 from ...ai.openai_compatible import OpenAICompatibleClient
 
                 test_client = OpenAICompatibleClient(api_key, base_url)
             else:
                 QMessageBox.warning(
                     self.parent_window,
-                    "API Connection Test",
-                    f"⚠️ Unknown provider: {current_provider}",
+                    QCoreApplication.translate("AITab", "API Connection Test"),
+                    QCoreApplication.translate(
+                        "AITab",
+                        "Unknown provider: {provider}",
+                    ).format(provider=provider_name),
                 )
                 return
 
-            # 保存provider_name为实例变量，供结果显示使用
             self._api_test_provider_name = provider_name
 
-            # 异步测试连接
             result_container = {"success": False, "error": ""}
 
             def test_connection():
@@ -618,8 +845,6 @@ class AITab(BaseSettingsTab):
                             "model_id": model_id or "(using default)",
                         },
                     )
-                    # test_connection() 现在返回 (success, error_message)
-                    # 传递用户配置的 model_id，如果为空则使用默认模型
                     success, error_message = test_client.test_connection(
                         model=model_id if model_id else None
                     )
@@ -636,9 +861,12 @@ class AITab(BaseSettingsTab):
                     )
 
                     if not success:
-                        # 使用详细的错误信息而不是硬编码消息
                         result_container["error"] = (
-                            error_message or "Connection test failed - unknown error"
+                            error_message
+                            or QCoreApplication.translate(
+                                "AITab",
+                                "Connection test failed - unknown error",
+                            )
                         )
 
                     app_logger.log_audio_event(
@@ -652,64 +880,77 @@ class AITab(BaseSettingsTab):
 
                 except Exception as e:
                     result_container["success"] = False
-                    result_container["error"] = f"Test thread exception: {str(e)}"
+                    result_container["error"] = QCoreApplication.translate(
+                        "AITab", "Test thread exception: {error}"
+                    ).format(error=e)
                     app_logger.log_audio_event(
                         "API test thread exception",
                         {"error": str(e), "container_final": dict(result_container)},
                     )
 
-            # 运行测试
             test_thread = threading.Thread(target=test_connection, daemon=True)
             test_thread.start()
 
-            # 使用QTimer异步检查测试完成状态
             self._api_test_thread = test_thread
             self._api_test_result = result_container
             self._api_progress_dialog = progress_dialog
             self._api_test_start_time = time.time()
 
-            # 创建定时器轮询测试状态
             self._api_test_timer = QTimer()
             self._api_test_timer.timeout.connect(self._check_api_test_status)
-            self._api_test_timer.start(100)  # 每100ms检查一次
+            self._api_test_timer.start(100)
 
         except Exception as e:
             QMessageBox.critical(
                 self.parent_window,
-                "API Connection Test",
-                f"❌ Test failed with error:\n\n{str(e)}",
+                QCoreApplication.translate("AITab", "API Connection Test"),
+                QCoreApplication.translate(
+                    "AITab", "Test failed with error:\n\n{error}"
+                ).format(error=e),
             )
-            self.api_status_label.setText("Test failed")
+            self.api_status_label.setText(
+                QCoreApplication.translate("AITab", "Test failed")
+            )
+            self.api_status_label.setProperty("status_key", "test_failed")
             self.api_status_label.setStyleSheet("color: red;")
 
     def _check_api_test_status(self) -> None:
-        """检查API测试状态（由定时器调用）"""
+        """Check API test status (polled)."""
         try:
-            # 不强制超时，由底层 API 的 timeout 配置控制
-            # 用户可以在配置中设置 ai.timeout (5-120秒)
-
-            # 检查线程是否完成
             if not self._api_test_thread.is_alive():
                 self._api_test_timer.stop()
                 self._api_progress_dialog.close()
 
-                # 获取结果
                 if self._api_test_result["success"]:
                     QMessageBox.information(
                         self.parent_window,
-                        "API Connection Test",
-                        f"✅ {self._api_test_provider_name} API connection successful!",
+                        QCoreApplication.translate("AITab", "API Connection Test"),
+                        QCoreApplication.translate(
+                            "AITab",
+                            "{provider} API connection successful!",
+                        ).format(provider=self._api_test_provider_name),
                     )
-                    self.api_status_label.setText("Connection successful")
+                    self.api_status_label.setText(
+                        QCoreApplication.translate("AITab", "Connection successful")
+                    )
+                    self.api_status_label.setProperty("status_key", "success")
                     self.api_status_label.setStyleSheet("color: green;")
                 else:
-                    error_msg = self._api_test_result.get("error", "Unknown error")
+                    error_msg = self._api_test_result.get(
+                        "error", QCoreApplication.translate("AITab", "Unknown error")
+                    )
                     QMessageBox.warning(
                         self.parent_window,
-                        "API Connection Test",
-                        f"❌ Connection failed:\n\n{error_msg}",
+                        QCoreApplication.translate("AITab", "API Connection Test"),
+                        QCoreApplication.translate(
+                            "AITab",
+                            "Connection failed:\n\n{error}",
+                        ).format(error=error_msg),
                     )
-                    self.api_status_label.setText("Connection failed")
+                    self.api_status_label.setText(
+                        QCoreApplication.translate("AITab", "Connection failed")
+                    )
+                    self.api_status_label.setProperty("status_key", "failed")
                     self.api_status_label.setStyleSheet("color: red;")
 
         except Exception as e:
