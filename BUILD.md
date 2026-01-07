@@ -31,32 +31,6 @@ uv run python build_nuitka.py
 - 无需互联网连接即可使用本地转录
 - 文件大小：~40-50MB
 
-### 2. 云端版（仅在线转录）
-
-云端版仅包含在线转录功能（Groq/SiliconFlow/Qwen），不包含本地转录引擎。
-
-```bash
-# 安装依赖（不包含本地转录）
-uv sync
-
-# 修改 build_nuitka.py，移除 sherpa-onnx 相关行：
-# 删除或注释掉：
-# "--include-package=sherpa_onnx"
-"--include-data-dir=assets=assets"  # UI assets (i18n, fonts),
-# "--include-package-data=sherpa_onnx",
-
-# 构建
-uv run python build_nuitka.py
-```
-
-**输出文件**：`dist/SonicInput-v{version}-win64-cloud.exe`
-
-**特性**：
-- 不包含 sherpa-onnx
-- 仅支持在线转录服务
-- 需要互联网连接和 API 密钥
-- 文件大小：~30-35MB
-
 ## 构建说明
 
 ### Nuitka 配置详解
@@ -71,6 +45,7 @@ uv run python build_nuitka.py
 "--enable-plugin=pyside6"           # 启用 PySide6 插件（Qt 支持）
 "--include-package=sonicinput"      # 包含主应用包
 "--include-package=sherpa_onnx"     # 包含 sherpa-onnx 包（本地版）
+"--include-data-dir=assets=assets"  # UI assets (i18n, fonts)
 "--include-package-data=sherpa_onnx"# 包含 sherpa-onnx 数据文件和 C 扩展
 
 # 排除项
@@ -114,42 +89,6 @@ rm -rf dist/ build/
 
 # 验证环境
 uv run python test_sherpa_import.py
-```
-
-### 2. 编译阶段
-
-```bash
-uv run python build_nuitka.py
-```
-
-**预期输出**：
-```
-Building SonicInput v0.3.0
-Running Nuitka compilation...
-
-Nuitka: Starting Python compilation...
-Nuitka: Resolving module imports...
-Nuitka: Including package 'sonicinput'...
-Nuitka: Including package 'sherpa_onnx'...
-Nuitka: Including package data for 'sherpa_onnx'...
-Nuitka: Compiling to C...
-Nuitka: Compiling C code...
-Nuitka: Linking...
-Nuitka: Creating single file...
-
-[SUCCESS] Build successful!
-[OUTPUT] dist/SonicInput-v0.3.0-win64.exe
-[SIZE] 45.23 MB
-```
-
-### 3. 验证阶段
-
-```bash
-# 测试可执行文件
-dist/SonicInput-v0.3.0-win64.exe --test
-
-# 启动 GUI（手动测试）
-dist/SonicInput-v0.3.0-win64.exe --gui
 ```
 
 ## 常见问题
@@ -228,26 +167,16 @@ uv run python build_nuitka.py
 - [ ] 测试 AI 文本优化（如启用）
 - [ ] 在干净的 Windows 系统上测试
 
-### 云端版发布清单
-
-- [ ] 测试 Groq 转录
-- [ ] 测试 SiliconFlow 转录
-- [ ] 测试 Qwen 转录
-- [ ] 验证 API 密钥配置
-- [ ] 测试网络错误处理
-- [ ] 在干净的 Windows 系统上测试
 
 ## 版本命名规范
 
 ```
 SonicInput-v{version}-win64.exe        # 本地版（包含 sherpa-onnx）
-SonicInput-v{version}-win64-cloud.exe  # 云端版（仅在线转录）
 ```
 
 示例：
 ```
 SonicInput-v0.3.0-win64.exe
-SonicInput-v0.3.0-win64-cloud.exe
 ```
 
 ## 技术细节
