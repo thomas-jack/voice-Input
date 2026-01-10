@@ -15,7 +15,7 @@ from ..interfaces import (
     IStateManager,
 )
 from ..interfaces.state import AppState
-from ..services.event_bus import Events
+from ..services.events import Events
 from .base_controller import BaseController
 from .text_diff_helper import calculate_text_diff
 

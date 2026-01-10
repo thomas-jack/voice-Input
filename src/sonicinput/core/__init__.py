@@ -9,7 +9,8 @@ from .hotkey_manager import HotkeyManager
 
 # 接口定义（仅保留多实现接口）
 from .interfaces import IAIService, IInputService, ISpeechService
-from .services import ConfigService, EventBus, Events, StateManager
+from .services import ConfigService, EventBus, StateManager
+from .services.events import Events
 
 __all__ = [
     # 核心服务组件

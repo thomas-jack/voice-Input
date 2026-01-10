@@ -11,7 +11,7 @@ from typing import Any, Callable, Dict
 
 from ...utils import app_logger
 from ..interfaces import IEventService
-from .event_bus import Events
+from .events import Events
 
 
 class UIEventBridge:

@@ -18,7 +18,7 @@ from ..interfaces import (
     IStateManager,
 )
 from ..services.config import ConfigKeys
-from ..services.event_bus import Events
+from ..services.events import Events
 from ..services.storage import HistoryStorageService
 from .base_controller import BaseController
 

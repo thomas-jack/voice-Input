@@ -14,7 +14,7 @@ import numpy as np
 
 from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
-from .event_bus import Events
+from .events import Events
 
 # 流式模式类型
 StreamingMode = Literal["chunked", "realtime"]

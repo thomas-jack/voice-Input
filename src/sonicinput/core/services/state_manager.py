@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import EventPriority, IEventService
-from ..services.event_bus import Events
+from ..services.events import Events
 from ..interfaces.state import AppState, IStateManager, RecordingState
 
 T = TypeVar("T")

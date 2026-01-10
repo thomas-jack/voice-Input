@@ -27,7 +27,7 @@ from .interfaces import (
     IStateManager,
 )
 from .services.application_orchestrator import ApplicationOrchestrator
-from .services.event_bus import Events
+from .services.events import Events
 from .services.hot_reload_manager import HotReloadManager
 from .services.storage.history_storage_service import HistoryStorageService
 from .services.ui_event_bridge import UIEventBridge

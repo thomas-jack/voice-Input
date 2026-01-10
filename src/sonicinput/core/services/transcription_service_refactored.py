@@ -15,7 +15,7 @@ from ...utils import WhisperLoadError, app_logger
 
 # IConfigReloadable removed - using service rebuild pattern instead
 from .config import ConfigKeys
-from .event_bus import Events
+from .events import Events
 from .error_recovery_service import ErrorRecoveryService
 from .model_manager import ModelManager
 from .streaming_coordinator import StreamingCoordinator

@@ -13,7 +13,7 @@ from ....utils import ConfigurationError, app_logger
 from ...base.lifecycle_component import LifecycleComponent
 from ...interfaces import EventPriority, IEventService
 from ...interfaces.config import IConfigService
-from ..event_bus import Events
+from ..events import Events
 from .config_backup import ConfigBackupService
 from .config_keys import ConfigKeys
 from .config_migrator import ConfigMigrator

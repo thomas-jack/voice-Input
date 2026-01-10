@@ -51,7 +51,7 @@ class UIMainService:
 
         通过事件驱动，不直接调用控制器
         """
-        from .event_bus import Events
+        from .events import Events
 
         self.events.emit(Events.RECORDING_STARTED)
 
@@ -60,7 +60,7 @@ class UIMainService:
 
         通过事件驱动，不直接调用控制器
         """
-        from .event_bus import Events
+        from .events import Events
 
         self.events.emit(Events.RECORDING_STOPPED)
 
@@ -86,7 +86,7 @@ class UIMainService:
 
         通过配置重载服务实现
         """
-        from .event_bus import Events
+        from .events import Events
 
         self.events.emit(Events.CONFIG_CHANGED, {"section": "hotkeys"})
 
@@ -277,7 +277,7 @@ class UILocalizationService:
         applied = self._install_translator(target)
         self._current_language = target
 
-        from .event_bus import Events
+        from .events import Events
 
         self.event_service.emit(
             Events.UI_LANGUAGE_CHANGED,

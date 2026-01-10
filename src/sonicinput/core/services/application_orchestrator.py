@@ -22,7 +22,7 @@ from ..interfaces import (
     IStateManager,
 )
 from ..services.config import ConfigKeys
-from .event_bus import Events
+from .events import Events
 from .hot_reload_manager import HotReloadManager
 
 
@@ -85,7 +85,7 @@ class ApplicationOrchestrator:
         # 控制器引用（运行时设置）
         self._controllers: Dict[str, Any] = {}
 
-        # 注册 config.changed 事件监听，实现统一的热重载
+        # 注册 config_changed_detailed 事件监听，实现统一的热重载
         self.events.on(Events.CONFIG_CHANGED_DETAILED, self._on_config_changed)
 
         app_logger.log_audio_event("ApplicationOrchestrator initialized", {})
@@ -406,7 +406,7 @@ class ApplicationOrchestrator:
     def _on_config_changed(self, data: Dict[str, Any]) -> None:
         """配置变更事件处理器（内部方法）
 
-        当 ConfigService 发出 config.changed 事件时自动调用
+        当 ConfigService 发出 config_changed_detailed 事件时自动调用
 
         Args:
             data: 事件数据，包含 changed_keys, old_config, new_config

@@ -5,6 +5,7 @@
 
 from typing import Dict, Any, Optional, List
 from sonicinput.core.interfaces import BasePlugin, PluginType, IPluginContext
+from sonicinput.core.services.events import Events
 
 
 class ExamplePlugin(BasePlugin):
@@ -55,8 +56,8 @@ class ExamplePlugin(BasePlugin):
             return False
 
         # 注册事件处理器
-        self.register_event_handler("application_started", self._on_application_started)
-        self.register_event_handler("recording_started", self._on_recording_started)
+        self.register_event_handler(Events.APP_STARTED, self._on_application_started)
+        self.register_event_handler(Events.RECORDING_STARTED, self._on_recording_started)
 
         self.log("ExamplePlugin activated and ready to use")
         return True
@@ -81,9 +82,9 @@ class ExamplePlugin(BasePlugin):
             {
                 "features": ["事件监听", "日志记录", "示例功能"],
                 "supported_events": [
-                    "application_started",
-                    "recording_started",
-                    "recording_stopped",
+                    Events.APP_STARTED,
+                    Events.RECORDING_STARTED,
+                    Events.RECORDING_STOPPED,
                 ],
             }
         )

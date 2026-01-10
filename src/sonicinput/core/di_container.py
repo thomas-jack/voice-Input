@@ -14,7 +14,7 @@ from .interfaces import (
     IInputService,
 )
 from .interfaces.audio import IAudioService
-from .services.event_bus import Events
+from .services.events import Events
 from .services.ui_services import (
     UIAudioService,
     UIGPUService,

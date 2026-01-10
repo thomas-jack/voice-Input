@@ -141,7 +141,7 @@ class SettingsWindow(QMainWindow):
 
         # 监听模型加载完成事件
         if self.ui_settings_service:
-            from ..core.services.event_bus import Events
+            from ..core.services.events import Events
 
             events = self.ui_settings_service.get_event_service()
             events.on(Events.MODEL_LOADED, self._on_model_loaded)

@@ -604,7 +604,7 @@ class HistoryDetailDialog(QDialog):
 
         self._event_service = None
         if self.parent_window and hasattr(self.parent_window, "ui_settings_service"):
-            from ...core.services.event_bus import Events
+            from ...core.services.events import Events
 
             self._event_service = (
                 self.parent_window.ui_settings_service.get_event_service()

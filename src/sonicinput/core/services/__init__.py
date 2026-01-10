@@ -5,13 +5,12 @@
 
 from .ai_service import AIService
 from .config_service import ConfigService
-from .event_bus import EventBus, Events
+from .event_bus import EventBus
 from .state_manager import StateManager
 from .transcription_service import TranscriptionResult, TranscriptionService
 
 __all__ = [
     "EventBus",
-    "Events",
     "ConfigService",
     "StateManager",
     "TranscriptionService",

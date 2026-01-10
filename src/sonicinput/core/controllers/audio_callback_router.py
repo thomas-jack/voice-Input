@@ -14,7 +14,7 @@ from ..interfaces import (
     IEventService,
     ISpeechService,
 )
-from ..services.event_bus import Events
+from ..services.events import Events
 from ..services.storage import HistoryStorageService
 
 

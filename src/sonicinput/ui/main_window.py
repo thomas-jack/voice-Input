@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ..core.services.event_bus import Events
+from ..core.services.events import Events
 from ..core.services.ui_services import UIMainService, UIModelService, UISettingsService
 from ..utils import app_logger
 
