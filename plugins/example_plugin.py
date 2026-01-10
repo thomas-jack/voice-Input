@@ -57,7 +57,9 @@ class ExamplePlugin(BasePlugin):
 
         # 注册事件处理器
         self.register_event_handler(Events.APP_STARTED, self._on_application_started)
-        self.register_event_handler(Events.RECORDING_STARTED, self._on_recording_started)
+        self.register_event_handler(
+            Events.RECORDING_STARTED, self._on_recording_started
+        )
 
         self.log("ExamplePlugin activated and ready to use")
         return True

@@ -554,5 +554,3 @@ class DynamicEventSystem(LifecycleComponent, IEventService):
 
         if self.logger:
             self.logger.log_audio_event("All event listeners cleared", {})
-
-

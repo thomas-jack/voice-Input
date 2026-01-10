@@ -251,4 +251,3 @@ class SendInputMethod:
                 },
             )
             return False
-

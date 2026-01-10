@@ -47,14 +47,14 @@ class TestAtomicConfigWrite:
 
         # Track temporary file creation
         temp_files_created = []
-        original_named_temp = __import__('tempfile').NamedTemporaryFile
+        original_named_temp = __import__("tempfile").NamedTemporaryFile
 
         def track_temp_file(*args, **kwargs):
             result = original_named_temp(*args, **kwargs)
             temp_files_created.append(result.name)
             return result
 
-        with patch('tempfile.NamedTemporaryFile', side_effect=track_temp_file):
+        with patch("tempfile.NamedTemporaryFile", side_effect=track_temp_file):
             writer.save_config()
 
         # Verify temp file was created (and cleaned up)
@@ -75,10 +75,7 @@ class TestAtomicConfigWrite:
             "boolean": True,
             "null": None,
             "array": [1, 2, 3],
-            "nested": {
-                "key1": "value1",
-                "key2": {"deep": "value"}
-            }
+            "nested": {"key1": "value1", "key2": {"deep": "value"}},
         }
         writer.set_config(test_config)
         success = writer.save_config()
@@ -87,7 +84,7 @@ class TestAtomicConfigWrite:
         assert config_file.exists()
 
         # Read back and verify
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             loaded = json.load(f)
 
         assert loaded == test_config
@@ -102,13 +99,13 @@ class TestAtomicConfigWrite:
 
         # Track os.replace calls
         replace_calls = []
-        original_replace = __import__('os').replace
+        original_replace = __import__("os").replace
 
         def track_replace(src, dst):
             replace_calls.append((str(src), str(dst)))
             return original_replace(src, dst)
 
-        with patch('os.replace', side_effect=track_replace):
+        with patch("os.replace", side_effect=track_replace):
             writer.save_config()
 
         # Verify os.replace was called
@@ -144,13 +141,13 @@ class TestAtomicConfigWrite:
 
         # Track fsync calls
         fsync_calls = []
-        original_fsync = __import__('os').fsync
+        original_fsync = __import__("os").fsync
 
         def track_fsync(fd):
             fsync_calls.append(fd)
             return original_fsync(fd)
 
-        with patch('os.fsync', side_effect=track_fsync):
+        with patch("os.fsync", side_effect=track_fsync):
             writer.save_config()
 
         # Verify fsync was called at least once
@@ -200,7 +197,7 @@ class TestConfigWriteErrorHandling:
 
         files_before = set(tmp_path.glob("*"))
 
-        with patch('os.replace', side_effect=failing_replace):
+        with patch("os.replace", side_effect=failing_replace):
             success = writer.save_config()
 
         files_after = set(tmp_path.glob("*"))
@@ -274,7 +271,7 @@ class TestConfigWriteDebouncing:
 
         # File should exist and contain the latest value
         assert config_file.exists()
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             saved = json.load(f)
         assert saved["test"] == "value3"  # Latest value should be saved
 
@@ -294,7 +291,7 @@ class TestConfigWriteDebouncing:
         assert config_file.exists()
 
         # Verify content
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             saved = json.load(f)
         assert saved == test_config
 
@@ -330,7 +327,7 @@ class TestSetSettingNestedKeys:
         writer.set_setting("key", "value")
         writer.save_config()
 
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
 
         assert config["key"] == "value"
@@ -344,7 +341,7 @@ class TestSetSettingNestedKeys:
         writer.set_setting("parent.child", "value")
         writer.save_config()
 
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
 
         assert config["parent"]["child"] == "value"
@@ -358,7 +355,7 @@ class TestSetSettingNestedKeys:
         writer.set_setting("a.b.c.d", "value")
         writer.save_config()
 
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
 
         assert config["a"]["b"]["c"]["d"] == "value"
@@ -373,7 +370,7 @@ class TestSetSettingNestedKeys:
         writer.set_setting("parent.child.grandchild", "value")
         writer.save_config()
 
-        with open(config_file, 'r', encoding='utf-8') as f:
+        with open(config_file, "r", encoding="utf-8") as f:
             config = json.load(f)
 
         assert config["parent"]["child"]["grandchild"] == "value"

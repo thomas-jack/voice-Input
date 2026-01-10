@@ -81,7 +81,7 @@ class TestLanguageResolution:
         mock_event_service = MagicMock()
         service = UILocalizationService(mock_config_service, mock_event_service)
 
-        with patch.object(service, '_get_system_locale', return_value='zh-CN'):
+        with patch.object(service, "_get_system_locale", return_value="zh-CN"):
             resolved = service._resolve_language("auto")
             assert resolved == "zh-CN"
 
@@ -106,7 +106,9 @@ class TestLanguageConfiguration:
         language = service.get_configured_language()
 
         assert language == "auto"
-        mock_config_service.get_setting.assert_called_once_with(ConfigKeys.UI_LANGUAGE, "auto")
+        mock_config_service.get_setting.assert_called_once_with(
+            ConfigKeys.UI_LANGUAGE, "auto"
+        )
 
     def test_get_configured_language_explicit(self, mock_config_service):
         """Test getting explicitly configured language"""
@@ -125,7 +127,7 @@ class TestLanguageConfiguration:
 
         service = UILocalizationService(mock_config_service, mock_event_service)
 
-        with patch.object(service, '_get_system_locale', return_value='zh-CN'):
+        with patch.object(service, "_get_system_locale", return_value="zh-CN"):
             active = service.get_active_language()
             assert active == "zh-CN"
 
@@ -188,7 +190,7 @@ class TestLanguageApplication:
 
         service = UILocalizationService(mock_config_service, mock_event_service)
 
-        with patch.object(service, '_get_system_locale', return_value='zh-CN'):
+        with patch.object(service, "_get_system_locale", return_value="zh-CN"):
             result = service.apply_language(None)
             assert result == "zh-CN"
 
@@ -204,9 +206,11 @@ class TestTranslationFileHandling:
         assert service._translation_dir is not None
         assert isinstance(service._translation_dir, Path)
         # Should end with 'assets/i18n'
-        assert service._translation_dir.parts[-2:] == ('assets', 'i18n')
+        assert service._translation_dir.parts[-2:] == ("assets", "i18n")
 
-    def test_install_translator_english_no_file_needed(self, mock_config_service, qtbot):
+    def test_install_translator_english_no_file_needed(
+        self, mock_config_service, qtbot
+    ):
         """Test English doesn't require translation file"""
         # Create QApplication if not exists
         app = QCoreApplication.instance()
@@ -230,7 +234,7 @@ class TestTranslationFileHandling:
         service = UILocalizationService(mock_config_service, mock_event_service)
 
         # Try to install a non-existent translation
-        with patch.object(Path, 'exists', return_value=False):
+        with patch.object(Path, "exists", return_value=False):
             result = service._install_translator("fr-FR")
             assert result is False
 
@@ -253,7 +257,9 @@ class TestSystemLocaleDetection:
         service = UILocalizationService(mock_config_service, mock_event_service)
 
         # Mock QLocale.system() to raise exception
-        with patch('PySide6.QtCore.QLocale.system', side_effect=Exception("Test error")):
+        with patch(
+            "PySide6.QtCore.QLocale.system", side_effect=Exception("Test error")
+        ):
             locale = service._get_system_locale()
             assert locale == "en-US"
 
@@ -286,12 +292,12 @@ class TestIntegrationScenarios:
         service = UILocalizationService(mock_config_service, mock_event_service)
 
         # Mock Chinese system locale
-        with patch.object(service, '_get_system_locale', return_value='zh-CN'):
+        with patch.object(service, "_get_system_locale", return_value="zh-CN"):
             result = service.apply_language("auto")
             assert result == "zh-CN"
 
         # Mock English system locale
-        with patch.object(service, '_get_system_locale', return_value='en-US'):
+        with patch.object(service, "_get_system_locale", return_value="en-US"):
             result = service.apply_language("auto")
             assert result == "en-US"
 
