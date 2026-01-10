@@ -172,7 +172,7 @@ class AIProcessingController(
 
             # 发送AI处理完成事件（携带优化后的文本）
             self._events.emit(
-                "ai_processed_text",
+                Events.AI_PROCESSED_TEXT,
                 {
                     "text": optimized_text,
                     "original_text": text,
@@ -205,7 +205,7 @@ class AIProcessingController(
             data_copy = {k: v for k, v in data.items() if k != "text"}
 
             self._events.emit(
-                "ai_processed_text",
+                Events.AI_PROCESSED_TEXT,
                 {
                     "text": text,
                     "original_text": text,

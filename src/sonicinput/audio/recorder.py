@@ -4,7 +4,7 @@ import threading
 import time
 import wave
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pyaudio
@@ -417,15 +417,16 @@ class AudioRecorder(LifecycleComponent, IAudioService):
             },
         )
 
-    def stop_recording(self) -> np.ndarray:
+    def stop_recording(self) -> Tuple[np.ndarray, float]:
         """Stop audio recording and return captured audio data
 
         Performs graceful shutdown of recording thread and audio stream,
         then concatenates all captured audio chunks into a single array.
 
         Returns:
-            Numpy array of audio samples (float32, range [-1.0, 1.0])
-            Empty array if no recording was in progress
+            Tuple of (audio_samples, duration_seconds).
+            audio_samples is a numpy array of float32 samples in [-1.0, 1.0].
+            Returns (empty array, 0.0) if no recording was in progress.
 
         Timing Analysis:
             Logs detailed timing metrics to identify any delays:
@@ -448,8 +449,8 @@ class AudioRecorder(LifecycleComponent, IAudioService):
         Example:
             >>> recorder.start_recording()
             >>> time.sleep(3.0)
-            >>> audio = recorder.stop_recording()
-            >>> print(f"Recorded {len(audio) / 16000:.2f} seconds")
+            >>> audio, duration = recorder.stop_recording()
+            >>> print(f"Recorded {duration:.2f} seconds")
 
         Thread Safety:
             Multiple calls are safe - first call stops recording, subsequent
@@ -459,7 +460,7 @@ class AudioRecorder(LifecycleComponent, IAudioService):
 
         if not self._recording:
             app_logger.log_audio_event("No recording in progress", {})
-            return np.array([])
+            return np.array([]), 0.0
 
         app_logger.log_audio_event(
             "Recording stop initiated",

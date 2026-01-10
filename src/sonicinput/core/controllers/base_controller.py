@@ -74,7 +74,7 @@ class BaseController(ABC):
 
         Example:
             def _register_event_listeners(self):
-                self._events.on("transcription_request", self._on_transcription_request)
+                self._events.on(Events.TRANSCRIPTION_REQUEST, self._on_transcription_request)
                 self._events.on(Events.CUSTOM_EVENT, self._on_custom_event)
         """
         pass
@@ -207,7 +207,7 @@ class BaseController(ABC):
             The listener ID from the event service
 
         Example:
-            self._track_listener("transcription_request", self._on_transcription_request)
+            self._track_listener(Events.TRANSCRIPTION_REQUEST, self._on_transcription_request)
             self._track_listener(Events.RECORDING_STARTED, self._on_recording_started)
         """
         listener_id = self._events.on(event_name, handler)

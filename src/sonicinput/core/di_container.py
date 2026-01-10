@@ -14,6 +14,7 @@ from .interfaces import (
     IInputService,
 )
 from .interfaces.audio import IAudioService
+from .services.event_bus import Events
 from .services.ui_services import (
     UIAudioService,
     UIGPUService,
@@ -515,7 +516,7 @@ def create_container() -> "DIContainer":
             # 通过事件系统触发，而不是直接调用录音控制器
             # 这样可以解耦 HotkeyService 和 VoiceInputApp
             event_service = container.resolve(IEventService)
-            event_service.emit("hotkey_triggered", {"action": action})
+            event_service.emit(Events.HOTKEY_TRIGGERED, {"action": action})
 
         # 使用 HotkeyService 包装器（支持配置热重载）
         hotkey_service = HotkeyService(config, hotkey_callback)

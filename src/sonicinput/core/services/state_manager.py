@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar
 from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
 from ..interfaces import EventPriority, IEventService
+from ..services.event_bus import Events
 from ..interfaces.state import AppState, IStateManager, RecordingState
 
 T = TypeVar("T")
@@ -181,7 +182,7 @@ class StateManager(LifecycleComponent, IStateManager):
         # 发送状态变更事件
         if self._event_service:
             self._event_service.emit(
-                "state_changed",
+                Events.STATE_CHANGED,
                 {
                     "key": key,
                     "old_value": old_value,
@@ -367,7 +368,7 @@ class StateManager(LifecycleComponent, IStateManager):
         # 发送专门的应用状态变更事件
         if self._event_service and old_state != state:
             self._event_service.emit(
-                "app_state_changed",
+                Events.APP_STATE_CHANGED,
                 {
                     "old_state": old_state.value,
                     "new_state": state.value,
@@ -396,7 +397,7 @@ class StateManager(LifecycleComponent, IStateManager):
         # 发送专门的录音状态变更事件
         if self._event_service and old_state != state:
             self._event_service.emit(
-                "recording_state_changed",
+                Events.RECORDING_STATE_CHANGED,
                 {
                     "old_state": old_state.value,
                     "new_state": state.value,

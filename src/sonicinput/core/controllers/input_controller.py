@@ -59,10 +59,12 @@ class InputController(LifecycleComponent, BaseController, IInputController):
         Uses _track_listener() to enable proper cleanup.
         """
         # AI 处理完成的文本（chunked 模式）
-        self._track_listener("ai_processed_text", self._on_text_ready_for_input)
+        self._track_listener(Events.AI_PROCESSED_TEXT, self._on_text_ready_for_input)
 
         # 实时文本更新（realtime 模式）
-        self._track_listener("realtime_text_updated", self._on_realtime_text_updated)
+        self._track_listener(
+            Events.REALTIME_TEXT_UPDATED, self._on_realtime_text_updated
+        )
 
         # 录音开始/停止事件（用于重置状态）
         self._track_listener(Events.RECORDING_STARTED, self._on_recording_started)

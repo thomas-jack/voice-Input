@@ -114,11 +114,11 @@ class VoiceInputApp:
             self._hotkey_service = self.container.get(IHotkeyService)
 
             # 订阅热键触发事件
-            self.events.subscribe("hotkey_triggered", self._on_hotkey_triggered)
+            self.events.subscribe(Events.HOTKEY_TRIGGERED, self._on_hotkey_triggered)
 
             # 订阅 speech service 热重载事件
             self.events.subscribe(
-                "speech_service.reloaded", self._on_speech_service_reloaded
+                Events.SPEECH_SERVICE_RELOADED, self._on_speech_service_reloaded
             )
 
             # 获取后端信息用于日志
@@ -360,7 +360,7 @@ class VoiceInputApp:
                             )
                             # 发送事件通知UI
                             self.events.emit(
-                                "HOTKEY_CONFLICT",
+                                Events.HOTKEY_CONFLICT,
                                 {
                                     "hotkey": e.hotkey,
                                     "suggestions": e.suggestions,
@@ -371,7 +371,7 @@ class VoiceInputApp:
                             failed_hotkeys.append(hotkey.strip())
                             app_logger.log_error(e, f"hotkey_registration_{hotkey}")
                             self.events.emit(
-                                "HOTKEY_REGISTRATION_ERROR",
+                                Events.HOTKEY_REGISTRATION_ERROR,
                                 {
                                     "hotkey": hotkey.strip(),
                                     "error": str(e),

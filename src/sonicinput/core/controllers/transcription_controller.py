@@ -76,7 +76,7 @@ class TranscriptionController(
         NOTE: Called from _do_start() to support hot reload.
         Uses _track_listener() to enable proper cleanup.
         """
-        self._track_listener("transcription_request", self._on_transcription_request)
+        self._track_listener(Events.TRANSCRIPTION_REQUEST, self._on_transcription_request)
 
     def _on_transcription_request(self, data: dict) -> None:
         """处理转录请求事件

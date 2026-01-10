@@ -22,6 +22,7 @@ from ..interfaces import (
     IStateManager,
 )
 from ..services.config import ConfigKeys
+from .event_bus import Events
 from .hot_reload_manager import HotReloadManager
 
 
@@ -85,7 +86,7 @@ class ApplicationOrchestrator:
         self._controllers: Dict[str, Any] = {}
 
         # 注册 config.changed 事件监听，实现统一的热重载
-        self.events.on("config.changed", self._on_config_changed)
+        self.events.on(Events.CONFIG_CHANGED_DETAILED, self._on_config_changed)
 
         app_logger.log_audio_event("ApplicationOrchestrator initialized", {})
 
@@ -132,7 +133,7 @@ class ApplicationOrchestrator:
             self._startup_complete = True
 
             # 触发启动完成事件
-            self.events.emit("APP_STARTUP_COMPLETED")
+            self.events.emit(Events.APP_STARTUP_COMPLETED)
             app_logger.log_audio_event("Application startup completed successfully", {})
 
         except Exception as e:
@@ -331,8 +332,6 @@ class ApplicationOrchestrator:
 
     def _load_model_async(self, model_name: str) -> None:
         """异步加载语音模型"""
-        from .event_bus import Events
-
         self.events.emit(Events.MODEL_LOADING_STARTED)
 
         def on_success(result: Dict[str, Any]):

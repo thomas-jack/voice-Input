@@ -15,6 +15,7 @@ from ...utils import WhisperLoadError, app_logger
 
 # IConfigReloadable removed - using service rebuild pattern instead
 from .config import ConfigKeys
+from .event_bus import Events
 from .error_recovery_service import ErrorRecoveryService
 from .model_manager import ModelManager
 from .streaming_coordinator import StreamingCoordinator
@@ -148,7 +149,7 @@ class RefactoredTranscriptionService(LifecycleComponent, ISpeechService):
                 # 发送服务启动事件
                 if self.event_service:
                     self.event_service.emit(
-                        "transcription_service_started",
+                        Events.TRANSCRIPTION_SERVICE_STARTED,
                         {
                             "transcription_core_available": self.transcription_core
                             is not None
@@ -193,7 +194,7 @@ class RefactoredTranscriptionService(LifecycleComponent, ISpeechService):
 
                 # 发送服务停止事件
                 if self.event_service:
-                    self.event_service.emit("transcription_service_stopped", {})
+                    self.event_service.emit(Events.TRANSCRIPTION_SERVICE_STOPPED, {})
 
                 return True
 

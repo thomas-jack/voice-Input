@@ -1,7 +1,7 @@
 """音频服务接口定义"""
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -25,11 +25,11 @@ class IAudioService(ABC):
         pass
 
     @abstractmethod
-    def stop_recording(self) -> Optional[np.ndarray]:
+    def stop_recording(self) -> Tuple[np.ndarray, float]:
         """停止录音并返回音频数据
 
         Returns:
-            录制的音频数据，None 表示录音失败
+            (audio_samples, duration_seconds)
         """
         pass
 

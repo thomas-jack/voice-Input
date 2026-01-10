@@ -64,6 +64,9 @@ class Events:
     TRANSCRIPTION_COMPLETED = "transcription_completed"
     TRANSCRIPTION_ERROR = "transcription_error"
     TRANSCRIPTION_REQUEST = "transcription_request"
+    TRANSCRIPTION_SERVICE_STARTED = "transcription_service_started"
+    TRANSCRIPTION_SERVICE_STOPPED = "transcription_service_stopped"
+    SPEECH_SERVICE_RELOADED = "speech_service.reloaded"
 
     # Model loading
     MODEL_LOADING_STARTED = "model_loading_started"
@@ -77,11 +80,13 @@ class Events:
     STREAMING_STARTED = "streaming_started"
     STREAMING_STOPPED = "streaming_stopped"
     STREAMING_CHUNK_COMPLETED = "streaming_chunk_completed"
+    REALTIME_TEXT_UPDATED = "realtime_text_updated"
 
     # AI processing
     AI_PROCESSING_STARTED = "ai_processing_started"
     AI_PROCESSING_COMPLETED = "ai_processing_completed"
     AI_PROCESSING_ERROR = "ai_processing_error"
+    AI_PROCESSED_TEXT = "ai_processed_text"
 
     # Text input
     TEXT_INPUT_STARTED = "text_input_started"
@@ -97,6 +102,7 @@ class Events:
 
     # Config
     CONFIG_CHANGED = "config_changed"
+    CONFIG_CHANGED_DETAILED = "config.changed"
     CONFIG_LOADED = "config_loaded"
     CONFIG_SAVED = "config_saved"
     CONFIG_RESET = "config_reset"
@@ -111,6 +117,7 @@ class Events:
 
     # App lifecycle/state
     APP_STARTED = "app_started"
+    APP_STARTUP_COMPLETED = "app_startup_completed"
     APP_STOPPING = "app_stopping"
     APP_ERROR = "app_error"
     APP_STATE_CHANGED = "app_state_changed"

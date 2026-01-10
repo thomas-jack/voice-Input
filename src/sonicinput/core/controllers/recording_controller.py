@@ -414,7 +414,7 @@ class RecordingController(LifecycleComponent, IRecordingController):
 
         # 发送转录请求事件（由 TranscriptionController 监听）
         self._events.emit(
-            "transcription_request",
+            Events.TRANSCRIPTION_REQUEST,
             {
                 "audio_duration": self._last_audio_duration,
                 "recording_stop_time": self._recording_stop_time,

@@ -14,6 +14,7 @@ import numpy as np
 
 from ...utils import app_logger
 from ..base.lifecycle_component import LifecycleComponent
+from .event_bus import Events
 
 # 流式模式类型
 StreamingMode = Literal["chunked", "realtime"]
@@ -159,7 +160,7 @@ class StreamingCoordinator(LifecycleComponent):
 
             # 发送流式开始事件
             self._emit_streaming_event(
-                "streaming_started", {"mode": self._streaming_mode_type}
+                Events.STREAMING_STARTED, {"mode": self._streaming_mode_type}
             )
 
     def stop_streaming(self) -> Dict[str, Any]:
@@ -233,7 +234,7 @@ class StreamingCoordinator(LifecycleComponent):
             )
 
             # 发送流式结束事件
-            self._emit_streaming_event("streaming_stopped", stats)
+            self._emit_streaming_event(Events.STREAMING_STOPPED, stats)
 
             return stats
 
@@ -356,7 +357,7 @@ class StreamingCoordinator(LifecycleComponent):
 
                     # 发送实时更新事件
                     self._emit_streaming_event(
-                        "realtime_text_updated",
+                        Events.REALTIME_TEXT_UPDATED,
                         {
                             "text": partial_result,
                             "timestamp": self._realtime_last_update,
@@ -467,7 +468,7 @@ class StreamingCoordinator(LifecycleComponent):
 
                 # 发送块完成事件
                 self._emit_streaming_event(
-                    "streaming_chunk_completed",
+                    Events.STREAMING_CHUNK_COMPLETED,
                     {"chunk_id": chunk_id, "result": result},
                 )
 

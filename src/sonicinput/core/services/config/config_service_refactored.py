@@ -13,6 +13,7 @@ from ....utils import ConfigurationError, app_logger
 from ...base.lifecycle_component import LifecycleComponent
 from ...interfaces import EventPriority, IEventService
 from ...interfaces.config import IConfigService
+from ..event_bus import Events
 from .config_backup import ConfigBackupService
 from .config_keys import ConfigKeys
 from .config_migrator import ConfigMigrator
@@ -169,7 +170,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
         # 发送配置变更事件
         if self._event_service:
             self._event_service.emit(
-                "config_changed",
+                Events.CONFIG_CHANGED,
                 {
                     "key": key,
                     "old_value": old_value,
@@ -219,7 +220,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             # 发送配置变更事件
             if self._event_service:
                 self._event_service.emit(
-                    "config_changed",
+                    Events.CONFIG_CHANGED,
                     {
                         "key": key,
                         "old_value": old_value,
@@ -284,7 +285,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             # 发送配置加载事件
             if self._event_service:
                 self._event_service.emit(
-                    "config_loaded",
+                    Events.CONFIG_LOADED,
                     {
                         "config_path": str(self.config_path),
                         "timestamp": datetime.now().isoformat(),
@@ -311,7 +312,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
 
             if self._event_service:
                 self._event_service.emit(
-                    "config_reset",
+                    Events.CONFIG_RESET,
                     {"type": "full", "timestamp": datetime.now().isoformat()},
                     EventPriority.HIGH,
                 )
@@ -326,7 +327,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
 
                 if self._event_service:
                     self._event_service.emit(
-                        "config_reset",
+                        Events.CONFIG_RESET,
                         {
                             "type": "single",
                             "key": key,
@@ -396,7 +397,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             if self.save_config():
                 if self._event_service:
                     self._event_service.emit(
-                        "config_imported",
+                        Events.CONFIG_IMPORTED,
                         {
                             "source_path": str(source_path),
                             "timestamp": datetime.now().isoformat(),
@@ -764,7 +765,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             # 6. 发送重载完成事件
             if self._event_service:
                 self._event_service.emit(
-                    "speech_service.reloaded",
+                    Events.SPEECH_SERVICE_RELOADED,
                     {
                         "changed_key": changed_key,
                         "old_provider": old_provider,
@@ -903,7 +904,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             current_config = self._reader._config.copy()
 
             self._event_service.emit(
-                "config_saved",
+                Events.CONFIG_SAVED,
                 {
                     "config_path": str(self.config_path),
                     "timestamp": datetime.now().isoformat(),
@@ -918,7 +919,7 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
 
             # 发送配置变更事件（用于热重载）
             self._event_service.emit(
-                "config.changed",
+                Events.CONFIG_CHANGED_DETAILED,
                 {
                     "changed_keys": changed_keys,
                     "old_config": self._last_saved_config.copy(),

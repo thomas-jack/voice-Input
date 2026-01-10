@@ -11,6 +11,7 @@ from typing import Any, Callable, Dict
 
 from ...utils import app_logger
 from ..interfaces import IEventService
+from .event_bus import Events
 
 
 class UIEventBridge:
@@ -81,7 +82,7 @@ class UIEventBridge:
             )
 
         # 执行自定义处理器
-        self._execute_custom_handler("recording_started", data)
+        self._execute_custom_handler(Events.RECORDING_STARTED, data)
 
     def handle_recording_stopped(self, data: dict) -> None:
         """处理录音停止事件"""
@@ -89,7 +90,7 @@ class UIEventBridge:
             self._overlay.show_processing()
 
         # 执行自定义处理器
-        self._execute_custom_handler("recording_stopped", data)
+        self._execute_custom_handler(Events.RECORDING_STOPPED, data)
 
     def handle_ai_processing_started(self, data: Any = None) -> None:
         """处理AI处理开始事件"""
@@ -97,7 +98,7 @@ class UIEventBridge:
             self._overlay.set_status_text("AI Processing...")
 
         # 执行自定义处理器
-        self._execute_custom_handler("ai_processing_started", data)
+        self._execute_custom_handler(Events.AI_PROCESSING_STARTED, data)
 
     def handle_ai_processing_completed(self, data: Any = None) -> None:
         """处理AI处理完成事件"""
@@ -107,7 +108,7 @@ class UIEventBridge:
             self._overlay.status_indicator.set_state(StatusIndicator.STATE_COMPLETED)
 
         # 执行自定义处理器
-        self._execute_custom_handler("ai_processing_completed", data)
+        self._execute_custom_handler(Events.AI_PROCESSING_COMPLETED, data)
 
     def handle_text_input_completed(self, text: str) -> None:
         """处理文本输入完成事件"""
@@ -115,7 +116,7 @@ class UIEventBridge:
             self._overlay.show_completed(delay_ms=500)
 
         # 执行自定义处理器
-        self._execute_custom_handler("text_input_completed", text)
+        self._execute_custom_handler(Events.TEXT_INPUT_COMPLETED, text)
 
     def handle_error(self, error_msg: str) -> None:
         """处理错误事件
@@ -149,7 +150,7 @@ class UIEventBridge:
             self._overlay.update_audio_level(level)
 
         # 执行自定义处理器
-        self._execute_custom_handler("audio_level_update", level)
+        self._execute_custom_handler(Events.AUDIO_LEVEL_UPDATE, level)
 
     def handle_realtime_text_update(self, data: dict) -> None:
         """处理实时文本更新事件
@@ -172,12 +173,10 @@ class UIEventBridge:
         )
 
         # 执行自定义处理器
-        self._execute_custom_handler("realtime_text_updated", data)
+        self._execute_custom_handler(Events.REALTIME_TEXT_UPDATED, data)
 
     def _setup_event_listeners(self) -> None:
         """设置事件监听器"""
-        from .event_bus import Events
-
         # 成功事件
         self.events.on(Events.RECORDING_STARTED, self.handle_recording_started)
         self.events.on(Events.RECORDING_STOPPED, self.handle_recording_stopped)
@@ -189,7 +188,7 @@ class UIEventBridge:
         self.events.on(Events.AUDIO_LEVEL_UPDATE, self.handle_audio_level_update)
 
         # Realtime 转录更新事件
-        self.events.on("realtime_text_updated", self.handle_realtime_text_update)
+        self.events.on(Events.REALTIME_TEXT_UPDATED, self.handle_realtime_text_update)
 
         # 错误事件
         self.events.on(Events.TRANSCRIPTION_ERROR, self.handle_error)
