@@ -142,6 +142,16 @@ def _resolve_pyside6_dll(dll_name: str) -> Path | None:
     return dll_path if dll_path.exists() else None
 
 
+def _resolve_shiboken6_dll(dll_name: str) -> Path | None:
+    try:
+        import shiboken6
+    except Exception:
+        return None
+
+    dll_path = Path(shiboken6.__file__).resolve().parent / dll_name
+    return dll_path if dll_path.exists() else None
+
+
 version = get_version()
 print(f"Building SonicInput v{version}")
 
@@ -192,6 +202,10 @@ qt_dll_names = [
     "Qt6UiTools.dll",
     "Qt6Designer.dll",
     "Qt6DesignerComponents.dll",
+    "Qt6OpenGL.dll",
+    "Qt6OpenGLWidgets.dll",
+    "pyside6.abi3.dll",
+    "pyside6qml.abi3.dll",
 ]
 found_qt_dlls = False
 for dll_name in qt_dll_names:
@@ -200,8 +214,12 @@ for dll_name in qt_dll_names:
         found_qt_dlls = True
         nuitka_cmd.append(f"--include-data-file={dll_path}=PySide6/{dll_name}")
 
-if not found_qt_dlls:
-    print("[WARN] QtUiTools DLLs not found; QtUiTools may fail to load.")
+shiboken_dll = _resolve_shiboken6_dll("shiboken6.abi3.dll")
+if shiboken_dll:
+    nuitka_cmd.append(f"--include-data-file={shiboken_dll}=shiboken6/shiboken6.abi3.dll")
+
+if not found_qt_dlls or not shiboken_dll:
+    print("[WARN] QtUiTools dependencies not fully found; QtUiTools may fail to load.")
 
 print("\nRunning Nuitka compilation...\n")
 print(f"Command: {' '.join(nuitka_cmd)}\n")
