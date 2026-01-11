@@ -1412,7 +1412,7 @@ wheels = [
 
 [[package]]
 name = "sonicinput"
-version = "0.5.5"
+version = "0.5.6"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },

@@ -166,6 +166,7 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
         self._stop_event = threading.Event()
         self._next_hotkey_id = 1
         self._command_queue = queue.Queue()
+        self._message_ready = threading.Event()
 
         app_logger.log_audio_event(
             "Win32 hotkey manager initialized (RegisterHotKey)", {}
@@ -300,9 +301,21 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
         This avoids thread affinity issues with RegisterHotKey.
         """
         try:
+            import ctypes
+
+            msg = ctypes.wintypes.MSG()
+            ctypes.windll.user32.PeekMessageW(
+                ctypes.byref(msg),
+                None,  # NULL window handle - get thread messages
+                0,
+                0,
+                win32con.PM_NOREMOVE,
+            )
+
             # Signal that message loop is ready
             # We don't create a window - RegisterHotKey with NULL binds to the thread
             self._is_listening_flag = True
+            self._message_ready.set()
 
             app_logger.log_audio_event(
                 "Win32 message loop started (thread-level hotkeys)", {}
@@ -321,10 +334,6 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
                     # Don't break - continue processing other commands
 
             # Message loop - process thread messages
-            import ctypes
-
-            msg = ctypes.wintypes.MSG()
-
             while not self._stop_event.is_set():
                 try:
                     # GetMessage returns:
@@ -521,9 +530,11 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
             if self._is_listening_flag and self._message_thread:
                 import ctypes
 
-                # On Windows, thread.ident is the native thread ID
-                # No need to call GetThreadId (which requires a HANDLE, not an ID)
-                thread_id = self._message_thread.ident
+                thread_id = (
+                    self._message_thread.native_id
+                    if hasattr(self._message_thread, "native_id")
+                    else self._message_thread.ident
+                )
                 # Post a dummy message to wake up GetMessage
                 ctypes.windll.user32.PostThreadMessageW(
                     thread_id, win32con.WM_NULL, 0, 0
@@ -574,24 +585,73 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
         info = self.registered_hotkeys[normalized_hotkey]
         hotkey_id = info["id"]
 
-        try:
-            import ctypes
-
-            # Use NULL window handle (thread-level hotkey)
-            ctypes.windll.user32.UnregisterHotKey(None, hotkey_id)
-
+        if not self._is_listening_flag or not self._message_thread:
             del self.registered_hotkeys[normalized_hotkey]
-
             app_logger.log_audio_event(
-                "Win32 hotkey unregistered",
+                "Win32 hotkey unregistered (listener inactive)",
                 {"hotkey": normalized_hotkey, "id": hotkey_id},
             )
-
             return True
 
-        except Exception as e:
-            app_logger.log_error(e, f"unregister_hotkey_{normalized_hotkey}")
-            return False
+        unregister_error = None
+        unregister_complete = threading.Event()
+
+        def unregister_command():
+            nonlocal unregister_error
+            try:
+                import ctypes
+
+                # Use NULL window handle (thread-level hotkey)
+                success = ctypes.windll.user32.UnregisterHotKey(None, hotkey_id)
+                error_code = ctypes.windll.kernel32.GetLastError() if not success else 0
+
+                app_logger.log_audio_event(
+                    "UnregisterHotKey called",
+                    {
+                        "hotkey": normalized_hotkey,
+                        "id": hotkey_id,
+                        "success": bool(success),
+                        "error_code": error_code,
+                    },
+                )
+
+                if success:
+                    self.registered_hotkeys.pop(normalized_hotkey, None)
+                else:
+                    unregister_error = Exception(
+                        f"UnregisterHotKey failed (error code: {error_code})"
+                    )
+            except Exception as e:
+                app_logger.log_error(e, "unregister_hotkey_win32")
+                unregister_error = e
+            finally:
+                unregister_complete.set()
+
+        self._command_queue.put(unregister_command)
+
+        import ctypes
+
+        thread_id = (
+            self._message_thread.native_id
+            if hasattr(self._message_thread, "native_id")
+            else self._message_thread.ident
+        )
+        ctypes.windll.user32.PostThreadMessageW(thread_id, win32con.WM_NULL, 0, 0)
+
+        if unregister_complete.wait(timeout=2.0):
+            if unregister_error:
+                app_logger.log_error(
+                    unregister_error, f"unregister_hotkey_{normalized_hotkey}"
+                )
+                return False
+            return True
+
+        error_msg = (
+            f"Hotkey '{normalized_hotkey}' unregistration timed out - "
+            "message loop not ready"
+        )
+        app_logger.log_error(Exception(error_msg), "unregister_hotkey_timeout")
+        return False
 
     def unregister_all_hotkeys(self) -> None:
         """Unregister all hotkeys"""
@@ -613,6 +673,7 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
 
         try:
             self._stop_event.clear()
+            self._message_ready.clear()
 
             # Start message loop thread
             self._message_thread = threading.Thread(
@@ -624,11 +685,11 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
             import time
 
             for _ in range(50):  # Wait up to 5 seconds
-                if self._is_listening_flag:
+                if self._message_ready.is_set():
                     break
                 time.sleep(0.1)
 
-            if not self._is_listening_flag:
+            if not self._message_ready.is_set():
                 raise RuntimeError("Failed to start message loop")
 
             app_logger.log_audio_event("Win32 hotkey listening started", {})
@@ -655,7 +716,7 @@ class Win32HotkeyManager(LifecycleComponent, IHotkeyService):
                 import ctypes
 
                 try:
-                    thread_id = ctypes.windll.kernel32.GetThreadId(
+                    thread_id = (
                         self._message_thread.native_id
                         if hasattr(self._message_thread, "native_id")
                         else self._message_thread.ident
