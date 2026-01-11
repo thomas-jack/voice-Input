@@ -100,15 +100,16 @@
   "history": {
     "storage_path": "auto"
   },
-  "logging": {
-    "level": "INFO",
-    "console_output": true,
-    "max_log_size_mb": 10,
-    "keep_logs_days": 7,
-    "enabled_categories": [
-      "audio",
-      "api",
-      "ui",
+    "logging": {
+        "level": "INFO",
+        "console_output": true,
+        "max_log_size_mb": 10,
+        "max_backup_files": 2,
+        "keep_logs_days": 7,
+        "enabled_categories": [
+            "audio",
+            "api",
+            "ui",
       "model",
       "hotkey",
       "gpu",
