@@ -9,21 +9,19 @@
 - 即开即用：剪贴板 / 文本 / GUI 多入口
 - 热键无管理员：Win32 RegisterHotKey（默认 F12，可自定义），冲突时会提示
 - 双模式录制：Realtime 低延迟；Chunked 精度高（AI 后处理）
-- 体积小：onefile 约 49 MB（v0.5.6）
+- 体积小：onefile 约 49 MB（v0.5.7）
 - 云端/本地切换：Groq / OpenRouter / NVIDIA / OpenAI / 本地 sherpa-onnx
 
-## v0.5.6 更新
-- 修复 Win32 热键注销/注册线程不一致导致 F12 偶发注册失败的问题
-- 消息循环就绪检测更可靠，消除 “message loop not ready” 超时
-- 构建脚本输出阶段耗时，便于排查打包性能
-- 同步更新版本号与中英文 README
+## v0.5.7 更新
+- 日志超过 10MB 自动轮转，最多保留 2 份备份，避免日志失控
+- 默认配置与示例配置新增 `logging.max_log_size_mb` / `logging.max_backup_files` 字段，开箱即用
 
 ## 系统需求
 - Windows 10/11 64 位
 - 内存 4GB+，磁盘 500MB（onefile 体积 ~49MB）
 
 ## 快速开始
-1. 下载 [Releases](https://github.com/Oxidane-bot/SonicInput/releases) 中的 `SonicInput-v0.5.6-win64.exe`
+1. 下载 [Releases](https://github.com/Oxidane-bot/SonicInput/releases) 中的 `SonicInput-v0.5.7-win64.exe`
 2. 双击运行，默认热键 F12（若冲突可改用 Alt+H 或自定义）
 3. 在设置中填写需要的云端 API Key（可选），或直接使用本地模型
 

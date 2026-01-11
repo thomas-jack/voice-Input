@@ -9,21 +9,19 @@
 - Ready to use: clipboard / text / GUI entry points
 - No admin needed: Win32 RegisterHotKey (default F12, customizable), conflict prompts
 - Two recording modes: Realtime (low latency) / Chunked (higher quality with AI)
-- Small footprint: onefile ~49 MB (v0.5.6)
+- Small footprint: onefile ~49 MB (v0.5.7)
 - Cloud & local: Groq / OpenRouter / NVIDIA / OpenAI or local sherpa-onnx
 
-## What’s New (v0.5.6)
-- Fix Win32 hotkey unregister/register thread mismatch causing F12 to fail intermittently
-- More reliable message-loop readiness detection; removes “message loop not ready” timeouts
-- Build script now prints stage timings
-- Version bump and refreshed bilingual README
+## What’s New (v0.5.7)
+- Log auto-rotation: cap main log at 10MB and keep 2 backups to prevent runaway growth
+- Defaults + sample config include `logging.max_log_size_mb` / `logging.max_backup_files` so limits work out of the box
 
 ## Requirements
 - Windows 10/11 64-bit
 - 4GB RAM+, ~500MB disk
 
 ## Quick Start
-1. Download `SonicInput-v0.5.6-win64.exe` from [Releases](https://github.com/Oxidane-bot/SonicInput/releases)
+1. Download `SonicInput-v0.5.7-win64.exe` from [Releases](https://github.com/Oxidane-bot/SonicInput/releases)
 2. Run the exe; default hotkey is F12 (use Alt+H or customize if it conflicts)
 3. Enter cloud API keys in settings (optional) or use the local model
 
