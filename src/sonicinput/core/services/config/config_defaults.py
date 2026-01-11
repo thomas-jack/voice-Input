@@ -101,6 +101,7 @@ def get_default_config() -> Dict[str, Any]:
             "level": "INFO",
             "console_output": True,
             "max_log_size_mb": 10,
+            "max_backup_files": 2,
             "keep_logs_days": 7,
             "enabled_categories": [
                 "audio",

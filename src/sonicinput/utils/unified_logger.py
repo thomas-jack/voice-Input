@@ -124,6 +124,8 @@ class UnifiedLogger:
         log_dir = Path(os.environ.get("APPDATA", ".")) / "SonicInput" / "logs"
         log_dir.mkdir(parents=True, exist_ok=True)
         self._log_file = log_dir / "app.log"
+        self._max_log_size_mb = 10
+        self._max_backup_files = 2
 
         # 追踪栈（每线程）
         self._trace_stack: Dict[int, List[TraceContext]] = {}
@@ -160,6 +162,13 @@ class UnifiedLogger:
                 "logging.console_output", False
             )
 
+            self._max_log_size_mb = self._config_service.get_setting(
+                "logging.max_log_size_mb", 10
+            )
+            self._max_backup_files = self._config_service.get_setting(
+                "logging.max_backup_files", 2
+            )
+
             # 读取启用的类别
             enabled_categories_str = self._config_service.get_setting(
                 "logging.enabled_categories", []
@@ -187,6 +196,34 @@ class UnifiedLogger:
             "CRITICAL": LogLevel.CRITICAL,
         }
         return level_map.get(level_str.upper(), LogLevel.INFO)
+
+    def _rotate_logs(self) -> None:
+        """检查并按大小滚动日志"""
+        try:
+            if not self._log_file.exists():
+                return
+
+            max_bytes = int(self._max_log_size_mb * 1024 * 1024)
+            if self._log_file.stat().st_size <= max_bytes:
+                return
+
+            if self._max_backup_files < 1:
+                self._log_file.unlink(missing_ok=True)
+                return
+
+            for idx in range(self._max_backup_files, 0, -1):
+                src = self._log_file.with_name(f"app.log.{idx}")
+                dst = self._log_file.with_name(f"app.log.{idx + 1}")
+                if src.exists():
+                    if idx == self._max_backup_files:
+                        src.unlink(missing_ok=True)
+                    else:
+                        src.replace(dst)
+
+            backup = self._log_file.with_name("app.log.1")
+            self._log_file.replace(backup)
+        except Exception:
+            return
 
     def set_log_level(self, level: "Union[str, LogLevel]") -> None:
         """动态修改日志级别
@@ -409,6 +446,7 @@ class UnifiedLogger:
                 file_msg = self._format_file_message(
                     level, category, message, context, component
                 )
+                self._rotate_logs()
                 with open(self._log_file, "a", encoding="utf-8") as f:
                     f.write(file_msg + "\n")
                     f.flush()
