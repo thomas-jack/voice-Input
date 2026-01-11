@@ -54,6 +54,7 @@ build/
 
 # Nuitka build files
 build_nuitka.py
+!build_nuitka.py
 *.build/
 *.dist/
 *.onefile-build/

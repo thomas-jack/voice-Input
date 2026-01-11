@@ -56,6 +56,11 @@ class StartupDiagnostics:
 
             # File system checks
             report["file_system_check"] = self._check_file_system()
+            report["runtime_checks"] = {
+                "assets": self._check_assets(),
+                "samplerate": self._check_samplerate(),
+                "qt_plugins": self._check_qt_plugins(),
+            }
 
             # Generate summary
             report["summary"] = self._generate_summary(report)
@@ -97,7 +102,7 @@ class StartupDiagnostics:
         ]
 
         # External dependencies
-        external_imports = ["pynput", "loguru", "requests", "numpy", "scipy"]
+        external_imports = ["pynput", "loguru", "requests", "numpy", "samplerate"]
 
         all_imports = qt_imports + app_imports + external_imports
 
@@ -140,7 +145,7 @@ class StartupDiagnostics:
             "loguru",
             "requests",
             "numpy",
-            "scipy",
+            "samplerate",
             "sherpa_onnx",
         ]
 
@@ -341,6 +346,153 @@ class StartupDiagnostics:
 
         return fs_check
 
+    def _resolve_assets_dir(self) -> Path | None:
+        current = Path(__file__).resolve()
+        for parent in current.parents:
+            assets_dir = parent / "assets"
+            if assets_dir.is_dir():
+                return assets_dir
+        return None
+
+    def _check_assets(self) -> Dict[str, Any]:
+        """Verify packaged assets are present."""
+        result = {
+            "assets_dir": None,
+            "icon_present": False,
+            "fonts_present": False,
+            "translations_present": False,
+            "font_sizes": {},
+            "translation_files": [],
+            "errors": [],
+            "warnings": [],
+        }
+
+        assets_dir = self._resolve_assets_dir()
+        if not assets_dir:
+            result["errors"].append("Assets directory not found")
+            return result
+
+        result["assets_dir"] = str(assets_dir)
+
+        icon_path = assets_dir / "icon.png"
+        result["icon_present"] = icon_path.exists()
+        if not result["icon_present"]:
+            result["warnings"].append("Missing icon.png in assets")
+
+        fonts_dir = assets_dir / "fonts" / "resource-han-rounded"
+        font_files = [
+            fonts_dir / "ResourceHanRoundedCN-Regular.ttf",
+            fonts_dir / "ResourceHanRoundedCN-Bold.ttf",
+        ]
+        result["fonts_present"] = all(font.exists() for font in font_files)
+        for font_path in font_files:
+            if font_path.exists():
+                result["font_sizes"][font_path.name] = font_path.stat().st_size
+        if not result["fonts_present"]:
+            result["warnings"].append("Bundled fonts missing")
+
+        translations_dir = assets_dir / "i18n"
+        qm_files = sorted(translations_dir.glob("*.qm"))
+        result["translations_present"] = len(qm_files) > 0
+        result["translation_files"] = [file.name for file in qm_files]
+        if not result["translations_present"]:
+            result["warnings"].append("No compiled translations found")
+
+        return result
+
+    def _check_samplerate(self) -> Dict[str, Any]:
+        """Verify samplerate dependency can resample data."""
+        result = {
+            "available": False,
+            "resample_ok": False,
+            "errors": [],
+            "warnings": [],
+        }
+
+        try:
+            import numpy as np
+            from samplerate import converters as sr_converters
+
+            result["available"] = True
+            samples = np.linspace(0.0, 1.0, 16000, endpoint=False).astype(np.float32)
+            resampled = sr_converters.resample(samples, 0.5, converter_type="sinc_best")
+            if 7900 <= len(resampled) <= 8100:
+                result["resample_ok"] = True
+            else:
+                result["warnings"].append(
+                    f"Unexpected resample length: {len(resampled)}"
+                )
+        except Exception as exc:
+            result["errors"].append(f"samplerate check failed: {exc}")
+
+        return result
+
+    def _check_qt_plugins(self) -> Dict[str, Any]:
+        """Check Qt platform plugins are discoverable."""
+        result = {
+            "plugins_path": None,
+            "platforms_path": None,
+            "checked_paths": [],
+            "qwindows_present": False,
+            "errors": [],
+            "warnings": [],
+        }
+
+        try:
+            from PySide6.QtCore import QCoreApplication, QLibraryInfo
+
+            candidate_paths = [
+                Path(QLibraryInfo.path(QLibraryInfo.PluginsPath)),
+            ]
+
+            try:
+                candidate_paths.extend(
+                    Path(path) for path in QCoreApplication.libraryPaths()
+                )
+            except Exception:
+                pass
+
+            qt_plugin_env = os.environ.get("QT_PLUGIN_PATH")
+            if qt_plugin_env:
+                candidate_paths.extend(
+                    Path(path)
+                    for path in qt_plugin_env.split(os.pathsep)
+                    if path.strip()
+                )
+
+            seen = set()
+            for path in candidate_paths:
+                if not path:
+                    continue
+                key = str(path)
+                if key in seen:
+                    continue
+                seen.add(key)
+                result["checked_paths"].append(key)
+
+                platforms_path = path / "platforms"
+                qwindows_path = platforms_path / "qwindows.dll"
+                if qwindows_path.exists():
+                    result["qwindows_present"] = True
+                    result["plugins_path"] = str(path)
+                    result["platforms_path"] = str(platforms_path)
+                    break
+
+            if not result["qwindows_present"]:
+                result["plugins_path"] = result["plugins_path"] or (
+                    result["checked_paths"][0] if result["checked_paths"] else None
+                )
+                result["platforms_path"] = result["platforms_path"] or (
+                    str(Path(result["plugins_path"]) / "platforms")
+                    if result["plugins_path"]
+                    else None
+                )
+                result["warnings"].append("Qt platform plugin qwindows.dll not found")
+        except Exception as exc:
+            result["errors"].append(f"Qt plugin check failed: {exc}")
+
+        return result
+
     def _generate_summary(self, report: Dict[str, Any]) -> Dict[str, Any]:
         """Generate summary with status and recommendations"""
         summary = {
@@ -407,6 +559,15 @@ class StartupDiagnostics:
                 "Resolve package conflicts - consider using virtual environment"
             )
 
+        runtime_checks = report.get("runtime_checks", {})
+        for check_name in ("assets", "samplerate", "qt_plugins"):
+            details = runtime_checks.get(check_name, {})
+            if details.get("errors"):
+                summary["critical_issues"].extend(details["errors"])
+                summary["overall_status"] = "critical"
+            if details.get("warnings"):
+                summary["warnings"].extend(details["warnings"])
+
         # Final status determination
         if len(summary["critical_issues"]) > 0:
             summary["overall_status"] = "critical"
@@ -467,8 +628,9 @@ class StartupDiagnostics:
         env_validation = report.get("environment_validation", {})
         if env_validation:
             print("\n[INFO]  ENVIRONMENT:")
+            pyside6_validation = env_validation.get("pyside6_validation", {})
             print(
-                f"   PySide6: {'[PASS]' if env_validation.get('pyqt6_validation', {}).get('pyqt6_available') else '[FAIL]'}"
+                f"   PySide6: {'[PASS]' if pyside6_validation.get('pyside6_available') else '[FAIL]'}"
             )
             print(
                 f"   Display: {'[PASS]' if env_validation.get('display_available') else '[FAIL]'}"
@@ -476,6 +638,23 @@ class StartupDiagnostics:
             print(
                 f"   System Tray: {'[PASS]' if env_validation.get('system_tray_support') else '[FAIL]'}"
             )
+
+        runtime_checks = report.get("runtime_checks", {})
+        if runtime_checks:
+            assets_check = runtime_checks.get("assets", {})
+            samplerate_check = runtime_checks.get("samplerate", {})
+            qt_plugins_check = runtime_checks.get("qt_plugins", {})
+            assets_ok = not assets_check.get("errors")
+            samplerate_ok = samplerate_check.get("available") and samplerate_check.get(
+                "resample_ok"
+            )
+            qt_plugins_ok = not qt_plugins_check.get("errors") and qt_plugins_check.get(
+                "qwindows_present"
+            )
+            print("\n[INFO]  RUNTIME CHECKS:")
+            print(f"   Assets: {'[PASS]' if assets_ok else '[FAIL]'}")
+            print(f"   Samplerate: {'[PASS]' if samplerate_ok else '[FAIL]'}")
+            print(f"   Qt Plugins: {'[PASS]' if qt_plugins_ok else '[FAIL]'}")
 
         print("\n" + "=" * 60 + "\n")
 

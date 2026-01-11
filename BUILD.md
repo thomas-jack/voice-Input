@@ -17,7 +17,7 @@
 
 ```bash
 # 安装依赖（包含本地转录支持）
-uv sync --extra local
+uv sync --extra local --group dev
 
 # 构建
 uv run python build_nuitka.py
@@ -99,7 +99,7 @@ uv run python test_sherpa_import.py
 
 **解决**：
 ```bash
-uv sync --extra local
+uv sync --extra local --group dev
 ```
 
 ### Q2: 构建成功但运行时无法导入 sherpa-onnx

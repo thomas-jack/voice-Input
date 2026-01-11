@@ -1,7 +1,7 @@
 """音频处理器"""
 
 import numpy as np
-from scipy import signal
+from samplerate import converters as sr_converters
 
 from ..utils import AudioRecordingError, app_logger
 
@@ -22,7 +22,6 @@ class AudioProcessor:
         try:
             # 计算重采样比例
             resample_ratio = 16000 / original_rate
-            new_length = int(len(audio_data) * resample_ratio)
 
             # 性能优化：使用更高效的重采样方法
             if abs(resample_ratio - 1.0) < 0.01:  # 如果采样率差异很小，跳过重采样
@@ -36,7 +35,7 @@ class AudioProcessor:
                 )
                 return audio_data.astype(np.float32)
 
-            # 使用scipy的高质量重采样，但增加内存效率优化
+            # 使用samplerate的高质量重采样，保持内存效率优化
             try:
                 # 对于大型音频，分块处理以减少内存使用
                 if len(audio_data) > 480000:  # 30秒以上音频分块处理
@@ -45,7 +44,11 @@ class AudioProcessor:
                     )
                 else:
                     # 小音频直接处理
-                    resampled = signal.resample(audio_data, new_length)
+                    resampled = sr_converters.resample(
+                        audio_data.astype(np.float32),
+                        resample_ratio,
+                        converter_type="sinc_best",
+                    )
 
                 app_logger.log_audio_event(
                     "Audio resampled efficiently",
@@ -57,13 +60,13 @@ class AudioProcessor:
                         "method": "chunked" if len(audio_data) > 480000 else "direct",
                     },
                 )
-            except MemoryError:
-                # 内存不足时，使用更简单的方法
+            except (MemoryError, ValueError) as exc:
+                # 内存不足或重采样失败时，使用更简单的方法
                 app_logger.log_warning(
-                    "Memory insufficient for high-quality resampling, using simple method",
-                    {},
+                    "High-quality resampling failed, using linear fallback",
+                    {"error": str(exc)},
                 )
-                resampled = signal.resample_poly(audio_data, 16000, original_rate)
+                resampled = self._resample_linear(audio_data, resample_ratio)
 
             return resampled.astype(np.float32)
 
@@ -88,17 +91,19 @@ class AudioProcessor:
         Returns:
             重采样后的音频数据
         """
-        from scipy import signal
 
         resampled_chunks = []
         resample_ratio = target_rate / original_rate
 
         for i in range(0, len(audio_data), chunk_size):
             chunk = audio_data[i : i + chunk_size]
-            chunk_target_length = int(len(chunk) * resample_ratio)
 
             # 重采样当前块
-            resampled_chunk = signal.resample(chunk, chunk_target_length)
+            resampled_chunk = sr_converters.resample(
+                chunk.astype(np.float32),
+                resample_ratio,
+                converter_type="sinc_best",
+            )
             resampled_chunks.append(resampled_chunk)
 
             # 释放内存
@@ -106,6 +111,25 @@ class AudioProcessor:
 
         # 连接所有重采样后的块
         return np.concatenate(resampled_chunks, axis=0)
+
+    def _resample_linear(
+        self, audio_data: np.ndarray, resample_ratio: float
+    ) -> np.ndarray:
+        """线性插值重采样（降级路径）。"""
+        if audio_data.ndim == 1:
+            original_length = len(audio_data)
+            if original_length == 0:
+                return audio_data
+            target_length = int(original_length * resample_ratio)
+            x_old = np.linspace(0.0, 1.0, original_length, endpoint=False)
+            x_new = np.linspace(0.0, 1.0, target_length, endpoint=False)
+            return np.interp(x_new, x_old, audio_data).astype(np.float32)
+
+        channels = []
+        for channel_idx in range(audio_data.shape[1]):
+            channel = audio_data[:, channel_idx]
+            channels.append(self._resample_linear(channel, resample_ratio))
+        return np.stack(channels, axis=1)
 
     def normalize_audio(
         self, audio_data: np.ndarray, target_level: float = 0.8
@@ -263,9 +287,10 @@ class AudioProcessor:
             if len(audio_data) == 0:
                 return audio_data
 
-            # 简单的高通滤波器去除低频噪音
-            sos = signal.butter(4, 80, "hp", fs=16000, output="sos")
-            filtered = signal.sosfilt(sos, audio_data)
+            # 轻量高通滤波器去除低频噪音
+            filtered = self._high_pass_filter(
+                audio_data, cutoff=80.0, sample_rate=16000
+            )
 
             app_logger.log_audio_event(
                 "Noise reduction applied",
@@ -277,6 +302,35 @@ class AudioProcessor:
         except Exception as e:
             app_logger.log_error(e, "apply_noise_reduction")
             return audio_data  # 发生错误时返回原始音频
+
+    def _high_pass_filter(
+        self, audio_data: np.ndarray, cutoff: float, sample_rate: int
+    ) -> np.ndarray:
+        """Lightweight one-pole high-pass filter."""
+        if audio_data.size == 0:
+            return audio_data
+
+        dt = 1.0 / sample_rate
+        rc = 1.0 / (2 * np.pi * cutoff)
+        alpha = rc / (rc + dt)
+
+        if audio_data.ndim == 1:
+            output = np.empty_like(audio_data, dtype=np.float32)
+            output[0] = audio_data[0]
+            prev_output = output[0]
+            prev_input = audio_data[0]
+            for idx in range(1, len(audio_data)):
+                current = audio_data[idx]
+                prev_output = alpha * (prev_output + current - prev_input)
+                output[idx] = prev_output
+                prev_input = current
+            return output
+
+        channels = []
+        for channel_idx in range(audio_data.shape[1]):
+            channel = audio_data[:, channel_idx]
+            channels.append(self._high_pass_filter(channel, cutoff, sample_rate))
+        return np.stack(channels, axis=1)
 
     def convert_to_whisper_format(
         self,
