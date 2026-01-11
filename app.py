@@ -639,7 +639,11 @@ def run_gui():
         from sonicinput.core.voice_input_app import VoiceInputApp
 
         # Import qt-material for modern UI theming
-        from qt_material import apply_stylesheet
+        try:
+            from qt_material import apply_stylesheet
+        except Exception as e:
+            apply_stylesheet = None
+            print(f"[WARN] qt-material unavailable: {e}")
 
         # IMPORTANT: Set AppUserModelID BEFORE creating QApplication
         # This is required for Windows taskbar icon to display correctly
@@ -689,12 +693,15 @@ def run_gui():
 
         # Apply Material Design theme
         theme_file = f"dark_{theme_color}.xml"
-        try:
-            apply_stylesheet(qt_app, theme=theme_file)
-            print(f"[OK] qt-material theme applied: {theme_file}")
-        except Exception as e:
-            print(f"[WARN] Failed to apply qt-material theme: {e}")
-            print("  Continuing with default style...")
+        if apply_stylesheet:
+            try:
+                apply_stylesheet(qt_app, theme=theme_file)
+                print(f"[OK] qt-material theme applied: {theme_file}")
+            except Exception as e:
+                print(f"[WARN] Failed to apply qt-material theme: {e}")
+                print("  Continuing with default style...")
+        else:
+            print("[WARN] qt-material not available; using default style.")
 
         qt_app.setQuitOnLastWindowClosed(False)  # System tray app
         voice_app = VoiceInputApp(container)
