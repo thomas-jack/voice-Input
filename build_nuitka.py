@@ -10,6 +10,7 @@ import shutil
 import string
 import subprocess
 import sys
+import time
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -154,9 +155,13 @@ def _resolve_shiboken6_dll(dll_name: str) -> Path | None:
 
 version = get_version()
 print(f"Building SonicInput v{version}")
+build_start = time.perf_counter()
 
+stage_start = time.perf_counter()
 staged_assets_dir = stage_assets()
+stage_elapsed = time.perf_counter() - stage_start
 print(f"Using staged assets: {staged_assets_dir}")
+print(f"[TIME] Asset staging: {stage_elapsed:.2f}s")
 _remove_reserved_files("sherpa_onnx")
 
 # Nuitka command with sherpa-onnx support
@@ -227,7 +232,10 @@ print("\nRunning Nuitka compilation...\n")
 print(f"Command: {' '.join(nuitka_cmd)}\n")
 
 # Execute compilation
+compile_start = time.perf_counter()
 result = subprocess.run(nuitka_cmd)
+compile_elapsed = time.perf_counter() - compile_start
+total_elapsed = time.perf_counter() - build_start
 
 if result.returncode == 0:
     # Compilation successful, rename output file
@@ -245,6 +253,8 @@ if result.returncode == 0:
         print("\n[SUCCESS] Build successful!")
         print(f"[OUTPUT] {new_name}")
         print(f"[SIZE] {new_name.stat().st_size / (1024 * 1024):.2f} MB")
+        print(f"[TIME] Compile: {compile_elapsed:.2f}s")
+        print(f"[TIME] Total: {total_elapsed:.2f}s")
     else:
         print(f"\n[WARNING] Expected output file not found: {old_name}")
         # List dist directory contents
@@ -252,7 +262,11 @@ if result.returncode == 0:
             print("\nFiles in dist directory:")
             for file in dist_dir.iterdir():
                 print(f"  - {file.name}")
+        print(f"[TIME] Compile: {compile_elapsed:.2f}s")
+        print(f"[TIME] Total: {total_elapsed:.2f}s")
 else:
     print(f"\n[ERROR] Build failed with exit code {result.returncode}")
+    print(f"[TIME] Compile: {compile_elapsed:.2f}s")
+    print(f"[TIME] Total: {total_elapsed:.2f}s")
 
 sys.exit(result.returncode)
