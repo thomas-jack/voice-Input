@@ -40,6 +40,9 @@ def _safe_print(message: str, output_stream=sys.stdout) -> None:
     except UnicodeEncodeError:
         safe_msg = message.encode("ascii", "ignore").decode("ascii")
         print(f"[ENCODING_WARNING] {safe_msg}", file=output_stream, flush=True)
+    except (OSError, ValueError):
+        # Ignore invalid console handles (e.g., no attached console in onefile GUI)
+        return
 
 
 class LogLevel(Enum):

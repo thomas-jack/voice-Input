@@ -7,6 +7,7 @@ Handles the business logic for system tray operations including:
 - Integration with other services
 """
 
+import time
 from typing import Any, Dict, Optional
 
 from PySide6.QtCore import QCoreApplication, QObject, Signal
@@ -69,6 +70,7 @@ class TrayController(QObject):
         self._recording_state = RecordingState.IDLE
         self._app_state = AppState.IDLE
         self._notifications_enabled = True
+        self._last_trigger_time = 0.0
 
     # ==================== Lifecycle Methods (manual implementation) ====================
 
@@ -337,6 +339,15 @@ class TrayController(QObject):
                         "Processing double-click event", {"action": "show_settings"}
                     )
                     self._handle_show_settings()
+                elif reason_value == 3:  # Trigger (single click on Windows)
+                    now = time.time()
+                    if now - self._last_trigger_time <= 0.4:
+                        app_logger.log_audio_event(
+                            "Processing trigger double-click",
+                            {"action": "show_settings"},
+                        )
+                        self._handle_show_settings()
+                    self._last_trigger_time = now
                 elif reason_value == 4:  # MiddleClick
                     app_logger.log_audio_event(
                         "Processing middle-click event", {"action": "toggle_recording"}
