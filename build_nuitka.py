@@ -216,7 +216,9 @@ for dll_name in qt_dll_names:
 
 shiboken_dll = _resolve_shiboken6_dll("shiboken6.abi3.dll")
 if shiboken_dll:
-    nuitka_cmd.append(f"--include-data-file={shiboken_dll}=shiboken6/shiboken6.abi3.dll")
+    nuitka_cmd.append(
+        f"--include-data-file={shiboken_dll}=shiboken6/shiboken6.abi3.dll"
+    )
 
 if not found_qt_dlls or not shiboken_dll:
     print("[WARN] QtUiTools dependencies not fully found; QtUiTools may fail to load.")
