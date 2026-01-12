@@ -99,7 +99,7 @@ verify_*.py
 
 # Old release notes (keep only latest version)
 RELEASE_NOTES_v0.*.md
-!RELEASE_NOTES_v0.5.7.md
+!RELEASE_NOTES_v0.5.8.md
 CLAUDE.md
 
 # Packaging documentation (superseded by BUILD.md)

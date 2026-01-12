@@ -825,25 +825,64 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             # 尽力清理，不抛出异常
 
     def _create_speech_service(self) -> Any:
-        """根据当前配置创建新的 speech service
-
-        Returns:
-            新的 speech service 实例
-
-        Raises:
-            Exception: 服务创建失败时
-        """
+        """Create a speech service instance after config changes."""
 
         provider = self.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
 
-        # 使用 SpeechServiceFactory 从配置创建服务
-        from ....speech import SpeechServiceFactory
+        from ....speech import NullSpeechService, SpeechServiceFactory
+
+        def _find_cloud_provider() -> str | None:
+            provider_key_map = {
+                "qwen": ConfigKeys.TRANSCRIPTION_QWEN_API_KEY,
+                "groq": ConfigKeys.TRANSCRIPTION_GROQ_API_KEY,
+                "siliconflow": ConfigKeys.TRANSCRIPTION_SILICONFLOW_API_KEY,
+            }
+            for cloud_provider, key in provider_key_map.items():
+                api_key = self.get_setting(key, "")
+                if api_key and api_key.strip():
+                    return cloud_provider
+            return None
+
+        def _create_null_service(reason: str) -> NullSpeechService:
+            return NullSpeechService(reason=reason)
+
+        if provider == "local" and not SpeechServiceFactory._is_local_available():
+            switched_to = _find_cloud_provider()
+            if switched_to:
+                self.set_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, switched_to)
+                app_logger.log_audio_event(
+                    "Auto-switched from local to cloud provider",
+                    {
+                        "original_provider": "local",
+                        "new_provider": switched_to,
+                        "reason": "Local runtime unavailable",
+                        "suggestion": "Install sherpa-onnx for local transcription",
+                    },
+                )
+                provider = switched_to
+            else:
+                app_logger.log_audio_event(
+                    "Local provider unavailable and no cloud provider configured",
+                    {
+                        "original_provider": "local",
+                        "reason": "Local runtime unavailable",
+                        "action": "Will use stub service",
+                        "suggestion": "Configure a cloud provider API key or install sherpa-onnx",
+                    },
+                )
+                return _create_null_service("Local provider unavailable")
+
+        def speech_service_factory():
+            service = SpeechServiceFactory.create_from_config(self)
+            if service is None:
+                return _create_null_service("Speech service unavailable")
+            return service
 
         if provider == "local":
-            # 本地提供商：需要包装在 RefactoredTranscriptionService 中
-            base_service = SpeechServiceFactory.create_from_config(self)
+            base_service = speech_service_factory()
+            if isinstance(base_service, NullSpeechService):
+                return base_service
 
-            # 包装到 RefactoredTranscriptionService（提供流式支持）
             from ..transcription_service_refactored import (
                 RefactoredTranscriptionService,
             )
@@ -854,10 +893,15 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
                 config_service=self,
             )
 
-            # 启动服务
-            wrapped_service.start()
+            if not wrapped_service.start():
+                app_logger.log_audio_event(
+                    "Local transcription service failed to start",
+                    {"action": "Using stub speech service"},
+                )
+                return _create_null_service(
+                    "Local transcription service failed to start"
+                )
 
-            # 热重载后自动加载模型（如果 auto_load 启用）
             if self.get_setting(ConfigKeys.TRANSCRIPTION_LOCAL_AUTO_LOAD, True):
                 model_name = self.get_setting(
                     ConfigKeys.TRANSCRIPTION_LOCAL_MODEL, "paraformer"
@@ -866,7 +910,6 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
                     "Auto-loading model after hot reload",
                     {"model": model_name, "trigger": "hot_reload"},
                 )
-                # 异步加载模型，避免阻塞UI
                 wrapped_service.load_model_async(
                     model_name=model_name,
                     callback=lambda result: app_logger.log_audio_event(
@@ -883,20 +926,22 @@ class RefactoredConfigService(LifecycleComponent, IConfigService):
             )
 
             return wrapped_service
-        else:
-            # 云提供商：直接返回
-            cloud_service = SpeechServiceFactory.create_from_config(self)
 
-            # 云服务加载模型（标记为已加载）
-            if hasattr(cloud_service, "load_model"):
-                cloud_service.load_model()
+        cloud_service = speech_service_factory()
 
-            app_logger.log_audio_event(
-                "Created cloud speech service",
-                {"provider": provider, "service_type": type(cloud_service).__name__},
-            )
+        if (
+            cloud_service
+            and not isinstance(cloud_service, NullSpeechService)
+            and hasattr(cloud_service, "load_model")
+        ):
+            cloud_service.load_model()
 
-            return cloud_service
+        app_logger.log_audio_event(
+            "Created cloud speech service",
+            {"provider": provider, "service_type": type(cloud_service).__name__},
+        )
+
+        return cloud_service
 
     def _send_config_saved_event(self) -> None:
         """发送配置保存事件"""

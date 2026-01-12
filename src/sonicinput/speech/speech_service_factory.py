@@ -3,6 +3,11 @@
 Unified speech service creation logic, supporting dynamic switching between providers.
 """
 
+import ctypes
+import importlib.util
+import os
+import sys
+from pathlib import Path
 from typing import Optional
 
 from ..core.interfaces import IConfigService, ISpeechService
@@ -28,12 +33,66 @@ class SpeechServiceFactory:
             bool: True if sherpa-onnx is installed, False otherwise
         """
         try:
-            import importlib.util
+            import sherpa_onnx  # noqa: F401
 
-            spec = importlib.util.find_spec("sherpa_onnx")
-            return spec is not None
-        except ImportError:
+            return True
+        except Exception as exc:
+            SpeechServiceFactory._log_local_unavailable(exc)
             return False
+
+    @staticmethod
+    def _log_local_unavailable(error: Exception) -> None:
+        details = {
+            "exception_type": type(error).__name__,
+            "error": str(error),
+        }
+
+        spec = importlib.util.find_spec("sherpa_onnx")
+        if spec and spec.submodule_search_locations:
+            base_dir = Path(list(spec.submodule_search_locations)[0])
+            pyd_path = base_dir / "lib" / "_sherpa_onnx.pyd"
+            details.update(
+                {
+                    "sherpa_onnx_path": str(base_dir),
+                    "pyd_exists": pyd_path.exists(),
+                }
+            )
+            if pyd_path.exists():
+                try:
+                    ctypes.CDLL(str(pyd_path))
+                except OSError as cdll_error:
+                    details["pyd_load_error"] = str(cdll_error)
+
+        exe_dir = Path(sys.executable).resolve().parent
+        details["exe_dir"] = str(exe_dir)
+
+        onnxruntime_candidates = [
+            exe_dir / "onnxruntime.dll",
+        ]
+        if spec and spec.submodule_search_locations:
+            base_dir = Path(list(spec.submodule_search_locations)[0])
+            onnxruntime_candidates.append(base_dir / "lib" / "onnxruntime.dll")
+
+        system32 = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+        onnxruntime_candidates.append(system32 / "onnxruntime.dll")
+
+        details["onnxruntime_locations_checked"] = [
+            str(path) for path in onnxruntime_candidates
+        ]
+        details["onnxruntime_found"] = any(
+            path.exists() for path in onnxruntime_candidates
+        )
+
+        vc_runtime_dlls = [
+            "vcruntime140.dll",
+            "vcruntime140_1.dll",
+            "msvcp140.dll",
+        ]
+        details["vc_runtime_present"] = {
+            dll: (system32 / dll).exists() for dll in vc_runtime_dlls
+        }
+
+        app_logger.log_audio_event("Local provider unavailable", details)
 
     @staticmethod
     def create_service(
@@ -129,6 +188,12 @@ class SpeechServiceFactory:
             provider = config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
 
             if provider == "local":
+                if not SpeechServiceFactory._is_local_available():
+                    app_logger.log_audio_event(
+                        "Local provider selected but unavailable",
+                        {"suggestion": "Install local runtime dependencies"},
+                    )
+                    return None
                 # Read local (sherpa-onnx) configuration
                 model = config.get_setting(
                     ConfigKeys.TRANSCRIPTION_LOCAL_MODEL,

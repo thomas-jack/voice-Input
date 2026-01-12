@@ -9,19 +9,20 @@
 - 即开即用：剪贴板 / 文本 / GUI 多入口
 - 热键无管理员：Win32 RegisterHotKey（默认 F12，可自定义），冲突时会提示
 - 双模式录制：Realtime 低延迟；Chunked 精度高（AI 后处理）
-- 体积小：onefile 约 49 MB（v0.5.7）
+- 体积小：onefile 约 52 MB（v0.5.8）
 - 云端/本地切换：Groq / OpenRouter / NVIDIA / OpenAI / 本地 sherpa-onnx
 
-## v0.5.7 更新
-- 日志超过 10MB 自动轮转，最多保留 2 份备份，避免日志失控
-- 默认配置与示例配置新增 `logging.max_log_size_mb` / `logging.max_backup_files` 字段，开箱即用
+## v0.5.8 更新
+- onefile 构建打包 onnxruntime.dll，避免本地引擎误报未安装
+- 本地依赖缺失时自动切到云端（有 API key），否则使用空实现让 UI 继续启动
+- 启动阶段跳过不可用的本地模型自动加载，并输出更详细的依赖诊断日志
 
 ## 系统需求
 - Windows 10/11 64 位
-- 内存 4GB+，磁盘 500MB（onefile 体积 ~49MB）
+- 内存 4GB+，磁盘 500MB（onefile 体积 ~52MB）
 
 ## 快速开始
-1. 下载 [Releases](https://github.com/Oxidane-bot/SonicInput/releases) 中的 `SonicInput-v0.5.7-win64.exe`
+1. 下载 [Releases](https://github.com/Oxidane-bot/SonicInput/releases) 中的 `SonicInput-v0.5.8-win64.exe`
 2. 双击运行，默认热键 F12（若冲突可改用 Alt+H 或自定义）
 3. 在设置中填写需要的云端 API Key（可选），或直接使用本地模型
 

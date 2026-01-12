@@ -1,6 +1,7 @@
 """语音识别模块初始化"""
 
 from .groq_speech_service import GroqSpeechService
+from .null_speech_service import NullSpeechService
 from .sherpa_engine import SherpaEngine
 from .sherpa_models import SherpaModelManager
 from .sherpa_streaming import SherpaStreamingSession
@@ -11,5 +12,6 @@ __all__ = [
     "SherpaModelManager",
     "SherpaStreamingSession",
     "GroqSpeechService",
+    "NullSpeechService",
     "SpeechServiceFactory",
 ]
