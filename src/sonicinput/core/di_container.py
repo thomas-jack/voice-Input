@@ -355,84 +355,81 @@ def create_container() -> "DIContainer":
         config = container.resolve(IConfigService)
         event_service = container.resolve(IEventService)
         from .services.config import ConfigKeys
+        from ..speech import NullSpeechService, SpeechServiceFactory
+        from ..utils import app_logger
 
         # 智能检测：如果配置是 local 但环境不支持，自动切换到云服务
         provider = config.get_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, "local")
 
-        if provider == "local":
-            try:
-                # 检测 sherpa-onnx 是否可用
-                import sherpa_onnx  # noqa: F401
-            except ImportError:
-                # sherpa-onnx 不可用，自动切换到云服务
-                from ..utils import app_logger
+        def _find_cloud_provider() -> str | None:
+            provider_key_map = {
+                "qwen": ConfigKeys.TRANSCRIPTION_QWEN_API_KEY,
+                "groq": ConfigKeys.TRANSCRIPTION_GROQ_API_KEY,
+                "siliconflow": ConfigKeys.TRANSCRIPTION_SILICONFLOW_API_KEY,
+            }
+            for cloud_provider, key in provider_key_map.items():
+                api_key = config.get_setting(key, "")
+                if api_key and api_key.strip():
+                    return cloud_provider
+            return None
 
-                # 查找第一个配置了 API key 的云服务
-                cloud_providers = ["qwen", "groq", "siliconflow"]
-                switched_to = None
+        def _create_null_service(reason: str) -> NullSpeechService:
+            return NullSpeechService(reason=reason)
 
-                for cloud_provider in cloud_providers:
-                    # Map provider names to ConfigKeys
-                    provider_key_map = {
-                        "qwen": ConfigKeys.TRANSCRIPTION_QWEN_API_KEY,
-                        "groq": ConfigKeys.TRANSCRIPTION_GROQ_API_KEY,
-                        "siliconflow": ConfigKeys.TRANSCRIPTION_SILICONFLOW_API_KEY,
-                    }
-                    api_key = config.get_setting(provider_key_map[cloud_provider], "")
-                    if api_key and api_key.strip():
-                        switched_to = cloud_provider
-                        config.set_setting(
-                            ConfigKeys.TRANSCRIPTION_PROVIDER, cloud_provider
-                        )
-                        break
+        if provider == "local" and not SpeechServiceFactory._is_local_available():
+            switched_to = _find_cloud_provider()
+            if switched_to:
+                config.set_setting(ConfigKeys.TRANSCRIPTION_PROVIDER, switched_to)
+                app_logger.log_audio_event(
+                    "Auto-switched from local to cloud provider",
+                    {
+                        "original_provider": "local",
+                        "new_provider": switched_to,
+                        "reason": "Local runtime unavailable",
+                        "suggestion": "Install sherpa-onnx for local transcription",
+                    },
+                )
+                provider = switched_to
+            else:
+                app_logger.log_audio_event(
+                    "Local provider unavailable and no cloud provider configured",
+                    {
+                        "original_provider": "local",
+                        "reason": "Local runtime unavailable",
+                        "action": "Will use stub service",
+                        "suggestion": "Configure a cloud provider API key or install sherpa-onnx",
+                    },
+                )
+                return _create_null_service("Local provider unavailable")
 
-                if switched_to:
-                    app_logger.log_audio_event(
-                        "Auto-switched from local to cloud provider",
-                        {
-                            "original_provider": "local",
-                            "new_provider": switched_to,
-                            "reason": "sherpa-onnx not installed",
-                            "suggestion": "Install sherpa-onnx for local transcription",
-                        },
-                    )
-                    # 更新 provider 变量
-                    provider = switched_to
-                else:
-                    app_logger.log_audio_event(
-                        "Local provider unavailable and no cloud provider configured",
-                        {
-                            "original_provider": "local",
-                            "reason": "sherpa-onnx not installed",
-                            "action": "Will use stub service",
-                            "suggestion": "Configure a cloud provider API key or install sherpa-onnx",
-                        },
-                    )
-
-        # 使用 SpeechServiceFactory 从配置创建服务
-        from ..speech import SpeechServiceFactory
-
-        # 创建 SpeechService 工厂函数
         def speech_service_factory():
-            # 使用工厂从配置创建服务（自动选择 local 或 cloud）
+            # ???????????(???? local ? cloud)
             service = SpeechServiceFactory.create_from_config(config)
             if service is None:
-                # Fallback 到默认的 SherpaEngine（仅在本地模式）
-                from ..speech.sherpa_engine import SherpaEngine
-
-                return SherpaEngine(model_name="paraformer", language="zh")
+                return _create_null_service("Speech service unavailable")
             return service
 
-        # 关键修复：只有本地提供商才包装到 RefactoredTranscriptionService（提供流式支持）
-        # 云提供商直接返回（已实现 ISpeechService.transcribe()）
         if provider == "local":
+            base_service = speech_service_factory()
+            if isinstance(base_service, NullSpeechService):
+                return base_service
+
             # 使用RefactoredTranscriptionService包装,提供线程隔离和流式转录（传递 config 用于流式模式配置）
             transcription_service = RefactoredTranscriptionService(
-                speech_service_factory, event_service, config_service=config
+                speech_service_factory=lambda: base_service,
+                event_service=event_service,
+                config_service=config,
             )
 
             # 启动RefactoredTranscriptionService
-            transcription_service.start()
+            if not transcription_service.start():
+                app_logger.log_audio_event(
+                    "Local transcription service failed to start",
+                    {"action": "Using stub speech service"},
+                )
+                return _create_null_service(
+                    "Local transcription service failed to start"
+                )
 
             # 注册到配置重载服务注册中心（带工厂）
             # TODO: Replace with HotReloadManager
@@ -448,10 +445,12 @@ def create_container() -> "DIContainer":
             cloud_service = speech_service_factory()
 
             # 云服务也加载模型（虽然只是标记为已加载）
-            if hasattr(cloud_service, "load_model"):
+            if (
+                cloud_service
+                and not isinstance(cloud_service, NullSpeechService)
+                and hasattr(cloud_service, "load_model")
+            ):
                 cloud_service.load_model()
-
-            from ..utils import app_logger
 
             app_logger.log_audio_event(
                 "Cloud speech service created (no RefactoredTranscriptionService wrapper)",

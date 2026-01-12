@@ -303,6 +303,26 @@ class ApplicationOrchestrator:
             provider = self.config.get_setting(
                 ConfigKeys.TRANSCRIPTION_PROVIDER, "local"
             )
+            if not self._speech_service:
+                app_logger.log_audio_event(
+                    "Skipping model loading: speech service not available", {}
+                )
+                return
+            if (
+                hasattr(self._speech_service, "is_running")
+                and not self._speech_service.is_running
+            ):
+                app_logger.log_audio_event(
+                    "Skipping model loading: speech service not running",
+                    {"provider": provider},
+                )
+                return
+            if not hasattr(self._speech_service, "load_model_async"):
+                app_logger.log_audio_event(
+                    "Skipping model loading: async load not supported",
+                    {"provider": provider},
+                )
+                return
             if provider == "local":
                 model_name = self.config.get_setting(
                     ConfigKeys.TRANSCRIPTION_LOCAL_MODEL, "paraformer"
@@ -332,6 +352,27 @@ class ApplicationOrchestrator:
 
     def _load_model_async(self, model_name: str) -> None:
         """异步加载语音模型"""
+        if not self._speech_service:
+            app_logger.log_audio_event(
+                "Model loading skipped: speech service not available",
+                {"model_name": model_name},
+            )
+            return
+        if (
+            hasattr(self._speech_service, "is_running")
+            and not self._speech_service.is_running
+        ):
+            app_logger.log_audio_event(
+                "Model loading skipped: speech service not running",
+                {"model_name": model_name},
+            )
+            return
+        if not hasattr(self._speech_service, "load_model_async"):
+            app_logger.log_audio_event(
+                "Model loading skipped: async load not supported",
+                {"model_name": model_name},
+            )
+            return
         self.events.emit(Events.MODEL_LOADING_STARTED)
 
         def on_success(result: Dict[str, Any]):

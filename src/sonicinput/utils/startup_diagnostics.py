@@ -1,5 +1,6 @@
 """Startup diagnostic utilities for comprehensive application health checking"""
 
+import ctypes
 import importlib
 import os
 import platform
@@ -60,6 +61,7 @@ class StartupDiagnostics:
                 "assets": self._check_assets(),
                 "samplerate": self._check_samplerate(),
                 "qt_plugins": self._check_qt_plugins(),
+                "local_asr": self._check_local_asr(),
             }
 
             # Generate summary
@@ -493,6 +495,82 @@ class StartupDiagnostics:
 
         return result
 
+    def _check_local_asr(self) -> Dict[str, Any]:
+        """Check sherpa-onnx local ASR runtime dependencies."""
+        result = {
+            "available": False,
+            "sherpa_onnx_found": False,
+            "sherpa_onnx_path": None,
+            "pyd_path": None,
+            "pyd_exists": False,
+            "pyd_load_ok": False,
+            "pyd_load_error": None,
+            "onnxruntime_locations_checked": [],
+            "onnxruntime_found": False,
+            "vc_runtime_present": {},
+            "errors": [],
+            "warnings": [],
+        }
+
+        sherpa_base = None
+        try:
+            spec = importlib.util.find_spec("sherpa_onnx")
+            if spec and spec.submodule_search_locations:
+                sherpa_base = Path(list(spec.submodule_search_locations)[0])
+                result["sherpa_onnx_found"] = True
+                result["sherpa_onnx_path"] = str(sherpa_base)
+                pyd_path = sherpa_base / "lib" / "_sherpa_onnx.pyd"
+                result["pyd_path"] = str(pyd_path)
+                result["pyd_exists"] = pyd_path.exists()
+                if pyd_path.exists():
+                    try:
+                        ctypes.CDLL(str(pyd_path))
+                        result["pyd_load_ok"] = True
+                    except OSError as exc:
+                        result["pyd_load_error"] = str(exc)
+                        result["errors"].append(f"_sherpa_onnx.pyd load failed: {exc}")
+                else:
+                    result["warnings"].append("Missing _sherpa_onnx.pyd")
+            else:
+                result["warnings"].append("sherpa_onnx not installed")
+        except Exception as exc:
+            result["errors"].append(f"sherpa_onnx inspection failed: {exc}")
+
+        exe_dir = Path(sys.executable).resolve().parent
+        onnx_candidates = [exe_dir / "onnxruntime.dll"]
+        if sherpa_base:
+            onnx_candidates.append(sherpa_base / "lib" / "onnxruntime.dll")
+        system32 = Path(os.environ.get("SystemRoot", r"C:\\Windows")) / "System32"
+        onnx_candidates.append(system32 / "onnxruntime.dll")
+
+        result["onnxruntime_locations_checked"] = [
+            str(path) for path in onnx_candidates
+        ]
+        result["onnxruntime_found"] = any(path.exists() for path in onnx_candidates)
+        if not result["onnxruntime_found"]:
+            result["warnings"].append("onnxruntime.dll not found in common locations")
+
+        vc_runtime = ["vcruntime140.dll", "vcruntime140_1.dll", "msvcp140.dll"]
+        result["vc_runtime_present"] = {
+            dll: (system32 / dll).exists() for dll in vc_runtime
+        }
+        missing_vc = [
+            dll for dll, present in result["vc_runtime_present"].items() if not present
+        ]
+        if missing_vc:
+            result["warnings"].append(
+                f"Missing VC++ runtime DLLs: {', '.join(missing_vc)}"
+            )
+
+        result["available"] = (
+            result["sherpa_onnx_found"]
+            and result["pyd_exists"]
+            and result["pyd_load_ok"]
+            and result["onnxruntime_found"]
+        )
+
+        return result
+
     def _generate_summary(self, report: Dict[str, Any]) -> Dict[str, Any]:
         """Generate summary with status and recommendations"""
         summary = {
@@ -560,7 +638,7 @@ class StartupDiagnostics:
             )
 
         runtime_checks = report.get("runtime_checks", {})
-        for check_name in ("assets", "samplerate", "qt_plugins"):
+        for check_name in ("assets", "samplerate", "qt_plugins", "local_asr"):
             details = runtime_checks.get(check_name, {})
             if details.get("errors"):
                 summary["critical_issues"].extend(details["errors"])
@@ -644,6 +722,7 @@ class StartupDiagnostics:
             assets_check = runtime_checks.get("assets", {})
             samplerate_check = runtime_checks.get("samplerate", {})
             qt_plugins_check = runtime_checks.get("qt_plugins", {})
+            local_asr_check = runtime_checks.get("local_asr", {})
             assets_ok = not assets_check.get("errors")
             samplerate_ok = samplerate_check.get("available") and samplerate_check.get(
                 "resample_ok"
@@ -651,10 +730,17 @@ class StartupDiagnostics:
             qt_plugins_ok = not qt_plugins_check.get("errors") and qt_plugins_check.get(
                 "qwindows_present"
             )
+            if local_asr_check.get("errors"):
+                local_asr_status = "[FAIL]"
+            elif local_asr_check.get("available"):
+                local_asr_status = "[PASS]"
+            else:
+                local_asr_status = "[WARN] "
             print("\n[INFO]  RUNTIME CHECKS:")
             print(f"   Assets: {'[PASS]' if assets_ok else '[FAIL]'}")
             print(f"   Samplerate: {'[PASS]' if samplerate_ok else '[FAIL]'}")
             print(f"   Qt Plugins: {'[PASS]' if qt_plugins_ok else '[FAIL]'}")
+            print(f"   Local ASR: {local_asr_status}")
 
         print("\n" + "=" * 60 + "\n")
 

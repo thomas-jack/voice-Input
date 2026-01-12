@@ -6,6 +6,7 @@ This script compiles SonicInput into a standalone Windows executable using Nuitk
 Includes support for sherpa-onnx C extension modules and all required dependencies.
 """
 
+import os
 import shutil
 import string
 import subprocess
@@ -153,6 +154,61 @@ def _resolve_shiboken6_dll(dll_name: str) -> Path | None:
     return dll_path if dll_path.exists() else None
 
 
+def _find_onnxruntime_dll() -> Path | None:
+    env_paths = [
+        os.environ.get("ONNXRUNTIME_DLL_PATH"),
+        os.environ.get("ONNXRUNTIME_DLL"),
+    ]
+    for env_path in env_paths:
+        if env_path:
+            candidate = Path(env_path)
+            if candidate.exists():
+                return candidate
+
+    def _probe_dir(base_dir: Path) -> Path | None:
+        for rel in [
+            Path("onnxruntime.dll"),
+            Path("lib") / "onnxruntime.dll",
+            Path("capi") / "onnxruntime.dll",
+        ]:
+            candidate = base_dir / rel
+            if candidate.exists():
+                return candidate
+        return None
+
+    try:
+        import onnxruntime
+
+        candidate = _probe_dir(Path(onnxruntime.__file__).resolve().parent)
+        if candidate:
+            return candidate
+    except Exception:
+        pass
+
+    try:
+        import sherpa_onnx
+
+        candidate = _probe_dir(Path(sherpa_onnx.__file__).resolve().parent)
+        if candidate:
+            return candidate
+    except Exception:
+        pass
+
+    system_root = Path(os.environ.get("SystemRoot", r"C:\Windows"))
+    system_candidate = system_root / "System32" / "onnxruntime.dll"
+    if system_candidate.exists():
+        return system_candidate
+
+    for path_entry in os.environ.get("PATH", "").split(os.pathsep):
+        if not path_entry:
+            continue
+        candidate = Path(path_entry) / "onnxruntime.dll"
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
 version = get_version()
 print(f"Building SonicInput v{version}")
 build_start = time.perf_counter()
@@ -163,6 +219,12 @@ stage_elapsed = time.perf_counter() - stage_start
 print(f"Using staged assets: {staged_assets_dir}")
 print(f"[TIME] Asset staging: {stage_elapsed:.2f}s")
 _remove_reserved_files("sherpa_onnx")
+onnxruntime_dll = _find_onnxruntime_dll()
+if not onnxruntime_dll:
+    print("[ERROR] onnxruntime.dll not found; local ASR engine will not work.")
+    print("[HINT] Ensure onnxruntime.dll is available or set ONNXRUNTIME_DLL_PATH.")
+    sys.exit(1)
+print(f"[INFO] Using onnxruntime.dll: {onnxruntime_dll}")
 
 # Nuitka command with sherpa-onnx support
 nuitka_cmd = [
@@ -177,6 +239,7 @@ nuitka_cmd = [
     "--include-package=sonicinput",  # Main application package
     "--include-package=sherpa_onnx",  # sherpa-onnx package (local ASR engine, includes C extension)
     "--include-package-data=sherpa_onnx",  # Include model/config data (remove NUL file if present)
+    f"--include-data-file={onnxruntime_dll}=sherpa_onnx/lib/onnxruntime.dll",
     "--include-module=sonicinput.utils.constants",  # Ensure constants.py is included
     "--include-module=PySide6.QtUiTools",  # qt_material needs QtUiTools at runtime
     f"--include-data-dir={staged_assets_dir}=assets",  # UI translations/fonts and other assets
